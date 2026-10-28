@@ -1,0 +1,120 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        x:Class="MijiaPanel.Views.TrayMenuWindow"
+        Title="米家 · 控制中心"
+        Width="272" Height="190"
+        SystemDecorations="None"
+        CanResize="False"
+        ShowInTaskbar="False"
+        Topmost="True"
+        WindowStartupLocation="Manual"
+        TransparencyLevelHint="Transparent"
+        Background="Transparent">
+
+    <Window.Resources>
+        <PathGeometry x:Key="GeoEye">M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z M12 9a3 3 0 1 0 0 6 3 3 0 0 0 0-6z</PathGeometry>
+        <PathGeometry x:Key="GeoPower">M18.36 6.64a9 9 0 1 1-12.73 0 M12 2v10</PathGeometry>
+    </Window.Resources>
+
+    <Window.Styles>
+        <Style Selector="Button.TrayItem">
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="Height" Value="40" />
+            <Setter Property="Padding" Value="10,0" />
+            <Setter Property="HorizontalAlignment" Value="Stretch" />
+            <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="FocusAdorner" Value="{x:Null}" />
+            <Setter Property="Template">
+                <ControlTemplate>
+                    <Border Name="Bd" Background="{TemplateBinding Background}" CornerRadius="9"
+                            Padding="{TemplateBinding Padding}">
+                        <ContentPresenter Content="{TemplateBinding Content}"
+                                          HorizontalAlignment="Stretch" VerticalAlignment="Center" />
+                    </Border>
+                </ControlTemplate>
+            </Setter>
+        </Style>
+        <Style Selector="Button.TrayItem:pointerover /template/ Border#Bd">
+            <Setter Property="Background" Value="{DynamicResource Surface5Brush}" />
+        </Style>
+        <Style Selector="Button.TrayItem:pressed /template/ Border#Bd">
+            <Setter Property="Background" Value="{DynamicResource Surface4Brush}" />
+        </Style>
+        <Style Selector="Button.Danger:pointerover /template/ Border#Bd">
+            <Setter Property="Background" Value="#FEE2E2" />
+        </Style>
+        <Style Selector="Button.Danger:pressed /template/ Border#Bd">
+            <Setter Property="Background" Value="#FECACA" />
+        </Style>
+        <Style Selector="Button.TrayItem Path">
+            <Setter Property="Stroke" Value="{DynamicResource Text2Brush}" />
+            <Setter Property="StrokeThickness" Value="1.5" />
+            <Setter Property="StrokeLineCap" Value="Round" />
+            <Setter Property="StrokeJoin" Value="Round" />
+            <Setter Property="VerticalAlignment" Value="Center" />
+        </Style>
+        <Style Selector="Button.TrayItem TextBlock">
+            <Setter Property="Foreground" Value="{DynamicResource Text2Brush}" />
+            <Setter Property="FontSize" Value="13.5" />
+            <Setter Property="VerticalAlignment" Value="Center" />
+        </Style>
+        <Style Selector="Button.TrayItem.Danger:pointerover Path">
+            <Setter Property="Stroke" Value="#EF4444" />
+        </Style>
+        <Style Selector="Button.TrayItem.Danger:pointerover TextBlock">
+            <Setter Property="Foreground" Value="#EF4444" />
+        </Style>
+    </Window.Styles>
+
+    <!-- 外边距留给阴影，改动前先确认阴影扩散不会顶到窗口边缘 -->
+    <Grid Margin="20">
+        <Border x:Name="Card" CornerRadius="16"
+                Background="{DynamicResource CardBrush}"
+                BorderBrush="{DynamicResource LineBrush}" BorderThickness="1"
+                BoxShadow="0 8 20 0 #59000000">
+            <StackPanel Margin="7" Spacing="1">
+                <Button Classes="TrayItem" Click="OnShowMainClick">
+                    <Grid ColumnDefinitions="20,*">
+                        <Border Width="20" Height="40" Grid.Column="0">
+                            <!-- eye 几何包围盒是 20x14 的扁盒，Uniform 拉伸后渲染中心比文字中心高 ~1.5px，用位移补偿 -->
+                            <Path Width="14" Height="14" Stretch="Uniform" HorizontalAlignment="Center" VerticalAlignment="Center"
+                                  Data="{StaticResource GeoEye}">
+                                <Path.RenderTransform>
+                                    <TranslateTransform Y="1.5" />
+                                </Path.RenderTransform>
+                            </Path>
+                        </Border>
+                        <TextBlock Grid.Column="1" Text="显示主界面" Margin="6,0,0,0" />
+                    </Grid>
+                </Button>
+
+                <Button Classes="TrayItem" Click="OnToggleThemeClick">
+                    <Grid ColumnDefinitions="20,*">
+                        <Border Width="20" Height="40" Grid.Column="0">
+                            <Panel HorizontalAlignment="Center" VerticalAlignment="Center">
+                                <Path x:Name="SunIcon" Width="14" Height="14" Stretch="Uniform"
+                                      Data="{StaticResource GeoSun}" />
+                                <Path x:Name="MoonIcon" Width="12" Height="12" Stretch="Uniform"
+                                      Data="{StaticResource GeoMoon}" />
+                            </Panel>
+                        </Border>
+                        <TextBlock Grid.Column="1" x:Name="ThemeText" Text="切换浅色主题" Margin="6,0,0,0" />
+                    </Grid>
+                </Button>
+
+                <Rectangle Height="1" Margin="10,5" Fill="{DynamicResource LineBrush}" />
+
+                <Button Classes="TrayItem Danger" Click="OnExitClick">
+                    <Grid ColumnDefinitions="20,*">
+                        <Border Width="20" Height="40" Grid.Column="0">
+                            <Path Width="14" Height="14" Stretch="Uniform" HorizontalAlignment="Center" VerticalAlignment="Center"
+                                  Data="{StaticResource GeoPower}" />
+                        </Border>
+                        <TextBlock Grid.Column="1" Text="退出 米家控制中心" Margin="6,0,0,0" />
+                    </Grid>
+                </Button>
+            </StackPanel>
+        </Border>
+    </Grid>
+</Window>

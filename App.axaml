@@ -1,0 +1,883 @@
+<Application xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:ani="clr-namespace:Avalonia.Animation.Easings;assembly=Avalonia.Base"
+             x:Class="MijiaPanel.App"
+             RequestedThemeVariant="Dark">
+
+    <Application.Resources>
+        <ResourceDictionary>
+
+            <!-- ======== 图标几何（24 网格线性图标） ======== -->
+            <PathGeometry x:Key="GeoHome">M3,10.5 L12,3 L21,10.5 M5.5,9.5 L5.5,20 L18.5,20 L18.5,9.5 M9.5,20 L9.5,14 L14.5,14 L14.5,20</PathGeometry>
+            <PathGeometry x:Key="GeoRooms">M3,21 L3,8 L12,3 L21,8 L21,21 M9,21 L9,13 L15,13 L15,21</PathGeometry>
+            <PathGeometry x:Key="GeoGrid">M6,3.5 H9 Q11.5,3.5 11.5,6 V9 Q11.5,11.5 9,11.5 H6 Q3.5,11.5 3.5,9 V6 Q3.5,3.5 6,3.5 Z M15,3.5 H18 Q20.5,3.5 20.5,6 V9 Q20.5,11.5 18,11.5 H15 Q12.5,11.5 12.5,9 V6 Q12.5,3.5 15,3.5 Z M6,12.5 H9 Q11.5,12.5 11.5,15 V18 Q11.5,20.5 9,20.5 H6 Q3.5,20.5 3.5,18 V15 Q3.5,12.5 6,12.5 Z M15,12.5 H18 Q20.5,12.5 20.5,15 V18 Q20.5,20.5 18,20.5 H15 Q12.5,20.5 12.5,18 V15 Q12.5,12.5 15,12.5 Z</PathGeometry>
+            <PathGeometry x:Key="GeoScene">M9,5.5 L10.8,11.2 L16.5,13 L10.8,14.8 L9,20.5 L7.2,14.8 L1.5,13 L7.2,11.2 Z M18,2.3 L18.9,4.6 L21.2,5.5 L18.9,6.4 L18,8.7 L17.1,6.4 L14.8,5.5 L17.1,4.6 Z</PathGeometry>
+            <PathGeometry x:Key="GeoCog">M19.4,15 a1.65,1.65 0 0 0 .33,1.82 l.06,.06 a2,2 0 0 1 0,2.83 2,2 0 0 1 -2.83,0 l-.06,-.06 a1.65,1.65 0 0 0 -1.82,-.33 1.65,1.65 0 0 0 -1,1.51 V21 a2,2 0 0 1 -2,2 2,2 0 0 1 -2,-2 v-.09 A1.65,1.65 0 0 0 9,19.4 a1.65,1.65 0 0 0 -1.82,.33 l-.06,.06 a2,2 0 0 1 -2.83,0 2,2 0 0 1 0,-2.83 l.06,-.06 a1.65,1.65 0 0 0 .33,-1.82 1.65,1.65 0 0 0 -1.51,-1 H3 a2,2 0 0 1 -2,-2 2,2 0 0 1 2,-2 h.09 A1.65,1.65 0 0 0 4.6,9 a1.65,1.65 0 0 0 -.33,-1.82 l-.06,-.06 a2,2 0 0 1 0,-2.83 2,2 0 0 1 2.83,0 l.06,.06 a1.65,1.65 0 0 0 1.82,.33 H9 a1.65,1.65 0 0 0 1,-1.51 V3 a2,2 0 0 1 2,-2 2,2 0 0 1 2,2 v.09 a1.65,1.65 0 0 0 1,1.51 1.65,1.65 0 0 0 1.82,-.33 l.06,-.06 a2,2 0 0 1 2.83,0 2,2 0 0 1 0,2.83 l-.06,.06 a1.65,1.65 0 0 0 -.33,1.82 V9 a1.65,1.65 0 0 0 1.51,1 H21 a2,2 0 0 1 2,2 2,2 0 0 1 -2,2 h-.09 a1.65,1.65 0 0 0 -1.51,1 Z M12,9 A3,3 0 1 0 12,15 A3,3 0 1 0 12,9 Z</PathGeometry>
+            <PathGeometry x:Key="GeoGear">M12,9 A3,3 0 1 0 12,15 A3,3 0 1 0 12,9 Z M12,2.5 L12,4.5 M12,19.5 L12,21.5 M4.6,4.6 L6,6 M18,18 L19.4,19.4 M2.5,12 L4.5,12 M19.5,12 L21.5,12 M4.6,19.4 L6,18 M18,6 L19.4,4.6</PathGeometry>
+            <PathGeometry x:Key="GeoSearch">M11,11 M11,11 m-7,0 a7,7 0 1 0 14,0 a7,7 0 1 0 -14,0 M16.5,16.5 L20,20</PathGeometry>
+            <PathGeometry x:Key="GeoMoon">M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z</PathGeometry>
+            <PathGeometry x:Key="GeoSun">M12 2v2 M12 20v2 M4.93 4.93l1.41 1.41 M17.66 17.66l1.41 1.41 M2 12h2 M20 12h2 M6.34 17.66l-1.41 1.41 M19.07 4.93l-1.41 1.41 M12 8a4 4 0 1 0 0 8 4 4 0 0 0 0-8z</PathGeometry>
+            <PathGeometry x:Key="GeoMin">M2.5,6 L9.5,6</PathGeometry>
+            <PathGeometry x:Key="GeoMax">M4,3.5 H8 Q9.5,3.5 9.5,5 V8 Q9.5,9.5 8,9.5 H4 Q2.5,9.5 2.5,8 V5 Q2.5,3.5 4,3.5 Z</PathGeometry>
+            <PathGeometry x:Key="GeoClose">M3.2,3.2 L8.8,8.8 M8.8,3.2 L3.2,8.8</PathGeometry>
+            <PathGeometry x:Key="GeoBolt">M13,2 L4,14 L11,14 L10,22 L19,10 L12,10 Z</PathGeometry>
+            <PathGeometry x:Key="GeoWifi">M5,12.5 A7,7 0 0 1 19,12.5 M8.5,15.5 A3.5,3.5 0 0 1 15.5,15.5 M12,18.5 m-1.2,0 a1.2,1.2 0 1 0 2.4,0 a1.2,1.2 0 1 0 -2.4,0</PathGeometry>
+            <PathGeometry x:Key="GeoClock">M12,12 m-9,0 a9,9 0 1 0 18,0 a9,9 0 1 0 -18,0 M12,7 L12,12 L15,14</PathGeometry>
+            <PathGeometry x:Key="GeoArrow">M9,5 L16,12 L9,19</PathGeometry>
+            <PathGeometry x:Key="GeoRefresh">M21,12 A9,9 0 1 1 18,5.3 M21,3 L21,9 L15,9</PathGeometry>
+            <PathGeometry x:Key="GeoLock">M5,10 L19,10 L19,21 L5,21 Z M8,10 L8,7 A4,4 0 0 1 16,7 L16,10</PathGeometry>
+            <PathGeometry x:Key="GeoUser">M12,12 m-4,0 a4,4 0 1 0 8,0 a4,4 0 1 0 -8,0 M4,21 A8,8 0 0 1 20,21</PathGeometry>
+            <PathGeometry x:Key="GeoSpinner">M12,3 A9,9 0 1 1 3,12</PathGeometry>
+
+            <!-- ======== 房间专用图标（24 网格线性图标，侧边栏房间芯片用） ======== -->
+            <PathGeometry x:Key="GeoLiving">M3,17 H19 V14 H3 Z M5,13 L10,13 L10,17 M10,13 L14,9 L19,13</PathGeometry>
+            <PathGeometry x:Key="GeoBed">M4,17 H20 V11 H4 Z M7,11 V5 M17,11 V5 M8,17 H16</PathGeometry>
+            <PathGeometry x:Key="GeoDining">M3,16 H21 V13 H3 Z M6,13 V8 M18,13 V8 M9,13 L15,7</PathGeometry>
+            <PathGeometry x:Key="GeoKitchen">M5,6 H19 V16 H5 Z M8,6 V3 M16,6 V3 M10,16 L12,20 L14,16</PathGeometry>
+            <PathGeometry x:Key="GeoStudy">M3,17 H21 V10 H3 Z M8,10 L18,5 M10,17 H16</PathGeometry>
+            <PathGeometry x:Key="GeoToilet">M8,15 H16 V19 H8 Z M12,15 V9 M11,9 H13 M12,9 V4</PathGeometry>
+            <PathGeometry x:Key="GeoBath">M6,17 H18 V14 H6 Z M14,14 V8 M12,8 A3,3 0 1 0 15,8 M14,8 V4</PathGeometry>
+            <PathGeometry x:Key="GeoEntry">M6,5 V19 H18 V5 M12,5 V19</PathGeometry>
+            <PathGeometry x:Key="GeoBalcony">M3,6 H21 V18 H3 Z M6,12 H18 M10,6 V18 M14,6 V18</PathGeometry>
+
+            <!-- ======== 品牌标志（48 网格：圆肩 M + 橙点，卡底冷白、圆角 24%） ======== -->
+            <StreamGeometry x:Key="GeoBrandMark">M13.5,32.5 V21.5 Q13.5,18.4 16.3,20.1 L22.2,26.4 Q24,27.9 25.8,26.4 L31.7,20.1 Q34.5,18.4 34.5,21.5 V32.5</StreamGeometry>
+            <StreamGeometry x:Key="GeoBrandCard">M11.5,0 H36.5 A11.5,11.5 0 0 1 48,11.5 V36.5 A11.5,11.5 0 0 1 36.5,48 H11.5 A11.5,11.5 0 0 1 0,36.5 V11.5 A11.5,11.5 0 0 1 11.5,0 Z</StreamGeometry>
+
+            <DrawingImage x:Key="LogoImage">
+                <DrawingImage.Drawing>
+                    <DrawingGroup>
+                        <GeometryDrawing Brush="#F4F7FB" Geometry="{StaticResource GeoBrandCard}" />
+                        <GeometryDrawing Geometry="{StaticResource GeoBrandMark}">
+                            <GeometryDrawing.Pen>
+                                <Pen Brush="#28323F" Thickness="5.2" LineCap="Round" LineJoin="Round" />
+                            </GeometryDrawing.Pen>
+                        </GeometryDrawing>
+                        <GeometryDrawing Brush="#FF6900">
+                            <GeometryDrawing.Geometry>
+                                <EllipseGeometry Center="35.2,12.6" RadiusX="2.5" RadiusY="2.5" />
+                            </GeometryDrawing.Geometry>
+                        </GeometryDrawing>
+                    </DrawingGroup>
+                </DrawingImage.Drawing>
+            </DrawingImage>
+
+            <!-- ======== 圆角 ======== -->
+            <CornerRadius x:Key="RLg">20</CornerRadius>
+            <CornerRadius x:Key="R">16</CornerRadius>
+            <CornerRadius x:Key="RSm">12</CornerRadius>
+            <CornerRadius x:Key="RCtl">10</CornerRadius>
+
+            <!-- ======== 滚动条：主题自带的轨道/箭头画刷一律置空，只留胶囊滑块 ======== -->
+            <SolidColorBrush x:Key="ScrollBarBackground" Color="Transparent"/>
+            <SolidColorBrush x:Key="ScrollBarBackgroundPointerOver" Color="Transparent"/>
+            <SolidColorBrush x:Key="ScrollBarBorderBrush" Color="Transparent"/>
+            <SolidColorBrush x:Key="ScrollBarTrackFill" Color="Transparent"/>
+            <SolidColorBrush x:Key="ScrollBarTrackFillPointerOver" Color="Transparent"/>
+            <SolidColorBrush x:Key="ScrollBarTrackStroke" Color="Transparent"/>
+            <SolidColorBrush x:Key="ScrollBarTrackStrokePointerOver" Color="Transparent"/>
+            <SolidColorBrush x:Key="ScrollBarButtonBackground" Color="Transparent"/>
+            <SolidColorBrush x:Key="ScrollBarButtonBackgroundPointerOver" Color="Transparent"/>
+            <SolidColorBrush x:Key="ScrollBarButtonBackgroundPressed" Color="Transparent"/>
+            <SolidColorBrush x:Key="ScrollBarButtonBackgroundDisabled" Color="Transparent"/>
+            <SolidColorBrush x:Key="ScrollBarButtonBorderBrush" Color="Transparent"/>
+            <SolidColorBrush x:Key="ScrollBarButtonBorderBrushPointerOver" Color="Transparent"/>
+            <SolidColorBrush x:Key="ScrollBarButtonBorderBrushPressed" Color="Transparent"/>
+            <SolidColorBrush x:Key="ScrollBarButtonBorderBrushDisabled" Color="Transparent"/>
+            <SolidColorBrush x:Key="ScrollBarButtonArrowForeground" Color="Transparent"/>
+            <SolidColorBrush x:Key="ScrollBarButtonArrowForegroundPointerOver" Color="Transparent"/>
+            <SolidColorBrush x:Key="ScrollBarButtonArrowForegroundPressed" Color="Transparent"/>
+            <SolidColorBrush x:Key="ScrollBarButtonArrowForegroundDisabled" Color="Transparent"/>
+            <!-- 滑块本体（Thumb）的 Background 不会被我们的模板画出来，置空只为保险；
+                 ThumbFillPointerOver/Pressed 反过来要留色，见下面主题字典里的定义 -->
+            <SolidColorBrush x:Key="ScrollBarPanningThumbBackground" Color="Transparent"/>
+            <SolidColorBrush x:Key="ScrollBarThumbBackgroundColor" Color="Transparent"/>
+            <SolidColorBrush x:Key="ScrollBarThumbFillDisabled" Color="Transparent"/>
+            <!-- 主题靠这两个缩放资源把未展开的滑块压成 3px 细线，换成恒等缩放，
+                 拖拽时鼠标离开把手也不会缩到看不见（样式赋值压不过模板里的本地 DynamicResource） -->
+            <ScaleTransform x:Key="VerticalSmallScrollThumbScaleTransform" ScaleX="1" ScaleY="1"/>
+            <ScaleTransform x:Key="HorizontalSmallScrollThumbScaleTransform" ScaleX="1" ScaleY="1"/>
+
+        
+            <ResourceDictionary.ThemeDictionaries>
+                <ResourceDictionary x:Key="Dark">
+                    <SolidColorBrush x:Key="BgBrush" Color="#07090E"/>
+                    <SolidColorBrush x:Key="PanelBrush" Color="#0E1118"/>
+                    <SolidColorBrush x:Key="CardBrush" Color="#1A1F2C"/>
+                    <SolidColorBrush x:Key="Card2Brush" Color="#222838"/>
+                    <!-- 搜索框底：CardBrush 50% 透明，比卡片更轻 -->
+                    <SolidColorBrush x:Key="SearchBgBrush" Color="#801A1F2C"/>
+                    <SolidColorBrush x:Key="HoverBrush" Color="#282F42"/>
+                    <SolidColorBrush x:Key="LineBrush" Color="#12FFFFFF"/>
+                    <SolidColorBrush x:Key="TextBrush" Color="#EEF1F6"/>
+                    <SolidColorBrush x:Key="Text2Brush" Color="#99A1B3"/>
+                    <SolidColorBrush x:Key="Text3Brush" Color="#646C7E"/>
+                    <!-- 滚动条胶囊：静止用 ScrollBarThumbFill，悬停/拖动由主题的 /template/ Border 规则取这两个画刷 -->
+                    <SolidColorBrush x:Key="ScrollBarThumbFill" Color="#646C7E"/>
+                    <SolidColorBrush x:Key="ScrollBarThumbFillPointerOver" Color="#99A1B3"/>
+                    <SolidColorBrush x:Key="ScrollBarThumbFillPressed" Color="#C3CAD6"/>
+                    <SolidColorBrush x:Key="AccentBrush" Color="#9FA8FF"/>
+                    <SolidColorBrush x:Key="Accent2Brush" Color="#C7BCFF"/>
+                    <SolidColorBrush x:Key="AccentSoftBrush" Color="#247C5CFC"/>
+                    <SolidColorBrush x:Key="WarmTextBrush" Color="#C7BCFF"/>
+                    <SolidColorBrush x:Key="NavActiveTextBrush" Color="#C7BCFF"/>
+                    <SolidColorBrush x:Key="GreenBrush" Color="#6BE894"/>
+                    <SolidColorBrush x:Key="GreenSoftBrush" Color="#242FD573"/>
+                    <SolidColorBrush x:Key="BlueBrush" Color="#7FABFF"/>
+                    <SolidColorBrush x:Key="BlueSoftBrush" Color="#244D8DFF"/>
+                    <SolidColorBrush x:Key="AmberBrush" Color="#FFD97A"/>
+                    <SolidColorBrush x:Key="AmberSoftBrush" Color="#33FFC868"/>
+                    <SolidColorBrush x:Key="AmberTextBrush" Color="#FFE7AE"/>
+                    <SolidColorBrush x:Key="PurpleBrush" Color="#C7BFFF"/>
+                    <SolidColorBrush x:Key="PurpleSoftBrush" Color="#26A78BFA"/>
+                    <!-- 统计卡数字：比主色亮一档、淡一档，避免数字压过卡片 -->
+                    <SolidColorBrush x:Key="StatGreenBrush" Color="#8FE9AF"/>
+                    <SolidColorBrush x:Key="StatPurpleBrush" Color="#D3CBFF"/>
+                    <SolidColorBrush x:Key="StatBlueBrush" Color="#AACFFF"/>
+                    <SolidColorBrush x:Key="CoolBrush" Color="#9FC9FF"/>
+                    <SolidColorBrush x:Key="SurfaceBrush" Color="#0DFFFFFF"/>
+                    <SolidColorBrush x:Key="Surface4Brush" Color="#0FFFFFFF"/>
+                    <SolidColorBrush x:Key="Surface5Brush" Color="#14FFFFFF"/>
+                    <SolidColorBrush x:Key="TrackBrush" Color="#2A3040"/>
+                    <SolidColorBrush x:Key="ThumbBrush" Color="#8E96A8"/>
+                    <SolidColorBrush x:Key="MaskBrush" Color="#64000000"/>
+                    <SolidColorBrush x:Key="DrawerBgBrush" Color="#12151D"/>
+                    <LinearGradientBrush x:Key="HeroBrush" StartPoint="0,0" EndPoint="1,1">
+                        <GradientStop Color="#171B24" Offset="0"/>
+                        <GradientStop Color="#141822" Offset="1"/>
+                    </LinearGradientBrush>
+                    <LinearGradientBrush x:Key="BannerBrush" StartPoint="0,0" EndPoint="1,0.6">
+                        <GradientStop Color="#1A2238" Offset="0"/>
+                        <GradientStop Color="#161B28" Offset="0.7"/>
+                    </LinearGradientBrush>
+                    <LinearGradientBrush x:Key="DevOnBrush" StartPoint="0.1,0" EndPoint="0.5,1">
+                        <GradientStop Color="#247C5CFC" Offset="0"/>
+                        <GradientStop Color="#0D7C5CFC" Offset="0.55"/>
+                        <GradientStop Color="#1A1F2C" Offset="1"/>
+                    </LinearGradientBrush>
+                    <LinearGradientBrush x:Key="PrimaryBtnBrush" StartPoint="0,0" EndPoint="1,1">
+                        <GradientStop Color="#7C5CFC" Offset="0"/>
+                        <GradientStop Color="#8B7CFF" Offset="1"/>
+                    </LinearGradientBrush>
+                    <LinearGradientBrush x:Key="BrandBrush" StartPoint="0,0" EndPoint="1,1">
+                        <GradientStop Color="#7C5CFC" Offset="0"/>
+                        <GradientStop Color="#9B8CFF" Offset="1"/>
+                    </LinearGradientBrush>
+                    <Color x:Key="HeroColor1">#171B24</Color>
+                    <Color x:Key="HeroColor2">#141822</Color>
+                    <Color x:Key="HeroGlowColor">#1F7C5CFC</Color>
+                    <Color x:Key="Ambient1">#1F7C5CFC</Color>
+                    <Color x:Key="Ambient2">#144D8DFF</Color>
+                    <!-- 骨架占位：卡底比真卡略沉，占位块略亮，白色高光带扫过才看得出来。
+                         渐变端点必须写百分号，纯数字会被当成绝对像素，整条渐变缩成 1px。 -->
+                    <SolidColorBrush x:Key="SkelCardBrush" Color="#161A24"/>
+                    <SolidColorBrush x:Key="SkelBarBrush" Color="#242938"/>
+                    <LinearGradientBrush x:Key="SkelShineBrush" StartPoint="0%,0%" EndPoint="100%,0%">
+                        <GradientStop Color="Transparent" Offset="0"/>
+                        <GradientStop Color="#40FFFFFF" Offset="0.5"/>
+                        <GradientStop Color="Transparent" Offset="1"/>
+                    </LinearGradientBrush>
+                </ResourceDictionary>
+                <ResourceDictionary x:Key="Light">
+                    <SolidColorBrush x:Key="BgBrush" Color="#E6EAF1"/>
+                    <SolidColorBrush x:Key="PanelBrush" Color="#F7F9FC"/>
+                    <SolidColorBrush x:Key="CardBrush" Color="#FFFFFF"/>
+                    <SolidColorBrush x:Key="Card2Brush" Color="#F0F3F8"/>
+                    <!-- 搜索框底：Card2Brush 50% 透明，比面板更轻 -->
+                    <SolidColorBrush x:Key="SearchBgBrush" Color="#80F0F3F8"/>
+                    <SolidColorBrush x:Key="HoverBrush" Color="#E8EDF5"/>
+                    <SolidColorBrush x:Key="LineBrush" Color="#140F172A"/>
+                    <SolidColorBrush x:Key="TextBrush" Color="#0F172A"/>
+                    <SolidColorBrush x:Key="Text2Brush" Color="#5A6478"/>
+                    <SolidColorBrush x:Key="Text3Brush" Color="#8A93A6"/>
+                    <!-- 浅色主题下滚动条整体压浅：静止更淡，悬停/拖动只略深一档，避免出现一条黑条 -->
+                    <SolidColorBrush x:Key="ScrollBarThumbFill" Color="#C6CCD8"/>
+                    <SolidColorBrush x:Key="ScrollBarThumbFillPointerOver" Color="#AFB8C7"/>
+                    <SolidColorBrush x:Key="ScrollBarThumbFillPressed" Color="#99A3B5"/>
+                    <SolidColorBrush x:Key="AccentBrush" Color="#8E83F0"/>
+                    <SolidColorBrush x:Key="Accent2Brush" Color="#7E76E0"/>
+                    <SolidColorBrush x:Key="AccentSoftBrush" Color="#1F6D5BE3"/>
+                    <SolidColorBrush x:Key="WarmTextBrush" Color="#5B4BC9"/>
+                    <SolidColorBrush x:Key="NavActiveTextBrush" Color="#5B4BC9"/>
+                    <SolidColorBrush x:Key="GreenBrush" Color="#4ADE80"/>
+                    <SolidColorBrush x:Key="GreenSoftBrush" Color="#1F16A34A"/>
+                    <SolidColorBrush x:Key="BlueBrush" Color="#60A5FA"/>
+                    <SolidColorBrush x:Key="BlueSoftBrush" Color="#1C2563EB"/>
+                    <SolidColorBrush x:Key="AmberBrush" Color="#FBBF24"/>
+                    <SolidColorBrush x:Key="AmberSoftBrush" Color="#24E9A05C"/>
+                    <SolidColorBrush x:Key="AmberTextBrush" Color="#C9843C"/>
+                    <SolidColorBrush x:Key="PurpleBrush" Color="#A78BFA"/>
+                    <SolidColorBrush x:Key="PurpleSoftBrush" Color="#1F7C3AED"/>
+                    <!-- 统计卡数字：比主色亮一档、淡一档，避免数字压过卡片 -->
+                    <SolidColorBrush x:Key="StatGreenBrush" Color="#6CCB92"/>
+                    <SolidColorBrush x:Key="StatPurpleBrush" Color="#A596EA"/>
+                    <SolidColorBrush x:Key="StatBlueBrush" Color="#82AAEE"/>
+                    <SolidColorBrush x:Key="CoolBrush" Color="#3B82F6"/>
+                    <SolidColorBrush x:Key="SurfaceBrush" Color="#0D0F172A"/>
+                    <SolidColorBrush x:Key="Surface4Brush" Color="#120F172A"/>
+                    <SolidColorBrush x:Key="Surface5Brush" Color="#140F172A"/>
+                    <SolidColorBrush x:Key="TrackBrush" Color="#E7EBF3"/>
+                    <SolidColorBrush x:Key="ThumbBrush" Color="#FFFFFF"/>
+                    <SolidColorBrush x:Key="MaskBrush" Color="#4A0F172A"/>
+                    <SolidColorBrush x:Key="DrawerBgBrush" Color="#FFFFFF"/>
+                    <LinearGradientBrush x:Key="HeroBrush" StartPoint="0,0" EndPoint="1,1">
+                        <GradientStop Color="#FFFFFF" Offset="0"/>
+                        <GradientStop Color="#F7F9FC" Offset="1"/>
+                    </LinearGradientBrush>
+                    <LinearGradientBrush x:Key="BannerBrush" StartPoint="0,0" EndPoint="1,0.6">
+                        <GradientStop Color="#E8EEFF" Offset="0"/>
+                        <GradientStop Color="#F3F6FC" Offset="0.7"/>
+                    </LinearGradientBrush>
+                    <LinearGradientBrush x:Key="DevOnBrush" StartPoint="0.1,0" EndPoint="0.5,1">
+                        <GradientStop Color="#1F6D5BE3" Offset="0"/>
+                        <GradientStop Color="#0A6D5BE3" Offset="0.55"/>
+                        <GradientStop Color="#FFFFFF" Offset="1"/>
+                    </LinearGradientBrush>
+                    <LinearGradientBrush x:Key="PrimaryBtnBrush" StartPoint="0,0" EndPoint="1,1">
+                        <GradientStop Color="#6D5BE3" Offset="0"/>
+                        <GradientStop Color="#8B7CFF" Offset="1"/>
+                    </LinearGradientBrush>
+                    <LinearGradientBrush x:Key="BrandBrush" StartPoint="0,0" EndPoint="1,1">
+                        <GradientStop Color="#6D5BE3" Offset="0"/>
+                        <GradientStop Color="#9B8CFF" Offset="1"/>
+                    </LinearGradientBrush>
+                    <Color x:Key="HeroColor1">#FFFFFF</Color>
+                    <Color x:Key="HeroColor2">#F7F9FC</Color>
+                    <Color x:Key="HeroGlowColor">#1F6D5BE3</Color>
+                    <Color x:Key="Ambient1">#146D5BE3</Color>
+                    <Color x:Key="Ambient2">#0F2563EB</Color>
+                    <LinearGradientBrush x:Key="SkelShineBrush" StartPoint="0%,0%" EndPoint="100%,0%">
+                        <GradientStop Color="Transparent" Offset="0"/>
+                        <GradientStop Color="#FFFFFFFF" Offset="0.5"/>
+                        <GradientStop Color="Transparent" Offset="1"/>
+                    </LinearGradientBrush>
+                    <SolidColorBrush x:Key="SkelCardBrush" Color="#FFFFFF"/>
+                    <SolidColorBrush x:Key="SkelBarBrush" Color="#DDE3EE"/>
+                </ResourceDictionary>
+            </ResourceDictionary.ThemeDictionaries>
+        </ResourceDictionary>
+    </Application.Resources>
+
+    <Application.Styles>
+
+        <!-- 基础控件模板来源：缺了它 TextBox / ItemsControl / ScrollViewer 都没有可视模板 -->
+        <FluentTheme />
+
+        <!-- ======== 全局基础 ======== -->
+        <Style Selector="Window">
+            <Setter Property="FontFamily" Value="Segoe UI Variable Text, Segoe UI, Microsoft YaHei UI, PingFang SC"/>
+            <Setter Property="Background" Value="{DynamicResource BgBrush}"/>
+        </Style>
+
+        <Style Selector="TextBlock.Hint">
+            <Setter Property="Foreground" Value="{DynamicResource Text3Brush}"/>
+            <Setter Property="FontSize" Value="12"/>
+        </Style>
+        <Style Selector="TextBlock.SecTitle">
+            <Setter Property="Foreground" Value="{DynamicResource Text2Brush}"/>
+            <Setter Property="FontSize" Value="13"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="Margin" Value="2,26,0,12"/>
+        </Style>
+        <Style Selector="TextBlock.SecTitle:first-child">
+            <Setter Property="Margin" Value="2,0,0,12"/>
+        </Style>
+
+        <Style Selector="Border.Card">
+            <Setter Property="Background" Value="{DynamicResource CardBrush}"/>
+            <Setter Property="CornerRadius" Value="{StaticResource R}"/>
+            <Setter Property="Padding" Value="18"/>
+            <Setter Property="BoxShadow" Value="0 1 2 0 #050F172A, 0 5 16 0 #080F172A"/>
+        </Style>
+
+        <!-- ======== 按钮 ======== -->
+        <Style Selector="Button.BtnPrimary">
+            <Setter Property="Height" Value="34"/>
+            <Setter Property="Padding" Value="16,0"/>
+            <Setter Property="Foreground" Value="White"/>
+            <Setter Property="FontSize" Value="13"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="Template">
+                <ControlTemplate>
+                    <Border Name="Bd" CornerRadius="10" Background="{DynamicResource PrimaryBtnBrush}"
+                            BoxShadow="0 2 8 #00000040"
+                            Padding="{TemplateBinding Padding}">
+                        <ContentPresenter Content="{TemplateBinding Content}"
+                                          HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                    </Border>
+                </ControlTemplate>
+            </Setter>
+        </Style>
+        <Style Selector="Button.BtnPrimary:pointerover /template/ Border#Bd">
+            <Setter Property="Background" Value="{DynamicResource Accent2Brush}"/>
+        </Style>
+        <Style Selector="Button.BtnPrimary:pressed /template/ Border#Bd">
+            <Setter Property="Background" Value="{DynamicResource AccentBrush}"/>
+        </Style>
+        <Style Selector="Button.BtnPrimary:disabled /template/ Border#Bd">
+            <Setter Property="Opacity" Value="0.45"/>
+        </Style>
+
+        <Style Selector="Button.BtnGhost">
+            <Setter Property="Height" Value="34"/>
+            <Setter Property="Padding" Value="16,0"/>
+            <Setter Property="FontSize" Value="13"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="Template">
+                <ControlTemplate>
+                    <Border Name="Bd" CornerRadius="10" Background="{DynamicResource Card2Brush}"
+                            Padding="{TemplateBinding Padding}">
+                        <ContentPresenter Name="Cp" Content="{TemplateBinding Content}"
+                                          TextBlock.Foreground="{DynamicResource Text2Brush}"
+                                          HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                    </Border>
+                </ControlTemplate>
+            </Setter>
+        </Style>
+        <Style Selector="Button.BtnGhost:pointerover /template/ Border#Bd">
+            <Setter Property="Background" Value="{DynamicResource HoverBrush}"/>
+        </Style>
+        <Style Selector="Button.BtnGhost:pointerover /template/ ContentPresenter#Cp">
+            <Setter Property="TextBlock.Foreground" Value="{DynamicResource TextBrush}"/>
+        </Style>
+
+        <Style Selector="Button.IconBtn">
+            <Setter Property="Width" Value="34"/>
+            <Setter Property="Height" Value="34"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="Template">
+                <ControlTemplate>
+                    <Border Name="Bd" CornerRadius="10" Background="{DynamicResource CardBrush}">
+                        <ContentPresenter Content="{TemplateBinding Content}"
+                                          HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                    </Border>
+                </ControlTemplate>
+            </Setter>
+        </Style>
+        <Style Selector="Button.IconBtn:pointerover /template/ Border#Bd">
+            <Setter Property="Background" Value="{DynamicResource HoverBrush}"/>
+        </Style>
+
+        <!-- 窗口控制钮 36×30（图标 12 网格、圆角悬浮） -->
+        <Style Selector="Button.WinBtn">
+            <Setter Property="Width" Value="36"/>
+            <Setter Property="Height" Value="30"/>
+            <Setter Property="Margin" Value="2,0,0,0"/>
+            <Setter Property="Foreground" Value="{DynamicResource Text2Brush}"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="Template">
+                <ControlTemplate>
+                    <Border Name="Bd" CornerRadius="8" Background="Transparent">
+                        <ContentPresenter Content="{TemplateBinding Content}"
+                                          HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                    </Border>
+                </ControlTemplate>
+            </Setter>
+        </Style>
+        <Style Selector="Button.WinBtn:pointerover /template/ Border#Bd">
+            <Setter Property="Background" Value="{DynamicResource SurfaceBrush}"/>
+        </Style>
+        <Style Selector="Button.WinBtn.close:pointerover /template/ Border#Bd">
+            <Setter Property="Background" Value="#E81123"/>
+        </Style>
+        <Style Selector="Button.WinBtn.close:pointerover">
+            <Setter Property="Foreground" Value="White"/>
+        </Style>
+
+        <!-- 标题栏主题钮 36×36 -->
+        <Style Selector="Button.ThemeBtn">
+            <Setter Property="Width" Value="36"/>
+            <Setter Property="Height" Value="36"/>
+            <Setter Property="Foreground" Value="{DynamicResource Text2Brush}"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="Template">
+                <ControlTemplate>
+                    <Border Name="Bd" CornerRadius="8" Background="Transparent">
+                        <ContentPresenter Content="{TemplateBinding Content}"
+                                          HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                    </Border>
+                </ControlTemplate>
+            </Setter>
+        </Style>
+        <Style Selector="Button.ThemeBtn:pointerover /template/ Border#Bd">
+            <Setter Property="Background" Value="{DynamicResource SurfaceBrush}"/>
+        </Style>
+        <Style Selector="Button.ThemeBtn:pointerover">
+            <Setter Property="Foreground" Value="{DynamicResource TextBrush}"/>
+        </Style>
+
+        <!-- ======== 开关 40×22（§8.4） ======== -->
+        <Style Selector="ToggleButton.Switch">
+            <Setter Property="Width" Value="40"/>
+            <Setter Property="Height" Value="22"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="Template">
+                <ControlTemplate>
+                    <Border Name="Track" CornerRadius="11" Background="{TemplateBinding Background}">
+                        <Canvas>
+                            <Ellipse Name="Thumb" Width="16" Height="16" Canvas.Left="3" Canvas.Top="3"
+                                     Fill="{TemplateBinding Foreground}">
+                                <Ellipse.Transitions>
+                                    <Transitions>
+                                        <DoubleTransition Property="Canvas.Left" Duration="0:0:0.24">
+                                            <DoubleTransition.Easing>
+                                                <ani:BackEaseOut/>
+                                            </DoubleTransition.Easing>
+                                        </DoubleTransition>
+                                    </Transitions>
+                                </Ellipse.Transitions>
+                            </Ellipse>
+                        </Canvas>
+                    </Border>
+                </ControlTemplate>
+            </Setter>
+            <Setter Property="Background" Value="{DynamicResource TrackBrush}"/>
+            <Setter Property="Foreground" Value="{DynamicResource ThumbBrush}"/>
+        </Style>
+        <Style Selector="ToggleButton.Switch /template/ Border#Track">
+            <Setter Property="Transitions">
+                <Transitions>
+                    <BrushTransition Property="Background" Duration="0:0:0.22"/>
+                </Transitions>
+            </Setter>
+        </Style>
+        <Style Selector="ToggleButton.Switch:checked">
+            <Setter Property="Background" Value="{DynamicResource AccentBrush}"/>
+            <Setter Property="Foreground" Value="White"/>
+        </Style>
+        <Style Selector="ToggleButton.Switch:checked /template/ Ellipse#Thumb">
+            <Setter Property="Canvas.Left" Value="21"/>
+        </Style>
+        <Style Selector="ToggleButton.Switch:disabled">
+            <Setter Property="Opacity" Value="0.4"/>
+        </Style>
+
+        <!-- ======== 侧栏导航 ======== -->
+        <Style Selector="Button.NavRow">
+            <Setter Property="Padding" Value="0"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="Foreground" Value="{DynamicResource Text2Brush}"/>
+            <Setter Property="FontSize" Value="13.5"/>
+            <Setter Property="HorizontalAlignment" Value="Stretch"/>
+            <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
+            <Setter Property="Transitions">
+                <Transitions>
+                    <BrushTransition Property="Foreground" Duration="0:0:0.18"/>
+                </Transitions>
+            </Setter>
+            <Setter Property="Template">
+                <ControlTemplate>
+                    <!-- 外层 Hit 用 Transparent 背景铺满整行，保证空白区域也能命中 hover/点击 -->
+                    <Border Name="Hit" Background="Transparent">
+                        <Panel>
+                            <Border Name="Bar" Width="3" Height="18" CornerRadius="0 2 2 0"
+                                    HorizontalAlignment="Left" VerticalAlignment="Center"
+                                    Background="Transparent"/>
+                            <Border Name="Bg" CornerRadius="12" Padding="12,9" Margin="10,3,10,3"
+                                    Background="Transparent">
+                                <Grid ColumnDefinitions="21,*">
+                                    <Path Name="Ic" Grid.Column="0" Width="15" Height="15" Stretch="Uniform"
+                                          Stroke="{TemplateBinding Foreground}" StrokeThickness="1.4"
+                                          StrokeLineCap="Round" StrokeJoin="Round"
+                                          Data="{TemplateBinding Tag}"/>
+                                    <TextBlock Name="Lb" Grid.Column="1" Text="{TemplateBinding Content}"
+                                               Margin="12,0,0,0" VerticalAlignment="Center"
+                                               FontSize="{TemplateBinding FontSize}"
+                                               FontWeight="{TemplateBinding FontWeight}"
+                                               Foreground="{TemplateBinding Foreground}"/>
+                                </Grid>
+                            </Border>
+                        </Panel>
+                    </Border>
+                </ControlTemplate>
+            </Setter>
+        </Style>
+        <Style Selector="Button.NavRow:pointerover /template/ Border#Bg">
+            <Setter Property="Background" Value="{DynamicResource SurfaceBrush}"/>
+        </Style>
+        <Style Selector="Button.NavRow:pointerover">
+            <Setter Property="Foreground" Value="{DynamicResource TextBrush}"/>
+        </Style>
+        <Style Selector="Button.NavRow.on">
+            <Setter Property="Foreground" Value="{DynamicResource NavActiveTextBrush}"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+        </Style>
+        <Style Selector="Button.NavRow.on /template/ Border#Bg">
+            <Setter Property="Background" Value="{DynamicResource AccentSoftBrush}"/>
+        </Style>
+        <Style Selector="Button.NavRow.on /template/ Border#Bar">
+            <Setter Property="Background" Value="{DynamicResource AccentBrush}"/>
+        </Style>
+        <!-- 房间行图标：比导航图标再细一档，配合圆头圆角更轻盈 -->
+        <Style Selector="Button.NavRow.room /template/ Path#Ic">
+            <Setter Property="StrokeThickness" Value="1.2"/>
+        </Style>
+
+        <!-- 侧栏分组小标题 -->
+        <Style Selector="TextBlock.NavCaption">
+            <Setter Property="FontSize" Value="10.5"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="Foreground" Value="{DynamicResource Text3Brush}"/>
+            <Setter Property="Margin" Value="22,14,10,6"/>
+        </Style>
+
+        <!-- ======== 芯片筛选条（§8.12） ======== -->
+        <Style Selector="ToggleButton.Chip">
+            <Setter Property="Height" Value="32"/>
+            <Setter Property="Padding" Value="14,0"/>
+            <Setter Property="FontSize" Value="12.5"/>
+            <Setter Property="FontWeight" Value="Medium"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="Template">
+                <ControlTemplate>
+                    <Border Name="Bd" CornerRadius="20" Background="{TemplateBinding Background}"
+                            Padding="{TemplateBinding Padding}">
+                        <TextBlock Name="Lb" Text="{TemplateBinding Content}" VerticalAlignment="Center"
+                                   Foreground="{TemplateBinding Foreground}"/>
+                    </Border>
+                </ControlTemplate>
+            </Setter>
+            <Setter Property="Background" Value="{DynamicResource CardBrush}"/>
+            <Setter Property="Foreground" Value="{DynamicResource Text2Brush}"/>
+        </Style>
+        <Style Selector="ToggleButton.Chip:pointerover">
+            <Setter Property="Background" Value="{DynamicResource Card2Brush}"/>
+            <Setter Property="Foreground" Value="{DynamicResource TextBrush}"/>
+        </Style>
+        <Style Selector="ToggleButton.Chip:checked">
+            <Setter Property="Background" Value="{DynamicResource AccentSoftBrush}"/>
+            <Setter Property="Foreground" Value="{DynamicResource WarmTextBrush}"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+        </Style>
+
+        <!-- ======== 设备卡（§8.6：无边框，开启淡紫渐变） ======== -->
+        <Style Selector="Button.DevCard">
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="HorizontalAlignment" Value="Stretch"/>
+            <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
+            <Setter Property="RenderTransform" Value="translate(0px,0px)"/>
+            <Setter Property="Transitions">
+                <Transitions>
+                    <TransformOperationsTransition Property="RenderTransform" Duration="0:0:0.2">
+                        <TransformOperationsTransition.Easing>
+                            <ani:CubicEaseOut/>
+                        </TransformOperationsTransition.Easing>
+                    </TransformOperationsTransition>
+                </Transitions>
+            </Setter>
+            <Setter Property="Template">
+                <ControlTemplate>
+                    <!-- Margin 用于给投影留出绘制空间：投影被控件边界裁切时才会出现硬边缺口 -->
+                    <Border Name="Card" MinHeight="74" CornerRadius="16" Padding="15,13" Margin="8">
+                        <ContentPresenter Content="{TemplateBinding Content}"
+                                          HorizontalAlignment="Stretch" VerticalAlignment="Center"/>
+                    </Border>
+                </ControlTemplate>
+            </Setter>
+        </Style>
+        <Style Selector="Button.DevCard /template/ Border#Card">
+            <Setter Property="Background" Value="{DynamicResource CardBrush}"/>
+            <!-- 用 BoxShadow 而非 Effect：Effect 会离屏渲染成与元素等大的图层，投影外扩部分被裁成硬边 -->
+            <Setter Property="BoxShadow" Value="0 1 2 0 #050F172A, 0 4 14 0 #060F172A"/>
+        </Style>
+        <Style Selector="Button.DevCard.on /template/ Border#Card">
+            <Setter Property="Background" Value="{DynamicResource DevOnBrush}"/>
+        </Style>
+        <Style Selector="Button.DevCard:pointerover">
+            <Setter Property="RenderTransform" Value="translate(0px,-3px)"/>
+        </Style>
+        <Style Selector="Button.DevCard:pressed">
+            <Setter Property="RenderTransform" Value="translate(0px,-1px) scale(0.99)"/>
+        </Style>
+
+        <!-- 设备图标：只画矢量图标本身，不垫底板 -->
+        <Style Selector="Border.DevIc">
+            <Setter Property="Width" Value="42"/>
+            <Setter Property="Height" Value="42"/>
+        </Style>
+        <Style Selector="Path.DevIcon">
+            <Setter Property="Stroke" Value="{DynamicResource Text2Brush}"/>
+            <Setter Property="Transitions">
+                <Transitions>
+                    <BrushTransition Property="Stroke" Duration="0:0:0.2"/>
+                </Transitions>
+            </Setter>
+        </Style>
+        <Style Selector="Path.DevIcon.on">
+            <Setter Property="Stroke" Value="{DynamicResource Accent2Brush}"/>
+        </Style>
+
+        <!-- 设备真机图：不再垫底色背景，仅展示图标本身（透明背景） -->
+        <Style Selector="Border.DevPhoto">
+            <Setter Property="Width" Value="42"/>
+            <Setter Property="Height" Value="42"/>
+            <Setter Property="CornerRadius" Value="13"/>
+        </Style>
+        <Style Selector="Border.DevPhoto Border">
+            <Setter Property="Margin" Value="3"/>
+            <Setter Property="CornerRadius" Value="10"/>
+            <Setter Property="ClipToBounds" Value="True"/>
+        </Style>
+
+        <!-- ======== 加载：骨架卡 + 掠过的高光带 + 旋转指示器 ======== -->
+        <Style Selector="Border.SkelCard">
+            <Setter Property="MinHeight" Value="74"/>
+            <Setter Property="CornerRadius" Value="16"/>
+            <Setter Property="Padding" Value="15,13"/>
+            <Setter Property="Margin" Value="8"/>
+            <Setter Property="Background" Value="{DynamicResource SkelCardBrush}"/>
+            <Setter Property="BoxShadow" Value="0 1 2 0 #050F172A, 0 4 14 0 #060F172A"/>
+        </Style>
+        <Style Selector="Border.SkelIc">
+            <Setter Property="Width" Value="42"/>
+            <Setter Property="Height" Value="42"/>
+            <Setter Property="CornerRadius" Value="13"/>
+            <Setter Property="Background" Value="{DynamicResource SkelBarBrush}"/>
+        </Style>
+        <Style Selector="Border.SkelBar">
+            <Setter Property="Height" Value="11"/>
+            <Setter Property="CornerRadius" Value="5"/>
+            <Setter Property="Background" Value="{DynamicResource SkelBarBrush}"/>
+        </Style>
+        <Style Selector="Border.SkelSw">
+            <Setter Property="Width" Value="40"/>
+            <Setter Property="Height" Value="22"/>
+            <Setter Property="CornerRadius" Value="11"/>
+            <Setter Property="Background" Value="{DynamicResource SkelBarBrush}"/>
+        </Style>
+
+        <!-- 高光带：卡片内容框已裁切，带子比卡高一点也不会漏出圆角 -->
+        <Style Selector="Border.SkelShine">
+            <Setter Property="Width" Value="76"/>
+            <Setter Property="Height" Value="110"/>
+            <Setter Property="Canvas.Top" Value="-18"/>
+            <Setter Property="Canvas.Left" Value="-86"/>
+            <Setter Property="IsHitTestVisible" Value="False"/>
+            <Setter Property="Background" Value="{DynamicResource SkelShineBrush}"/>
+            <Setter Property="RenderTransform">
+                <TranslateTransform X="0"/>
+            </Setter>
+            <Style.Animations>
+                <Animation Duration="0:0:1.5" IterationCount="Infinite" Easing="CubicEaseInOut">
+                    <KeyFrame Cue="0%">
+                        <Setter Property="TranslateTransform.X" Value="0"/>
+                    </KeyFrame>
+                    <KeyFrame Cue="100%">
+                        <Setter Property="TranslateTransform.X" Value="416"/>
+                    </KeyFrame>
+                </Animation>
+            </Style.Animations>
+        </Style>
+
+        <!-- 旋转指示器：绕自身中心匀速转，尺寸/描边色由使用方给。
+             原点必须写百分号：Avalonia 把 "0.5,0.5" 解析成绝对 0.5px，等于绕左上角转，整条弧会被带着甩。 -->
+        <Style Selector="Path.Spinner">
+            <Setter Property="RenderTransformOrigin" Value="50%,50%"/>
+            <Setter Property="RenderTransform">
+                <RotateTransform Angle="0"/>
+            </Setter>
+            <Style.Animations>
+                <Animation Duration="0:0:0.9" IterationCount="Infinite" Easing="LinearEasing">
+                    <KeyFrame Cue="0%">
+                        <Setter Property="RotateTransform.Angle" Value="0"/>
+                    </KeyFrame>
+                    <KeyFrame Cue="100%">
+                        <Setter Property="RotateTransform.Angle" Value="360"/>
+                    </KeyFrame>
+                </Animation>
+            </Style.Animations>
+        </Style>
+
+        <!-- 设备状态文本：默认灰，开启绿，离线琥珀（warn 在后，优先生效） -->
+        <Style Selector="TextBlock.DevStatus">
+            <Setter Property="Foreground" Value="{DynamicResource Text3Brush}"/>
+            <Setter Property="FontSize" Value="11.5"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+        </Style>
+        <Style Selector="TextBlock.DevStatus.is-on">
+            <Setter Property="Foreground" Value="{DynamicResource GreenBrush}"/>
+        </Style>
+        <Style Selector="TextBlock.DevStatus.is-warn">
+            <Setter Property="Foreground" Value="{DynamicResource AmberBrush}"/>
+        </Style>
+
+        <!-- ======== 场景卡（§8.8：彩色渐变 + 光晕，无边框） ======== -->
+        <Style Selector="Button.SceneMini">
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="HorizontalAlignment" Value="Stretch"/>
+            <Setter Property="RenderTransform" Value="translate(0px,0px)"/>
+            <Setter Property="Transitions">
+                <Transitions>
+                    <TransformOperationsTransition Property="RenderTransform" Duration="0:0:0.2">
+                        <TransformOperationsTransition.Easing>
+                            <ani:CubicEaseOut/>
+                        </TransformOperationsTransition.Easing>
+                    </TransformOperationsTransition>
+                </Transitions>
+            </Setter>
+            <Setter Property="Template">
+                <ControlTemplate>
+                    <!-- Margin 用于给投影留出绘制空间 -->
+                    <Border Name="Card" MinHeight="80" CornerRadius="16" Margin="8">
+                        <Panel>
+                            <!-- 光晕铺满整卡，靠自身圆角贴合卡片，避免硬边色块 -->
+                            <Border Name="Glow" CornerRadius="16" Background="{Binding GlowBrush}"
+                                    IsHitTestVisible="False"/>
+                            <Border Padding="12">
+                                <ContentPresenter Content="{TemplateBinding Content}"
+                                                  HorizontalAlignment="Stretch" VerticalAlignment="Stretch"/>
+                            </Border>
+                        </Panel>
+                    </Border>
+                </ControlTemplate>
+            </Setter>
+        </Style>
+        <Style Selector="Button.SceneMini /template/ Border#Card">
+            <Setter Property="Background" Value="{DynamicResource CardBrush}"/>
+            <Setter Property="BoxShadow" Value="0 1 2 0 #050F172A, 0 5 16 0 #080F172A"/>
+        </Style>
+        <Style Selector="Button.SceneMini:pointerover">
+            <Setter Property="RenderTransform" Value="translate(0px,-3px)"/>
+        </Style>
+        <Style Selector="Button.SceneMini:pressed">
+            <Setter Property="RenderTransform" Value="translate(0px,-1px) scale(0.98)"/>
+        </Style>
+
+        <Style Selector="Button.SceneBig">
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="HorizontalAlignment" Value="Stretch"/>
+            <Setter Property="RenderTransform" Value="translate(0px,0px)"/>
+            <Setter Property="Transitions">
+                <Transitions>
+                    <TransformOperationsTransition Property="RenderTransform" Duration="0:0:0.2">
+                        <TransformOperationsTransition.Easing>
+                            <ani:CubicEaseOut/>
+                        </TransformOperationsTransition.Easing>
+                    </TransformOperationsTransition>
+                </Transitions>
+            </Setter>
+            <Setter Property="Template">
+                <ControlTemplate>
+                    <!-- Margin 用于给投影留出绘制空间 -->
+                    <Border Name="Card" MinHeight="152" CornerRadius="16" Margin="8">
+                        <Panel>
+                            <!-- 光晕铺满整卡，靠自身圆角贴合卡片，避免硬边色块 -->
+                            <Border Name="Glow" CornerRadius="16" Background="{Binding GlowBrush}"
+                                    IsHitTestVisible="False"/>
+                            <Border Padding="18">
+                                <ContentPresenter Content="{TemplateBinding Content}"
+                                                  HorizontalAlignment="Stretch" VerticalAlignment="Stretch"/>
+                            </Border>
+                        </Panel>
+                    </Border>
+                </ControlTemplate>
+            </Setter>
+        </Style>
+        <Style Selector="Button.SceneBig /template/ Border#Card">
+            <Setter Property="Background" Value="{DynamicResource CardBrush}"/>
+            <Setter Property="BoxShadow" Value="0 1 2 0 #050F172A, 0 5 16 0 #080F172A"/>
+        </Style>
+        <Style Selector="Button.SceneBig:pointerover">
+            <Setter Property="RenderTransform" Value="translate(0px,-4px)"/>
+        </Style>
+        <Style Selector="Button.SceneBig:pressed">
+            <Setter Property="RenderTransform" Value="translate(0px,-1px) scale(0.98)"/>
+        </Style>
+
+        <!-- ======== 搜索框：胶囊造型，聚焦/悬停均不改色 ======== -->
+        <Style Selector="TextBox.Search">
+            <Setter Property="Height" Value="32"/>
+            <Setter Property="FontSize" Value="11.5"/>
+            <Setter Property="Foreground" Value="{DynamicResource TextBrush}"/>
+            <Setter Property="CaretBrush" Value="{DynamicResource AccentBrush}"/>
+            <Setter Property="Background" Value="{DynamicResource SearchBgBrush}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource LineBrush}"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="CornerRadius" Value="16"/>
+            <Setter Property="Padding" Value="13,0"/>
+            <Setter Property="VerticalContentAlignment" Value="Center"/>
+        </Style>
+        <!-- 悬停/聚焦都保持同一底色与淡边框，不做颜色变化 -->
+        <Style Selector="TextBox.Search /template/ Border#PART_BorderElement">
+            <Setter Property="Background" Value="{DynamicResource SearchBgBrush}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource LineBrush}"/>
+            <Setter Property="BorderThickness" Value="1"/>
+        </Style>
+        <Style Selector="TextBox.Search:pointerover /template/ Border#PART_BorderElement">
+            <Setter Property="Background" Value="{DynamicResource SearchBgBrush}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource LineBrush}"/>
+        </Style>
+        <Style Selector="TextBox.Search:focus /template/ Border#PART_BorderElement">
+            <Setter Property="Background" Value="{DynamicResource SearchBgBrush}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource LineBrush}"/>
+        </Style>
+
+        <Style Selector="TextBox.Log">
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="IsReadOnly" Value="True"/>
+            <Setter Property="Foreground" Value="{DynamicResource Text3Brush}"/>
+            <Setter Property="FontFamily" Value="Consolas, Cascadia Mono, monospace"/>
+            <Setter Property="FontSize" Value="12"/>
+            <Setter Property="TextWrapping" Value="Wrap"/>
+        </Style>
+
+        <!-- ======== 滚动条：默认隐藏，悬停浮现圆角胶囊 ======== -->
+        <Style Selector="ScrollBar">
+            <Setter Property="Opacity" Value="0"/>
+            <Setter Property="Transitions">
+                <Transitions>
+                    <DoubleTransition Property="Opacity" Duration="0:0:0.25">
+                        <DoubleTransition.Easing>
+                            <ani:CubicEaseOut/>
+                        </DoubleTransition.Easing>
+                    </DoubleTransition>
+                </Transitions>
+            </Setter>
+        </Style>
+        <Style Selector="Window:pointerover ScrollBar">
+            <Setter Property="Opacity" Value="1"/>
+        </Style>
+
+        <!-- 箭头按钮：PathIcon 自己的主题把 Foreground 写死成 TextControlForeground，
+             置空 ScrollBarButtonArrowForeground 管不到它，只能整个隐藏 -->
+        <Style Selector="ScrollBar /template/ PathIcon">
+            <Setter Property="IsVisible" Value="False"/>
+        </Style>
+        <Style Selector="ScrollBar /template/ RepeatButton#PART_LineUpButton,
+                        ScrollBar /template/ RepeatButton#PART_LineDownButton">
+            <Setter Property="IsHitTestVisible" Value="False"/>
+        </Style>
+
+        <!-- 滑块换成 8px 居中胶囊。模板里只能有这一个 Border：主题的
+             `^:pointerover/:pressed /template/ Border` 会命中模板内所有 Border，
+             多包一层透明 Border 就会被它刷出一整条 16px 的「把手底色」 -->
+        <Style Selector="ScrollBar /template/ Thumb">
+            <Setter Property="Template">
+                <ControlTemplate>
+                    <Border x:Name="Pill"
+                            HorizontalAlignment="Center" VerticalAlignment="Stretch"
+                            Width="8" Margin="0,2"
+                            CornerRadius="4"
+                            Background="{DynamicResource ScrollBarThumbFill}"/>
+                </ControlTemplate>
+            </Setter>
+        </Style>
+        <!-- 静止色用模板本地值（ScrollBarThumbFill），悬停/拖动色走主题的
+             ScrollBarThumbFillPointerOver/Pressed，已在主题字典里按明暗配好 -->
+        <Style Selector="ScrollBar /template/ Thumb /template/ Border#Pill">
+            <Setter Property="Transitions">
+                <Transitions>
+                    <BrushTransition Property="Background" Duration="0:0:0.18">
+                        <BrushTransition.Easing>
+                            <ani:CubicEaseOut/>
+                        </BrushTransition.Easing>
+                    </BrushTransition>
+                </Transitions>
+            </Setter>
+        </Style>
+
+    </Application.Styles>
+</Application>
