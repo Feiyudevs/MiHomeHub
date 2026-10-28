@@ -3,6 +3,8 @@ using System.Collections.Concurrent;
 using System.IO;
 using System.Net;
 using System.Net.Http;
+using System.Security.Cryptography;
+using System.Text;
 using System.Text.Json;
 using System.Threading.Tasks;
 using Avalonia.Media.Imaging;
@@ -13,10 +15,19 @@ namespace MijiaPanel.Services;
 /// 设备真机图：米家云的设备列表接口不带图标字段，按 model 到米家产品库取 realIcon 产品图。
 /// realIcon 绝大多数托管在 iotweb-user-center（少数在 iotweb-product-center），且带签名参数，
 /// 必须整段 URL 才能通过 CDN 校验；无该字段的型号返回 null，卡片回退到矢量图标。
+/// 结果同时写入 %APPDATA%\MijiaPanel\icons\ 磁盘缓存：命中期内直接读盘，过期后对比 URL
+/// 再决定是否重新下载，产品图更新时能自动换新。
 /// </summary>
 public static class MijiaIconService
 {
     private const string ProductApi = "https://home.mi.com/cgi-op/api/v1/baike/v2/product?model=";
+
+    /// <summary>磁盘缓存有效期内不打产品库；过期后若 CDN 路径未变则续期，变了才重下。</summary>
+    private static readonly TimeSpan DiskTtl = TimeSpan.FromDays(7);
+
+    private static readonly string CacheDir = Path.Combine(
+        Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "MijiaPanel", "icons");
+    private static readonly string IndexPath = Path.Combine(CacheDir, "index.json");
 
     private static readonly HttpClient Http = new(new HttpClientHandler
     {
@@ -33,6 +44,21 @@ public static class MijiaIconService
     /// <summary>同一型号只查一次（GetOrAdd 的工厂返回 Task，天然合并了并发重复请求）。</summary>
     private static readonly ConcurrentDictionary<string, Task<Bitmap?>> Cache = new(StringComparer.OrdinalIgnoreCase);
 
+    private sealed class IndexEntry
+    {
+        public string Url { get; set; } = "";
+        public long SavedAt { get; set; }
+        public string File { get; set; } = "";
+    }
+
+    private sealed class IndexRoot
+    {
+        public Dictionary<string, IndexEntry> Models { get; set; } = new(StringComparer.OrdinalIgnoreCase);
+    }
+
+    private static readonly object IndexLock = new();
+    private static IndexRoot? _index;
+
     public static Task<Bitmap?> GetAsync(string model) =>
         string.IsNullOrEmpty(model)
             ? Task.FromResult<Bitmap?>(null)
@@ -42,24 +68,151 @@ public static class MijiaIconService
     {
         try
         {
+            var cached = TryReadDisk(model, out var entry);
+            if (entry != null && DateTime.UtcNow - DateTimeOffset.FromUnixTimeMilliseconds(entry.SavedAt) < DiskTtl)
+                return cached;
+
             var json = await Http.GetStringAsync(ProductApi + Uri.EscapeDataString(model));
             using var doc = JsonDocument.Parse(json);
             if (!doc.RootElement.TryGetProperty("data", out var data) ||
                 data.ValueKind != JsonValueKind.Object ||
                 !data.TryGetProperty("realIcon", out var icon) ||
-                icon.ValueKind != JsonValueKind.String) return null;
+                icon.ValueKind != JsonValueKind.String)
+            {
+                // 产品库没有该型号：有过期磁盘图就继续用，避免闪一下再变回矢量图标
+                return cached;
+            }
 
             var url = icon.GetString() ?? "";
-            if (string.IsNullOrEmpty(url)) return null;
+            if (string.IsNullOrEmpty(url)) return cached;
+
+            // realIcon 带 CDN 签名，每次请求 query 都会变；只比 path 判断是否换图
+            if (cached != null && entry != null && UrlPath(entry.Url) == UrlPath(url))
+            {
+                TouchIndex(model, url, entry.File);
+                return cached;
+            }
 
             // realIcon 就是产品实物图，不能按 CDN 域名过滤（绝大多数在 iotweb-user-center）。
             // 也不能裁掉 ? 后的签名参数：该 CDN 校验签名，去签名会 403，必须整段 URL 下载。
             var bytes = await Http.GetByteArrayAsync(url);
+            WriteDisk(model, url, bytes);
             return new Bitmap(new MemoryStream(bytes));
+        }
+        catch
+        {
+            // 网络失败时尽量用磁盘图，不挡卡片
+            return TryReadDisk(model, out _);
+        }
+    }
+
+    private static string UrlPath(string url)
+    {
+        var i = url.IndexOf('?');
+        return i < 0 ? url : url[..i];
+    }
+
+    private static string FileNameFor(string model)
+    {
+        var safe = new StringBuilder(model.Length);
+        foreach (var ch in model)
+            safe.Append(char.IsAsciiLetterOrDigit(ch) || ch is '.' or '-' or '_' ? ch : '_');
+        var sha = SHA1.HashData(Encoding.UTF8.GetBytes(model.ToLowerInvariant()));
+        return Convert.ToHexString(sha)[..16] + "_" + safe + ".bin";
+    }
+
+    private static IndexRoot LoadIndex()
+    {
+        lock (IndexLock)
+        {
+            if (_index != null) return _index;
+            try
+            {
+                if (File.Exists(IndexPath))
+                    _index = JsonSerializer.Deserialize<IndexRoot>(File.ReadAllText(IndexPath)) ?? new IndexRoot();
+                else
+                    _index = new IndexRoot();
+            }
+            catch
+            {
+                _index = new IndexRoot();
+            }
+            return _index;
+        }
+    }
+
+    private static void SaveIndex()
+    {
+        lock (IndexLock)
+        {
+            try
+            {
+                Directory.CreateDirectory(CacheDir);
+                File.WriteAllText(IndexPath, JsonSerializer.Serialize(_index ?? new IndexRoot()));
+            }
+            catch
+            {
+                // 写索引失败不影响本次运行
+            }
+        }
+    }
+
+    private static Bitmap? TryReadDisk(string model, out IndexEntry? entry)
+    {
+        entry = null;
+        try
+        {
+            var idx = LoadIndex();
+            if (!idx.Models.TryGetValue(model, out entry) || string.IsNullOrEmpty(entry.File)) return null;
+            var path = Path.Combine(CacheDir, entry.File);
+            if (!File.Exists(path)) return null;
+            var bytes = File.ReadAllBytes(path);
+            return bytes.Length == 0 ? null : new Bitmap(new MemoryStream(bytes));
         }
         catch
         {
             return null;
         }
+    }
+
+    private static void WriteDisk(string model, string url, byte[] bytes)
+    {
+        try
+        {
+            Directory.CreateDirectory(CacheDir);
+            var file = FileNameFor(model);
+            File.WriteAllBytes(Path.Combine(CacheDir, file), bytes);
+            var idx = LoadIndex();
+            lock (IndexLock)
+            {
+                idx.Models[model] = new IndexEntry
+                {
+                    Url = url,
+                    File = file,
+                    SavedAt = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()
+                };
+            }
+            SaveIndex();
+        }
+        catch
+        {
+            // 落盘失败只影响下次启动，本次内存结果仍可用
+        }
+    }
+
+    private static void TouchIndex(string model, string url, string file)
+    {
+        var idx = LoadIndex();
+        lock (IndexLock)
+        {
+            if (idx.Models.TryGetValue(model, out var e)) e.SavedAt = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+            else idx.Models[model] = new IndexEntry
+            {
+                Url = url,
+                File = file,
+                SavedAt = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()
+            };
+        }
+        SaveIndex();
     }
 }

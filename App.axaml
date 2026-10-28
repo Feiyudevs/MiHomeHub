@@ -24,6 +24,7 @@
             <PathGeometry x:Key="GeoWifi">M5,12.5 A7,7 0 0 1 19,12.5 M8.5,15.5 A3.5,3.5 0 0 1 15.5,15.5 M12,18.5 m-1.2,0 a1.2,1.2 0 1 0 2.4,0 a1.2,1.2 0 1 0 -2.4,0</PathGeometry>
             <PathGeometry x:Key="GeoClock">M12,12 m-9,0 a9,9 0 1 0 18,0 a9,9 0 1 0 -18,0 M12,7 L12,12 L15,14</PathGeometry>
             <PathGeometry x:Key="GeoArrow">M9,5 L16,12 L9,19</PathGeometry>
+            <PathGeometry x:Key="GeoPlay">M9.35,7 C8.75,7 8.35,7.4 8.35,8 L8.35,16 C8.35,16.6 8.95,17 9.55,16.7 L15.15,12.6 C15.65,12.3 15.65,11.7 15.15,11.4 L9.55,7.3 C9.45,7.1 9.45,7 9.35,7 Z</PathGeometry>
             <PathGeometry x:Key="GeoRefresh">M21,12 A9,9 0 1 1 18,5.3 M21,3 L21,9 L15,9</PathGeometry>
             <PathGeometry x:Key="GeoLock">M5,10 L19,10 L19,21 L5,21 Z M8,10 L8,7 A4,4 0 0 1 16,7 L16,10</PathGeometry>
             <PathGeometry x:Key="GeoUser">M12,12 m-4,0 a4,4 0 1 0 8,0 a4,4 0 1 0 -8,0 M4,21 A8,8 0 0 1 20,21</PathGeometry>
@@ -68,6 +69,9 @@
             <CornerRadius x:Key="RSm">12</CornerRadius>
             <CornerRadius x:Key="RCtl">10</CornerRadius>
 
+            <!-- ======== 滑动条：轨道从 Fluent 默认 2px 加高到 8px ======== -->
+            <x:Double x:Key="SliderTrackThemeHeight">8</x:Double>
+
             <!-- ======== 滚动条：主题自带的轨道/箭头画刷一律置空，只留胶囊滑块 ======== -->
             <SolidColorBrush x:Key="ScrollBarBackground" Color="Transparent"/>
             <SolidColorBrush x:Key="ScrollBarBackgroundPointerOver" Color="Transparent"/>
@@ -107,6 +111,8 @@
                     <SolidColorBrush x:Key="Card2Brush" Color="#222838"/>
                     <!-- 搜索框底：CardBrush 50% 透明，比卡片更轻 -->
                     <SolidColorBrush x:Key="SearchBgBrush" Color="#801A1F2C"/>
+                    <!-- 搜索框边框：LineBrush 一半透明度 -->
+                    <SolidColorBrush x:Key="SearchLineBrush" Color="#09FFFFFF"/>
                     <SolidColorBrush x:Key="HoverBrush" Color="#282F42"/>
                     <SolidColorBrush x:Key="LineBrush" Color="#12FFFFFF"/>
                     <SolidColorBrush x:Key="TextBrush" Color="#EEF1F6"/>
@@ -118,12 +124,17 @@
                     <SolidColorBrush x:Key="ScrollBarThumbFillPressed" Color="#C3CAD6"/>
                     <SolidColorBrush x:Key="AccentBrush" Color="#9FA8FF"/>
                     <SolidColorBrush x:Key="Accent2Brush" Color="#C7BCFF"/>
+                    <Color x:Key="Accent2Color">#C7BCFF</Color>
                     <SolidColorBrush x:Key="AccentSoftBrush" Color="#247C5CFC"/>
                     <SolidColorBrush x:Key="WarmTextBrush" Color="#C7BCFF"/>
                     <SolidColorBrush x:Key="NavActiveTextBrush" Color="#C7BCFF"/>
                     <SolidColorBrush x:Key="GreenBrush" Color="#6BE894"/>
                     <SolidColorBrush x:Key="GreenSoftBrush" Color="#242FD573"/>
                     <SolidColorBrush x:Key="BlueBrush" Color="#7FABFF"/>
+                    <Color x:Key="BlueColor">#7FABFF</Color>
+                    <SolidColorBrush x:Key="PinkBrush" Color="#FF8FAB"/>
+                    <Color x:Key="PinkColor">#FF8FAB</Color>
+                    <SolidColorBrush x:Key="PinkSoftBrush" Color="#22FF8FAB"/>
                     <SolidColorBrush x:Key="BlueSoftBrush" Color="#244D8DFF"/>
                     <SolidColorBrush x:Key="AmberBrush" Color="#FFD97A"/>
                     <SolidColorBrush x:Key="AmberSoftBrush" Color="#33FFC868"/>
@@ -140,8 +151,24 @@
                     <SolidColorBrush x:Key="Surface5Brush" Color="#14FFFFFF"/>
                     <SolidColorBrush x:Key="TrackBrush" Color="#2A3040"/>
                     <SolidColorBrush x:Key="ThumbBrush" Color="#8E96A8"/>
-                    <SolidColorBrush x:Key="MaskBrush" Color="#64000000"/>
-                    <SolidColorBrush x:Key="DrawerBgBrush" Color="#12151D"/>
+                    <!-- 滑动条（深色）：加高轨道、渐变已填充段、白滑块 -->
+                    <SolidColorBrush x:Key="SliderTrackFill" Color="#3A4258"/>
+                    <SolidColorBrush x:Key="SliderTrackFillPointerOver" Color="#47506B"/>
+                    <SolidColorBrush x:Key="SliderTrackFillPressed" Color="#47506B"/>
+                    <LinearGradientBrush x:Key="SliderTrackValueFill" StartPoint="0,0" EndPoint="1,0">
+                        <GradientStop Color="#7C5CFC" Offset="0"/>
+                        <GradientStop Color="#8B7CFF" Offset="1"/>
+                    </LinearGradientBrush>
+                    <SolidColorBrush x:Key="SliderTrackValueFillPointerOver" Color="#9B8CFF"/>
+                    <SolidColorBrush x:Key="SliderTrackValueFillPressed" Color="#7C5CFC"/>
+                    <SolidColorBrush x:Key="SliderThumbBackground" Color="#FFFFFF"/>
+                    <SolidColorBrush x:Key="SliderThumbBackgroundPointerOver" Color="#FFFFFF"/>
+                    <SolidColorBrush x:Key="SliderThumbBackgroundPressed" Color="#EDEFF6"/>
+                    <SolidColorBrush x:Key="MaskBrush" Color="#4A000000"/>
+                    <!-- 浅色遮罩层：比 MaskBrush 更淡，叠加在抽屉背景上形成柔和层次 -->
+                    <SolidColorBrush x:Key="MaskLightBrush" Color="#1E000000"/>
+                    <!-- 抽屉托盘：与主内容面板同色，卡片在其上浮起 -->
+                    <SolidColorBrush x:Key="DrawerBgBrush" Color="#0E1118"/>
                     <LinearGradientBrush x:Key="HeroBrush" StartPoint="0,0" EndPoint="1,1">
                         <GradientStop Color="#171B24" Offset="0"/>
                         <GradientStop Color="#141822" Offset="1"/>
@@ -163,11 +190,19 @@
                         <GradientStop Color="#7C5CFC" Offset="0"/>
                         <GradientStop Color="#9B8CFF" Offset="1"/>
                     </LinearGradientBrush>
-                    <Color x:Key="HeroColor1">#171B24</Color>
+                    <Color x:Key="HeroColor1">#1C2030</Color>
                     <Color x:Key="HeroColor2">#141822</Color>
-                    <Color x:Key="HeroGlowColor">#1F7C5CFC</Color>
+                    <Color x:Key="HeroColor3">#1A1F35</Color>
+                    <Color x:Key="HeroGlowColor">#2AFF8FAB</Color>
+                    <Color x:Key="HeroGlow2Color">#18FF8FAB</Color>
                     <Color x:Key="Ambient1">#1F7C5CFC</Color>
-                    <Color x:Key="Ambient2">#144D8DFF</Color>
+                    <Color x:Key="Ambient2">#14FF8FAB</Color>
+                    <!-- Hero 统计：统一轻底，弱化彩色背景 -->
+                    <SolidColorBrush x:Key="HeroStatGreenBg" Color="#0DFFFFFF"/>
+                    <SolidColorBrush x:Key="HeroStatPurpleBg" Color="#0DFFFFFF"/>
+                    <SolidColorBrush x:Key="HeroStatBlueBg" Color="#0DFFFFFF"/>
+                    <SolidColorBrush x:Key="HeroBorderBrush" Color="#14FFFFFF"/>
+                    <SolidColorBrush x:Key="StatPinkBrush" Color="#FF8FAB"/>
                     <!-- 骨架占位：卡底比真卡略沉，占位块略亮，白色高光带扫过才看得出来。
                          渐变端点必须写百分号，纯数字会被当成绝对像素，整条渐变缩成 1px。 -->
                     <SolidColorBrush x:Key="SkelCardBrush" Color="#161A24"/>
@@ -185,6 +220,8 @@
                     <SolidColorBrush x:Key="Card2Brush" Color="#F0F3F8"/>
                     <!-- 搜索框底：Card2Brush 50% 透明，比面板更轻 -->
                     <SolidColorBrush x:Key="SearchBgBrush" Color="#80F0F3F8"/>
+                    <!-- 搜索框边框：LineBrush 一半透明度 -->
+                    <SolidColorBrush x:Key="SearchLineBrush" Color="#0A0F172A"/>
                     <SolidColorBrush x:Key="HoverBrush" Color="#E8EDF5"/>
                     <SolidColorBrush x:Key="LineBrush" Color="#140F172A"/>
                     <SolidColorBrush x:Key="TextBrush" Color="#0F172A"/>
@@ -196,13 +233,18 @@
                     <SolidColorBrush x:Key="ScrollBarThumbFillPressed" Color="#99A3B5"/>
                     <SolidColorBrush x:Key="AccentBrush" Color="#8E83F0"/>
                     <SolidColorBrush x:Key="Accent2Brush" Color="#7E76E0"/>
+                    <Color x:Key="Accent2Color">#7E76E0</Color>
                     <SolidColorBrush x:Key="AccentSoftBrush" Color="#1F6D5BE3"/>
                     <SolidColorBrush x:Key="WarmTextBrush" Color="#5B4BC9"/>
                     <SolidColorBrush x:Key="NavActiveTextBrush" Color="#5B4BC9"/>
                     <SolidColorBrush x:Key="GreenBrush" Color="#4ADE80"/>
                     <SolidColorBrush x:Key="GreenSoftBrush" Color="#1F16A34A"/>
                     <SolidColorBrush x:Key="BlueBrush" Color="#60A5FA"/>
+                    <Color x:Key="BlueColor">#60A5FA</Color>
                     <SolidColorBrush x:Key="BlueSoftBrush" Color="#1C2563EB"/>
+                    <SolidColorBrush x:Key="PinkBrush" Color="#EC4899"/>
+                    <Color x:Key="PinkColor">#EC4899</Color>
+                    <SolidColorBrush x:Key="PinkSoftBrush" Color="#1AEC4899"/>
                     <SolidColorBrush x:Key="AmberBrush" Color="#FBBF24"/>
                     <SolidColorBrush x:Key="AmberSoftBrush" Color="#24E9A05C"/>
                     <SolidColorBrush x:Key="AmberTextBrush" Color="#C9843C"/>
@@ -218,8 +260,24 @@
                     <SolidColorBrush x:Key="Surface5Brush" Color="#140F172A"/>
                     <SolidColorBrush x:Key="TrackBrush" Color="#E7EBF3"/>
                     <SolidColorBrush x:Key="ThumbBrush" Color="#FFFFFF"/>
-                    <SolidColorBrush x:Key="MaskBrush" Color="#4A0F172A"/>
-                    <SolidColorBrush x:Key="DrawerBgBrush" Color="#FFFFFF"/>
+                    <!-- 滑动条（浅色）：加高轨道、渐变已填充段、白滑块 -->
+                    <SolidColorBrush x:Key="SliderTrackFill" Color="#C6CCD8"/>
+                    <SolidColorBrush x:Key="SliderTrackFillPointerOver" Color="#B5BDCC"/>
+                    <SolidColorBrush x:Key="SliderTrackFillPressed" Color="#B5BDCC"/>
+                    <LinearGradientBrush x:Key="SliderTrackValueFill" StartPoint="0,0" EndPoint="1,0">
+                        <GradientStop Color="#6D5BE3" Offset="0"/>
+                        <GradientStop Color="#8B7CFF" Offset="1"/>
+                    </LinearGradientBrush>
+                    <SolidColorBrush x:Key="SliderTrackValueFillPointerOver" Color="#8B7CFF"/>
+                    <SolidColorBrush x:Key="SliderTrackValueFillPressed" Color="#6D5BE3"/>
+                    <SolidColorBrush x:Key="SliderThumbBackground" Color="#FFFFFF"/>
+                    <SolidColorBrush x:Key="SliderThumbBackgroundPointerOver" Color="#FFFFFF"/>
+                    <SolidColorBrush x:Key="SliderThumbBackgroundPressed" Color="#EDEFF6"/>
+                    <SolidColorBrush x:Key="MaskBrush" Color="#340F172A"/>
+                    <!-- 浅色遮罩层：比 MaskBrush 更淡，叠加在抽屉背景上形成柔和层次 -->
+                    <SolidColorBrush x:Key="MaskLightBrush" Color="#120F172A"/>
+                    <!-- 抽屉托盘：与主内容面板同色，白卡在其上浮起（卡片式分布） -->
+                    <SolidColorBrush x:Key="DrawerBgBrush" Color="#F7F9FC"/>
                     <LinearGradientBrush x:Key="HeroBrush" StartPoint="0,0" EndPoint="1,1">
                         <GradientStop Color="#FFFFFF" Offset="0"/>
                         <GradientStop Color="#F7F9FC" Offset="1"/>
@@ -242,10 +300,18 @@
                         <GradientStop Color="#9B8CFF" Offset="1"/>
                     </LinearGradientBrush>
                     <Color x:Key="HeroColor1">#FFFFFF</Color>
-                    <Color x:Key="HeroColor2">#F7F9FC</Color>
-                    <Color x:Key="HeroGlowColor">#1F6D5BE3</Color>
+                    <Color x:Key="HeroColor2">#EEF2FB</Color>
+                    <Color x:Key="HeroColor3">#E8EEFF</Color>
+                    <Color x:Key="HeroGlowColor">#2AEC4899</Color>
+                    <Color x:Key="HeroGlow2Color">#14EC4899</Color>
                     <Color x:Key="Ambient1">#146D5BE3</Color>
-                    <Color x:Key="Ambient2">#0F2563EB</Color>
+                    <Color x:Key="Ambient2">#0FEC4899</Color>
+                    <!-- Hero 统计：统一轻底，弱化彩色背景 -->
+                    <SolidColorBrush x:Key="HeroStatGreenBg" Color="#0D0F172A"/>
+                    <SolidColorBrush x:Key="HeroStatPurpleBg" Color="#0D0F172A"/>
+                    <SolidColorBrush x:Key="HeroStatBlueBg" Color="#0D0F172A"/>
+                    <SolidColorBrush x:Key="HeroBorderBrush" Color="#140F172A"/>
+                    <SolidColorBrush x:Key="StatPinkBrush" Color="#EC4899"/>
                     <LinearGradientBrush x:Key="SkelShineBrush" StartPoint="0%,0%" EndPoint="100%,0%">
                         <GradientStop Color="Transparent" Offset="0"/>
                         <GradientStop Color="#FFFFFFFF" Offset="0.5"/>
@@ -288,6 +354,11 @@
             <Setter Property="CornerRadius" Value="{StaticResource R}"/>
             <Setter Property="Padding" Value="18"/>
             <Setter Property="BoxShadow" Value="0 1 2 0 #050F172A, 0 5 16 0 #080F172A"/>
+        </Style>
+
+        <!-- 滑动条滑块：白圆点加轻投影，浮在加高的轨道上 -->
+        <Style Selector="Slider /template/ Thumb /template/ Border">
+            <Setter Property="BoxShadow" Value="0 1 4 #59000000"/>
         </Style>
 
         <!-- ======== 按钮 ======== -->
@@ -386,15 +457,17 @@
             <Setter Property="Foreground" Value="White"/>
         </Style>
 
-        <!-- 标题栏主题钮 36×36 -->
+        <!-- 标题栏主题钮 36×36（抽屉关闭钮可覆写 Width/Height/Padding） -->
         <Style Selector="Button.ThemeBtn">
             <Setter Property="Width" Value="36"/>
             <Setter Property="Height" Value="36"/>
+            <Setter Property="Padding" Value="0"/>
             <Setter Property="Foreground" Value="{DynamicResource Text2Brush}"/>
             <Setter Property="Cursor" Value="Hand"/>
             <Setter Property="Template">
                 <ControlTemplate>
-                    <Border Name="Bd" CornerRadius="8" Background="Transparent">
+                    <Border Name="Bd" CornerRadius="8" Background="Transparent"
+                            Padding="{TemplateBinding Padding}">
                         <ContentPresenter Content="{TemplateBinding Content}"
                                           HorizontalAlignment="Center" VerticalAlignment="Center"/>
                     </Border>
@@ -786,6 +859,35 @@
             <Setter Property="RenderTransform" Value="translate(0px,-1px) scale(0.98)"/>
         </Style>
 
+        <!-- ======== 场景执行：纯播放图标按钮（默认透明，hover 才出圆角底） ======== -->
+        <Style Selector="Button.PlayCircle">
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="Padding" Value="0"/>
+            <Setter Property="HorizontalContentAlignment" Value="Center"/>
+            <Setter Property="VerticalContentAlignment" Value="Center"/>
+            <Setter Property="Template">
+                <ControlTemplate>
+                    <Border Name="Card" CornerRadius="12" Background="{TemplateBinding Background}">
+                        <Path Width="14" Height="14" Stretch="Uniform"
+                              Fill="{DynamicResource Text3Brush}" Opacity="0.55"
+                              Data="{StaticResource GeoPlay}"
+                              HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                    </Border>
+                </ControlTemplate>
+            </Setter>
+        </Style>
+        <Style Selector="Button.PlayCircle /template/ Border#Card">
+            <Setter Property="Transitions">
+                <Transitions>
+                    <BrushTransition Property="Background" Duration="0:0:0.15"/>
+                </Transitions>
+            </Setter>
+        </Style>
+        <Style Selector="Button.PlayCircle:pointerover /template/ Border#Card">
+            <Setter Property="Background" Value="{DynamicResource HoverBrush}"/>
+        </Style>
+
         <!-- ======== 搜索框：胶囊造型，聚焦/悬停均不改色 ======== -->
         <Style Selector="TextBox.Search">
             <Setter Property="Height" Value="32"/>
@@ -793,7 +895,7 @@
             <Setter Property="Foreground" Value="{DynamicResource TextBrush}"/>
             <Setter Property="CaretBrush" Value="{DynamicResource AccentBrush}"/>
             <Setter Property="Background" Value="{DynamicResource SearchBgBrush}"/>
-            <Setter Property="BorderBrush" Value="{DynamicResource LineBrush}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource SearchLineBrush}"/>
             <Setter Property="BorderThickness" Value="1"/>
             <Setter Property="CornerRadius" Value="16"/>
             <Setter Property="Padding" Value="13,0"/>
@@ -802,16 +904,16 @@
         <!-- 悬停/聚焦都保持同一底色与淡边框，不做颜色变化 -->
         <Style Selector="TextBox.Search /template/ Border#PART_BorderElement">
             <Setter Property="Background" Value="{DynamicResource SearchBgBrush}"/>
-            <Setter Property="BorderBrush" Value="{DynamicResource LineBrush}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource SearchLineBrush}"/>
             <Setter Property="BorderThickness" Value="1"/>
         </Style>
         <Style Selector="TextBox.Search:pointerover /template/ Border#PART_BorderElement">
             <Setter Property="Background" Value="{DynamicResource SearchBgBrush}"/>
-            <Setter Property="BorderBrush" Value="{DynamicResource LineBrush}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource SearchLineBrush}"/>
         </Style>
         <Style Selector="TextBox.Search:focus /template/ Border#PART_BorderElement">
             <Setter Property="Background" Value="{DynamicResource SearchBgBrush}"/>
-            <Setter Property="BorderBrush" Value="{DynamicResource LineBrush}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource SearchLineBrush}"/>
         </Style>
 
         <Style Selector="TextBox.Log">

@@ -34,6 +34,8 @@ public partial class MainWindow : Window
     public MainWindow()
     {
         InitializeComponent();
+        // 任务栏图标要在建任务栏按钮之前就位，否则会永久空白
+        WindowIconHelper.Apply(this);
         _normalSize = new Size(Width, Height);
         RestorePlacement();
 
@@ -285,31 +287,28 @@ public partial class MainWindow : Window
     }
 
     /// <summary>
-    /// 抽屉从右侧滑入（X 正方向出屏）、遮罩同步淡入；关闭时反向：遮罩淡出、抽屉滑出后隐藏。
-    /// 抽屉起点 X 取宽度+边距，确保整块完全移出窗口后才算滑完。
-    /// DeviceDrawer / DeviceMask 是 Border（Control）会生成字段；位移动画直接取抽屉的
-    /// RenderTransform（TranslateTransform），滑入/滑出各跑一个显式 Animation（RunAsync），
-    /// 结束回调负责隐藏与复位。
+    /// 抽屉从右侧滑入（X 正方向出屏），两层遮罩做淡入淡出动画（打开淡入、关闭淡出）。
+    /// 动画用完整关键帧（0%→100%）保证可靠；关闭动画结束后再统一隐藏，避免遮罩残留挡点击。
     /// </summary>
     private void AnimateDeviceDrawer(bool open)
     {
         var drawer = DeviceDrawer;
         var mask = DeviceMask;
+        var maskLight = DeviceMaskLight;
         var tx = drawer?.RenderTransform as TranslateTransform;
-        if (drawer == null || mask == null || tx == null) return;
+        if (drawer == null || mask == null || maskLight == null || tx == null) return;
 
         const double slide = 430;                    // 抽屉 380 宽 + 10 边距 + 余量，够完全出屏
         var duration = TimeSpan.FromMilliseconds(open ? 300 : 230);
         var ease = new CubicEaseOut();
 
+        // 打开：先显示（遮罩从透明开始淡入），关闭：保持当前显示直到淡出完成
         drawer.IsVisible = true;
         mask.IsVisible = true;
-
-        // 位移：先从当前位置设好起点，再动画到目标 X。
-        // 注意：transform 动画的宿主必须是 Visual（抽屉本身），不能直接 RunAsync(TranslateTransform)——
-        // Avalonia 的 TransformAnimator 会把宿主强转成 Visual，传 transform 会抛 InvalidCastException。
-        // Setter 用 TranslateTransform.XProperty，Avalonia 会自动定位到抽屉 RenderTransform 里的那个实例。
+        maskLight.IsVisible = true;
         tx.X = open ? slide : 0;
+
+        // 抽屉滑入 / 滑出（位移动画）
         var slideAnim = new Animation
         {
             Duration = duration,
@@ -322,21 +321,12 @@ public partial class MainWindow : Window
             Setters = { new Setter(TranslateTransform.XProperty, open ? 0 : slide) }
         });
 
-        // 遮罩透明度：淡入 / 淡出
-        mask.Opacity = open ? 0 : 1;
-        var fadeAnim = new Animation
-        {
-            Duration = duration,
-            Easing = ease,
-            FillMode = FillMode.Forward
-        };
-        fadeAnim.Children.Add(new KeyFrame
-        {
-            Cue = new Cue(1d),
-            Setters = { new Setter(OpacityProperty, open ? 1 : 0) }
-        });
+        // 两层遮罩淡入 / 淡出（完整关键帧，从明确起点到明确终点）
+        var maskAnim = FadeAnimation(open ? 0 : 1, open ? 1 : 0, duration, ease);
+        var maskLightAnim = FadeAnimation(open ? 0 : 1, open ? 1 : 0, duration, ease);
 
-        _ = fadeAnim.RunAsync(mask);
+        _ = maskAnim.RunAsync(mask);
+        _ = maskLightAnim.RunAsync(maskLight);
         _ = slideAnim.RunAsync(drawer).ContinueWith(_ =>
             Dispatcher.UIThread.Post(() =>
             {
@@ -345,8 +335,30 @@ public partial class MainWindow : Window
                 {
                     drawer.IsVisible = false;
                     mask.IsVisible = false;
-                    mask.Opacity = 0;
+                    maskLight.IsVisible = false;
                 }
             }));
+    }
+
+    /// <summary>构造一个透明度关键帧动画（0% 起、100% 止，FillMode.Forward 保持终值）。</summary>
+    private static Animation FadeAnimation(double from, double to, TimeSpan duration, Easing ease)
+    {
+        var anim = new Animation
+        {
+            Duration = duration,
+            Easing = ease,
+            FillMode = FillMode.Forward
+        };
+        anim.Children.Add(new KeyFrame
+        {
+            Cue = new Cue(0d),
+            Setters = { new Setter(OpacityProperty, from) }
+        });
+        anim.Children.Add(new KeyFrame
+        {
+            Cue = new Cue(1d),
+            Setters = { new Setter(OpacityProperty, to) }
+        });
+        return anim;
     }
 }

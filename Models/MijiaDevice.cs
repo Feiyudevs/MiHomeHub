@@ -40,15 +40,67 @@ public partial class MijiaDevice : ObservableObject
     [JsonPropertyName("isOnline")] public bool IsOnline { get; set; }
     [JsonPropertyName("spec_type")] public string SpecType { get; set; } = "";
 
-    /// <summary>由房间归属填充，不属于接口字段。</summary>
-    [JsonIgnore] public string RoomName { get; set; } = "未分配房间";
+    /// <summary>
+    /// 由房间归属填充，接口本身不带；带 JsonPropertyName 是为了 devices.json 本地缓存能还原房间。
+    /// </summary>
+    [JsonPropertyName("roomName")] public string RoomName { get; set; } = "未分配房间";
 
     /// <summary>控制请求进行中，用于禁用开关避免连点。</summary>
-    [JsonIgnore] [ObservableProperty] private bool _isBusy;
+    [property: JsonIgnore] [ObservableProperty] private bool _isBusy;
+
+    /// <summary>开关态来自独立接口；缓存写入 isOn，重启后先显示上次状态再联网校正。</summary>
+    [property: JsonPropertyName("isOn")]
     [ObservableProperty] private bool _isOn;
 
     /// <summary>产品真机图，按型号异步取到后回填；为空时卡片用矢量图标。</summary>
-    [JsonIgnore] [ObservableProperty] private Bitmap? _icon;
+    [property: JsonIgnore] [ObservableProperty] private Bitmap? _icon;
+
+    // ===== 设备可控属性的当前值（按类型加载到详情抽屉，不回显在卡片） =====
+
+    /// <summary>灯：亮度 1–100（MIoT light 服务 piid=2）。</summary>
+    [property: JsonIgnore] [ObservableProperty] private int _brightness = 100;
+
+    /// <summary>灯：色温，单位 K（MIoT light 服务 piid=3，多数灯 2700–6500）。</summary>
+    [property: JsonIgnore] [ObservableProperty] private int _colorTemp = 4000;
+
+    /// <summary>空调：运行模式（MIoT air-conditioner 服务 piid=2，见 AcModeValues）。</summary>
+    [property: JsonIgnore] [ObservableProperty] private int _acMode;
+
+    /// <summary>空调：目标温度 ℃（实际 siid/piid 由设备规格 AcSchema 决定）。</summary>
+    [property: JsonIgnore] [ObservableProperty] private double _acTargetTemp = 26;
+
+    /// <summary>空调：风速档位（实际 siid/piid 由设备规格 AcSchema 决定）。</summary>
+    [property: JsonIgnore] [ObservableProperty] private int _acFanLevel;
+
+    /// <summary>窗帘：当前开合度 0–100（siid=2/piid=3），打开/关闭后由详情页回填。</summary>
+    [property: JsonIgnore] [ObservableProperty] private int _curtainPosition;
+
+    /// <summary>是否灯（决定抽屉显示亮度/色温面板）。</summary>
+    [JsonIgnore] public bool IsLight => Category == "light";
+
+    /// <summary>是否空调（决定抽屉显示模式/温度/风速面板）。</summary>
+    [JsonIgnore] public bool IsAc => Category == "air-conditioner";
+
+    /// <summary>是否窗帘（决定抽屉显示打开/暂停/关闭面板）。</summary>
+    [JsonIgnore] public bool IsCurtain => Control == MijiaControl.Curtain;
+
+    /// <summary>标准 bool 开关类（抽屉显示电源开关；窗帘走单独的电机三键）。</summary>
+    [JsonIgnore] public bool IsPower => Control == MijiaControl.Power;
+
+    /// <summary>该空调的控制参数（按设备规格解析），决定抽屉里模式/温度/风速的显示与下发。</summary>
+    [property: JsonIgnore] [ObservableProperty] private AcControlSchema? _acSchema;
+
+    partial void OnAcModeChanged(int value)
+    {
+        if (_acSchema == null) return;
+        foreach (var o in _acSchema.Modes) o.IsSelected = o.Value == value;
+    }
+
+    partial void OnAcFanLevelChanged(int value)
+    {
+        if (_acSchema == null) return;
+        foreach (var o in _acSchema.Fans) o.IsSelected = o.Value == value;
+    }
 
     /// <summary>
     /// 图标 key：优先 spec_type 里的设备大类；没有 spec_type 时才退回 model 前缀猜，
@@ -62,7 +114,10 @@ public partial class MijiaDevice : ObservableObject
             switch (Category)
             {
                 case "light": return "light";
-                case "switch": return "switch";
+                case "switch":
+                case "multi-switch":
+                case "switch-button":
+                case "scene-switch": return "switch";
                 case "outlet":
                 case "smart-outlet": return "socket";
                 case "curtain": return "curtain";
@@ -82,20 +137,25 @@ public partial class MijiaDevice : ObservableObject
     }
 
     /// <summary>
-    /// 控制方式。窗帘的 siid=2/piid=1 是只写的 motor-control（0 停 1 开 2 关），
-    /// 和灯/开关/插座/空调的 bool on 不是一回事，必须分开下发。
+    /// 控制方式。窗帘的 siid=2/piid=1 是只写的 motor-control（0 停 1 开 2 关）；
+    /// 灯/插座/空调的 bool on 写死 siid=2/piid=1。
+    /// 开关类（含多路墙开、无线按键）一律不给远程控制，只展示状态。
     /// </summary>
     [JsonIgnore]
     public MijiaControl Control => IconKey switch
     {
         "curtain" => MijiaControl.Curtain,
-        "light" or "switch" or "socket" or "ac" => MijiaControl.Power,
+        "light" or "socket" or "ac" => MijiaControl.Power,
         _ => MijiaControl.None
     };
 
-    /// <summary>传感器、音箱、网关这类没有开关指令，只列出不给开关按钮。</summary>
+    /// <summary>传感器、全部开关类、音箱、网关：没有远程开关指令，只列出状态。</summary>
     [JsonIgnore]
     public bool IsControllable => Control != MijiaControl.None;
+
+    /// <summary>抽屉标题旁是否附状态：可控设备显示开/关；不可控仅离线时提示。</summary>
+    [JsonIgnore]
+    public bool ShowStatusText => IsControllable || !IsOnline;
 
     /// <summary>spec_type 形如 urn:miot-spec-v2:device:&lt;大类&gt;:&lt;型号段&gt;:&lt;版本&gt;。</summary>
     private string Category

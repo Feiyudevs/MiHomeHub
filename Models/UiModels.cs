@@ -92,6 +92,17 @@ public sealed partial class RoomChip : ObservableObject
         keys.Any(k => name.Contains(k, StringComparison.OrdinalIgnoreCase));
 }
 
+/// <summary>标题栏家庭下拉项：一次 homelist 拉取后固定，选中后按 Id 重拉该家庭设备。</summary>
+public sealed partial class HomeOption : ObservableObject
+{
+    public required string Id { get; init; }
+    public required string Name { get; init; }
+    public required long Uid { get; init; }
+
+    /// <summary>当前展示中的家庭，驱动下拉菜单勾选态。</summary>
+    [ObservableProperty] private bool _isSelected;
+}
+
 /// <summary>首页按房间分组的设备区块。</summary>
 public sealed class DeviceGroup
 {

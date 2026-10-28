@@ -12,6 +12,8 @@ public sealed class DeviceStatusConverter : IValueConverter
     {
         if (value is not MijiaDevice d) return "";
         if (!d.IsOnline) return "离线";
+        // 不可控设备没有开关语义，不在标题旁写“已关闭”（由 IsControllable 控制显隐）
+        if (!d.IsControllable) return "";
         return d.IsOn ? "已开启" : "已关闭";
     }
 

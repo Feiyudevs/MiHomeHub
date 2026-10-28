@@ -15,6 +15,13 @@
     <AvaloniaResource Include="Assets\**" />
   </ItemGroup>
 
+  <!-- 显式排除构建输出目录：避免 SDK 默认 **/*.cs 通配把 obj/bin 下的
+       AssemblyInfo 生成文件重复编入，导致 CS0579“特性重复”。 -->
+  <ItemGroup>
+    <Compile Remove="obj\**" />
+    <Compile Remove="bin\**" />
+  </ItemGroup>
+
   <ItemGroup>
     <PackageReference Include="Avalonia" Version="11.3.9" />
     <PackageReference Include="Avalonia.Desktop" Version="11.3.9" />

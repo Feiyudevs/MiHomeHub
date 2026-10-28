@@ -97,8 +97,9 @@ public class MijiaClient
         return ret.TryGetProperty("result", out var r) ? r : ret;
     }
 
-    public async Task<List<MijiaHome>> GetHomesAsync()
+    public async Task<List<MijiaHome>> GetHomesAsync(bool forceRefresh = false)
     {
+        if (!forceRefresh && _homes.Count > 0) return _homes;
         var r = await RequestAsync("/v2/homeroom/gethome_merged", new
         {
             fg = true, fetch_share = true, fetch_share_dev = true,
@@ -140,6 +141,12 @@ public class MijiaClient
         var lists = await Task.WhenAll(tasks);
         return lists.SelectMany(x => x).ToList();
     }
+
+    /// <summary>当前已缓存的家庭列表；先调 GetHomesAsync / GetAllDevicesAsync 才有内容。</summary>
+    public IReadOnlyList<MijiaHome> Homes => _homes;
+
+    /// <summary>按 id 取家庭；找不到返回 null。</summary>
+    public MijiaHome? FindHome(string id) => _homes.FirstOrDefault(h => h.Id == id);
 
     /// <summary>
     /// 房间归属只能从 homelist 的 roomlist[].dids 反查（device_info 的 extra 里没有房间）。
@@ -212,10 +219,96 @@ public class MijiaClient
         return r[0];
     }
 
+    /// <summary>拉取设备 MIoT 规格（services[]，含各属性 siid/piid/format/unit/range 或 value-list），用于核对属性定义。</summary>
+    public async Task<JsonElement> GetSpecAsync(string did)
+    {
+        return await RequestAsync("/miotspec/device/getspec", new
+        {
+            did, force = false, language = "zh_CN"
+        });
+    }
+
+    /// <summary>
+    /// 一次读同一设备的多个属性。返回 siid*1000+piid → 原始值（bool / int / double / string，或 null）。
+    /// 用组合键避免不同服务出现相同 piid 时互相覆盖（如空调模式 2/2 与风速 3/2）。
+    /// 单条失败（设备不支持该属性、离线、越界）云端会带负 code，这里逐条跳过，不回抛。
+    /// </summary>
+    public async Task<Dictionary<int, object?>> GetPropsAsync(string did, params (int siid, int piid)[] props)
+    {
+        var map = new Dictionary<int, object?>();
+        if (props.Length == 0) return map;
+        var r = await RequestAsync("/miotspec/prop/get", new
+        {
+            @params = props.Select(p => new { did, siid = p.siid, piid = p.piid }).ToArray(),
+            datasource = 1
+        });
+        if (r.ValueKind != JsonValueKind.Array) return map;
+
+        foreach (var item in r.EnumerateArray())
+        {
+            if (!item.TryGetProperty("siid", out var sp) || sp.ValueKind != JsonValueKind.Number) continue;
+            if (!item.TryGetProperty("piid", out var pp) || pp.ValueKind != JsonValueKind.Number) continue;
+            var key = sp.GetInt32() * 1000 + pp.GetInt32();
+            if (!item.TryGetProperty("value", out var v)) { map[key] = null; continue; }
+            map[key] = v.ValueKind switch
+            {
+                JsonValueKind.True => true,
+                JsonValueKind.False => false,
+                JsonValueKind.Number => v.TryGetInt32(out var i) ? (object)i : v.GetDouble(),
+                JsonValueKind.String => v.GetString(),
+                _ => null
+            };
+        }
+        return map;
+    }
+
+    /// <summary>灯详情：亮度 + 色温。</summary>
+    public sealed record LightState(int Brightness, int ColorTemp);
+
+    public async Task<LightState?> GetLightStateAsync(string did)
+    {
+        var m = await GetPropsAsync(did, (2, 2), (2, 3));
+        if (m.Count == 0) return null;
+        return new LightState(ToInt(m.GetValueOrDefault(2 * 1000 + 2), 100), ToInt(m.GetValueOrDefault(2 * 1000 + 3), 4000));
+    }
+
+    /// <summary>空调详情：模式 + 目标温度 + 风速（按设备规格的 siid/piid 读取）。</summary>
+    public sealed record AcState(int Mode, double TargetTemp, int FanLevel);
+
+    public async Task<AcState?> GetAcStateAsync(string did, Models.AcControlSchema schema)
+    {
+        var m = await GetPropsAsync(did,
+            (schema.ModeSiid, schema.ModePiid),
+            (schema.TempSiid, schema.TempPiid),
+            (schema.FanSiid, schema.FanPiid));
+        if (m.Count == 0) return null;
+        return new AcState(
+            ToInt(m.GetValueOrDefault(schema.ModeSiid * 1000 + schema.ModePiid), 0),
+            ToDouble(m.GetValueOrDefault(schema.TempSiid * 1000 + schema.TempPiid), 26),
+            ToInt(m.GetValueOrDefault(schema.FanSiid * 1000 + schema.FanPiid), 0));
+    }
+
+    private static int ToInt(object? v, int dflt) => v switch
+    {
+        int i => i,
+        double d => (int)d,
+        long l => (int)l,
+        string s when int.TryParse(s, out var i) => i,
+        _ => dflt
+    };
+
+    private static double ToDouble(object? v, double dflt) => v switch
+    {
+        double d => d,
+        int i => i,
+        long l => l,
+        string s when double.TryParse(s, out var d) => d,
+        _ => dflt
+    };
+
     /// <summary>
     /// 批量读开关状态。一次 /miotspec/prop/get 的每条 params 各自带 siid/piid，
-    /// 所以开关(piid=1)和窗帘(piid=3)能混在同一批里，不再分两轮串行；批次之间也并发。
-    /// 灯/开关/插座/空调读 piid=1 的 bool on；窗帘的 piid=1 只写不可读，改读 piid=3 的位置百分比。
+    /// 窗帘读 piid=3 位置；灯/插座/空调读 siid=2/piid=1；开关类不进本查询（只展示不可控）。
     /// </summary>
     public async Task<Dictionary<string, bool>> GetOnStatesAsync(IReadOnlyList<MijiaDevice> devices)
     {
@@ -235,12 +328,10 @@ public class MijiaClient
     private async Task<Dictionary<string, bool>> ReadStatesChunkAsync(List<MijiaDevice> chunk)
     {
         var map = new Dictionary<string, bool>();
-        var controls = new Dictionary<string, MijiaControl>();
-        foreach (var d in chunk) controls[d.Did] = d.Control;
-
         var query = chunk
             .Select(d => new { did = d.Did, siid = 2, piid = d.Control == MijiaControl.Curtain ? 3 : 1 })
             .ToArray();
+        if (query.Length == 0) return map;
         var r = await RequestAsync("/miotspec/prop/get", new { @params = query, datasource = 1 });
         if (r.ValueKind != JsonValueKind.Array) return map;
 
@@ -251,7 +342,7 @@ public class MijiaClient
                 continue;
 
             var did = dd.GetString()!;
-            var isCurtain = controls.TryGetValue(did, out var c) && c == MijiaControl.Curtain;
+            var isCurtain = chunk.Any(c => c.Did == did && c.Control == MijiaControl.Curtain);
             map[did] = isCurtain
                 ? v.ValueKind == JsonValueKind.Number && v.GetDouble() > 0
                 : v.ValueKind == JsonValueKind.True;
@@ -274,23 +365,126 @@ public class MijiaClient
         {
             var code = item.TryGetProperty("code", out var c) && c.ValueKind == JsonValueKind.Number
                 ? c.GetInt32() : 0;
-            if (code < 0) throw new Exception($"设备拒绝了指令（code {code}）");
+            if (code < 0)
+            {
+                var msg = item.TryGetProperty("message", out var m) ? m.GetString() : null;
+                throw new Exception(string.IsNullOrEmpty(msg)
+                    ? $"设备拒绝了指令 siid={siid} piid={piid}（code {code}）"
+                    : $"设备拒绝了指令 siid={siid} piid={piid}（code {code} {msg}）");
+            }
         }
     }
 
     /// <summary>
-    /// 便捷：开关灯。
-    /// 灯标准服务：siid=2, piid=1 是 on。
+    /// 用云端设备实例（/miotspec/device/getspec）解析可写 on 通道。
     /// </summary>
-    public async Task ToggleLightAsync(string did, bool on)
+    public async Task<SwitchControlSchema?> GetSwitchSchemaFromDeviceAsync(string did, string model)
     {
-        await SetPropAsync(did, 2, 1, on);
+        var key = string.IsNullOrEmpty(model) ? did : model;
+        lock (SpecCache)
+        {
+            if (SpecCache.TryGetValue(key, out var hit)) return hit;
+        }
+
+        try
+        {
+            var spec = await GetSpecAsync(did);
+            if (!spec.TryGetProperty("services", out var services) || services.ValueKind != JsonValueKind.Array)
+                return null;
+
+            var schema = MijiaSpecService.ParseSwitchChannels(services);
+            lock (SpecCache) SpecCache[key] = schema;
+            return schema;
+        }
+        catch
+        {
+            return null;
+        }
     }
 
-    /// <summary>窗帘：motor-control 只写，1=打开、2=关闭（0 是暂停）。</summary>
-    public async Task SetCurtainAsync(string did, bool open)
+    private readonly Dictionary<string, SwitchControlSchema?> SpecCache = new();
+
+    /// <summary>
+    /// 便捷：开关灯/墙开。灯与未解析规格的默认走 siid=2, piid=1；
+    /// 已解析规格的开关类按第一路可写 on 下发。
+    /// </summary>
+    public async Task ToggleLightAsync(string did, bool on, int siid = 2, int piid = 1)
     {
-        await SetPropAsync(did, 2, 1, open ? 1 : 2);
+        await SetPropAsync(did, siid, piid, on);
+    }
+
+    /// <summary>bool 开关下发：无通道信息时走 siid=2/piid=1（灯/插座/空调）。</summary>
+    public async Task SetPowerAsync(MijiaDevice device, bool on, SwitchChannelState? channel = null)
+    {
+        var ch = channel;
+        if (ch != null)
+        {
+            await SetPropAsync(device.Did, ch.Siid, ch.Piid, on);
+            return;
+        }
+        await SetPropAsync(device.Did, 2, 1, on);
+    }
+
+    /// <summary>灯亮度 1–100（light 服务 piid=2）。</summary>
+    public async Task SetLightBrightnessAsync(string did, int brightness)
+    {
+        await SetPropAsync(did, 2, 2, Math.Clamp(brightness, 1, 100));
+    }
+
+    /// <summary>灯色温，单位 K（light 服务 piid=3，常见 2700–6500）。</summary>
+    public async Task SetLightColorTempAsync(string did, int kelvin)
+    {
+        await SetPropAsync(did, 2, 3, Math.Clamp(kelvin, 1000, 10000));
+    }
+
+    /// <summary>空调运行模式（按设备规格的 siid/piid，取值来自该型号 value-list）。</summary>
+    public async Task SetAcModeAsync(string did, int siid, int piid, int mode)
+    {
+        await SetPropAsync(did, siid, piid, mode);
+    }
+
+    /// <summary>空调目标温度 ℃（按设备规格的 siid/piid，范围与步进取自 value-range）。</summary>
+    public async Task SetAcTargetTempAsync(string did, int siid, int piid, double temp, Models.AcControlSchema schema)
+    {
+        var rounded = Math.Round(Math.Clamp(temp, schema.TempMin, schema.TempMax) / schema.TempStep) * schema.TempStep;
+        await SetPropAsync(did, siid, piid, rounded);
+    }
+
+    /// <summary>空调风速档位（按设备规格的 siid/piid，取值来自该型号 value-list）。</summary>
+    public async Task SetAcFanLevelAsync(string did, int siid, int piid, int level)
+    {
+        await SetPropAsync(did, siid, piid, level);
+    }
+
+    // ===== 窗帘电机：motor-control 只写（siid=2 / piid=1），0 停 1 开 2 关 =====
+    public const int CurtainPause = 0;
+    public const int CurtainOpen = 1;
+    public const int CurtainClose = 2;
+
+    /// <summary>下发窗帘电机指令：0=暂停、1=打开、2=关闭。</summary>
+    public async Task SetCurtainMotorAsync(string did, int motor)
+    {
+        if (motor is < 0 or > 2) throw new ArgumentOutOfRangeException(nameof(motor), motor, "窗帘电机指令仅支持 0/1/2");
+        await SetPropAsync(did, 2, 1, motor);
+    }
+
+    /// <summary>兼容卡片快捷开关：true 打开、false 关闭（不发暂停）。</summary>
+    public Task SetCurtainAsync(string did, bool open) =>
+        SetCurtainMotorAsync(did, open ? CurtainOpen : CurtainClose);
+
+    /// <summary>读窗帘当前开合度 0–100（siid=2 / piid=3，只读位置百分比）。</summary>
+    public async Task<int?> GetCurtainPositionAsync(string did)
+    {
+        try
+        {
+            var m = await GetPropsAsync(did, (2, 3));
+            if (!m.TryGetValue(2 * 1000 + 3, out var v) || v == null) return null;
+            return Math.Clamp(ToInt(v, 0), 0, 100);
+        }
+        catch
+        {
+            return null;
+        }
     }
 
     /// <summary>读灯开关状态</summary>
