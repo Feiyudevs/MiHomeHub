@@ -3,6 +3,7 @@
              xmlns:ani="clr-namespace:Avalonia.Animation.Easings;assembly=Avalonia.Base"
              xmlns:conv="clr-namespace:MiHome.Converters"
              xmlns:ctl="clr-namespace:MiHome.Controls"
+             xmlns:vm="clr-namespace:MiHome.ViewModels"
              x:Class="MiHome.App"
              RequestedThemeVariant="Dark">
 
@@ -577,10 +578,10 @@
                                 <Grid ColumnDefinitions="21,*">
                                     <!-- 两套画法都备好，靠设置里的图标模式二选一显示 -->
                                     <Image Name="Gx" Grid.Column="0" Width="17" Height="17" Stretch="Uniform"
-                                           IsVisible="{Binding DataContext.IconGlass, RelativeSource={RelativeSource AncestorType=Window}}"
+                                           IsVisible="{Binding ((vm:MainViewModel)DataContext).IconGlass, RelativeSource={RelativeSource AncestorType=Window}}"
                                            Source="{Binding Tag, RelativeSource={RelativeSource TemplatedParent}, Converter={StaticResource NavSvg}}"/>
                                     <Path Name="Ic" Grid.Column="0" Width="15" Height="15" Stretch="Uniform"
-                                          IsVisible="{Binding !DataContext.IconGlass, RelativeSource={RelativeSource AncestorType=Window}}"
+                                          IsVisible="{Binding !((vm:MainViewModel)DataContext).IconGlass, RelativeSource={RelativeSource AncestorType=Window}}"
                                           Stroke="{TemplateBinding Foreground}" StrokeThickness="1.4"
                                           StrokeLineCap="Round" StrokeJoin="Round"
                                           Data="{Binding Tag, RelativeSource={RelativeSource TemplatedParent}, Converter={StaticResource NavLine}}"/>
@@ -841,7 +842,8 @@
                     <Border Name="Card" MinHeight="80" CornerRadius="16" Margin="8">
                         <Panel>
                             <!-- 光晕铺满整卡，靠自身圆角贴合卡片，避免硬边色块 -->
-                            <Border Name="Glow" CornerRadius="16" Background="{Binding GlowBrush}"
+                            <!-- Style 模板无 x:DataType：DataContext 类型由运行时内容决定，这里退回反射绑定 -->
+                            <Border Name="Glow" CornerRadius="16" Background="{ReflectionBinding GlowBrush}"
                                     IsHitTestVisible="False"/>
                             <Border Padding="12">
                                 <ContentPresenter Content="{TemplateBinding Content}"
@@ -882,7 +884,8 @@
                     <Border Name="Card" MinHeight="152" CornerRadius="16" Margin="8">
                         <Panel>
                             <!-- 光晕铺满整卡，靠自身圆角贴合卡片，避免硬边色块 -->
-                            <Border Name="Glow" CornerRadius="16" Background="{Binding GlowBrush}"
+                            <!-- Style 模板无 x:DataType：DataContext 类型由运行时内容决定，这里退回反射绑定 -->
+                            <Border Name="Glow" CornerRadius="16" Background="{ReflectionBinding GlowBrush}"
                                     IsHitTestVisible="False"/>
                             <Border Padding="18">
                                 <ContentPresenter Content="{TemplateBinding Content}"

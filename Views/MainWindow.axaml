@@ -36,7 +36,7 @@
         </DataTemplate>
 
         <!-- 加载骨架：与设备卡同尺寸同圆角，先用占位块占住宫格，真设备到手整块换掉 -->
-        <DataTemplate x:Key="SkeletonCardTemplate">
+        <DataTemplate x:Key="SkeletonCardTemplate" x:DataType="x:String">
             <Border Classes="SkelCard">
                 <Panel ClipToBounds="True">
                     <Grid ColumnDefinitions="Auto,*,Auto">
@@ -583,7 +583,7 @@
                 <!-- 未登录时点击整块去登录；已登录且多家庭时由 Flyout 切换 -->
                 <Button Classes="TitleAccount" Command="{Binding LoginCommand}"
                         IsVisible="{Binding !IsLoggedIn}"
-                        ToolTip.Tip="扫码登录">
+                        ToolTip.Tip="登录">
                     <TextBlock Text="登录" FontSize="12.5" FontWeight="SemiBold"
                                Foreground="{DynamicResource TextBrush}" />
                 </Button>
@@ -1032,7 +1032,7 @@
                             BoxShadow="0 12 24 #00000050" IsVisible="{Binding IsLoginOpen}">
                         <StackPanel Margin="24,22">
                             <Panel>
-                                <TextBlock Text="扫码登录" FontSize="19" FontWeight="Bold"
+                                <TextBlock Text="登录" FontSize="19" FontWeight="Bold"
                                            Foreground="{DynamicResource TextBrush}" VerticalAlignment="Center" />
                                 <Button Classes="ThemeBtn" HorizontalAlignment="Right"
                                         Command="{Binding CloseOverlaysCommand}">
@@ -1042,12 +1042,21 @@
                             </Panel>
 
                             <Border CornerRadius="16" Background="{DynamicResource CardBrush}" Padding="24"
-                                    Margin="0,22,0,0" HorizontalAlignment="Center">
+                                    Margin="0,22,0,0" HorizontalAlignment="Center"
+                                    IsVisible="{Binding QrImage, Converter={x:Static ObjectConverters.IsNotNull}}">
                                 <StackPanel Spacing="20">
-                                    <Image Source="{Binding QrImage}" Width="240" Height="240"
-                                           IsVisible="{Binding QrImage, Converter={x:Static ObjectConverters.IsNotNull}}" />
+                                    <Image Source="{Binding QrImage}" Width="240" Height="240" />
+                                    <TextBlock Text="{Binding QrHint}" Classes="Hint" TextWrapping="Wrap"
+                                               TextAlignment="Center" />
+                                </StackPanel>
+                            </Border>
+
+                            <Border CornerRadius="16" Background="{DynamicResource CardBrush}" Padding="24"
+                                    Margin="0,22,0,0" HorizontalAlignment="Center"
+                                    IsVisible="{Binding QrImage, Converter={x:Static ObjectConverters.IsNull}}">
+                                <StackPanel Spacing="20">
                                     <Border Width="240" Height="240" Background="{DynamicResource SurfaceBrush}"
-                                            CornerRadius="12" IsVisible="{Binding QrImage, Converter={x:Static ObjectConverters.IsNull}}">
+                                            CornerRadius="12" HorizontalAlignment="Center">
                                         <TextBlock Text="二维码获取后显示在这里" Classes="Hint"
                                                    HorizontalAlignment="Center" VerticalAlignment="Center" />
                                     </Border>
@@ -1056,8 +1065,17 @@
                                 </StackPanel>
                             </Border>
 
+                            <!-- 有 passToken 时主推一键登录；仍可改走扫码 -->
+                            <Button Classes="BtnPrimary" Content="一键登录" Margin="0,18,0,0"
+                                    HorizontalAlignment="Stretch"
+                                    Command="{Binding QuickLoginCommand}"
+                                    IsVisible="{Binding CanQuickLogin}" />
                             <Button Classes="BtnPrimary" Content="获取二维码" Margin="0,18,0,0"
-                                    HorizontalAlignment="Stretch" Command="{Binding LoginCommand}" />
+                                    HorizontalAlignment="Stretch" Command="{Binding QrLoginCommand}"
+                                    IsVisible="{Binding !CanQuickLogin}" />
+                            <Button Classes="BtnGhost" Content="改用扫码登录" Margin="0,10,0,0"
+                                    HorizontalAlignment="Stretch" Command="{Binding QrLoginCommand}"
+                                    IsVisible="{Binding CanQuickLogin}" />
                             <TextBlock Classes="Hint" Text="凭证仅保存在本机" HorizontalAlignment="Center" Margin="0,10,0,0" />
                         </StackPanel>
                     </Border>
@@ -1378,8 +1396,16 @@
                                                TextTrimming="CharacterEllipsis" />
                                     <TextBlock Text="凭证仅保存在本机 · 不上传第三方" Classes="Hint Sub" Margin="0,2,0,0" />
                                 </StackPanel>
+                                <!-- 已登录：一键退出；未登录：一键登录或扫码 -->
+                                <Button Grid.Column="2" Classes="BtnGhost" Content="退出登录" VerticalAlignment="Center"
+                                        Command="{Binding LogoutCommand}"
+                                        IsVisible="{Binding IsLoggedIn}" />
+                                <Button Grid.Column="2" Classes="BtnGhost" Content="一键登录" VerticalAlignment="Center"
+                                        Command="{Binding QuickLoginCommand}"
+                                        IsVisible="{Binding ShowQuickLoginAction}" />
                                 <Button Grid.Column="2" Classes="BtnGhost" Content="扫码登录" VerticalAlignment="Center"
-                                        Command="{Binding LoginCommand}" />
+                                        Command="{Binding QrLoginCommand}"
+                                        IsVisible="{Binding ShowQrLoginAction}" />
                             </Grid>
                         </StackPanel>
                     </Border>

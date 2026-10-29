@@ -1,6 +1,7 @@
 using System;
 using System.IO;
 using System.Text.Json;
+using System.Threading.Tasks;
 
 namespace MiHome.Services;
 
@@ -32,14 +33,18 @@ public static class IconStyleStore
     public static void Set(bool glass)
     {
         Glass = glass;
-        try
+        var payload = JsonSerializer.Serialize(new { style = glass ? "glass" : "line" });
+        _ = Task.Run(() =>
         {
-            Directory.CreateDirectory(Dir);
-            File.WriteAllText(FilePath, JsonSerializer.Serialize(new { style = glass ? "glass" : "line" }));
-        }
-        catch
-        {
-            // 写入失败不影响本次运行
-        }
+            try
+            {
+                Directory.CreateDirectory(Dir);
+                File.WriteAllText(FilePath, payload);
+            }
+            catch
+            {
+                // 写入失败不影响本次运行
+            }
+        });
     }
 }

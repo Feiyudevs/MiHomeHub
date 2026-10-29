@@ -20,12 +20,22 @@ MiHomeWin/
     └── MainWindow.axaml(.cs)
 ```
 
-## 运行
+## 运行 / 打包
+
+对齐 Zonex 流程，详见 `docs\一键编译与打包.md`：
 
 ```powershell
 cd I:\AICode\MiHomeWin
-dotnet run
+
+# 编译 + 单文件发布 + 启动（只编译加 -NoRun）
+.\build.cmd
+
+# 按当前版本打包（exe + 安装包 + SHA256）
+.\package.cmd
+.\package.cmd -Bump patch
 ```
+
+产物：`publish\sc-win-x64\MiHome.exe`（启动/回归固定路径）；`publish\release\<版本>\`（发版目录）。
 
 ## 使用步骤
 
@@ -56,4 +66,4 @@ HomeAssistant 内置 8123 API
 - 灯组件加亮度滑条（调用 `light.turn_on` + `brightness` 参数）
 - 温度传感器卡片化显示
 - WebSocket 接收后用 Dispatcher 强制切 UI 线程（当前 ObservableCollection 已自动 marshal）
-- 打包单文件 exe：`dotnet publish -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true`
+- 发布**不开** `PublishTrimmed`（残留 ReflectionBinding + 反射 JSON 会被裁坏）；体积约 46MB 自包含单文件

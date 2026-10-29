@@ -49,4 +49,17 @@ public static class DeviceCacheStore
             // 写入失败不影响本次运行
         }
     }
+
+    /// <summary>删除本地设备缓存；退出登录后不能再把上个账号的列表当秒开数据。</summary>
+    public static void Clear()
+    {
+        try
+        {
+            if (File.Exists(FilePath)) File.Delete(FilePath);
+        }
+        catch
+        {
+            // 删除失败则下次 Load 仍会读到旧数据，但不阻塞退出流程
+        }
+    }
 }

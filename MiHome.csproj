@@ -7,12 +7,42 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <UseAvalonia>true</UseAvalonia>
     <AssemblyName>MiHome</AssemblyName>
+    <RootNamespace>MiHome</RootNamespace>
     <Version>1.0.0</Version>
+    <AssemblyVersion>1.0.0.0</AssemblyVersion>
+    <FileVersion>1.0.0.0</FileVersion>
+    <InformationalVersion>1.0.0</InformationalVersion>
+    <Product>MiHome</Product>
+    <AssemblyTitle>MiHome</AssemblyTitle>
+    <Company>MiHome</Company>
+    <Description>MiHome — 米家桌面控制台</Description>
     <ApplicationIcon>Assets\logo.ico</ApplicationIcon>
+    <!-- 编译绑定：XAML 绑定错误编译期暴露，运行时零反射查找（Zonex 经验 P0）。
+         View 需有 x:DataType；个别无法类型化的路径可显式 {ReflectionBinding}。 -->
+    <AvaloniaUseCompiledBindingsByDefault>true</AvaloniaUseCompiledBindingsByDefault>
+  </PropertyGroup>
+
+  <!-- Release/分发：自包含单文件 + 压缩。
+       不开 PublishTrimmed：本应用 XAML 少量 ReflectionBinding + System.Text.Json 反射序列化，
+       link 裁剪会破坏登录（auth.json）、二维码、面板关闭等运行时行为（见 TrimmerRoots.xml 注释）。
+       若要重开裁剪：先清完 ReflectionBinding，JSON 改源生成，再补 root 并做完整回归。 -->
+  <PropertyGroup Condition="'$(Configuration)' == 'Release'">
+    <RuntimeIdentifier>win-x64</RuntimeIdentifier>
+    <SelfContained>true</SelfContained>
+    <PublishSingleFile>true</PublishSingleFile>
+    <EnableCompressionInSingleFile>true</EnableCompressionInSingleFile>
+    <IncludeNativeLibrariesForSelfExtract>true</IncludeNativeLibrariesForSelfExtract>
+    <DebugType>none</DebugType>
+    <DebugSymbols>false</DebugSymbols>
   </PropertyGroup>
 
   <ItemGroup>
     <AvaloniaResource Include="Assets\**" />
+  </ItemGroup>
+
+  <!-- 裁剪保护：见 TrimmerRoots.xml -->
+  <ItemGroup>
+    <TrimmerRootDescriptor Include="TrimmerRoots.xml" />
   </ItemGroup>
 
   <!-- 显式排除构建输出目录：避免 SDK 默认 **/*.cs 通配把 obj/bin 下的

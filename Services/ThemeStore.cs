@@ -1,6 +1,7 @@
 using System;
 using System.IO;
 using System.Text.Json;
+using System.Threading.Tasks;
 using Avalonia.Styling;
 
 namespace MiHome.Services;
@@ -34,14 +35,19 @@ public static class ThemeStore
     public static void Set(bool light)
     {
         IsLight = light;
-        try
+        var payload = JsonSerializer.Serialize(new { theme = light ? "light" : "dark" });
+        // 写盘出 UI 线程；进程被强杀时可能丢最后一次偏好，可接受
+        _ = Task.Run(() =>
         {
-            Directory.CreateDirectory(Dir);
-            File.WriteAllText(FilePath, JsonSerializer.Serialize(new { theme = light ? "light" : "dark" }));
-        }
-        catch
-        {
-            // 写入失败不影响本次运行
-        }
+            try
+            {
+                Directory.CreateDirectory(Dir);
+                File.WriteAllText(FilePath, payload);
+            }
+            catch
+            {
+                // 写入失败不影响本次运行
+            }
+        });
     }
 }

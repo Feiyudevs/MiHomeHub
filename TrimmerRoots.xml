@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!--
+  当前 csproj 未启用 PublishTrimmed（见 Release PropertyGroup 注释）。
+  XAML 已默认 AvaloniaUseCompiledBindingsByDefault，但仍有少量 ReflectionBinding
+  + System.Text.Json 反射序列化；link 裁剪会导致：auth.json 读不到、
+  二维码不显示、登录面板关不掉、绑定失效。
+
+  若将来重新启用 PublishTrimmed(TrimMode=link)，必须保留至少：
+  - MiHome / Avalonia* / System.Text.Json / System.Text.Encodings.Web
+  - System.Web.HttpUtility / QRCoder / CommunityToolkit.Mvvm
+  并清完 ReflectionBinding、JSON 改源生成后，再做完整功能回归。
+-->
+<linker>
+  <assembly fullname="MiHome" preserve="all" />
+  <assembly fullname="Avalonia" preserve="all" />
+  <assembly fullname="Avalonia.Base" preserve="all" />
+  <assembly fullname="Avalonia.Controls" preserve="all" />
+  <assembly fullname="Avalonia.Desktop" preserve="all" />
+  <assembly fullname="Avalonia.Themes.Fluent" preserve="all" />
+  <assembly fullname="Avalonia.Markup" preserve="all" />
+  <assembly fullname="Avalonia.Markup.Xaml" preserve="all" />
+  <assembly fullname="Avalonia.Native" preserve="all" />
+  <assembly fullname="Avalonia.Win32" preserve="all" />
+  <assembly fullname="Avalonia.Skia" preserve="all" />
+  <assembly fullname="Avalonia.Svg.Skia" preserve="all" />
+  <assembly fullname="System.Text.Json" preserve="all" />
+  <assembly fullname="System.Text.Encodings.Web" preserve="all" />
+  <assembly fullname="System.Private.DataContractSerialization" preserve="all" />
+  <assembly fullname="System.Linq.Expressions" preserve="all" />
+  <assembly fullname="System.ComponentModel.TypeConverter" preserve="all" />
+  <assembly fullname="System.ComponentModel.Primitives" preserve="all" />
+  <assembly fullname="System.Web.HttpUtility" preserve="all" />
+  <assembly fullname="QRCoder" preserve="all" />
+  <assembly fullname="CommunityToolkit.Mvvm" preserve="all" />
+</linker>

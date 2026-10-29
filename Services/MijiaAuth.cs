@@ -22,6 +22,7 @@ public class MijiaAuth
     private const string ServiceLoginUrl = "https://account.xiaomi.com/pass/serviceLogin?_json=true&sid=mijia&_locale=zh_CN";
     private const string LoginUrlBase = "https://account.xiaomi.com/longPolling/loginUrl";
 
+    /// <summary>扫码流程专用：需要 CookieContainer 串起 serviceLogin → lp → 回调。</summary>
     private static HttpClient NewClient() => new(new HttpClientHandler
     {
         AllowAutoRedirect = false,
@@ -32,8 +33,30 @@ public class MijiaAuth
         Timeout = TimeSpan.FromSeconds(150)
     };
 
-    private readonly HttpClient _http = NewClient();
+    /// <summary>
+    /// 换 serviceToken 专用：UseCookies=false，只带我们拼的 passport Cookie。
+    /// 共享 CookieContainer 会把上次登录的 serviceToken/过期会话掺进下次 serviceLogin，
+    /// 表现为退出后再一键登录必失败、只能改扫码。
+    /// </summary>
+    private static HttpClient NewRefreshClient() => new(new HttpClientHandler
+    {
+        AllowAutoRedirect = false,
+        AutomaticDecompression = DecompressionMethods.GZip,
+        UseCookies = false
+    })
+    {
+        Timeout = TimeSpan.FromSeconds(30)
+    };
+
+    private HttpClient _http = NewClient();
     public AuthData Auth { get; private set; } = new();
+
+    /// <summary>丢弃扫码会话的 Cookie，避免退出/下次登录带上旧 Cookie。</summary>
+    private void ResetHttp()
+    {
+        try { _http.Dispose(); } catch { }
+        _http = NewClient();
+    }
 
     private static readonly string AuthPath = Path.Combine(AppPaths.Dir, "auth.json");
 
@@ -56,6 +79,22 @@ public class MijiaAuth
         return !string.IsNullOrEmpty(Auth.ServiceToken)
             && !string.IsNullOrEmpty(Auth.SSecurity)
             && DateTimeOffset.UtcNow.ToUnixTimeMilliseconds() < Auth.ExpireTime;
+    }
+
+    /// <summary>是否还留着 passToken，可走一键登录、无需重新扫码。</summary>
+    public bool CanQuickLogin() => !string.IsNullOrEmpty(Auth.PassToken);
+
+    /// <summary>
+    /// 退出登录：清掉会话凭证（serviceToken / ssecurity），保留 passToken 与设备标识，
+    /// 下次可一键换新 serviceToken，不必再扫码。
+    /// </summary>
+    public void Logout()
+    {
+        Auth.ServiceToken = "";
+        Auth.SSecurity = "";
+        Auth.ExpireTime = 0;
+        Save();
+        ResetHttp();
     }
 
     public void Save()
@@ -104,55 +143,95 @@ public class MijiaAuth
             $"userId={Auth.UserId};cUserId={Auth.CUserId};uLocale=zh_CN;");
     }
 
+    /// <summary>最近一次 RefreshServiceTokenAsync 失败原因（成功时为 null）。</summary>
+    public string? LastRefreshError { get; private set; }
+
     /// <summary>
     /// 用已存的 passToken 换「与该服务配对」的 ssecurity + serviceToken，无需重新扫码。
     /// 必须用 serviceLogin 响应里的 ssecurity 去配它自己 location 下发的 serviceToken；
     /// 用扫码长轮询响应里的 ssecurity 会被判 code=4 auth error。
+    /// 每次独立建连，不复用扫码会话的 CookieContainer。
     /// </summary>
-    public async Task<bool> RefreshServiceTokenAsync()
+    public async Task<bool> RefreshServiceTokenAsync(CancellationToken ct = default)
     {
+        LastRefreshError = null;
         EnsureDeviceId();
-        UsePassportCookies();
+        using var http = NewRefreshClient();
+        http.DefaultRequestHeaders.Add("User-Agent", Ua);
+        http.DefaultRequestHeaders.Add("Cookie",
+            $"deviceId={Auth.DeviceId};pass_o={Auth.PassO};passToken={Auth.PassToken};" +
+            $"userId={Auth.UserId};cUserId={Auth.CUserId};uLocale=zh_CN;");
 
-        var resp = await _http.GetAsync(ServiceLoginUrl);
-        var text = (await resp.Content.ReadAsStringAsync()).Replace("&&&START&&&", "");
-        using var doc = JsonDocument.Parse(text);
-        var root = doc.RootElement;
-        if (root.TryGetProperty("code", out var c) && c.GetInt32() != 0) return false;
-        var ssecurity = Text(root, "ssecurity");
-        var location = Text(root, "location");
-        if (string.IsNullOrEmpty(ssecurity) || string.IsNullOrEmpty(location)) return false;
-
-        var locResp = await _http.GetAsync(location);
-        if ((int)locResp.StatusCode != 200) return false;
-        var token = "";
-        if (locResp.Headers.TryGetValues("Set-Cookie", out var cookies))
+        try
         {
-            foreach (var setCookie in cookies)
+            var resp = await http.GetAsync(ServiceLoginUrl, ct);
+            var text = (await resp.Content.ReadAsStringAsync(ct)).Replace("&&&START&&&", "");
+            using var doc = JsonDocument.Parse(text);
+            var root = doc.RootElement;
+            if (root.TryGetProperty("code", out var c) && c.GetInt32() != 0)
             {
-                var kv = setCookie.Split(';')[0];
-                var idx = kv.IndexOf('=');
-                if (idx <= 0) continue;
-                if (kv[..idx] == "serviceToken") token = kv[(idx + 1)..];
+                LastRefreshError = $"serviceLogin code={c.GetInt32()} {Text(root, "description")}";
+                return false;
             }
-        }
-        if (string.IsNullOrEmpty(token)) return false;
+            var ssecurity = Text(root, "ssecurity");
+            var location = Text(root, "location");
+            if (string.IsNullOrEmpty(ssecurity) || string.IsNullOrEmpty(location))
+            {
+                LastRefreshError = "serviceLogin 未返回 ssecurity/location";
+                return false;
+            }
 
-        Auth.SSecurity = ssecurity;
-        Auth.ServiceToken = token;
-        Save();
-        return true;
+            var locResp = await http.GetAsync(location, ct);
+            if ((int)locResp.StatusCode != 200)
+            {
+                LastRefreshError = $"location HTTP {(int)locResp.StatusCode}";
+                return false;
+            }
+            var token = "";
+            if (locResp.Headers.TryGetValues("Set-Cookie", out var cookies))
+            {
+                foreach (var setCookie in cookies)
+                {
+                    var kv = setCookie.Split(';')[0];
+                    var idx = kv.IndexOf('=');
+                    if (idx <= 0) continue;
+                    if (kv[..idx] == "serviceToken") token = kv[(idx + 1)..];
+                }
+            }
+            if (string.IsNullOrEmpty(token))
+            {
+                LastRefreshError = "location 未下发 serviceToken";
+                return false;
+            }
+
+            Auth.SSecurity = ssecurity;
+            Auth.ServiceToken = token;
+            Save();
+            return true;
+        }
+        catch (OperationCanceledException)
+        {
+            LastRefreshError = "已取消";
+            return false;
+        }
+        catch (Exception ex)
+        {
+            LastRefreshError = $"{ex.GetType().Name}: {ex.Message}";
+            return false;
+        }
     }
 
     /// <summary>第一步：获取扫码所需数据（loginUrl 用作二维码内容，lp 用于长轮询）</summary>
-    public async Task<(string loginUrl, string lp)?> GetQrLoginDataAsync()
+    public async Task<(string loginUrl, string lp)?> GetQrLoginDataAsync(CancellationToken ct = default)
     {
+        // 每次扫码都从干净 Cookie 会话开始，避免上次登录/长轮询残留干扰
+        ResetHttp();
         EnsureDeviceId();
         UsePassportCookies();
 
         // 1) serviceLogin 拿 location
-        var resp = await _http.GetAsync(ServiceLoginUrl);
-        var text = await resp.Content.ReadAsStringAsync();
+        var resp = await _http.GetAsync(ServiceLoginUrl, ct);
+        var text = await resp.Content.ReadAsStringAsync(ct);
         text = text.Replace("&&&START&&&", "");
         using var doc = JsonDocument.Parse(text);
         var root = doc.RootElement;
@@ -171,8 +250,8 @@ public class MijiaAuth
         }
         qb.Append("theme=&bizDeviceType=&_hasLogo=false&_qrsize=240&_dc=").Append(DateTimeOffset.UtcNow.ToUnixTimeMilliseconds());
 
-        var resp2 = await _http.GetAsync(qb.ToString());
-        var text2 = await resp2.Content.ReadAsStringAsync();
+        var resp2 = await _http.GetAsync(qb.ToString(), ct);
+        var text2 = await resp2.Content.ReadAsStringAsync(ct);
         text2 = text2.Replace("&&&START&&&", "");
         using var doc2 = JsonDocument.Parse(text2);
         var root2 = doc2.RootElement;
@@ -192,16 +271,17 @@ public class MijiaAuth
         return el.ValueKind == JsonValueKind.String ? el.GetString() ?? "" : el.GetRawText();
     }
 
-    /// <summary>第二步：长轮询等待用户扫码（最长 120s）。成功后填充 Auth 并保存。</summary>
-    public async Task<bool> WaitForScanAsync(string lp)
+    /// <summary>第二步：长轮询等待用户扫码（最长 120s）。成功后填充 Auth 并保存。取消登录时传入的 ct 会立刻打断。</summary>
+    public async Task<bool> WaitForScanAsync(string lp, CancellationToken ct = default)
     {
         LastScanError = null;
         var raw = "";
         // 复用 _http：lp 与回调都依赖第一步登录页下发的 Cookie 会话
         try
         {
-            var resp = await _http.GetAsync(lp);
-            raw = await resp.Content.ReadAsStringAsync();
+            var resp = await _http.GetAsync(lp, ct);
+            raw = await resp.Content.ReadAsStringAsync(ct);
+            ct.ThrowIfCancellationRequested();
             var text = raw.Replace("&&&START&&&", "");
             using var doc = JsonDocument.Parse(text);
             var root = doc.RootElement;
@@ -218,7 +298,7 @@ public class MijiaAuth
 
             // 第三步：GET location，从 Set-Cookie 里拿 serviceToken
             var callback = Text(root, "location");
-            var cbResp = await _http.GetAsync(callback);
+            var cbResp = await _http.GetAsync(callback, ct);
             if (cbResp.Headers.TryGetValues("Set-Cookie", out var cookies))
             {
                 foreach (var setCookie in cookies)
@@ -237,6 +317,11 @@ public class MijiaAuth
             if (string.IsNullOrEmpty(Auth.ServiceToken))
                 LastScanError = $"回调 {(int)cbResp.StatusCode} 未下发 serviceToken";
             return !string.IsNullOrEmpty(Auth.ServiceToken);
+        }
+        catch (OperationCanceledException)
+        {
+            LastScanError = "已取消";
+            return false;
         }
         catch (Exception ex)
         {
