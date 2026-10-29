@@ -1,0 +1,24 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="24" height="24">
+<defs>
+  <linearGradient id="gA" x1="0" y1="0" x2="0.38" y2="1"><stop offset="0" stop-color="#A78BFA"/><stop offset="1" stop-color="#7C5CFC"/></linearGradient>
+  <linearGradient id="gW" x1="0" y1="0" x2="0.38" y2="1"><stop offset="0" stop-color="#FFFFFF"/><stop offset="1" stop-color="#E8EAF0"/></linearGradient>
+  <linearGradient id="sheen" x1="0" y1="0" x2="0.62" y2="1">
+    <stop offset="0" stop-color="#FFFFFF" stop-opacity=".5"/>
+    <stop offset=".42" stop-color="#FFFFFF" stop-opacity=".07"/>
+    <stop offset="1" stop-color="#FFFFFF" stop-opacity="0"/>
+  </linearGradient>
+  <linearGradient id="deep" x1="1" y1="1" x2="0.3" y2="0">
+    <stop offset="0" stop-color="#0B1020" stop-opacity=".26"/>
+    <stop offset=".55" stop-color="#0B1020" stop-opacity="0"/>
+  </linearGradient>
+  <radialGradient id="soft">
+    <stop offset="0" stop-color="#0B1020" stop-opacity=".55"/>
+    <stop offset="1" stop-color="#0B1020" stop-opacity="0"/>
+  </radialGradient>
+  <clipPath id="cu"><path d="M12,2.2L21.4,10.4V18.2A2.9,2.9 0 0 1 18.5,21.1H5.5A2.9,2.9 0 0 1 2.6,18.2V10.4Z"/></clipPath>
+  
+  <clipPath id="c1"><path d="M12,2.2L21.4,10.4V18.2A2.9,2.9 0 0 1 18.5,21.1H5.5A2.9,2.9 0 0 1 2.6,18.2V10.4Z"/></clipPath>
+</defs>
+<path d="M12,2.2L21.4,10.4V18.2A2.9,2.9 0 0 1 18.5,21.1H5.5A2.9,2.9 0 0 1 2.6,18.2V10.4Z" fill="url(#gA)" fill-opacity="0.95"/>
+<path d="M11.6,13.2H12.4A2.5,2.5 0 0 1 14.9,15.7V18.6A2.5,2.5 0 0 1 12.4,21.1H11.6A2.5,2.5 0 0 1 9.1,18.6V15.7A2.5,2.5 0 0 1 11.6,13.2Z" fill="url(#gW)" fill-opacity="0.95"/>
+</svg>

@@ -1,0 +1,26 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="24" height="24">
+<defs>
+  <linearGradient id="gY" x1="0" y1="0" x2="0.38" y2="1"><stop offset="0" stop-color="#FFD97A"/><stop offset="1" stop-color="#F0A24A"/></linearGradient>
+  <linearGradient id="gG" x1="0" y1="0" x2="0.38" y2="1"><stop offset="0" stop-color="#6BE894"/><stop offset="1" stop-color="#2FD573"/></linearGradient>
+  <linearGradient id="sheen" x1="0" y1="0" x2="0.62" y2="1">
+    <stop offset="0" stop-color="#FFFFFF" stop-opacity=".5"/>
+    <stop offset=".42" stop-color="#FFFFFF" stop-opacity=".07"/>
+    <stop offset="1" stop-color="#FFFFFF" stop-opacity="0"/>
+  </linearGradient>
+  <linearGradient id="deep" x1="1" y1="1" x2="0.3" y2="0">
+    <stop offset="0" stop-color="#0B1020" stop-opacity=".26"/>
+    <stop offset=".55" stop-color="#0B1020" stop-opacity="0"/>
+  </linearGradient>
+  <radialGradient id="soft">
+    <stop offset="0" stop-color="#0B1020" stop-opacity=".55"/>
+    <stop offset="1" stop-color="#0B1020" stop-opacity="0"/>
+  </radialGradient>
+  <clipPath id="cu"><path d="M8.8,14.2H15.2A2.9,2.9 0 0 1 18.1,17.1V18.5A2.9,2.9 0 0 1 15.2,21.4H8.8A2.9,2.9 0 0 1 5.9,18.5V17.1A2.9,2.9 0 0 1 8.8,14.2Z"/><path d="M12,15C12,9.4 8.3,5.8 3,5.2C3,11.4 6.9,15 12,15Z"/><path d="M12.7,15C12.7,10.3 15.7,6.8 21,6.3C21,11.9 17.5,14.9 12.7,15Z"/></clipPath>
+  
+  <clipPath id="c1"><path d="M8.8,14.2H15.2A2.9,2.9 0 0 1 18.1,17.1V18.5A2.9,2.9 0 0 1 15.2,21.4H8.8A2.9,2.9 0 0 1 5.9,18.5V17.1A2.9,2.9 0 0 1 8.8,14.2Z"/></clipPath>
+  <clipPath id="c2"><path d="M8.8,14.2H15.2A2.9,2.9 0 0 1 18.1,17.1V18.5A2.9,2.9 0 0 1 15.2,21.4H8.8A2.9,2.9 0 0 1 5.9,18.5V17.1A2.9,2.9 0 0 1 8.8,14.2Z"/><path d="M12,15C12,9.4 8.3,5.8 3,5.2C3,11.4 6.9,15 12,15Z"/></clipPath>
+</defs>
+<path d="M8.8,14.2H15.2A2.9,2.9 0 0 1 18.1,17.1V18.5A2.9,2.9 0 0 1 15.2,21.4H8.8A2.9,2.9 0 0 1 5.9,18.5V17.1A2.9,2.9 0 0 1 8.8,14.2Z" fill="url(#gY)" fill-opacity="0.95"/>
+<g clip-path="url(#c1)"><rect x="0.4" y="2.6" width="14.2" height="15" fill="url(#soft)" opacity=".5"/></g><path d="M12,15C12,9.4 8.3,5.8 3,5.2C3,11.4 6.9,15 12,15Z" fill="url(#gG)" fill-opacity="0.95"/>
+<g clip-path="url(#c2)"><rect x="10.1" y="3.7" width="13.5" height="13.9" fill="url(#soft)" opacity=".5"/></g><path d="M12.7,15C12.7,10.3 15.7,6.8 21,6.3C21,11.9 17.5,14.9 12.7,15Z" fill="url(#gG)" fill-opacity="0.88"/>
+</svg>

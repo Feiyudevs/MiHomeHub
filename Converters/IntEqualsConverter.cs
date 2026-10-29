@@ -2,7 +2,7 @@ using System;
 using System.Globalization;
 using Avalonia.Data.Converters;
 
-namespace MijiaPanel.Converters;
+namespace MiHome.Converters;
 
 /// <summary>
 /// int 是否等于参数（值、参数都转成 int 再比）。用于模式/风速按钮的选中态高亮：

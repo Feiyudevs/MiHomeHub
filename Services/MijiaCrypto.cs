@@ -1,7 +1,7 @@
 using System.Security.Cryptography;
 using System.Text;
 
-namespace MijiaPanel.Services;
+namespace MiHome.Services;
 
 /// <summary>
 /// 米家云端请求加密/签名（移植自 mijia-api miutils.py）

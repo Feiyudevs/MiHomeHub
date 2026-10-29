@@ -8,10 +8,10 @@ using Avalonia.Interactivity;
 using Avalonia.Media;
 using Avalonia.Styling;
 using Avalonia.Threading;
-using MijiaPanel.Services;
-using MijiaPanel.ViewModels;
+using MiHome.Services;
+using MiHome.ViewModels;
 
-namespace MijiaPanel.Views;
+namespace MiHome.Views;
 
 public partial class MainWindow : Window
 {

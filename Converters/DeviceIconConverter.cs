@@ -2,9 +2,9 @@ using System;
 using System.Globalization;
 using Avalonia.Data.Converters;
 using Avalonia.Media;
-using MijiaPanel.Models;
+using MiHome.Models;
 
-namespace MijiaPanel.Converters;
+namespace MiHome.Converters;
 
 /// <summary>
 /// 设备图标：24 网格、圆头描边的单线路径，按 MijiaDevice.IconKey 取几何。

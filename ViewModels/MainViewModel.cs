@@ -5,6 +5,7 @@ using System.ComponentModel;
 using System.Globalization;
 using System.IO;
 using System.Linq;
+using System.Runtime;
 using System.Threading.Tasks;
 using Avalonia;
 using Avalonia.Media;
@@ -13,11 +14,11 @@ using Avalonia.Styling;
 using Avalonia.Threading;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
-using MijiaPanel.Models;
-using MijiaPanel.Services;
+using MiHome.Models;
+using MiHome.Services;
 using QRCoder;
 
-namespace MijiaPanel.ViewModels;
+namespace MiHome.ViewModels;
 
 public partial class MainViewModel : ObservableObject
 {
@@ -62,6 +63,7 @@ public partial class MainViewModel : ObservableObject
     [ObservableProperty] private bool _isLoading;
 
     [ObservableProperty] private bool _isDark = !ThemeStore.IsLight;
+    [ObservableProperty] private bool _iconGlass = IconStyleStore.Glass;
     [ObservableProperty] private int _selectedNavIndex;
     [ObservableProperty] private string _searchText = "";
     [ObservableProperty] private MijiaDevice? _drawerDevice;
@@ -109,7 +111,19 @@ public partial class MainViewModel : ObservableObject
     public bool IsHome => SelectedNavIndex == 0;
     public bool IsRooms => SelectedNavIndex == 1;
     public bool IsScenes => SelectedNavIndex == 2;
-    public string ThemeLabel => IsDark ? "深色主题 · 点击切换浅色" : "浅色主题 · 点击切换深色";
+
+    /// <summary>设置里的两个下拉选项：Value 直接对上 IsDark / IconGlass。</summary>
+    public IReadOnlyList<OptionItem> ThemeOptions { get; } =
+    [
+        new() { Label = "深色主题", Value = true },
+        new() { Label = "浅色主题", Value = false }
+    ];
+
+    public IReadOnlyList<OptionItem> IconOptions { get; } =
+    [
+        new() { Label = "多色图标", Value = true },
+        new() { Label = "细线描边", Value = false }
+    ];
 
     public MainViewModel()
     {
@@ -144,8 +158,9 @@ public partial class MainViewModel : ObservableObject
         ThemeStore.Set(!value);
         if (Application.Current != null)
             Application.Current.RequestedThemeVariant = value ? ThemeVariant.Dark : ThemeVariant.Light;
-        OnPropertyChanged(nameof(ThemeLabel));
     }
+
+    partial void OnIconGlassChanged(bool value) => IconStyleStore.Set(value);
 
     partial void OnSearchTextChanged(string value)
     {
@@ -461,6 +476,12 @@ public partial class MainViewModel : ObservableObject
         {
             Log($"读取设备图标失败：{ex.Message}");
         }
+
+        // 冷拉取这一路解出来的大缓冲（产品图原图像素、HTTP 字节、规格 JSON）全是一次性垃圾，
+        // 又都落在大对象堆上——GC 默认既不压缩 LOH，也不会马上把提交内存还给系统，进程就停在
+        // 加载峰值不动。这里收一次，顺带强制压缩 LOH，把虚高的常驻内存压回真实用量。
+        GCSettings.LargeObjectHeapCompactionMode = GCLargeObjectHeapCompactionMode.CompactOnce;
+        GC.Collect(GC.MaxGeneration, GCCollectionMode.Aggressive, blocking: false);
     }
 
     private async Task LoadScenesAsync()
@@ -635,45 +656,6 @@ public partial class MainViewModel : ObservableObject
         finally
         {
             device.IsBusy = false;
-            UpdateStats();
-        }
-    }
-
-    /// <summary>抽屉「打开」：把当前电源类设备置为开并下发。</summary>
-    [RelayCommand(AllowConcurrentExecutions = true)]
-    private Task PowerOnAsync() => SetPowerAsync(true);
-
-    /// <summary>抽屉「关闭」：把当前电源类设备置为关并下发。</summary>
-    [RelayCommand(AllowConcurrentExecutions = true)]
-    private Task PowerOffAsync() => SetPowerAsync(false);
-
-    /// <summary>电源类（灯/插座/空调）显式置位。</summary>
-    private async Task SetPowerAsync(bool on)
-    {
-        if (_client == null || DrawerDevice is not { IsPower: true } d) return;
-        if (!d.IsOnline)
-        {
-            Log($"{d.Name} 离线，指令未下发");
-            d.IsOn = on;
-            return;
-        }
-        if (d.IsBusy) return;
-        d.IsBusy = true;
-        var prev = d.IsOn;
-        d.IsOn = on;
-        try
-        {
-            await _client.SetPowerAsync(d, on);
-            Log($"{d.Name} → {(on ? "开" : "关")}");
-        }
-        catch (Exception ex)
-        {
-            Log($"控制失败：{ex.Message}");
-            d.IsOn = prev;
-        }
-        finally
-        {
-            d.IsBusy = false;
             UpdateStats();
         }
     }

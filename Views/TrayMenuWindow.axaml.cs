@@ -9,9 +9,9 @@ using Avalonia.Interactivity;
 using Avalonia.Media;
 using Avalonia.Platform;
 using Avalonia.Threading;
-using MijiaPanel.Services;
+using MiHome.Services;
 
-namespace MijiaPanel.Views;
+namespace MiHome.Views;
 
 /// <summary>
 /// 托盘菜单：透明无边框窗口承载自绘卡片，比系统原生托盘菜单更贴近应用视觉。

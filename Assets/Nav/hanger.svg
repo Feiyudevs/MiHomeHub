@@ -1,0 +1,24 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="24" height="24">
+<defs>
+  <linearGradient id="gA" x1="0" y1="0" x2="0.38" y2="1"><stop offset="0" stop-color="#A78BFA"/><stop offset="1" stop-color="#7C5CFC"/></linearGradient>
+  <linearGradient id="gB" x1="0" y1="0" x2="0.38" y2="1"><stop offset="0" stop-color="#7FABFF"/><stop offset="1" stop-color="#4D8DFF"/></linearGradient>
+  <linearGradient id="sheen" x1="0" y1="0" x2="0.62" y2="1">
+    <stop offset="0" stop-color="#FFFFFF" stop-opacity=".5"/>
+    <stop offset=".42" stop-color="#FFFFFF" stop-opacity=".07"/>
+    <stop offset="1" stop-color="#FFFFFF" stop-opacity="0"/>
+  </linearGradient>
+  <linearGradient id="deep" x1="1" y1="1" x2="0.3" y2="0">
+    <stop offset="0" stop-color="#0B1020" stop-opacity=".26"/>
+    <stop offset=".55" stop-color="#0B1020" stop-opacity="0"/>
+  </linearGradient>
+  <radialGradient id="soft">
+    <stop offset="0" stop-color="#0B1020" stop-opacity=".55"/>
+    <stop offset="1" stop-color="#0B1020" stop-opacity="0"/>
+  </radialGradient>
+  <clipPath id="cu"><path d="M12,8.4L2.4,16.4A2.1,2.1 0 0 0 3.7,20.1H20.3A2.1,2.1 0 0 0 21.6,16.4Z"/><path d="M12,2H12A1.7,1.7 0 0 1 13.7,3.7V7.9A1.7,1.7 0 0 1 12,9.6H12A1.7,1.7 0 0 1 10.3,7.9V3.7A1.7,1.7 0 0 1 12,2Z"/></clipPath>
+  
+  <clipPath id="c1"><path d="M12,8.4L2.4,16.4A2.1,2.1 0 0 0 3.7,20.1H20.3A2.1,2.1 0 0 0 21.6,16.4Z"/></clipPath>
+</defs>
+<path d="M12,8.4L2.4,16.4A2.1,2.1 0 0 0 3.7,20.1H20.3A2.1,2.1 0 0 0 21.6,16.4Z" fill="url(#gA)" fill-opacity="0.95"/>
+<g clip-path="url(#c1)"><rect x="7.7" y="-0.6" width="8.6" height="12.8" fill="url(#soft)" opacity=".5"/></g><path d="M12,2H12A1.7,1.7 0 0 1 13.7,3.7V7.9A1.7,1.7 0 0 1 12,9.6H12A1.7,1.7 0 0 1 10.3,7.9V3.7A1.7,1.7 0 0 1 12,2Z" fill="url(#gB)" fill-opacity="0.93"/>
+</svg>

@@ -8,12 +8,12 @@ using Avalonia.Interactivity;
 using Avalonia.Markup.Xaml;
 using Avalonia.Threading;
 using Avalonia.VisualTree;
-using MijiaPanel.Services;
-using MijiaPanel.ViewModels;
-using MijiaPanel.Views;
+using MiHome.Services;
+using MiHome.ViewModels;
+using MiHome.Views;
 using System.Runtime.CompilerServices;
 
-namespace MijiaPanel;
+namespace MiHome;
 
 public partial class App : Application
 {

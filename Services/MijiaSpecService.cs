@@ -3,9 +3,9 @@ using System.Collections.Generic;
 using System.Net.Http;
 using System.Text.Json;
 using System.Threading.Tasks;
-using MijiaPanel.Models;
+using MiHome.Models;
 
-namespace MijiaPanel.Services;
+namespace MiHome.Services;
 
 /// <summary>
 /// 从公开 MIoT 规格站(miot-spec.org)按设备 spec_type 拉取属性定义，解析出空调控制参数。

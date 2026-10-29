@@ -6,9 +6,9 @@ using System.Net.Http;
 using System.Text;
 using System.Text.Json;
 using System.Threading.Tasks;
-using MijiaPanel.Models;
+using MiHome.Models;
 
-namespace MijiaPanel.Services;
+namespace MiHome.Services;
 
 /// <summary>
 /// 米家云端 API 客户端（api.mijia.tech/app）

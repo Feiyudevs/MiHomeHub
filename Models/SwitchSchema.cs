@@ -1,7 +1,7 @@
 using System.Collections.Generic;
 using CommunityToolkit.Mvvm.ComponentModel;
 
-namespace MijiaPanel.Models;
+namespace MiHome.Models;
 
 /// <summary>规格里解析出的一路可写 on（有线墙开每路一个；无线按键规格里没有）。</summary>
 public sealed class SwitchChannelDef

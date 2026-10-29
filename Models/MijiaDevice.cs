@@ -4,7 +4,7 @@ using System.Text.Json.Serialization;
 using Avalonia.Media.Imaging;
 using CommunityToolkit.Mvvm.ComponentModel;
 
-namespace MijiaPanel.Models;
+namespace MiHome.Models;
 
 /// <summary>小米部分字段（房间 id、时间戳等）在不同接口里 string / Number 混用，统一按文本取。</summary>
 public sealed class LenientStringConverter : JsonConverter<string>

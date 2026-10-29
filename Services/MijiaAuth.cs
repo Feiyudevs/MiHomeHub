@@ -5,9 +5,9 @@ using System.Net.Http;
 using System.Text;
 using System.Text.Json;
 using System.Web;
-using MijiaPanel.Models;
+using MiHome.Models;
 
-namespace MijiaPanel.Services;
+namespace MiHome.Services;
 
 /// <summary>
 /// 米家扫码登录流程（移植自 mijia-api QRlogin）
@@ -35,9 +35,7 @@ public class MijiaAuth
     private readonly HttpClient _http = NewClient();
     public AuthData Auth { get; private set; } = new();
 
-    private static readonly string AuthPath = Path.Combine(
-        Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
-        "MijiaPanel", "auth.json");
+    private static readonly string AuthPath = Path.Combine(AppPaths.Dir, "auth.json");
 
     public static MijiaAuth LoadOrEmpty()
     {

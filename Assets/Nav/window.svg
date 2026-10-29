@@ -1,0 +1,30 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="24" height="24">
+<defs>
+  <linearGradient id="gB" x1="0" y1="0" x2="0.38" y2="1"><stop offset="0" stop-color="#7FABFF"/><stop offset="1" stop-color="#4D8DFF"/></linearGradient>
+  <linearGradient id="gW" x1="0" y1="0" x2="0.38" y2="1"><stop offset="0" stop-color="#FFFFFF"/><stop offset="1" stop-color="#E8EAF0"/></linearGradient>
+  <linearGradient id="sheen" x1="0" y1="0" x2="0.62" y2="1">
+    <stop offset="0" stop-color="#FFFFFF" stop-opacity=".5"/>
+    <stop offset=".42" stop-color="#FFFFFF" stop-opacity=".07"/>
+    <stop offset="1" stop-color="#FFFFFF" stop-opacity="0"/>
+  </linearGradient>
+  <linearGradient id="deep" x1="1" y1="1" x2="0.3" y2="0">
+    <stop offset="0" stop-color="#0B1020" stop-opacity=".26"/>
+    <stop offset=".55" stop-color="#0B1020" stop-opacity="0"/>
+  </linearGradient>
+  <radialGradient id="soft">
+    <stop offset="0" stop-color="#0B1020" stop-opacity=".55"/>
+    <stop offset="1" stop-color="#0B1020" stop-opacity="0"/>
+  </radialGradient>
+  <clipPath id="cu"><path d="M6.5,2.4H17.5A4.3,4.3 0 0 1 21.8,6.7V17.3A4.3,4.3 0 0 1 17.5,21.6H6.5A4.3,4.3 0 0 1 2.2,17.3V6.7A4.3,4.3 0 0 1 6.5,2.4Z"/></clipPath>
+  
+  <clipPath id="c1"><path d="M6.5,2.4H17.5A4.3,4.3 0 0 1 21.8,6.7V17.3A4.3,4.3 0 0 1 17.5,21.6H6.5A4.3,4.3 0 0 1 2.2,17.3V6.7A4.3,4.3 0 0 1 6.5,2.4Z"/></clipPath>
+  <clipPath id="c2"><path d="M6.5,2.4H17.5A4.3,4.3 0 0 1 21.8,6.7V17.3A4.3,4.3 0 0 1 17.5,21.6H6.5A4.3,4.3 0 0 1 2.2,17.3V6.7A4.3,4.3 0 0 1 6.5,2.4Z"/><path d="M7.5,5.5H9.2A2.2,2.2 0 0 1 11.4,7.7V8.8A2.2,2.2 0 0 1 9.2,11H7.5A2.2,2.2 0 0 1 5.3,8.8V7.7A2.2,2.2 0 0 1 7.5,5.5Z"/></clipPath>
+  <clipPath id="c3"><path d="M6.5,2.4H17.5A4.3,4.3 0 0 1 21.8,6.7V17.3A4.3,4.3 0 0 1 17.5,21.6H6.5A4.3,4.3 0 0 1 2.2,17.3V6.7A4.3,4.3 0 0 1 6.5,2.4Z"/><path d="M7.5,5.5H9.2A2.2,2.2 0 0 1 11.4,7.7V8.8A2.2,2.2 0 0 1 9.2,11H7.5A2.2,2.2 0 0 1 5.3,8.8V7.7A2.2,2.2 0 0 1 7.5,5.5Z"/><path d="M14.8,5.5H16.5A2.2,2.2 0 0 1 18.7,7.7V8.8A2.2,2.2 0 0 1 16.5,11H14.8A2.2,2.2 0 0 1 12.6,8.8V7.7A2.2,2.2 0 0 1 14.8,5.5Z"/></clipPath>
+  <clipPath id="c4"><path d="M6.5,2.4H17.5A4.3,4.3 0 0 1 21.8,6.7V17.3A4.3,4.3 0 0 1 17.5,21.6H6.5A4.3,4.3 0 0 1 2.2,17.3V6.7A4.3,4.3 0 0 1 6.5,2.4Z"/><path d="M7.5,5.5H9.2A2.2,2.2 0 0 1 11.4,7.7V8.8A2.2,2.2 0 0 1 9.2,11H7.5A2.2,2.2 0 0 1 5.3,8.8V7.7A2.2,2.2 0 0 1 7.5,5.5Z"/><path d="M14.8,5.5H16.5A2.2,2.2 0 0 1 18.7,7.7V8.8A2.2,2.2 0 0 1 16.5,11H14.8A2.2,2.2 0 0 1 12.6,8.8V7.7A2.2,2.2 0 0 1 14.8,5.5Z"/><path d="M7.5,12.7H9.2A2.2,2.2 0 0 1 11.4,14.9V16.2A2.2,2.2 0 0 1 9.2,18.4H7.5A2.2,2.2 0 0 1 5.3,16.2V14.9A2.2,2.2 0 0 1 7.5,12.7Z"/></clipPath>
+</defs>
+<path d="M6.5,2.4H17.5A4.3,4.3 0 0 1 21.8,6.7V17.3A4.3,4.3 0 0 1 17.5,21.6H6.5A4.3,4.3 0 0 1 2.2,17.3V6.7A4.3,4.3 0 0 1 6.5,2.4Z" fill="url(#gB)" fill-opacity="0.95"/>
+<path d="M7.5,5.5H9.2A2.2,2.2 0 0 1 11.4,7.7V8.8A2.2,2.2 0 0 1 9.2,11H7.5A2.2,2.2 0 0 1 5.3,8.8V7.7A2.2,2.2 0 0 1 7.5,5.5Z" fill="url(#gW)" fill-opacity="0.92"/>
+<path d="M14.8,5.5H16.5A2.2,2.2 0 0 1 18.7,7.7V8.8A2.2,2.2 0 0 1 16.5,11H14.8A2.2,2.2 0 0 1 12.6,8.8V7.7A2.2,2.2 0 0 1 14.8,5.5Z" fill="url(#gW)" fill-opacity="0.92"/>
+<path d="M7.5,12.7H9.2A2.2,2.2 0 0 1 11.4,14.9V16.2A2.2,2.2 0 0 1 9.2,18.4H7.5A2.2,2.2 0 0 1 5.3,16.2V14.9A2.2,2.2 0 0 1 7.5,12.7Z" fill="url(#gW)" fill-opacity="0.8"/>
+<path d="M14.8,12.7H16.5A2.2,2.2 0 0 1 18.7,14.9V16.2A2.2,2.2 0 0 1 16.5,18.4H14.8A2.2,2.2 0 0 1 12.6,16.2V14.9A2.2,2.2 0 0 1 14.8,12.7Z" fill="url(#gW)" fill-opacity="0.8"/>
+</svg>

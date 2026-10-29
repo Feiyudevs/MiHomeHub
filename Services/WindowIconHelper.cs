@@ -3,7 +3,7 @@ using Avalonia.Controls;
 using Avalonia.Platform;
 using Avalonia.Threading;
 
-namespace MijiaPanel.Services;
+namespace MiHome.Services;
 
 /// <summary>统一加载应用窗口图标：多尺寸 ico + avares 路径，避免任务栏空白</summary>
 public static class WindowIconHelper
@@ -15,7 +15,7 @@ public static class WindowIconHelper
 
     private static WindowIcon Load()
     {
-        using var stream = AssetLoader.Open(new Uri("avares://MijiaPanel/Assets/logo.ico"));
+        using var stream = AssetLoader.Open(new Uri("avares://MiHome/Assets/logo.ico"));
         return new WindowIcon(stream);
     }
 

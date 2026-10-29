@@ -2,13 +2,12 @@ using System;
 using System.IO;
 using System.Text.Json;
 
-namespace MijiaPanel.Services;
+namespace MiHome.Services;
 
-/// <summary>窗口位置与大小持久化在 %APPDATA%\MijiaPanel\window.json，与 theme.json 同目录。</summary>
+/// <summary>窗口位置与大小持久化在 %APPDATA%\Feiyu\MiHome\window.json，与 theme.json 同目录。</summary>
 public static class WindowPlacementStore
 {
-    private static readonly string Dir = Path.Combine(
-        Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "MijiaPanel");
+    private static readonly string Dir = AppPaths.Dir;
     private static readonly string FilePath = Path.Combine(Dir, "window.json");
 
     public sealed class Placement

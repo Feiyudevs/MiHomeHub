@@ -1,6 +1,6 @@
 <Window xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        x:Class="MijiaPanel.Views.TrayMenuWindow"
+        x:Class="MiHome.Views.TrayMenuWindow"
         Title="米家 · 控制中心"
         Width="272" Height="190"
         SystemDecorations="None"

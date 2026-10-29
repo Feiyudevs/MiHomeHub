@@ -1,9 +1,9 @@
 using System;
 using System.Globalization;
 using Avalonia.Data.Converters;
-using MijiaPanel.Models;
+using MiHome.Models;
 
-namespace MijiaPanel.Converters;
+namespace MiHome.Converters;
 
 /// <summary>bool → 文本，参数格式 "trueText|falseText"。</summary>
 public sealed class BoolTextConverter : IValueConverter

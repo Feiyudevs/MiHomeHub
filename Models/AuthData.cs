@@ -1,8 +1,8 @@
 using System.Text.Json.Serialization;
 
-namespace MijiaPanel.Models;
+namespace MiHome.Models;
 
-/// <summary>登录凭证，持久化到 %APPDATA%/MijiaPanel/auth.json</summary>
+/// <summary>登录凭证，持久化到 %APPDATA%/Feiyu/MiHome/auth.json</summary>
 public class AuthData
 {
     [JsonPropertyName("ssecurity")] public string SSecurity { get; set; } = "";

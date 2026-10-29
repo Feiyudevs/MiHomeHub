@@ -1,11 +1,17 @@
 <Application xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:ani="clr-namespace:Avalonia.Animation.Easings;assembly=Avalonia.Base"
-             x:Class="MijiaPanel.App"
+             xmlns:conv="clr-namespace:MiHome.Converters"
+             xmlns:ctl="clr-namespace:MiHome.Controls"
+             x:Class="MiHome.App"
              RequestedThemeVariant="Dark">
 
     <Application.Resources>
         <ResourceDictionary>
+
+            <!-- ======== 侧栏导航图标：玻璃 SVG 优先，缺资源回退细线 ======== -->
+            <conv:NavSvgConverter x:Key="NavSvg" />
+            <conv:NavLineConverter x:Key="NavLine" />
 
             <!-- ======== 图标几何（24 网格线性图标） ======== -->
             <PathGeometry x:Key="GeoHome">M3,10.5 L12,3 L21,10.5 M5.5,9.5 L5.5,20 L18.5,20 L18.5,9.5 M9.5,20 L9.5,14 L14.5,14 L14.5,20</PathGeometry>
@@ -113,7 +119,12 @@
                     <SolidColorBrush x:Key="SearchBgBrush" Color="#801A1F2C"/>
                     <!-- 搜索框边框：LineBrush 一半透明度 -->
                     <SolidColorBrush x:Key="SearchLineBrush" Color="#09FFFFFF"/>
+                    <!-- 下拉触发器：比搜索框再轻一档，靠浮层投影而不是描边区分层次 -->
+                    <SolidColorBrush x:Key="PickFillBrush" Color="#08FFFFFF"/>
+                    <SolidColorBrush x:Key="PickLineBrush" Color="#0AFFFFFF"/>
                     <SolidColorBrush x:Key="HoverBrush" Color="#282F42"/>
+                    <!-- 淡入起点：必须与 HoverBrush 同色、只把透明位拉满，配色改一处要改两处 -->
+                    <SolidColorBrush x:Key="PlayHoverFromBrush" Color="#00282F42"/>
                     <SolidColorBrush x:Key="LineBrush" Color="#12FFFFFF"/>
                     <SolidColorBrush x:Key="TextBrush" Color="#EEF1F6"/>
                     <SolidColorBrush x:Key="Text2Brush" Color="#99A1B3"/>
@@ -165,8 +176,10 @@
                     <SolidColorBrush x:Key="SliderThumbBackgroundPointerOver" Color="#FFFFFF"/>
                     <SolidColorBrush x:Key="SliderThumbBackgroundPressed" Color="#EDEFF6"/>
                     <SolidColorBrush x:Key="MaskBrush" Color="#4A000000"/>
-                    <!-- 浅色遮罩层：比 MaskBrush 更淡，叠加在抽屉背景上形成柔和层次 -->
-                    <SolidColorBrush x:Key="MaskLightBrush" Color="#1E000000"/>
+                    <!-- 抽屉托盘遮罩：比登录/设置遮罩更轻，只作层次提示不压暗内容 -->
+                    <SolidColorBrush x:Key="DrawerMaskBrush" Color="#38000000"/>
+                    <!-- 浅色遮罩层：叠在 DrawerMaskBrush 之上再补一点点深度 -->
+                    <SolidColorBrush x:Key="MaskLightBrush" Color="#14000000"/>
                     <!-- 抽屉托盘：与主内容面板同色，卡片在其上浮起 -->
                     <SolidColorBrush x:Key="DrawerBgBrush" Color="#0E1118"/>
                     <LinearGradientBrush x:Key="HeroBrush" StartPoint="0,0" EndPoint="1,1">
@@ -222,7 +235,11 @@
                     <SolidColorBrush x:Key="SearchBgBrush" Color="#80F0F3F8"/>
                     <!-- 搜索框边框：LineBrush 一半透明度 -->
                     <SolidColorBrush x:Key="SearchLineBrush" Color="#0A0F172A"/>
+                    <!-- 下拉触发器：底色 3%、边框 5%，比搜索框更轻，层次交给浮层投影 -->
+                    <SolidColorBrush x:Key="PickFillBrush" Color="#080F172A"/>
+                    <SolidColorBrush x:Key="PickLineBrush" Color="#0C0F172A"/>
                     <SolidColorBrush x:Key="HoverBrush" Color="#E8EDF5"/>
+                    <SolidColorBrush x:Key="PlayHoverFromBrush" Color="#00E8EDF5"/>
                     <SolidColorBrush x:Key="LineBrush" Color="#140F172A"/>
                     <SolidColorBrush x:Key="TextBrush" Color="#0F172A"/>
                     <SolidColorBrush x:Key="Text2Brush" Color="#5A6478"/>
@@ -274,8 +291,10 @@
                     <SolidColorBrush x:Key="SliderThumbBackgroundPointerOver" Color="#FFFFFF"/>
                     <SolidColorBrush x:Key="SliderThumbBackgroundPressed" Color="#EDEFF6"/>
                     <SolidColorBrush x:Key="MaskBrush" Color="#340F172A"/>
-                    <!-- 浅色遮罩层：比 MaskBrush 更淡，叠加在抽屉背景上形成柔和层次 -->
-                    <SolidColorBrush x:Key="MaskLightBrush" Color="#120F172A"/>
+                    <!-- 抽屉托盘遮罩：比登录/设置遮罩更轻，只作层次提示不压暗内容 -->
+                    <SolidColorBrush x:Key="DrawerMaskBrush" Color="#260F172A"/>
+                    <!-- 浅色遮罩层：叠在 DrawerMaskBrush 之上再补一点点深度 -->
+                    <SolidColorBrush x:Key="MaskLightBrush" Color="#0C0F172A"/>
                     <!-- 抽屉托盘：与主内容面板同色，白卡在其上浮起（卡片式分布） -->
                     <SolidColorBrush x:Key="DrawerBgBrush" Color="#F7F9FC"/>
                     <LinearGradientBrush x:Key="HeroBrush" StartPoint="0,0" EndPoint="1,1">
@@ -338,6 +357,11 @@
         <Style Selector="TextBlock.Hint">
             <Setter Property="Foreground" Value="{DynamicResource Text3Brush}"/>
             <Setter Property="FontSize" Value="12"/>
+        </Style>
+        <!-- 设置行副标题：右侧控件占了列宽，单行会被裁掉，允许折成两行 -->
+        <Style Selector="TextBlock.Hint.Sub">
+            <Setter Property="TextWrapping" Value="Wrap"/>
+            <Setter Property="LineHeight" Value="16"/>
         </Style>
         <Style Selector="TextBlock.SecTitle">
             <Setter Property="Foreground" Value="{DynamicResource Text2Brush}"/>
@@ -551,10 +575,15 @@
                             <Border Name="Bg" CornerRadius="12" Padding="12,9" Margin="10,3,10,3"
                                     Background="Transparent">
                                 <Grid ColumnDefinitions="21,*">
+                                    <!-- 两套画法都备好，靠设置里的图标模式二选一显示 -->
+                                    <Image Name="Gx" Grid.Column="0" Width="17" Height="17" Stretch="Uniform"
+                                           IsVisible="{Binding DataContext.IconGlass, RelativeSource={RelativeSource AncestorType=Window}}"
+                                           Source="{Binding Tag, RelativeSource={RelativeSource TemplatedParent}, Converter={StaticResource NavSvg}}"/>
                                     <Path Name="Ic" Grid.Column="0" Width="15" Height="15" Stretch="Uniform"
+                                          IsVisible="{Binding !DataContext.IconGlass, RelativeSource={RelativeSource AncestorType=Window}}"
                                           Stroke="{TemplateBinding Foreground}" StrokeThickness="1.4"
                                           StrokeLineCap="Round" StrokeJoin="Round"
-                                          Data="{TemplateBinding Tag}"/>
+                                          Data="{Binding Tag, RelativeSource={RelativeSource TemplatedParent}, Converter={StaticResource NavLine}}"/>
                                     <TextBlock Name="Lb" Grid.Column="1" Text="{TemplateBinding Content}"
                                                Margin="12,0,0,0" VerticalAlignment="Center"
                                                FontSize="{TemplateBinding FontSize}"
@@ -667,8 +696,8 @@
 
         <!-- 设备图标：只画矢量图标本身，不垫底板 -->
         <Style Selector="Border.DevIc">
-            <Setter Property="Width" Value="42"/>
-            <Setter Property="Height" Value="42"/>
+            <Setter Property="Width" Value="48"/>
+            <Setter Property="Height" Value="48"/>
         </Style>
         <Style Selector="Path.DevIcon">
             <Setter Property="Stroke" Value="{DynamicResource Text2Brush}"/>
@@ -682,16 +711,10 @@
             <Setter Property="Stroke" Value="{DynamicResource Accent2Brush}"/>
         </Style>
 
-        <!-- 设备真机图：不再垫底色背景，仅展示图标本身（透明背景） -->
+        <!-- 设备真机图：已裁到实物外框，只展示图本身，不垫底色、不切圆角 -->
         <Style Selector="Border.DevPhoto">
-            <Setter Property="Width" Value="42"/>
-            <Setter Property="Height" Value="42"/>
-            <Setter Property="CornerRadius" Value="13"/>
-        </Style>
-        <Style Selector="Border.DevPhoto Border">
-            <Setter Property="Margin" Value="3"/>
-            <Setter Property="CornerRadius" Value="10"/>
-            <Setter Property="ClipToBounds" Value="True"/>
+            <Setter Property="Width" Value="48"/>
+            <Setter Property="Height" Value="48"/>
         </Style>
 
         <!-- ======== 加载：骨架卡 + 掠过的高光带 + 旋转指示器 ======== -->
@@ -732,6 +755,11 @@
             <Setter Property="RenderTransform">
                 <TranslateTransform X="0"/>
             </Setter>
+        </Style>
+
+        <!-- 动画只在骨架真的显示时挂上：Avalonia 的 Style.Animations 不看 IsVisible，
+             无限动画一旦常驻，合成器就按刷新率满帧重绘整棵树（空转掉一个核 + 常驻 GPU 占用）。 -->
+        <Style Selector="Border.SkelShine.run">
             <Style.Animations>
                 <Animation Duration="0:0:1.5" IterationCount="Infinite" Easing="CubicEaseInOut">
                     <KeyFrame Cue="0%">
@@ -751,6 +779,9 @@
             <Setter Property="RenderTransform">
                 <RotateTransform Angle="0"/>
             </Setter>
+        </Style>
+
+        <Style Selector="Path.Spinner.run">
             <Style.Animations>
                 <Animation Duration="0:0:0.9" IterationCount="Infinite" Easing="LinearEasing">
                     <KeyFrame Cue="0%">
@@ -774,6 +805,20 @@
         </Style>
         <Style Selector="TextBlock.DevStatus.is-warn">
             <Setter Property="Foreground" Value="{DynamicResource AmberBrush}"/>
+        </Style>
+
+        <!-- 状态圆点：文字保持常规色，只用小点表达在线/离线 -->
+        <Style Selector="Ellipse.StatusDot">
+            <Setter Property="Width" Value="7"/>
+            <Setter Property="Height" Value="7"/>
+            <Setter Property="VerticalAlignment" Value="Center"/>
+            <Setter Property="Fill" Value="{DynamicResource Text3Brush}"/>
+        </Style>
+        <Style Selector="Ellipse.StatusDot.is-on">
+            <Setter Property="Fill" Value="{DynamicResource GreenBrush}"/>
+        </Style>
+        <Style Selector="Ellipse.StatusDot.is-warn">
+            <Setter Property="Fill" Value="{DynamicResource AmberBrush}"/>
         </Style>
 
         <!-- ======== 场景卡（§8.8：彩色渐变 + 光晕，无边框） ======== -->
@@ -868,8 +913,11 @@
             <Setter Property="VerticalContentAlignment" Value="Center"/>
             <Setter Property="Template">
                 <ControlTemplate>
-                    <Border Name="Card" CornerRadius="12" Background="{TemplateBinding Background}">
-                        <Path Width="14" Height="14" Stretch="Uniform"
+                    <!-- 静止态不能用 Transparent：BrushTransition 逐通道插值，从 (0,0,0,0) 起步会先冲成一团
+                         浅灰再落回目标色，就是 hover 那一下闪白。起点要写 hover 同色、只把透明位拉满 -->
+                    <Border Name="Card" CornerRadius="12" Background="{DynamicResource PlayHoverFromBrush}">
+                        <!-- 宽高按 GeoPlay 包围盒比例（7.3:10）给：Uniform 不留未居中的横向余量 -->
+                        <Path Width="10" Height="14" Stretch="Uniform"
                               Fill="{DynamicResource Text3Brush}" Opacity="0.55"
                               Data="{StaticResource GeoPlay}"
                               HorizontalAlignment="Center" VerticalAlignment="Center"/>
@@ -978,6 +1026,56 @@
                         </BrushTransition.Easing>
                     </BrushTransition>
                 </Transitions>
+            </Setter>
+        </Style>
+
+        <!-- ======== 弹窗基类 DialogPopup：遮罩 + 居中卡片 + 标题栏 + 可滚动正文 ======== -->
+        <!-- 卡片四周 1px LineBrush 浅描边：暗色下是极淡的白、浅色下是极淡的蓝黑，只负责把卡片从背景里分出来 -->
+        <Style Selector="Border.DialogCard">
+            <Setter Property="Background" Value="{DynamicResource DrawerBgBrush}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource LineBrush}"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="CornerRadius" Value="24"/>
+            <Setter Property="BoxShadow" Value="0 24 48 0 #3311182B"/>
+        </Style>
+
+        <Style Selector="ctl|DialogPopup">
+            <Setter Property="IsVisible" Value="{Binding IsOpen, RelativeSource={RelativeSource Self}}"/>
+            <Setter Property="Template">
+                <ControlTemplate>
+                    <Grid>
+                        <!-- 遮罩：跨满宿主容器，点击即关闭（模板里挂 Mask 类，由控件识别） -->
+                        <Border Classes="Mask" Background="{DynamicResource MaskBrush}"/>
+
+                        <Border Classes="DialogCard" HorizontalAlignment="Center" VerticalAlignment="Center"
+                                Width="{TemplateBinding CardWidth}"
+                                MaxHeight="{TemplateBinding CardMaxHeight}">
+                            <Grid RowDefinitions="Auto,*">
+                                <Panel Margin="28,24,22,0">
+                                    <StackPanel>
+                                        <TextBlock Text="{TemplateBinding Title}" FontSize="19" FontWeight="Bold"
+                                                   Foreground="{DynamicResource TextBrush}"/>
+                                        <TextBlock Classes="Hint" Margin="0,5,0,0" Text="{TemplateBinding Subtitle}"
+                                                   IsVisible="{Binding Subtitle, RelativeSource={RelativeSource TemplatedParent}, Converter={x:Static ObjectConverters.IsNotNull}}"/>
+                                    </StackPanel>
+                                    <Button Classes="ThemeBtn" HorizontalAlignment="Right" VerticalAlignment="Top"
+                                            Command="{TemplateBinding CloseCommand}" ToolTip.Tip="关闭">
+                                        <Path Width="11" Height="11" Stretch="Uniform" StrokeThickness="0.8"
+                                              StrokeLineCap="Round"
+                                              Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}"
+                                              Data="{StaticResource GeoClose}"/>
+                                    </Button>
+                                </Panel>
+
+                                <ScrollViewer Grid.Row="1" Margin="28,18,22,26"
+                                              VerticalScrollBarVisibility="Auto"
+                                              HorizontalScrollBarVisibility="Disabled">
+                                    <ContentPresenter Content="{TemplateBinding Content}"/>
+                                </ScrollViewer>
+                            </Grid>
+                        </Border>
+                    </Grid>
+                </ControlTemplate>
             </Setter>
         </Style>
 
