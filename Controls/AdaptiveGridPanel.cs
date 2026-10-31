@@ -98,8 +98,10 @@ public sealed class AdaptiveGridPanel : Panel
         if (double.IsInfinity(availableWidth))
             return new LayoutInfo(count, 1, minItemWidth);
 
-        var columns = (int)Math.Floor((availableWidth + spacing) / (minItemWidth + spacing));
-        columns = Math.Clamp(columns, 1, count);
+        // 按容器宽度与 MinItemWidth 算出最大列数，所有行统一使用该列数与 itemWidth，
+        // 末行设备较少时不拉伸，保持与满行相同的卡片宽度。
+        var maxColumns = (int)Math.Floor((availableWidth + spacing) / (minItemWidth + spacing));
+        var columns = Math.Max(1, maxColumns);
 
         var itemWidth = Math.Max(1, (availableWidth - spacing * (columns - 1)) / columns);
         var rows = (int)Math.Ceiling(count / (double)columns);

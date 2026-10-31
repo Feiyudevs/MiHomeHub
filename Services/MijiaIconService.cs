@@ -26,12 +26,6 @@ public static class MijiaIconService
 {
     private const string ProductApi = "https://home.mi.com/cgi-op/api/v1/baike/v2/product?model=";
 
-    /// <summary>
-    /// 常驻最长边：卡片 48px、抽屉 56px，按 3 倍高分屏 ≈ 168px。
-    /// 加载时用三角滤波把 480px 原图真实缩到该尺寸（写入 WriteableBitmap），不是靠 UI 再拉大原图。
-    /// </summary>
-    private const int MaxEdge = 168;
-
     /// <summary>输出位图统一 96 DPI：Size（DIP）= 像素数，不再继承源图 pHYs（常是 72 或被当成 2835）。</summary>
     private static readonly Vector OutputDpi = new(96, 96);
 
@@ -129,24 +123,24 @@ public static class MijiaIconService
         var src = new Bitmap(new MemoryStream(bytes));
         try
         {
-            // 不裁切、不抠图、不去白描边。只做两件事：
+            // 不裁切、不抠图、不去白描边，也不预缩放。
             // 1) 合法预乘（硬抠图边缘缩放时才不会闪脏色）
-            // 2) 整图高质量缩到 MaxEdge，把 0/255 硬边的锯齿磨成半透明过渡
+            // 2) 修正 DPI 到 96，让 DIP 尺寸 = 像素数
+            // 缩放到显示尺寸交给界面层 Image 的 MediumQuality 插值（Skia 双线性 + mipmap
+            // 预滤波）；不要改成 HighQuality——那是固定 4×4 核三次采样，480→48 缩小 10 倍时
+            // 欠采样，白描边会断成锯齿点（见 MainWindow.axaml DevPhoto）。
             var w = src.PixelSize.Width;
             var h = src.PixelSize.Height;
             if (w <= 0 || h <= 0) return src;
 
-            var scale = Math.Min(1d, (double)MaxEdge / Math.Max(w, h));
-            var outW = Math.Max(1, (int)Math.Round(w * scale));
-            var outH = Math.Max(1, (int)Math.Round(h * scale));
-            var needCopy = outW != w || outH != h ||
-                           Math.Abs(src.Dpi.X - OutputDpi.X) >= 0.5 ||
-                           Math.Abs(src.Dpi.Y - OutputDpi.Y) >= 0.5;
-            if (!needCopy) return src;
+            var needPremul = src.AlphaFormat != AlphaFormat.Premul;
+            var needDpi = Math.Abs(src.Dpi.X - OutputDpi.X) >= 0.5 ||
+                          Math.Abs(src.Dpi.Y - OutputDpi.Y) >= 0.5;
+            if (!needPremul && !needDpi) return src;
 
             var srcStride = w * 4;
-            var srcPx = new byte[srcStride * h];
-            var handle = GCHandle.Alloc(srcPx, GCHandleType.Pinned);
+            var px = new byte[srcStride * h];
+            var handle = GCHandle.Alloc(px, GCHandleType.Pinned);
             try
             {
                 src.CopyPixels(new PixelRect(0, 0, w, h), handle.AddrOfPinnedObject(), srcStride * h, srcStride);
@@ -156,26 +150,15 @@ public static class MijiaIconService
                 handle.Free();
             }
 
-            NormalizePremulInPlace(srcPx, srcStride * h, src.AlphaFormat == AlphaFormat.Unpremul);
+            if (needPremul)
+                NormalizePremulInPlace(px, px.Length, src.AlphaFormat == AlphaFormat.Unpremul);
 
-            byte[] outPx;
-            if (outW == w && outH == h)
-            {
-                outPx = srcPx;
-            }
-            else
-            {
-                outPx = new byte[outW * 4 * outH];
-                TriangleResize(srcPx, w, h, outPx, outW, outH);
-            }
-
-            var dst = new WriteableBitmap(new PixelSize(outW, outH), OutputDpi,
+            var dst = new WriteableBitmap(new PixelSize(w, h), OutputDpi,
                 PixelFormat.Bgra8888, AlphaFormat.Premul);
             using (var fb = dst.Lock())
             {
-                var outStride = outW * 4;
-                for (var y = 0; y < outH; y++)
-                    Marshal.Copy(outPx, y * outStride, fb.Address + y * fb.RowBytes, outStride);
+                for (var y = 0; y < h; y++)
+                    Marshal.Copy(px, y * srcStride, fb.Address + y * fb.RowBytes, srcStride);
             }
 
             return dst;
@@ -209,104 +192,6 @@ public static class MijiaIconService
                 if (px[i] > a) px[i] = a;
                 if (px[i + 1] > a) px[i + 1] = a;
                 if (px[i + 2] > a) px[i + 2] = a;
-            }
-        }
-    }
-
-    /// <summary>可分离三角滤波缩放（整图，预乘空间）：硬 alpha 边缩下去会变软，去掉阶梯锯齿。</summary>
-    private static void TriangleResize(byte[] src, int sw, int sh, byte[] dst, int dw, int dh)
-    {
-        var ratioX = (double)sw / dw;
-        var ratioY = (double)sh / dh;
-        var radiusX = Math.Max(1d, ratioX);
-        var radiusY = Math.Max(1d, ratioY);
-        var tmp = new byte[dw * 4 * sh];
-
-        for (var y = 0; y < sh; y++)
-        {
-            var row = y * sw * 4;
-            var o = y * dw * 4;
-            for (var x = 0; x < dw; x++)
-            {
-                var center = (x + 0.5) * ratioX - 0.5;
-                var left = (int)Math.Floor(center - radiusX + 1);
-                var right = (int)Math.Ceiling(center + radiusX - 1);
-                if (left < 0) left = 0;
-                if (right > sw - 1) right = sw - 1;
-                double wSum = 0, b = 0, g = 0, r = 0, a = 0;
-                for (var sx = left; sx <= right; sx++)
-                {
-                    var t = Math.Abs(sx - center) / radiusX;
-                    var w = t >= 1 ? 0 : 1 - t;
-                    if (w <= 0) continue;
-                    var p = row + sx * 4;
-                    wSum += w;
-                    b += src[p] * w;
-                    g += src[p + 1] * w;
-                    r += src[p + 2] * w;
-                    a += src[p + 3] * w;
-                }
-
-                if (wSum <= 0)
-                {
-                    var pc = row + Math.Clamp((int)Math.Round(center), 0, sw - 1) * 4;
-                    tmp[o + x * 4] = src[pc];
-                    tmp[o + x * 4 + 1] = src[pc + 1];
-                    tmp[o + x * 4 + 2] = src[pc + 2];
-                    tmp[o + x * 4 + 3] = src[pc + 3];
-                }
-                else
-                {
-                    var inv = 1 / wSum;
-                    tmp[o + x * 4] = (byte)Math.Clamp((int)(b * inv + 0.5), 0, 255);
-                    tmp[o + x * 4 + 1] = (byte)Math.Clamp((int)(g * inv + 0.5), 0, 255);
-                    tmp[o + x * 4 + 2] = (byte)Math.Clamp((int)(r * inv + 0.5), 0, 255);
-                    tmp[o + x * 4 + 3] = (byte)Math.Clamp((int)(a * inv + 0.5), 0, 255);
-                }
-            }
-        }
-
-        for (var y = 0; y < dh; y++)
-        {
-            var center = (y + 0.5) * ratioY - 0.5;
-            var top = (int)Math.Floor(center - radiusY + 1);
-            var bottom = (int)Math.Ceiling(center + radiusY - 1);
-            if (top < 0) top = 0;
-            if (bottom > sh - 1) bottom = sh - 1;
-            var o = y * dw * 4;
-            for (var x = 0; x < dw; x++)
-            {
-                double wSum = 0, b = 0, g = 0, r = 0, a = 0;
-                for (var sy = top; sy <= bottom; sy++)
-                {
-                    var t = Math.Abs(sy - center) / radiusY;
-                    var w = t >= 1 ? 0 : 1 - t;
-                    if (w <= 0) continue;
-                    var p = sy * dw * 4 + x * 4;
-                    wSum += w;
-                    b += tmp[p] * w;
-                    g += tmp[p + 1] * w;
-                    r += tmp[p + 2] * w;
-                    a += tmp[p + 3] * w;
-                }
-
-                if (wSum <= 0)
-                {
-                    var sy = Math.Clamp((int)Math.Round(center), 0, sh - 1);
-                    var pc = sy * dw * 4 + x * 4;
-                    dst[o + x * 4] = tmp[pc];
-                    dst[o + x * 4 + 1] = tmp[pc + 1];
-                    dst[o + x * 4 + 2] = tmp[pc + 2];
-                    dst[o + x * 4 + 3] = tmp[pc + 3];
-                }
-                else
-                {
-                    var inv = 1 / wSum;
-                    dst[o + x * 4] = (byte)Math.Clamp((int)(b * inv + 0.5), 0, 255);
-                    dst[o + x * 4 + 1] = (byte)Math.Clamp((int)(g * inv + 0.5), 0, 255);
-                    dst[o + x * 4 + 2] = (byte)Math.Clamp((int)(r * inv + 0.5), 0, 255);
-                    dst[o + x * 4 + 3] = (byte)Math.Clamp((int)(a * inv + 0.5), 0, 255);
-                }
             }
         }
     }

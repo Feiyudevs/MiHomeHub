@@ -10,87 +10,12 @@ namespace MiHome.Services;
 /// <summary>
 /// 从公开 MIoT 规格站(miot-spec.org)按设备 spec_type 拉取属性定义，解析出空调控制参数。
 /// 空调各型号属性布局差异大（温度 piid、模式取值、风速服务各不相同），必须按规格驱动。
-/// 按 spec_type 缓存，避免每次开抽屉重复请求。
+/// 按 spec_type 缓存，避免每次开抽屉重复请求；通用属性/开关通道走 <see cref="DeviceSpecService"/>。
 /// </summary>
 public static class MijiaSpecService
 {
     private static readonly HttpClient Http = new() { Timeout = TimeSpan.FromSeconds(15) };
     private static readonly Dictionary<string, AcControlSchema> Cache = new();
-    private static readonly Dictionary<string, SwitchControlSchema> SwitchCache = new();
-
-    /// <summary>
-    /// 从 MIoT services JSON 解析可写 on 通道。
-    /// 只认 switch / outlet 服务，跳过 indicator-light 等同名 on，避免把指示灯当成开关路。
-    /// </summary>
-    public static SwitchControlSchema ParseSwitchChannels(JsonElement services)
-    {
-        var schema = new SwitchControlSchema();
-        if (services.ValueKind != JsonValueKind.Array) return schema;
-
-        foreach (var s in services.EnumerateArray())
-        {
-            var type = s.TryGetProperty("type", out var st) ? st.GetString() ?? "" : "";
-            if (!IsSwitchLikeService(type)) continue;
-            if (!s.TryGetProperty("properties", out var props) || props.ValueKind != JsonValueKind.Array)
-                continue;
-            var siid = s.GetProperty("iid").GetInt32();
-            if (siid < 2) continue; // siid=1 是 device-information，无开关
-
-            foreach (var p in props.EnumerateArray())
-            {
-                var ptype = p.GetProperty("type").GetString() ?? "";
-                if (!ptype.Contains(":property:on:", StringComparison.Ordinal)) continue;
-                if (p.TryGetProperty("format", out var fmt) && fmt.GetString() != "bool") continue;
-                if (!IsWritable(p)) continue;
-
-                var piid = p.GetProperty("iid").GetInt32();
-                var label = p.TryGetProperty("description", out var pd) && !string.IsNullOrWhiteSpace(pd.GetString())
-                    ? pd.GetString()!
-                    : "";
-                schema.Channels.Add(new SwitchChannelDef { Siid = siid, Piid = piid, Label = label });
-            }
-        }
-        return schema;
-    }
-
-    /// <summary>switch / outlet 算可控开关；indicator-light、battery 等的 on 不算路。</summary>
-    private static bool IsSwitchLikeService(string type) =>
-        type.Contains(":service:switch:", StringComparison.Ordinal) ||
-        type.Contains(":service:outlet:", StringComparison.Ordinal);
-
-    private static bool IsWritable(JsonElement prop)
-    {
-        if (!prop.TryGetProperty("access", out var acc) || acc.ValueKind != JsonValueKind.Array)
-            return true; // 无 access 字段时按可写试，真机拒了再靠下发回退
-        foreach (var a in acc.EnumerateArray())
-            if (a.GetString() == "write") return true;
-        return false;
-    }
-
-    /// <summary>按公开类型模板拉开关通道（设备级 getspec 失败时的回退）。</summary>
-    public static async Task<SwitchControlSchema?> GetSwitchSchemaAsync(string specType)
-    {
-        if (string.IsNullOrEmpty(specType)) return null;
-        lock (SwitchCache)
-        {
-            if (SwitchCache.TryGetValue(specType, out var hit)) return hit;
-        }
-
-        try
-        {
-            var url = "http://miot-spec.org/miot-spec-v2/instance?type=" + Uri.EscapeDataString(specType);
-            var json = await Http.GetStringAsync(url);
-            using var doc = JsonDocument.Parse(json);
-            var schema = ParseSwitchChannels(doc.RootElement.GetProperty("services"));
-            lock (SwitchCache) SwitchCache[specType] = schema;
-            return schema;
-        }
-        catch
-        {
-            // 拉规格失败时不缓存，下次打开抽屉再试；上层按「未知=不显示开关」处理
-            return null;
-        }
-    }
 
     public static async Task<AcControlSchema?> GetAcSchemaAsync(string specType)
     {

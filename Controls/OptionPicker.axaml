@@ -1,8 +1,10 @@
-<UserControl xmlns="https://github.com/avaloniaui"
-             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-             xmlns:m="clr-namespace:MiHome.Models"
+<UserControl 
+    xmlns="https://github.com/avaloniaui"
+             
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             
+    xmlns:m="clr-namespace:MiHome.Models"
              x:Class="MiHome.Controls.OptionPicker">
-
     <UserControl.Styles>
         <!-- ======== 触发器：圆角矩形 + 1px 细线，选中态只提亮底色，不描彩边 ======== -->
         <Style Selector="Button.PickBtn">
@@ -17,7 +19,7 @@
             <Setter Property="Focusable" Value="False" />
             <Setter Property="Template">
                 <ControlTemplate>
-                    <Border Name="Bd" CornerRadius="9"
+                    <Border Name="Bd" CornerRadius="7"
                             Background="{TemplateBinding Background}"
                             BorderBrush="{TemplateBinding BorderBrush}"
                             BorderThickness="{TemplateBinding BorderThickness}">
@@ -44,7 +46,6 @@
         <Style Selector="Button.PickBtn:pointerover /template/ Border#Hov, Button.PickBtn.open /template/ Border#Hov">
             <Setter Property="Opacity" Value="1" />
         </Style>
-
         <!-- 箭头展开时翻转 180°，让「开/合」有交代 -->
         <Style Selector="Button.PickBtn Path#Chev">
             <Setter Property="Transitions">
@@ -56,7 +57,6 @@
         <Style Selector="Button.PickBtn.open Path#Chev">
             <Setter Property="RenderTransform" Value="rotate(180deg)" />
         </Style>
-
         <!-- ======== 浮层：闭合态写在基础样式里，展开态由 .open 覆盖（局部值会压过样式，别写在这儿） ======== -->
         <Style Selector="Border.PickPanel">
             <Setter Property="Background" Value="{DynamicResource CardBrush}" />
@@ -64,6 +64,8 @@
             <Setter Property="BorderThickness" Value="1" />
             <Setter Property="CornerRadius" Value="12" />
             <Setter Property="Padding" Value="5" />
+            <!-- 选项多时收成内部滚动，浮层本身不再无限拉长 -->
+            <Setter Property="MaxHeight" Value="300" />
             <!-- Popup 是独立顶层窗口，投影只会画到自己的边界：留一圈透明边距给它展开 -->
             <Setter Property="Margin" Value="18,10,18,22" />
             <Setter Property="BoxShadow" Value="0 2 5 0 #26000000, 0 6 16 0 #40000000" />
@@ -85,12 +87,13 @@
         <Style Selector="Border.PickPanel.light">
             <Setter Property="BoxShadow" Value="0 1 3 0 #100F172A, 0 5 16 0 #1A0F172A" />
         </Style>
-
         <Style Selector="Button.PickItem">
             <Setter Property="Height" Value="32" />
             <Setter Property="Padding" Value="10,0" />
             <Setter Property="Margin" Value="0,1" />
-            <Setter Property="Background" Value="{DynamicResource HoverFromBrush}" />
+            <!-- 淡入起点：与 HoverBrush 同色、透明位为 0。既保证整行（含空白处）可命中，
+                 又能让 BrushTransition 从透明平滑淡到 HoverBrush -->
+            <Setter Property="Background" Value="{DynamicResource PlayHoverFromBrush}" />
             <Setter Property="BorderThickness" Value="0" />
             <Setter Property="Cursor" Value="Hand" />
             <Setter Property="Focusable" Value="False" />
@@ -127,40 +130,42 @@
             <Setter Property="FontWeight" Value="SemiBold" />
         </Style>
     </UserControl.Styles>
-
     <Grid>
         <Button Name="Trigger" Classes="PickBtn">
             <Grid ColumnDefinitions="*,Auto">
                 <TextBlock Name="Cur" Grid.Column="0" Text="选择" FontSize="12.5" FontWeight="Medium"
                            Foreground="{DynamicResource TextBrush}" VerticalAlignment="Center"
                            TextTrimming="CharacterEllipsis" />
-                <Path Name="Chev" Grid.Column="1" Width="9" Height="9" Stretch="Uniform"
+                <!-- Fill 而非 Uniform：几何包围盒 12:6 与视口 9:4.5 等比，形状必铺满视口、
+                     中心即控件中心；Uniform 缩放后的内容不落在视口垂直中心，箭头会整体偏上 -->
+                <Path Name="Chev" Grid.Column="1" Width="9" Height="4.5" Stretch="Fill"
                       Margin="10,0,0,0" VerticalAlignment="Center" RenderTransformOrigin="50%, 50%"
-                      Stroke="{DynamicResource Text3Brush}" StrokeThickness="1.6"
+                      Stroke="{DynamicResource Text3Brush}" StrokeThickness="1.2"
                       StrokeLineCap="Round" StrokeJoin="Round" Data="M6 9 L12 15 L18 9" />
             </Grid>
         </Button>
-
         <!-- 偏移抵掉浮层的透明边距：右缘对齐触发器右缘，卡片离触发器 6px -->
         <Popup Name="Pop" Placement="BottomEdgeAlignedRight" IsLightDismissEnabled="True"
                HorizontalOffset="18" VerticalOffset="-4" WindowManagerAddShadowHint="False">
             <Border Name="Panel" Classes="PickPanel">
-                <ItemsControl Name="List">
-                    <ItemsControl.ItemsPanel>
-                        <ItemsPanelTemplate>
-                            <StackPanel Spacing="2" />
-                        </ItemsPanelTemplate>
-                    </ItemsControl.ItemsPanel>
-                    <ItemsControl.ItemTemplate>
-                        <DataTemplate x:DataType="m:OptionItem">
-                            <Button Classes="PickItem" Classes.is-on="{Binding IsSelected}" Tag="{Binding}">
-                                <TextBlock Text="{Binding Label}" FontSize="12.5"
-                                           Foreground="{DynamicResource Text2Brush}"
-                                           TextTrimming="CharacterEllipsis" />
-                            </Button>
-                        </DataTemplate>
-                    </ItemsControl.ItemTemplate>
-                </ItemsControl>
+                <ScrollViewer Name="Scroller" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+                    <ItemsControl Name="List">
+                        <ItemsControl.ItemsPanel>
+                            <ItemsPanelTemplate>
+                                <StackPanel Spacing="2" />
+                            </ItemsPanelTemplate>
+                        </ItemsControl.ItemsPanel>
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate x:DataType="m:IPickOption">
+                                <Button Classes="PickItem" Classes.is-on="{Binding IsSelected}" Tag="{Binding}">
+                                    <TextBlock Text="{Binding Label}" FontSize="12.5"
+                                               Foreground="{DynamicResource Text2Brush}"
+                                               TextTrimming="CharacterEllipsis" />
+                                </Button>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                </ScrollViewer>
             </Border>
         </Popup>
     </Grid>

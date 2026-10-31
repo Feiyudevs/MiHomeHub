@@ -8,6 +8,7 @@ using Avalonia.Interactivity;
 using Avalonia.Media;
 using Avalonia.Styling;
 using Avalonia.Threading;
+using System.Threading.Tasks;
 using MiHome.Services;
 using MiHome.ViewModels;
 
@@ -39,6 +40,9 @@ public partial class MainWindow : Window
         _normalSize = new Size(Width, Height);
         RestorePlacement();
 
+        // 点击搜索胶囊以外的任意位置 → 收起搜索
+        AddHandler(PointerPressedEvent, OnGlobalPointerPressed, RoutingStrategies.Tunnel);
+
         // DataContext 在窗口构造后由 App 注入，这里订阅属性变化来驱动抽屉滑入/滑出动画
         DataContextChanged += OnDataContextChanged;
 
@@ -63,6 +67,13 @@ public partial class MainWindow : Window
     {
         Persist();
         if (_allowExit) return;
+        // 关闭即退出：托盘菜单窗口还挂在 lifetime 上，只关主窗不会结束进程，统一走退出
+        if (!AppSettingsStore.CloseToTray)
+        {
+            e.Cancel = true;
+            Dispatcher.UIThread.Post(ExitApplication);
+            return;
+        }
         e.Cancel = true;
         Hide();
     }
@@ -243,9 +254,82 @@ public partial class MainWindow : Window
         Vm?.OpenSettingsCommand.Execute(null);
     }
 
+    private async void OnCopyLog(object? sender, RoutedEventArgs e)
+    {
+        if (Vm != null && !string.IsNullOrEmpty(Vm.LogText) && Clipboard != null)
+            await Clipboard.SetTextAsync(Vm.LogText);
+    }
+
+    private void OnClearLog(object? sender, RoutedEventArgs e)
+    {
+        if (Vm != null) Vm.LogText = "";
+    }
+
     private void OnGotoRooms(object? sender, RoutedEventArgs e)
     {
         if (Vm != null) Vm.SelectedNavIndex = 1;
+    }
+
+    private bool _searchOpen;
+
+    // 事件从窗口往下隧穿，子控件把点击标为已处理也照样收到
+    private void OnGlobalPointerPressed(object? sender, PointerPressedEventArgs e)
+    {
+        if (!_searchOpen || SearchBox.IsPointerOver) return;
+        SetSearchOpen(false);
+    }
+
+    private void OnSearchBoxPressed(object? sender, PointerPressedEventArgs e)
+    {
+        if (!e.GetCurrentPoint(this).Properties.IsLeftButtonPressed) return;
+        if (_searchOpen)
+        {
+            SearchInput.Focus();
+            return;
+        }
+        e.Handled = true; // 展开动作不能顺带触发标题栏拖动
+        SetSearchOpen(true);
+    }
+
+    private void OnSearchKeyDown(object? sender, KeyEventArgs e)
+    {
+        if (e.Key != Key.Escape) return;
+        e.Handled = true; // 不让窗口级 Escape 顺手关掉其他浮层
+        SetSearchOpen(false);
+    }
+
+    private void OnVoiceKeyDown(object? sender, KeyEventArgs e)
+    {
+        if (e.Key != Key.Enter) return;
+        e.Handled = true; // 回车直接发送，不插入换行
+        Vm?.SendVoiceCommand.Execute(null);
+    }
+
+    private void OnSearchLostFocus(object? sender, RoutedEventArgs e)
+    {
+        // 焦点还在搜索胶囊上（点击胶囊内空白）或还有关键词时保持展开
+        Dispatcher.UIThread.Post(() =>
+        {
+            if (!_searchOpen) return;
+            if (SearchInput.IsKeyboardFocusWithin || SearchBox.IsPointerOver) return;
+            if (!string.IsNullOrEmpty(SearchInput.Text)) return;
+            SetSearchOpen(false);
+        }, DispatcherPriority.Background);
+    }
+
+    private void SetSearchOpen(bool open)
+    {
+        if (_searchOpen == open) return;
+        _searchOpen = open;
+        SearchBox.Classes.Set("open", open);
+        if (open)
+        {
+            SearchInput.Focus();
+            return;
+        }
+        // 收起即清空关键词，避免看不见的过滤还在生效
+        SearchInput.Text = string.Empty;
+        if (SearchInput.IsKeyboardFocusWithin) SearchBox.Focus();
     }
 
     private void OnMaskClick(object? sender, PointerReleasedEventArgs e) => Vm?.CloseOverlaysCommand.Execute(null);
@@ -282,8 +366,62 @@ public partial class MainWindow : Window
             {
                 if (args.PropertyName == nameof(MainViewModel.IsDrawerOpen))
                     Dispatcher.UIThread.Post(() => AnimateDeviceDrawer(vm.IsDrawerOpen));
+                if (args.PropertyName == nameof(MainViewModel.IsVoiceOpen))
+                    Dispatcher.UIThread.Post(() => AnimateVoicePanel(vm.IsVoiceOpen));
             };
+            // 浮层可见性由动画接管，XAML 里默认是隐藏的；若初始就是打开状态则直接落位
+            if (vm.IsVoiceOpen)
+            {
+                VoicePanel.IsVisible = true;
+                VoicePanel.Opacity = 1;
+            }
         }
+    }
+
+    /// <summary>
+    /// 小爱指令浮层开合：打开时淡入并从标题栏下方轻落，关闭时反向收起后再隐藏，
+    /// 避免收起过程中残留的浮层挡住下面的点击。
+    /// </summary>
+    private void AnimateVoicePanel(bool open)
+    {
+        var panel = VoicePanel;
+        if (panel.RenderTransform is not TranslateTransform tx) return;
+
+        var duration = TimeSpan.FromMilliseconds(open ? 240 : 160);
+        Easing ease = open ? new CubicEaseOut() : new CubicEaseIn();
+        var fromY = open ? -8d : tx.Y;
+        var toY = open ? 0d : -8d;
+        var fromOpacity = open ? 0d : panel.Opacity;
+        var toOpacity = open ? 1d : 0d;
+
+        panel.IsVisible = true;
+        tx.Y = fromY;
+
+        var slide = new Animation
+        {
+            Duration = duration,
+            Easing = ease,
+            FillMode = FillMode.Forward
+        };
+        slide.Children.Add(new KeyFrame
+        {
+            Cue = new Cue(0d),
+            Setters = { new Setter(TranslateTransform.YProperty, fromY) }
+        });
+        slide.Children.Add(new KeyFrame
+        {
+            Cue = new Cue(1d),
+            Setters = { new Setter(TranslateTransform.YProperty, toY) }
+        });
+
+        _ = FadeAnimation(fromOpacity, toOpacity, duration, ease).RunAsync(panel);
+        _ = slide.RunAsync(panel).ContinueWith(_ =>
+            Dispatcher.UIThread.Post(() =>
+            {
+                // 收起动画结束后若用户又打开了，就保持可见（以 VM 的当前状态为准）
+                if (!open && Vm?.IsVoiceOpen != true) panel.IsVisible = false;
+                tx.Y = 0;
+            }));
     }
 
     /// <summary>

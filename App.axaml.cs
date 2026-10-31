@@ -100,10 +100,20 @@ public partial class App : Application
         RequestedThemeVariant = ThemeStore.CurrentVariant;
         if (ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
         {
+            // 升级/换目录后 Run 键里可能还是旧 exe 路径
+            StartupRegistration.Sync();
+
+            // 开机自启（Run 键带 --startup）：窗口只用来先创建句柄，托盘就绪后立刻收起
+            var silent = desktop.Args?.Contains("--startup", StringComparer.OrdinalIgnoreCase) == true;
             var window = new MainWindow
             {
                 DataContext = new MainViewModel()
             };
+            if (silent)
+            {
+                window.Opacity = 0;
+                window.ShowInTaskbar = false;
+            }
             desktop.MainWindow = window;
             desktop.MainWindow.AddHandler(InputElement.PointerWheelChangedEvent, OnPointerWheel,
                 RoutingStrategies.Tunnel, handledEventsToo: true);
@@ -111,7 +121,7 @@ public partial class App : Application
                 RoutingStrategies.Bubble, handledEventsToo: true);
             desktop.MainWindow.AddHandler(Thumb.DragCompletedEvent, OnThumbDragCompleted,
                 RoutingStrategies.Bubble, handledEventsToo: true);
-            SetupTray(window, desktop);
+            SetupTray(window, desktop, silent);
         }
         base.OnFrameworkInitializationCompleted();
     }
@@ -119,7 +129,7 @@ public partial class App : Application
     private TrayIconHost? _trayIcon;
     private TrayMenuWindow? _trayMenu;
 
-    private void SetupTray(MainWindow main, IClassicDesktopStyleApplicationLifetime desktop)
+    private void SetupTray(MainWindow main, IClassicDesktopStyleApplicationLifetime desktop, bool silent)
     {
         _trayMenu = new TrayMenuWindow();
         _trayMenu.ShowMainRequested += () => ShowMainWindow(main);
@@ -133,6 +143,14 @@ public partial class App : Application
             _trayIcon = new TrayIconHost(main, "米家 · 控制中心");
             _trayIcon.LeftClicked += () => ShowMainWindow(main);
             _trayIcon.RightClicked += () => OpenTrayMenu(main);
+
+            if (silent)
+            {
+                // 恢复常态属性再收起：之后从托盘打开要正常出现在任务栏、不再透明
+                main.Opacity = 1;
+                main.ShowInTaskbar = true;
+                main.Hide();
+            }
         }
 
         if (main.IsVisible) Start(null, EventArgs.Empty);

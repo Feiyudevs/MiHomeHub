@@ -84,8 +84,16 @@ public sealed partial class HomeOption : ObservableObject
     [ObservableProperty] private bool _isSelected;
 }
 
+/// <summary>下拉项的最小契约：OptionPicker 只认这三样，规格下拉项（SpecOptionVm）也能直接当选项用。</summary>
+public interface IPickOption
+{
+    string Label { get; }
+    object Value { get; }
+    bool IsSelected { get; set; }
+}
+
 /// <summary>自绘下拉项：Value 是与调用方状态直接比对的任意值（bool、字符串…）。</summary>
-public sealed partial class OptionItem : ObservableObject
+public sealed partial class OptionItem : ObservableObject, IPickOption
 {
     public required string Label { get; init; }
     public required object Value { get; init; }
@@ -165,4 +173,26 @@ public sealed partial class SceneCardItem : ObservableObject
         };
         return Geometry.Parse(data);
     }
+}
+
+/// <summary>环境概览明细里的一行读数（设备名 + 房间 + 「26.5℃ 48%」）。</summary>
+public sealed class EnvReadingItem
+{
+    public required string Title { get; init; }
+    public required string Subtitle { get; init; }
+    /// <summary>主读数：优先温度，没有温度时退回湿度。</summary>
+    public required string Value { get; init; }
+    /// <summary>次要读数：温湿度同时存在时补湿度，其余情况为空。</summary>
+    public string Extra { get; init; } = "";
+}
+
+/// <summary>环境概览明细里的一条耗材（跨设备的滤芯/刷头汇总）。</summary>
+public sealed class ConsumableItem
+{
+    public required string DeviceName { get; init; }
+    public required string Desc { get; init; }
+    public required string ValueText { get; init; }
+    /// <summary>0–100 的余量，未知为 -1；用于「不足的排前面、低的更靠前」排序。</summary>
+    public int Percent { get; init; } = -1;
+    public bool IsLow { get; init; }
 }

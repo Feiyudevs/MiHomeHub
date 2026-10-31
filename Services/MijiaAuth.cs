@@ -206,6 +206,9 @@ public class MijiaAuth
 
             Auth.SSecurity = ssecurity;
             Auth.ServiceToken = token;
+            // 换到的新会话重新计 30 天，否则过期时间一直停在扫码那一刻，
+            // 明明能自动续期，启动却被判成未登录
+            Auth.ExpireTime = DateTimeOffset.UtcNow.AddDays(30).ToUnixTimeMilliseconds();
             Save();
             return true;
         }

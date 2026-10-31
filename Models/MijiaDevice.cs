@@ -1,4 +1,8 @@
+using System;
 using System.Collections.Generic;
+using System.Collections.ObjectModel;
+using System.Globalization;
+using System.Linq;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using Avalonia.Media.Imaging;
@@ -75,6 +79,89 @@ public partial class MijiaDevice : ObservableObject
     /// <summary>窗帘：当前开合度 0–100（siid=2/piid=3），打开/关闭后由详情页回填。</summary>
     [property: JsonIgnore] [ObservableProperty] private int _curtainPosition;
 
+    /// <summary>卡片副标题里的读数（温度/湿度等），由轮询按规格回填；空串表示没有读数。</summary>
+    [property: JsonIgnore] [ObservableProperty] private string _metricsText = "";
+
+    /// <summary>本地指令下发后的抑制截止时间（TickCount64）；这段时间内轮询不覆盖本地状态。</summary>
+    [property: JsonIgnore] [ObservableProperty] private long _pendingUntilMs;
+
+    // ===== 环境读数：轮询回填，卡片副标题与环境概览共用 =====
+
+    /// <summary>最近一次读到的温度（℃，已按 0.1 单位缩回）；null 表示这台设备没有温度读数。</summary>
+    [JsonIgnore] public double? TemperatureC { get; set; }
+
+    /// <summary>最近一次读到的相对湿度（%，已按 0.1 单位缩回）。</summary>
+    [JsonIgnore] public double? Humidity { get; set; }
+
+    // ===== 耗材（滤芯/刷头 life-level 百分比） =====
+
+    /// <summary>规格里的耗材余量项；随规格解析重建，卡片与抽屉按需展示。</summary>
+    [JsonIgnore] public List<ConsumableState> Consumables { get; } = new();
+
+    [JsonIgnore] public bool HasConsumables => Consumables.Count > 0;
+    [JsonIgnore] public bool HasConsumableWarning => Consumables.Any(c => c.IsLow);
+
+    /// <summary>耗材值变化后刷新汇总标记（抽屉图示与环境概览的「耗材不足」）。</summary>
+    public void RefreshConsumableFlags()
+    {
+        OnPropertyChanged(nameof(HasConsumables));
+        OnPropertyChanged(nameof(HasConsumableWarning));
+    }
+
+    // ===== 小爱音箱：音量与播放 =====
+
+    /// <summary>是否为可控制的小爱音箱（按 spec 大类判定，规格缺失时看有没有 volume/文本指令）。</summary>
+    [property: JsonIgnore] [ObservableProperty] private bool _isSpeaker;
+
+    /// <summary>音箱音量 0–100，轮询回填；拖动滑杆时由本地值先行。</summary>
+    [property: JsonIgnore] [ObservableProperty] private int _speakerVolume = 50;
+
+    /// <summary>本地播放态：下发播放/暂停后翻转，接口没有统一回读。</summary>
+    [property: JsonIgnore] [ObservableProperty] private bool _isPlaying;
+
+    [JsonIgnore] public int SpeakerVolumeSiid { get; private set; }
+    [JsonIgnore] public int SpeakerVolumePiid { get; private set; }
+    [JsonIgnore] public int PlaySiid { get; private set; }
+    [JsonIgnore] public int PlayAiid { get; private set; }
+    [JsonIgnore] public int PauseSiid { get; private set; }
+    [JsonIgnore] public int PauseAiid { get; private set; }
+    [JsonIgnore] public int TogglePlaySiid { get; private set; }
+    [JsonIgnore] public int TogglePlayAiid { get; private set; }
+    [JsonIgnore] public int PreviousSiid { get; private set; }
+    [JsonIgnore] public int PreviousAiid { get; private set; }
+    [JsonIgnore] public int NextSiid { get; private set; }
+    [JsonIgnore] public int NextAiid { get; private set; }
+    [JsonIgnore] public int TextDirectiveSiid { get; private set; }
+    [JsonIgnore] public int TextDirectiveAiid { get; private set; }
+
+    /// <summary>播放状态回读（playing-state）：1 播放中、0 停止、2 暂停。</summary>
+    [JsonIgnore] public int PlayingStateSiid { get; private set; }
+    [JsonIgnore] public int PlayingStatePiid { get; private set; }
+
+    /// <summary>是否支持 execute-text-directive（小爱语音指令依赖这个动作）。</summary>
+    [JsonIgnore] public bool HasTextDirective => TextDirectiveSiid > 0 && TextDirectiveAiid > 0;
+
+    /// <summary>按设备规格解析出的控制参数；为空表示还没拿到规格，走旧版 siid=2/piid=1 兜底。</summary>
+    [property: JsonIgnore] [ObservableProperty] private DeviceSpec? _spec;
+
+    /// <summary>是否有整机 bool 电源开关（灯/插座/空调/浴霸）。多路开关走 <see cref="Channels"/>。</summary>
+    [property: JsonIgnore] [ObservableProperty] private bool _hasPower;
+
+    /// <summary>整机电源开关的 siid/piid（规格可写 on 优先，未解析时回落 2/1）。</summary>
+    [property: JsonIgnore] [ObservableProperty] private int _powerSiid = 2;
+    [property: JsonIgnore] [ObservableProperty] private int _powerPiid = 1;
+
+    /// <summary>多路开关/虚拟子设备的每一路可写 on。无规格时为空的集合。</summary>
+    [JsonIgnore] public ObservableCollection<SwitchChannelState> Channels { get; } = new();
+
+    /// <summary>
+    /// 下发/查询真正要打的 did：虚拟子设备 did 形如 &lt;parent&gt;.sN，
+    /// 米家只认父设备 + 通道 siid，直接打子 did 会卡住后报错。
+    /// </summary>
+    [JsonIgnore] public string TargetDid { get; private set; } = "";
+    [JsonIgnore] public int ChannelSiid { get; private set; }
+    [JsonIgnore] public bool IsVirtual => ChannelSiid > 0;
+
     /// <summary>是否灯（决定抽屉显示亮度/色温面板）。</summary>
     [JsonIgnore] public bool IsLight => Category == "light";
 
@@ -82,10 +169,29 @@ public partial class MijiaDevice : ObservableObject
     [JsonIgnore] public bool IsAc => Category == "air-conditioner";
 
     /// <summary>是否窗帘（决定抽屉显示打开/暂停/关闭面板）。</summary>
-    [JsonIgnore] public bool IsCurtain => Control == MijiaControl.Curtain;
+    [JsonIgnore] public bool IsCurtain => Category == "curtain";
 
-    /// <summary>标准 bool 开关类（抽屉显示电源开关；窗帘走单独的电机三键）。</summary>
-    [JsonIgnore] public bool IsPower => Control == MijiaControl.Power;
+    /// <summary>抽屉里的整机电源开关卡片（开关类走多路通道卡片，不重复显示）。</summary>
+    [JsonIgnore] public bool IsPower => HasPower;
+
+    /// <summary>卡片是否显示单个开关：整机电源、窗帘、单路开关都算。</summary>
+    [JsonIgnore] public bool ShowCardSwitch => IsControllable && Channels.Count <= 1;
+
+    /// <summary>多路开关卡片只显示「N 路」角标，具体每一路进抽屉操作。</summary>
+    [JsonIgnore] public bool ShowChannelBadge => Channels.Count > 1;
+
+    /// <summary>抽屉是否显示通道列表（单路开关也要能单独操作）。</summary>
+    [JsonIgnore] public bool HasChannels => Channels.Count > 0;
+
+    /// <summary>卡片开关的聚合态（多路时任意一路开即视为开）。</summary>
+    [JsonIgnore] public bool IsControllable => IsCurtain || HasPower || Channels.Count > 0;
+
+    /// <summary>卡片副标题：房间 + 读数（有读数时）。</summary>
+    [JsonIgnore]
+    public string CardSubtitle =>
+        string.IsNullOrEmpty(MetricsText) ? RoomName : $"{RoomName} · {MetricsText}";
+
+    partial void OnMetricsTextChanged(string value) => OnPropertyChanged(nameof(CardSubtitle));
 
     /// <summary>该空调的控制参数（按设备规格解析），决定抽屉里模式/温度/风速的显示与下发。</summary>
     [property: JsonIgnore] [ObservableProperty] private AcControlSchema? _acSchema;
@@ -137,25 +243,159 @@ public partial class MijiaDevice : ObservableObject
     }
 
     /// <summary>
-    /// 控制方式。窗帘的 siid=2/piid=1 是只写的 motor-control（0 停 1 开 2 关）；
-    /// 灯/插座/空调的 bool on 写死 siid=2/piid=1。
-    /// 开关类（含多路墙开、无线按键）一律不给远程控制，只展示状态。
+    /// 规格未到手前的兜底：灯/插座/空调沿用 siid=2/piid=1 的整机 on；
+    /// 开关类不猜，等规格解析出真实通道。虚拟子设备这里只拆 did。
     /// </summary>
-    [JsonIgnore]
-    public MijiaControl Control => IconKey switch
+    public void ApplyLegacyDefaults()
     {
-        "curtain" => MijiaControl.Curtain,
-        "light" or "socket" or "ac" => MijiaControl.Power,
-        _ => MijiaControl.None
+        ParseDid();
+        if (Spec != null) return;
+        var key = IconKey;
+        var legacyPower = key is "light" or "socket" or "ac";
+        HasPower = legacyPower;
+        if (legacyPower)
+        {
+            PowerSiid = 2;
+            PowerPiid = 1;
+        }
+        RaiseControlChanged();
+    }
+
+    /// <summary>用解析出的规格重建控制模型：多路开关每路一条通道，其余补整机电源开关。</summary>
+    public void ApplySpec(DeviceSpec spec)
+    {
+        Spec = spec;
+        Channels.Clear();
+
+        var onChannels = spec.OnChannels;
+        if (IsVirtual)
+        {
+            var match = onChannels.FirstOrDefault(c => c.Siid == ChannelSiid);
+            if (match != null) Channels.Add(NewChannel(match));
+        }
+        else
+        {
+            foreach (var c in onChannels) Channels.Add(NewChannel(c));
+        }
+
+        if (Channels.Count > 0)
+        {
+            // 多路墙开的规格 description 常都是「开关」，补上路序才能分辨
+            if (Channels.Count > 1 && Channels.Select(c => c.Label).Distinct().Count() < Channels.Count)
+            {
+                var n = 0;
+                foreach (var c in Channels) c.Label = $"{c.Label} {++n}";
+            }
+            HasPower = false;
+        }
+        else if (spec.AnyWritableOn is { } on)
+        {
+            HasPower = true;
+            PowerSiid = on.Siid;
+            PowerPiid = on.Piid;
+        }
+        else
+        {
+            HasPower = false;
+        }
+
+        ApplySpeaker(spec);
+        ApplyConsumables(spec);
+        RaiseControlChanged();
+    }
+
+    /// <summary>按规格判定音箱能力：音量属性与播放/文本指令动作，决定抽屉控制栏与语音悬浮球入口。</summary>
+    private void ApplySpeaker(DeviceSpec spec)
+    {
+        var category = Category;
+        var isSpeakerCategory = category is "speaker" or "voice-assistant" ||
+                                category.Contains("speaker", StringComparison.Ordinal);
+
+        var volume = spec.SpeakerVolume;
+        var text = spec.FindAction("execute-text-directive");
+        var play = spec.FindAction("play");
+        var pause = spec.FindAction("pause");
+        var toggle = spec.FindAction("toggle-play");
+        var previous = spec.FindAction("previous");
+        var next = spec.FindAction("next");
+        var playingState = spec.FindProp("playing-state");
+
+        // 只认音箱大类或真的带文本指令；电视也有 volume + play/pause，不能按「音量+播放」误判成音箱
+        IsSpeaker = isSpeakerCategory || text != null;
+
+        SpeakerVolumeSiid = volume?.Siid ?? 0;
+        SpeakerVolumePiid = volume?.Piid ?? 0;
+        PlaySiid = play?.Siid ?? 0;
+        PlayAiid = play?.Aiid ?? 0;
+        PauseSiid = pause?.Siid ?? 0;
+        PauseAiid = pause?.Aiid ?? 0;
+        TogglePlaySiid = toggle?.Siid ?? 0;
+        TogglePlayAiid = toggle?.Aiid ?? 0;
+        PreviousSiid = previous?.Siid ?? 0;
+        PreviousAiid = previous?.Aiid ?? 0;
+        NextSiid = next?.Siid ?? 0;
+        NextAiid = next?.Aiid ?? 0;
+        TextDirectiveSiid = text?.Siid ?? 0;
+        TextDirectiveAiid = text?.Aiid ?? 0;
+        PlayingStateSiid = playingState?.Siid ?? 0;
+        PlayingStatePiid = playingState?.Piid ?? 0;
+    }
+
+    private void ApplyConsumables(DeviceSpec spec)
+    {
+        Consumables.Clear();
+        // 同一型号的规格里常见「空调服务」和「滤网服务」都带 filter-life-level，同名耗材只保留一项
+        var seen = new HashSet<string>(StringComparer.Ordinal);
+        foreach (var p in spec.ConsumableProps)
+        {
+            var desc = string.IsNullOrWhiteSpace(p.Desc) ? p.Name : p.Desc;
+            if (!seen.Add(desc)) continue;
+            Consumables.Add(new ConsumableState
+            {
+                Siid = p.Siid,
+                Piid = p.Piid,
+                Desc = desc
+            });
+        }
+        RefreshConsumableFlags();
+    }
+
+    private SwitchChannelState NewChannel(SpecPropertyDef def) => new()
+    {
+        Siid = def.Siid,
+        Piid = def.Piid,
+        Label = string.IsNullOrEmpty(def.Desc) ? $"路 {def.Siid}" : def.Desc,
+        Device = this
     };
 
-    /// <summary>传感器、全部开关类、音箱、网关：没有远程开关指令，只列出状态。</summary>
-    [JsonIgnore]
-    public bool IsControllable => Control != MijiaControl.None;
+    private void RaiseControlChanged()
+    {
+        OnPropertyChanged(nameof(IsPower));
+        OnPropertyChanged(nameof(IsControllable));
+        OnPropertyChanged(nameof(ShowCardSwitch));
+        OnPropertyChanged(nameof(ShowChannelBadge));
+        OnPropertyChanged(nameof(HasChannels));
+    }
 
-    /// <summary>抽屉标题旁是否附状态：可控设备显示开/关；不可控仅离线时提示。</summary>
-    [JsonIgnore]
-    public bool ShowStatusText => IsControllable || !IsOnline;
+    /// <summary>多路开关的聚合态：任意一路开即显示为开；单路时与通道一致。</summary>
+    public void SyncOnFromChannels()
+    {
+        if (Channels.Count == 0) return;
+        IsOn = Channels.Any(c => c.IsOn);
+    }
+
+    /// <summary>把 &lt;parent&gt;.sN 拆成父 did + 通道 siid；普通 did 原样保留。</summary>
+    private void ParseDid()
+    {
+        TargetDid = Did;
+        ChannelSiid = 0;
+        var dot = Did.LastIndexOf(".s", StringComparison.Ordinal);
+        if (dot <= 0) return;
+        if (!int.TryParse(Did[(dot + 2)..], NumberStyles.Integer, CultureInfo.InvariantCulture, out var ch) || ch <= 0)
+            return;
+        TargetDid = Did[..dot];
+        ChannelSiid = ch;
+    }
 
     /// <summary>spec_type 形如 urn:miot-spec-v2:device:&lt;大类&gt;:&lt;型号段&gt;:&lt;版本&gt;。</summary>
     private string Category
@@ -168,16 +408,25 @@ public partial class MijiaDevice : ObservableObject
     }
 }
 
-public enum MijiaControl
+/// <summary>一个耗材余量项（滤芯/刷头 life-level）：Percent 为 0–100，未知时 -1。</summary>
+public sealed partial class ConsumableState : ObservableObject
 {
-    /// <summary>没有可下发的开关指令（传感器、网关、音箱等）。</summary>
-    None,
+    public int Siid { get; init; }
+    public int Piid { get; init; }
+    public required string Desc { get; init; }
 
-    /// <summary>标准 bool 开关：siid=2, piid=1。</summary>
-    Power,
+    [ObservableProperty] private int _percent = -1;
 
-    /// <summary>窗帘：写 siid=2, piid=1 的 1/2，状态读 siid=2, piid=3 的位置百分比。</summary>
-    Curtain
+    public bool HasValue => Percent >= 0;
+    public bool IsLow => HasValue && Percent <= 20;
+    public string ValueText => HasValue ? $"{Percent}%" : "—";
+
+    partial void OnPercentChanged(int value)
+    {
+        OnPropertyChanged(nameof(HasValue));
+        OnPropertyChanged(nameof(IsLow));
+        OnPropertyChanged(nameof(ValueText));
+    }
 }
 
 public class MijiaHome

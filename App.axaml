@@ -1,19 +1,22 @@
-<Application xmlns="https://github.com/avaloniaui"
-             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-             xmlns:ani="clr-namespace:Avalonia.Animation.Easings;assembly=Avalonia.Base"
-             xmlns:conv="clr-namespace:MiHome.Converters"
-             xmlns:ctl="clr-namespace:MiHome.Controls"
-             xmlns:vm="clr-namespace:MiHome.ViewModels"
+<Application 
+    xmlns="https://github.com/avaloniaui"
+             
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             
+    xmlns:ani="clr-namespace:Avalonia.Animation.Easings;assembly=Avalonia.Base"
+             
+    xmlns:conv="clr-namespace:MiHome.Converters"
+             
+    xmlns:ctl="clr-namespace:MiHome.Controls"
+             
+    xmlns:vm="clr-namespace:MiHome.ViewModels"
              x:Class="MiHome.App"
              RequestedThemeVariant="Dark">
-
     <Application.Resources>
         <ResourceDictionary>
-
             <!-- ======== 侧栏导航图标：玻璃 SVG 优先，缺资源回退细线 ======== -->
             <conv:NavSvgConverter x:Key="NavSvg" />
             <conv:NavLineConverter x:Key="NavLine" />
-
             <!-- ======== 图标几何（24 网格线性图标） ======== -->
             <PathGeometry x:Key="GeoHome">M3,10.5 L12,3 L21,10.5 M5.5,9.5 L5.5,20 L18.5,20 L18.5,9.5 M9.5,20 L9.5,14 L14.5,14 L14.5,20</PathGeometry>
             <PathGeometry x:Key="GeoRooms">M3,21 L3,8 L12,3 L21,8 L21,21 M9,21 L9,13 L15,13 L15,21</PathGeometry>
@@ -27,16 +30,19 @@
             <PathGeometry x:Key="GeoMin">M2.5,6 L9.5,6</PathGeometry>
             <PathGeometry x:Key="GeoMax">M4,3.5 H8 Q9.5,3.5 9.5,5 V8 Q9.5,9.5 8,9.5 H4 Q2.5,9.5 2.5,8 V5 Q2.5,3.5 4,3.5 Z</PathGeometry>
             <PathGeometry x:Key="GeoClose">M3.2,3.2 L8.8,8.8 M8.8,3.2 L3.2,8.8</PathGeometry>
+            <PathGeometry x:Key="GeoPower">M12,3 L12,11 M6.7,6.7 A7.5,7.5 0 1 0 17.3,6.7</PathGeometry>
+            <PathGeometry x:Key="GeoTray">M4,4 H20 V15 H4 Z M12,7.5 L12,12 M9.5,9.5 L12,12 L14.5,9.5</PathGeometry>
             <PathGeometry x:Key="GeoBolt">M13,2 L4,14 L11,14 L10,22 L19,10 L12,10 Z</PathGeometry>
             <PathGeometry x:Key="GeoWifi">M5,12.5 A7,7 0 0 1 19,12.5 M8.5,15.5 A3.5,3.5 0 0 1 15.5,15.5 M12,18.5 m-1.2,0 a1.2,1.2 0 1 0 2.4,0 a1.2,1.2 0 1 0 -2.4,0</PathGeometry>
             <PathGeometry x:Key="GeoClock">M12,12 m-9,0 a9,9 0 1 0 18,0 a9,9 0 1 0 -18,0 M12,7 L12,12 L15,14</PathGeometry>
             <PathGeometry x:Key="GeoArrow">M9,5 L16,12 L9,19</PathGeometry>
             <PathGeometry x:Key="GeoPlay">M9.35,7 C8.75,7 8.35,7.4 8.35,8 L8.35,16 C8.35,16.6 8.95,17 9.55,16.7 L15.15,12.6 C15.65,12.3 15.65,11.7 15.15,11.4 L9.55,7.3 C9.45,7.1 9.45,7 9.35,7 Z</PathGeometry>
+            <!-- 操作日志：带折角的文档 + 三行文本 -->
+            <PathGeometry x:Key="GeoLog">M6,2 H14 L20,8 V22 H6 Z M14,2 V8 H20 M9,12 H15 M9,15.5 H15 M9,19 H13</PathGeometry>
             <PathGeometry x:Key="GeoRefresh">M21,12 A9,9 0 1 1 18,5.3 M21,3 L21,9 L15,9</PathGeometry>
             <PathGeometry x:Key="GeoLock">M5,10 L19,10 L19,21 L5,21 Z M8,10 L8,7 A4,4 0 0 1 16,7 L16,10</PathGeometry>
             <PathGeometry x:Key="GeoUser">M12,12 m-4,0 a4,4 0 1 0 8,0 a4,4 0 1 0 -8,0 M4,21 A8,8 0 0 1 20,21</PathGeometry>
             <PathGeometry x:Key="GeoSpinner">M12,3 A9,9 0 1 1 3,12</PathGeometry>
-
             <!-- ======== 房间专用图标（24 网格线性图标，侧边栏房间芯片用） ======== -->
             <PathGeometry x:Key="GeoLiving">M3,17 H19 V14 H3 Z M5,13 L10,13 L10,17 M10,13 L14,9 L19,13</PathGeometry>
             <PathGeometry x:Key="GeoBed">M4,17 H20 V11 H4 Z M7,11 V5 M17,11 V5 M8,17 H16</PathGeometry>
@@ -47,11 +53,9 @@
             <PathGeometry x:Key="GeoBath">M6,17 H18 V14 H6 Z M14,14 V8 M12,8 A3,3 0 1 0 15,8 M14,8 V4</PathGeometry>
             <PathGeometry x:Key="GeoEntry">M6,5 V19 H18 V5 M12,5 V19</PathGeometry>
             <PathGeometry x:Key="GeoBalcony">M3,6 H21 V18 H3 Z M6,12 H18 M10,6 V18 M14,6 V18</PathGeometry>
-
             <!-- ======== 品牌标志（48 网格：圆肩 M + 橙点，卡底冷白、圆角 24%） ======== -->
             <StreamGeometry x:Key="GeoBrandMark">M13.5,32.5 V21.5 Q13.5,18.4 16.3,20.1 L22.2,26.4 Q24,27.9 25.8,26.4 L31.7,20.1 Q34.5,18.4 34.5,21.5 V32.5</StreamGeometry>
             <StreamGeometry x:Key="GeoBrandCard">M11.5,0 H36.5 A11.5,11.5 0 0 1 48,11.5 V36.5 A11.5,11.5 0 0 1 36.5,48 H11.5 A11.5,11.5 0 0 1 0,36.5 V11.5 A11.5,11.5 0 0 1 11.5,0 Z</StreamGeometry>
-
             <DrawingImage x:Key="LogoImage">
                 <DrawingImage.Drawing>
                     <DrawingGroup>
@@ -69,16 +73,13 @@
                     </DrawingGroup>
                 </DrawingImage.Drawing>
             </DrawingImage>
-
             <!-- ======== 圆角 ======== -->
             <CornerRadius x:Key="RLg">20</CornerRadius>
             <CornerRadius x:Key="R">16</CornerRadius>
             <CornerRadius x:Key="RSm">12</CornerRadius>
             <CornerRadius x:Key="RCtl">10</CornerRadius>
-
             <!-- ======== 滑动条：轨道从 Fluent 默认 2px 加高到 8px ======== -->
             <x:Double x:Key="SliderTrackThemeHeight">8</x:Double>
-
             <!-- ======== 滚动条：主题自带的轨道/箭头画刷一律置空，只留胶囊滑块 ======== -->
             <SolidColorBrush x:Key="ScrollBarBackground" Color="Transparent"/>
             <SolidColorBrush x:Key="ScrollBarBackgroundPointerOver" Color="Transparent"/>
@@ -108,8 +109,6 @@
                  拖拽时鼠标离开把手也不会缩到看不见（样式赋值压不过模板里的本地 DynamicResource） -->
             <ScaleTransform x:Key="VerticalSmallScrollThumbScaleTransform" ScaleX="1" ScaleY="1"/>
             <ScaleTransform x:Key="HorizontalSmallScrollThumbScaleTransform" ScaleX="1" ScaleY="1"/>
-
-        
             <ResourceDictionary.ThemeDictionaries>
                 <ResourceDictionary x:Key="Dark">
                     <SolidColorBrush x:Key="BgBrush" Color="#07090E"/>
@@ -343,18 +342,14 @@
             </ResourceDictionary.ThemeDictionaries>
         </ResourceDictionary>
     </Application.Resources>
-
     <Application.Styles>
-
         <!-- 基础控件模板来源：缺了它 TextBox / ItemsControl / ScrollViewer 都没有可视模板 -->
         <FluentTheme />
-
         <!-- ======== 全局基础 ======== -->
         <Style Selector="Window">
             <Setter Property="FontFamily" Value="Segoe UI Variable Text, Segoe UI, Microsoft YaHei UI, PingFang SC"/>
             <Setter Property="Background" Value="{DynamicResource BgBrush}"/>
         </Style>
-
         <Style Selector="TextBlock.Hint">
             <Setter Property="Foreground" Value="{DynamicResource Text3Brush}"/>
             <Setter Property="FontSize" Value="12"/>
@@ -373,19 +368,16 @@
         <Style Selector="TextBlock.SecTitle:first-child">
             <Setter Property="Margin" Value="2,0,0,12"/>
         </Style>
-
         <Style Selector="Border.Card">
             <Setter Property="Background" Value="{DynamicResource CardBrush}"/>
             <Setter Property="CornerRadius" Value="{StaticResource R}"/>
             <Setter Property="Padding" Value="18"/>
             <Setter Property="BoxShadow" Value="0 1 2 0 #050F172A, 0 5 16 0 #080F172A"/>
         </Style>
-
         <!-- 滑动条滑块：白圆点加轻投影，浮在加高的轨道上 -->
         <Style Selector="Slider /template/ Thumb /template/ Border">
             <Setter Property="BoxShadow" Value="0 1 4 #59000000"/>
         </Style>
-
         <!-- ======== 按钮 ======== -->
         <Style Selector="Button.BtnPrimary">
             <Setter Property="Height" Value="34"/>
@@ -414,7 +406,6 @@
         <Style Selector="Button.BtnPrimary:disabled /template/ Border#Bd">
             <Setter Property="Opacity" Value="0.45"/>
         </Style>
-
         <Style Selector="Button.BtnGhost">
             <Setter Property="Height" Value="34"/>
             <Setter Property="Padding" Value="16,0"/>
@@ -438,7 +429,6 @@
         <Style Selector="Button.BtnGhost:pointerover /template/ ContentPresenter#Cp">
             <Setter Property="TextBlock.Foreground" Value="{DynamicResource TextBrush}"/>
         </Style>
-
         <Style Selector="Button.IconBtn">
             <Setter Property="Width" Value="34"/>
             <Setter Property="Height" Value="34"/>
@@ -455,7 +445,6 @@
         <Style Selector="Button.IconBtn:pointerover /template/ Border#Bd">
             <Setter Property="Background" Value="{DynamicResource HoverBrush}"/>
         </Style>
-
         <!-- 窗口控制钮 36×30（图标 12 网格、圆角悬浮） -->
         <Style Selector="Button.WinBtn">
             <Setter Property="Width" Value="36"/>
@@ -481,7 +470,6 @@
         <Style Selector="Button.WinBtn.close:pointerover">
             <Setter Property="Foreground" Value="White"/>
         </Style>
-
         <!-- 标题栏主题钮 36×36（抽屉关闭钮可覆写 Width/Height/Padding） -->
         <Style Selector="Button.ThemeBtn">
             <Setter Property="Width" Value="36"/>
@@ -505,7 +493,6 @@
         <Style Selector="Button.ThemeBtn:pointerover">
             <Setter Property="Foreground" Value="{DynamicResource TextBrush}"/>
         </Style>
-
         <!-- ======== 开关 40×22（§8.4） ======== -->
         <Style Selector="ToggleButton.Switch">
             <Setter Property="Width" Value="40"/>
@@ -551,7 +538,45 @@
         <Style Selector="ToggleButton.Switch:disabled">
             <Setter Property="Opacity" Value="0.4"/>
         </Style>
-
+        <!-- ======== 卡片电源按钮：圆形底 + 电源图标（关=淡底，开=主色底） ======== -->
+        <!-- 关闭态用 TrackBrush：SurfaceBrush 只有 5% 白，深色卡上圆底几乎不可见，会被看成一个小图标 -->
+        <Style Selector="ToggleButton.Power">
+            <Setter Property="Width" Value="40"/>
+            <Setter Property="Height" Value="40"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="Background" Value="{DynamicResource TrackBrush}"/>
+            <Setter Property="Foreground" Value="{DynamicResource Text2Brush}"/>
+            <Setter Property="Template">
+                <ControlTemplate>
+                    <!-- Disc 不设对齐（默认 Stretch 铺满按钮）；设 Center 会收缩到图标大小 -->
+                    <Border Name="Disc" CornerRadius="20" Background="{TemplateBinding Background}">
+                        <!-- 电源符号：上竖线 + 开口圆弧，描边绘制保证小尺寸不糊 -->
+                        <Path Width="16" Height="16" Stretch="Uniform"
+                              HorizontalAlignment="Center" VerticalAlignment="Center"
+                              Stroke="{TemplateBinding Foreground}" StrokeThickness="2"
+                              StrokeLineCap="Round" StrokeJoin="Round"
+                              Data="M18.36,6.64 A9,9 0 1 1 6.64,6.64 M12,2 V12"/>
+                    </Border>
+                </ControlTemplate>
+            </Setter>
+        </Style>
+        <Style Selector="ToggleButton.Power /template/ Border#Disc">
+            <Setter Property="Transitions">
+                <Transitions>
+                    <BrushTransition Property="Background" Duration="0:0:0.22"/>
+                </Transitions>
+            </Setter>
+        </Style>
+        <Style Selector="ToggleButton.Power:pointerover /template/ Border#Disc">
+            <Setter Property="Opacity" Value="0.85"/>
+        </Style>
+        <Style Selector="ToggleButton.Power:checked">
+            <Setter Property="Background" Value="{DynamicResource AccentBrush}"/>
+            <Setter Property="Foreground" Value="White"/>
+        </Style>
+        <Style Selector="ToggleButton.Power:disabled">
+            <Setter Property="Opacity" Value="0.4"/>
+        </Style>
         <!-- ======== 侧栏导航 ======== -->
         <Style Selector="Button.NavRow">
             <Setter Property="Padding" Value="0"/>
@@ -617,7 +642,6 @@
         <Style Selector="Button.NavRow.room /template/ Path#Ic">
             <Setter Property="StrokeThickness" Value="1.2"/>
         </Style>
-
         <!-- 侧栏分组小标题 -->
         <Style Selector="TextBlock.NavCaption">
             <Setter Property="FontSize" Value="10.5"/>
@@ -625,7 +649,6 @@
             <Setter Property="Foreground" Value="{DynamicResource Text3Brush}"/>
             <Setter Property="Margin" Value="22,14,10,6"/>
         </Style>
-
         <!-- ======== 芯片筛选条（§8.12） ======== -->
         <Style Selector="ToggleButton.Chip">
             <Setter Property="Height" Value="32"/>
@@ -654,7 +677,6 @@
             <Setter Property="Foreground" Value="{DynamicResource WarmTextBrush}"/>
             <Setter Property="FontWeight" Value="SemiBold"/>
         </Style>
-
         <!-- ======== 设备卡（§8.6：无边框，开启淡紫渐变） ======== -->
         <Style Selector="Button.DevCard">
             <Setter Property="Cursor" Value="Hand"/>
@@ -694,7 +716,6 @@
         <Style Selector="Button.DevCard:pressed">
             <Setter Property="RenderTransform" Value="translate(0px,-1px) scale(0.99)"/>
         </Style>
-
         <!-- 设备图标：只画矢量图标本身，不垫底板 -->
         <Style Selector="Border.DevIc">
             <Setter Property="Width" Value="48"/>
@@ -711,13 +732,11 @@
         <Style Selector="Path.DevIcon.on">
             <Setter Property="Stroke" Value="{DynamicResource Accent2Brush}"/>
         </Style>
-
         <!-- 设备真机图：已裁到实物外框，只展示图本身，不垫底色、不切圆角 -->
         <Style Selector="Border.DevPhoto">
             <Setter Property="Width" Value="48"/>
             <Setter Property="Height" Value="48"/>
         </Style>
-
         <!-- ======== 加载：骨架卡 + 掠过的高光带 + 旋转指示器 ======== -->
         <Style Selector="Border.SkelCard">
             <Setter Property="MinHeight" Value="74"/>
@@ -740,11 +759,10 @@
         </Style>
         <Style Selector="Border.SkelSw">
             <Setter Property="Width" Value="40"/>
-            <Setter Property="Height" Value="22"/>
-            <Setter Property="CornerRadius" Value="11"/>
+            <Setter Property="Height" Value="40"/>
+            <Setter Property="CornerRadius" Value="20"/>
             <Setter Property="Background" Value="{DynamicResource SkelBarBrush}"/>
         </Style>
-
         <!-- 高光带：卡片内容框已裁切，带子比卡高一点也不会漏出圆角 -->
         <Style Selector="Border.SkelShine">
             <Setter Property="Width" Value="76"/>
@@ -757,7 +775,6 @@
                 <TranslateTransform X="0"/>
             </Setter>
         </Style>
-
         <!-- 动画只在骨架真的显示时挂上：Avalonia 的 Style.Animations 不看 IsVisible，
              无限动画一旦常驻，合成器就按刷新率满帧重绘整棵树（空转掉一个核 + 常驻 GPU 占用）。 -->
         <Style Selector="Border.SkelShine.run">
@@ -772,7 +789,6 @@
                 </Animation>
             </Style.Animations>
         </Style>
-
         <!-- 旋转指示器：绕自身中心匀速转，尺寸/描边色由使用方给。
              原点必须写百分号：Avalonia 把 "0.5,0.5" 解析成绝对 0.5px，等于绕左上角转，整条弧会被带着甩。 -->
         <Style Selector="Path.Spinner">
@@ -781,7 +797,6 @@
                 <RotateTransform Angle="0"/>
             </Setter>
         </Style>
-
         <Style Selector="Path.Spinner.run">
             <Style.Animations>
                 <Animation Duration="0:0:0.9" IterationCount="Infinite" Easing="LinearEasing">
@@ -794,7 +809,6 @@
                 </Animation>
             </Style.Animations>
         </Style>
-
         <!-- 设备状态文本：默认灰，开启绿，离线琥珀（warn 在后，优先生效） -->
         <Style Selector="TextBlock.DevStatus">
             <Setter Property="Foreground" Value="{DynamicResource Text3Brush}"/>
@@ -807,7 +821,6 @@
         <Style Selector="TextBlock.DevStatus.is-warn">
             <Setter Property="Foreground" Value="{DynamicResource AmberBrush}"/>
         </Style>
-
         <!-- 状态圆点：文字保持常规色，只用小点表达在线/离线 -->
         <Style Selector="Ellipse.StatusDot">
             <Setter Property="Width" Value="7"/>
@@ -821,7 +834,6 @@
         <Style Selector="Ellipse.StatusDot.is-warn">
             <Setter Property="Fill" Value="{DynamicResource AmberBrush}"/>
         </Style>
-
         <!-- ======== 场景卡（§8.8：彩色渐变 + 光晕，无边框） ======== -->
         <Style Selector="Button.SceneMini">
             <Setter Property="Cursor" Value="Hand"/>
@@ -864,7 +876,6 @@
         <Style Selector="Button.SceneMini:pressed">
             <Setter Property="RenderTransform" Value="translate(0px,-1px) scale(0.98)"/>
         </Style>
-
         <Style Selector="Button.SceneBig">
             <Setter Property="Cursor" Value="Hand"/>
             <Setter Property="HorizontalAlignment" Value="Stretch"/>
@@ -906,7 +917,6 @@
         <Style Selector="Button.SceneBig:pressed">
             <Setter Property="RenderTransform" Value="translate(0px,-1px) scale(0.98)"/>
         </Style>
-
         <!-- ======== 场景执行：纯播放图标按钮（默认透明，hover 才出圆角底） ======== -->
         <Style Selector="Button.PlayCircle">
             <Setter Property="Cursor" Value="Hand"/>
@@ -938,7 +948,6 @@
         <Style Selector="Button.PlayCircle:pointerover /template/ Border#Card">
             <Setter Property="Background" Value="{DynamicResource HoverBrush}"/>
         </Style>
-
         <!-- ======== 搜索框：胶囊造型，聚焦/悬停均不改色 ======== -->
         <Style Selector="TextBox.Search">
             <Setter Property="Height" Value="32"/>
@@ -966,7 +975,6 @@
             <Setter Property="Background" Value="{DynamicResource SearchBgBrush}"/>
             <Setter Property="BorderBrush" Value="{DynamicResource SearchLineBrush}"/>
         </Style>
-
         <Style Selector="TextBox.Log">
             <Setter Property="Background" Value="Transparent"/>
             <Setter Property="BorderThickness" Value="0"/>
@@ -976,7 +984,6 @@
             <Setter Property="FontSize" Value="12"/>
             <Setter Property="TextWrapping" Value="Wrap"/>
         </Style>
-
         <!-- ======== 滚动条：默认隐藏，悬停浮现圆角胶囊 ======== -->
         <Style Selector="ScrollBar">
             <Setter Property="Opacity" Value="0"/>
@@ -993,7 +1000,6 @@
         <Style Selector="Window:pointerover ScrollBar">
             <Setter Property="Opacity" Value="1"/>
         </Style>
-
         <!-- 箭头按钮：PathIcon 自己的主题把 Foreground 写死成 TextControlForeground，
              置空 ScrollBarButtonArrowForeground 管不到它，只能整个隐藏 -->
         <Style Selector="ScrollBar /template/ PathIcon">
@@ -1003,7 +1009,6 @@
                         ScrollBar /template/ RepeatButton#PART_LineDownButton">
             <Setter Property="IsHitTestVisible" Value="False"/>
         </Style>
-
         <!-- 滑块换成 8px 居中胶囊。模板里只能有这一个 Border：主题的
              `^:pointerover/:pressed /template/ Border` 会命中模板内所有 Border，
              多包一层透明 Border 就会被它刷出一整条 16px 的「把手底色」 -->
@@ -1031,7 +1036,6 @@
                 </Transitions>
             </Setter>
         </Style>
-
         <!-- ======== 弹窗基类 DialogPopup：遮罩 + 居中卡片 + 标题栏 + 可滚动正文 ======== -->
         <!-- 卡片四周 1px LineBrush 浅描边：暗色下是极淡的白、浅色下是极淡的蓝黑，只负责把卡片从背景里分出来 -->
         <Style Selector="Border.DialogCard">
@@ -1041,7 +1045,6 @@
             <Setter Property="CornerRadius" Value="24"/>
             <Setter Property="BoxShadow" Value="0 24 48 0 #3311182B"/>
         </Style>
-
         <Style Selector="ctl|DialogPopup">
             <Setter Property="IsVisible" Value="{Binding IsOpen, RelativeSource={RelativeSource Self}}"/>
             <Setter Property="Template">
@@ -1049,7 +1052,6 @@
                     <Grid>
                         <!-- 遮罩：跨满宿主容器，点击即关闭（模板里挂 Mask 类，由控件识别） -->
                         <Border Classes="Mask" Background="{DynamicResource MaskBrush}"/>
-
                         <Border Classes="DialogCard" HorizontalAlignment="Center" VerticalAlignment="Center"
                                 Width="{TemplateBinding CardWidth}"
                                 MaxHeight="{TemplateBinding CardMaxHeight}">
@@ -1069,7 +1071,6 @@
                                               Data="{StaticResource GeoClose}"/>
                                     </Button>
                                 </Panel>
-
                                 <ScrollViewer Grid.Row="1" Margin="28,18,22,26"
                                               VerticalScrollBarVisibility="Auto"
                                               HorizontalScrollBarVisibility="Disabled">
@@ -1081,6 +1082,5 @@
                 </ControlTemplate>
             </Setter>
         </Style>
-
     </Application.Styles>
 </Application>

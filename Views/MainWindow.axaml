@@ -1,9 +1,171 @@
-<Window xmlns="https://github.com/avaloniaui"
-        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        xmlns:vm="clr-namespace:MiHome.ViewModels"
-        xmlns:m="clr-namespace:MiHome.Models"
-        xmlns:conv="clr-namespace:MiHome.Converters"
-        xmlns:ctl="clr-namespace:MiHome.Controls"
+<Window 
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    xmlns="https://github.com/avaloniaui"
+        
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    xmlns:vm="clr-namespace:MiHome.ViewModels"
+        
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    xmlns:m="clr-namespace:MiHome.Models"
+        
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    xmlns:conv="clr-namespace:MiHome.Converters"
+        
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    xmlns:ctl="clr-namespace:MiHome.Controls"
+        
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    xmlns:views="clr-namespace:MiHome.Views"
+        
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    xmlns:svc="clr-namespace:MiHome.Services"
         x:Class="MiHome.Views.MainWindow"
         x:DataType="vm:MainViewModel"
         Title="米家 · 控制中心"
@@ -13,14 +175,18 @@
         Background="{DynamicResource BgBrush}"
         ExtendClientAreaToDecorationsHint="True"
         ExtendClientAreaChromeHints="NoChrome"
-        ExtendClientAreaTitleBarHeightHint="48"
+        ExtendClientAreaTitleBarHeightHint="60"
         KeyDown="OnKeyDown">
-
     <Window.Resources>
         <conv:DeviceIconConverter x:Key="DeviceIcon" />
         <conv:DeviceStatusConverter x:Key="DevStatus" />
         <conv:IntEqualsConverter x:Key="IntEq" />
-
+        <!-- 音箱媒体控制图标：上一曲 / 下一曲 / 暂停，用实心几何避免小尺寸下线条糊成一团 -->
+        <PathGeometry x:Key="GeoPrevTrack">M7,6 H8.2 V18 H7 Z M18,6 L9.6,12 L18,18 Z</PathGeometry>
+        <PathGeometry x:Key="GeoNextTrack">M16.8,6 H18 V18 H16.8 Z M6,6 L14.4,12 L6,18 Z</PathGeometry>
+        <PathGeometry x:Key="GeoPauseIc">M9,5.5 H12.2 V18.5 H9 Z M14.8,5.5 H18 V18.5 H14.8 Z</PathGeometry>
+        <!-- 发送图标：纸飞机，走描边画法，浮层里的发送按钮用 -->
+        <PathGeometry x:Key="GeoSend">M22,2 L11,13 M22,2 L15,22 L11,13 L2,9 Z</PathGeometry>
         <!-- 空调模式/风速动态按钮：按设备规格的 value-list 生成，选中态由设备当前值驱动 -->
         <DataTemplate x:Key="AcModeOptionTemplate" x:DataType="m:AcOptionItem">
             <Button Classes="SegBtn" Content="{Binding Label}" Classes.is-on="{Binding IsSelected}"
@@ -34,7 +200,90 @@
                     Command="{Binding $parent[Window].((vm:MainViewModel)DataContext).SetAcFanCommand}"
                     CommandParameter="{Binding Value}" />
         </DataTemplate>
-
+        <!-- 多路开关：抽屉里每一路一行，虚拟子设备同样落在这里 -->
+        <DataTemplate x:Key="ChannelRowTemplate" x:DataType="m:SwitchChannelState">
+            <Grid ColumnDefinitions="*,Auto" Margin="0,2">
+                <TextBlock Text="{Binding Label}" FontSize="13" VerticalAlignment="Center"
+                           Foreground="{DynamicResource Text2Brush}" TextTrimming="CharacterEllipsis" />
+                <ToggleButton Grid.Column="1" Classes="Switch" VerticalAlignment="Center"
+                              IsChecked="{Binding IsOn, Mode=TwoWay}"
+                              IsEnabled="{Binding !IsBusy}"
+                              Command="{Binding $parent[Window].((vm:MainViewModel)DataContext).ToggleChannelCommand}"
+                              CommandParameter="{Binding}" />
+            </Grid>
+        </DataTemplate>
+        <!-- 通用规格面板：枚举型属性用与空调一致的分段按钮 -->
+        <DataTemplate x:Key="SpecChoiceTemplate" x:DataType="vm:SpecOptionVm">
+            <Button Classes="SegBtn" Content="{Binding Label}" Classes.is-on="{Binding IsSelected}"
+                    MinWidth="52" Margin="2,2,0,2"
+                    Command="{Binding $parent[Window].((vm:MainViewModel)DataContext).SetSpecChoiceCommand}"
+                    CommandParameter="{Binding}" />
+        </DataTemplate>
+        <DataTemplate x:Key="SpecPropTemplate" x:DataType="vm:SpecPropVm">
+            <StackPanel Spacing="7" Margin="0,0,0,12">
+                <Grid ColumnDefinitions="*,Auto">
+                    <TextBlock Text="{Binding Title}" FontSize="13" VerticalAlignment="Center"
+                               Foreground="{DynamicResource Text2Brush}" TextTrimming="CharacterEllipsis" />
+                    <TextBlock Grid.Column="1" Text="{Binding ValueText}" FontSize="12.5"
+                               VerticalAlignment="Center" IsVisible="{Binding IsValue}"
+                               Foreground="{DynamicResource Text3Brush}" />
+                    <TextBlock Grid.Column="1" Text="{Binding SliderText}" FontSize="12.5"
+                               FontWeight="SemiBold" VerticalAlignment="Center" IsVisible="{Binding IsSlider}"
+                               Foreground="{DynamicResource Accent2Brush}" />
+                    <ToggleButton Grid.Column="1" Classes="Switch" VerticalAlignment="Center"
+                                  IsVisible="{Binding IsToggle}"
+                                  IsChecked="{Binding IsOn, Mode=TwoWay}"
+                                  IsEnabled="{Binding !IsBusy}"
+                                  Command="{Binding $parent[Window].((vm:MainViewModel)DataContext).ToggleSpecCommand}"
+                                  CommandParameter="{Binding}" />
+                    <!-- 选项过多：下拉与标题同一行，复用设置里的 OptionPicker -->
+                    <ctl:OptionPicker Grid.Column="1" VerticalAlignment="Center"
+                                      IsVisible="{Binding IsLargeChoice}"
+                                      Options="{Binding Options}"
+                                      SelectedValue="{Binding PickedValue, Mode=TwoWay}" />
+                </Grid>
+                <Slider Classes="DrSlider" IsVisible="{Binding IsSlider}"
+                        Minimum="{Binding Min}" Maximum="{Binding Max}"
+                        SmallChange="{Binding Step}" TickFrequency="{Binding Step}"
+                        Value="{Binding Number, Mode=TwoWay}"
+                        IsEnabled="{Binding Device.IsOnline}" />
+                <!-- 轨道收成内容宽度，选项不满一行时右侧不再拖出一条空底色 -->
+                <Border Classes="SegTrack" IsVisible="{Binding IsCompactChoice}" HorizontalAlignment="Left">
+                    <ItemsControl ItemsSource="{Binding Options}" ItemTemplate="{StaticResource SpecChoiceTemplate}">
+                        <ItemsControl.ItemsPanel>
+                            <ItemsPanelTemplate>
+                                <WrapPanel />
+                            </ItemsPanelTemplate>
+                        </ItemsControl.ItemsPanel>
+                    </ItemsControl>
+                </Border>
+            </StackPanel>
+        </DataTemplate>
+        <!-- 高级设置分区：服务标题下一条淡分割线，只在分区之间画，不再逐行铺线 -->
+        <DataTemplate x:Key="SpecGroupTemplate" x:DataType="vm:SpecGroupVm">
+            <Border Classes="DrCard">
+                <StackPanel Spacing="10">
+                    <TextBlock Text="{Binding Title}" FontSize="12.5"
+                               Foreground="{DynamicResource Text2Brush}" />
+                    <Border Height="1" Background="{DynamicResource LineBrush}" Opacity="0.5" />
+                    <ItemsControl ItemsSource="{Binding Items}" ItemTemplate="{StaticResource SpecPropTemplate}" />
+                </StackPanel>
+            </Border>
+        </DataTemplate>
+        <!-- 规格动作：无入参动作先点一次进入确认态，再点一次才下发 -->
+        <DataTemplate x:Key="SpecActionTemplate" x:DataType="vm:SpecActionVm">
+            <Grid ColumnDefinitions="*,Auto" Margin="0,0,0,6">
+                <TextBlock Text="{Binding Title}" FontSize="13" VerticalAlignment="Center"
+                           Foreground="{DynamicResource Text2Brush}" TextTrimming="CharacterEllipsis"
+                           ToolTip.Tip="{Binding Title}" />
+                <Button Grid.Column="1" Classes="BtnGhost" Classes.confirming="{Binding IsConfirming}"
+                        Height="28" Padding="12,0" FontSize="12"
+                        Content="{Binding ButtonText}"
+                        IsEnabled="{Binding !IsBusy}"
+                        Command="{Binding $parent[Window].((vm:MainViewModel)DataContext).RunSpecActionCommand}"
+                        CommandParameter="{Binding}" />
+            </Grid>
+        </DataTemplate>
         <!-- 加载骨架：与设备卡同尺寸同圆角，先用占位块占住宫格，真设备到手整块换掉 -->
         <DataTemplate x:Key="SkeletonCardTemplate" x:DataType="x:String">
             <Border Classes="SkelCard">
@@ -56,7 +305,6 @@
                 </Panel>
             </Border>
         </DataTemplate>
-
         <!-- 设备卡（§8.6）：图标 | 名称 + 房间·状态 | 开关 -->
         <DataTemplate x:Key="DeviceCardTemplate" x:DataType="m:MijiaDevice">
             <Button Classes="DevCard" Classes.on="{Binding IsOn}"
@@ -71,15 +319,17 @@
                                   Data="{Binding Converter={StaticResource DeviceIcon}}" />
                         </Border>
                         <Border Classes="DevPhoto" IsVisible="{Binding Icon, Converter={x:Static ObjectConverters.IsNotNull}}">
+                            <!-- 缩小 10 倍用 MediumQuality（双线性+mipmap 预滤波）：
+                                 HighQuality 在 Skia 是固定 4×4 核三次采样，大比例缩小时欠采样，白描边会断成锯齿点 -->
                             <Image Source="{Binding Icon}" Stretch="Uniform"
-                                   RenderOptions.BitmapInterpolationMode="HighQuality" />
+                                   RenderOptions.BitmapInterpolationMode="MediumQuality" />
                         </Border>
                     </Panel>
                     <StackPanel Grid.Column="1" VerticalAlignment="Center" Margin="12,0,10,0" Spacing="3">
                         <TextBlock Text="{Binding Name}" Foreground="{DynamicResource Text2Brush}" FontSize="13.5"
                                    FontWeight="SemiBold" TextTrimming="CharacterEllipsis" />
                         <StackPanel Orientation="Horizontal" Spacing="6">
-                            <TextBlock Text="{Binding RoomName}" Foreground="{DynamicResource Text3Brush}" FontSize="11.5"
+                            <TextBlock Text="{Binding CardSubtitle}" Foreground="{DynamicResource Text3Brush}" FontSize="11.5"
                                        TextTrimming="CharacterEllipsis" />
                             <!-- 离线角标：仅离线设备显示，琥珀底 + 暖字，与抽屉 is-warn 同色系 -->
                             <Border CornerRadius="8" Padding="6,1.5" VerticalAlignment="Center"
@@ -89,15 +339,22 @@
                             </Border>
                         </StackPanel>
                     </StackPanel>
-                    <ToggleButton Grid.Column="2" Classes="Switch" VerticalAlignment="Center"
-                                  IsVisible="{Binding IsControllable}"
+                    <ToggleButton Grid.Column="2" Classes="Power" VerticalAlignment="Center"
+                                  IsVisible="{Binding ShowCardSwitch}"
                                   IsChecked="{Binding IsOn}" IsEnabled="{Binding !IsBusy}"
                                   Command="{Binding $parent[Window].((vm:MainViewModel)DataContext).ToggleDeviceCommand}"
                                   CommandParameter="{Binding}" />
+                    <!-- 多路开关不在卡片上铺满多个开关：显示路数，进抽屉逐路操作 -->
+                    <Border Grid.Column="2" CornerRadius="8" Padding="8,3" VerticalAlignment="Center"
+                            Background="{DynamicResource SurfaceBrush}"
+                            IsVisible="{Binding ShowChannelBadge}">
+                        <TextBlock FontSize="10.5" FontWeight="SemiBold"
+                                   Foreground="{DynamicResource Text3Brush}"
+                                   Text="{Binding Channels.Count, StringFormat='{}{0} 路'}" />
+                    </Border>
                 </Grid>
             </Button>
         </DataTemplate>
-
         <!-- 场景迷你卡（首页条）：点卡片不执行，仅右下角播放按钮执行 -->
         <DataTemplate x:Key="SceneMiniTemplate" x:DataType="m:SceneCardItem">
             <Border CornerRadius="16" Margin="8" MinHeight="80"
@@ -131,7 +388,6 @@
                 </Panel>
             </Border>
         </DataTemplate>
-
         <!-- 场景大卡（场景页）：点卡片不执行，仅右下角播放按钮执行 -->
         <DataTemplate x:Key="SceneBigTemplate" x:DataType="m:SceneCardItem">
             <Border CornerRadius="16" Margin="8" MinHeight="112"
@@ -166,13 +422,11 @@
             </Border>
         </DataTemplate>
     </Window.Resources>
-
     <Window.Styles>
         <!-- 刷新图标跟随 BtnGhost 悬停加深，与旁侧文字按钮状态一致 -->
         <Style Selector="Button.BtnGhost:pointerover Path.RefreshIc">
             <Setter Property="Stroke" Value="{DynamicResource TextBrush}"/>
         </Style>
-
         <!-- 标题栏副标签：淡琥珀底 + 低饱和暖字，不抢主标题 -->
         <Style Selector="Border.TbTag">
             <Setter Property="Background" Value="{DynamicResource AmberSoftBrush}" />
@@ -186,7 +440,16 @@
             <Setter Property="FontWeight" Value="Medium" />
             <Setter Property="Foreground" Value="{DynamicResource AmberTextBrush}" />
         </Style>
-        <!-- 标题栏账户：家庭名下拉 + 登录绿点 -->
+        <!-- 标题栏账户：胶囊容器包住「家庭名 + 登录」，与右侧工具按钮同高 -->
+        <Style Selector="Border.AccountGroup">
+            <Setter Property="Height" Value="32" />
+            <Setter Property="Background" Value="{DynamicResource SurfaceBrush}" />
+            <Setter Property="BorderBrush" Value="{DynamicResource LineBrush}" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="CornerRadius" Value="16" />
+            <Setter Property="Padding" Value="0" />
+            <Setter Property="VerticalAlignment" Value="Center" />
+        </Style>
         <!-- 清掉 Flyout/Popup 默认底与投影，圆角画在 Presenter 上，避免叠出直角外框 -->
         <Style Selector="PopupRoot">
             <Setter Property="Background" Value="Transparent" />
@@ -208,19 +471,18 @@
             <Setter Property="Padding" Value="0" />
             <Setter Property="Margin" Value="0" />
         </Style>
-
-        <Style Selector="Button.TitleAccount">
+        <Style Selector="Button.AccountChip">
             <Setter Property="Cursor" Value="Hand" />
             <Setter Property="Background" Value="Transparent" />
             <Setter Property="BorderThickness" Value="0" />
-            <Setter Property="Padding" Value="8,5" />
-            <Setter Property="Margin" Value="0,0,4,0" />
-            <Setter Property="VerticalAlignment" Value="Center" />
+            <!-- 撑满胶囊内高（32 − 2×1px 边框），悬停底色才不会上下悬空 -->
+            <Setter Property="Height" Value="30" />
+            <Setter Property="Padding" Value="10,0" />
             <Setter Property="HorizontalContentAlignment" Value="Center" />
             <Setter Property="VerticalContentAlignment" Value="Center" />
             <Setter Property="Template">
                 <ControlTemplate>
-                    <Border Name="Bg" CornerRadius="10" Padding="{TemplateBinding Padding}"
+                    <Border Name="Bg" CornerRadius="15" Padding="{TemplateBinding Padding}"
                             Background="{TemplateBinding Background}">
                         <ContentPresenter Content="{TemplateBinding Content}"
                                           HorizontalAlignment="Center" VerticalAlignment="Center" />
@@ -228,10 +490,77 @@
                 </ControlTemplate>
             </Setter>
         </Style>
-        <Style Selector="Button.TitleAccount:pointerover /template/ Border#Bg">
+        <Style Selector="Button.AccountChip:pointerover /template/ Border#Bg">
             <Setter Property="Background" Value="{DynamicResource HoverBrush}" />
         </Style>
-
+        <!-- 胶囊里的「登录」：不铺底色，只用强调色文字 -->
+        <Style Selector="Button.AccountLogin">
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="BorderThickness" Value="0" />
+            <Setter Property="Height" Value="30" />
+            <Setter Property="Padding" Value="10,0" />
+            <Setter Property="HorizontalContentAlignment" Value="Center" />
+            <Setter Property="VerticalContentAlignment" Value="Center" />
+            <Setter Property="Template">
+                <ControlTemplate>
+                    <Border Name="Bg" CornerRadius="15" Padding="{TemplateBinding Padding}"
+                            Background="{TemplateBinding Background}">
+                        <ContentPresenter Content="{TemplateBinding Content}"
+                                          HorizontalAlignment="Center" VerticalAlignment="Center" />
+                    </Border>
+                </ControlTemplate>
+            </Setter>
+        </Style>
+        <Style Selector="Button.AccountLogin:pointerover /template/ Border#Bg">
+            <Setter Property="Background" Value="{DynamicResource HoverBrush}" />
+        </Style>
+        <!-- 标题栏搜索：32px 圆形按钮，点击后同一元素就地长成输入框 -->
+        <Style Selector="Border.SearchBox">
+            <Setter Property="Width" Value="32" />
+            <Setter Property="Height" Value="32" />
+            <Setter Property="CornerRadius" Value="16" />
+            <Setter Property="Background" Value="{DynamicResource SearchBgBrush}" />
+            <Setter Property="BorderBrush" Value="{DynamicResource SearchLineBrush}" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="ClipToBounds" Value="True" />
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="VerticalAlignment" Value="Center" />
+            <Setter Property="Transitions">
+                <Transitions>
+                    <DoubleTransition Property="Width" Duration="0:0:0.26" Easing="CubicEaseOut" />
+                </Transitions>
+            </Setter>
+        </Style>
+        <Style Selector="Border.SearchBox.open">
+            <Setter Property="Width" Value="252" />
+            <Setter Property="Cursor" Value="Ibeam" />
+        </Style>
+        <Style Selector="Border.SearchBox Path">
+            <Setter Property="Stroke" Value="{DynamicResource Text2Brush}" />
+            <Setter Property="Transitions">
+                <Transitions>
+                    <BrushTransition Property="Stroke" Duration="0:0:0.15" />
+                </Transitions>
+            </Setter>
+        </Style>
+        <Style Selector="Border.SearchBox:pointerover Path">
+            <Setter Property="Stroke" Value="{DynamicResource TextBrush}" />
+        </Style>
+        <!-- 胶囊内输入框：去掉 Fluent 自身底与描边，只留文字与光标 -->
+        <Style Selector="TextBox.SearchInline">
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="BorderThickness" Value="0" />
+            <Setter Property="Padding" Value="2,0,10,0" />
+            <Setter Property="FontSize" Value="11.5" />
+            <Setter Property="Foreground" Value="{DynamicResource TextBrush}" />
+            <Setter Property="CaretBrush" Value="{DynamicResource AccentBrush}" />
+            <Setter Property="VerticalContentAlignment" Value="Center" />
+        </Style>
+        <Style Selector="TextBox.SearchInline /template/ Border#PART_BorderElement">
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="BorderThickness" Value="0" />
+        </Style>
         <!-- 下拉菜单项：圆角胶囊底 + 右侧绿勾，选中项不拉满整行宽度 -->
         <Style Selector="Button.HomeMenuItem">
             <Setter Property="Background" Value="Transparent" />
@@ -283,7 +612,6 @@
         <Style Selector="Button.HomeMenuItem.is-on ContentPresenter#Cp TextBlock">
             <Setter Property="FontWeight" Value="SemiBold" />
         </Style>
-
         <!-- 抽屉分段选择：连续胶囊轨道 + 选中段实心主色，仿 iOS 分段控件 -->
         <Style Selector="Border.SegTrack">
             <Setter Property="Background" Value="{DynamicResource SurfaceBrush}" />
@@ -292,9 +620,9 @@
         </Style>
         <Style Selector="Button.SegBtn">
             <Setter Property="Height" Value="30" />
-            <Setter Property="Padding" Value="4,0" />
-            <Setter Property="FontSize" Value="12" />
-            <Setter Property="FontWeight" Value="SemiBold" />
+            <Setter Property="Padding" Value="10,0" />
+            <Setter Property="FontSize" Value="11.5" />
+            <Setter Property="FontWeight" Value="Normal" />
             <Setter Property="HorizontalAlignment" Value="Stretch" />
             <Setter Property="VerticalAlignment" Value="Stretch" />
             <Setter Property="Background" Value="Transparent" />
@@ -384,7 +712,6 @@
         <Style Selector="Button.SegMini:pressed /template/ Border#Bd">
             <Setter Property="Background" Value="{DynamicResource AccentSoftBrush}" />
         </Style>
-
         <!-- 抽屉控制卡：浅灰托盘上的白色浮卡，一个控制区域一张卡（与主内容区 DevCard 同一投影语言） -->
         <Style Selector="Border.DrCard">
             <Setter Property="Background" Value="{DynamicResource CardBrush}" />
@@ -392,12 +719,20 @@
             <Setter Property="Padding" Value="16,15" />
             <Setter Property="BoxShadow" Value="0 1 2 0 #050F172A, 0 5 16 0 #080F172A" />
         </Style>
-
+        <!-- 动作二次确认态：柔主色底 + 主色文字，跟普通幽灵按钮拉开 -->
+        <Style Selector="Button.BtnGhost.confirming /template/ Border#Bd">
+            <Setter Property="Background" Value="{DynamicResource AccentSoftBrush}" />
+        </Style>
+        <Style Selector="Button.BtnGhost.confirming /template/ ContentPresenter#Cp">
+            <Setter Property="TextBlock.Foreground" Value="{DynamicResource AccentBrush}" />
+        </Style>
+        <Style Selector="Button.BtnGhost.confirming:pointerover /template/ Border#Bd">
+            <Setter Property="Background" Value="{DynamicResource AccentSoftBrush}" />
+        </Style>
         <!-- 点击遮罩关闭抽屉 -->
         <Style Selector="Border.Mask">
             <Setter Property="Cursor" Value="Arrow" />
         </Style>
-
         <!-- 抽屉滑杆：底轨 + 左圆角已填段 + 白圆钮。已填段只圆左端，避免与滑块之间出现缺口 -->
         <Style Selector="Slider.DrSlider">
             <Setter Property="Height" Value="30" />
@@ -472,7 +807,6 @@
         <Style Selector="Slider.DrSlider /template/ RepeatButton#PART_IncreaseButton:pressed">
             <Setter Property="Background" Value="Transparent" />
         </Style>
-
         <Style Selector="TextBlock.RbNum">
             <Setter Property="FontSize" Value="17" />
             <Setter Property="FontWeight" Value="Bold" />
@@ -483,7 +817,6 @@
             <Setter Property="Foreground" Value="{DynamicResource Text3Brush}" />
             <Setter Property="Margin" Value="0,2,0,0" />
         </Style>
-
         <!-- 设置页信息行 -->
         <Style Selector="Border.SetIc">
             <Setter Property="Width" Value="34" />
@@ -500,12 +833,204 @@
             <Setter Property="HorizontalAlignment" Value="Center" />
             <Setter Property="VerticalAlignment" Value="Center" />
         </Style>
+        <!-- 环境概览胶囊：默认浅底，耗材不足时转琥珀色 -->
+        <Style Selector="Border.EnvPill">
+            <Setter Property="CornerRadius" Value="11" />
+            <Setter Property="Padding" Value="10,5" />
+            <Setter Property="Background" Value="{DynamicResource SurfaceBrush}" />
+        </Style>
+        <Style Selector="Border.EnvPill.is-warn">
+            <Setter Property="Background" Value="{DynamicResource AmberSoftBrush}" />
+        </Style>
+        <Style Selector="TextBlock.EnvLab">
+            <Setter Property="FontSize" Value="10.5" />
+            <Setter Property="Foreground" Value="{DynamicResource Text3Brush}" />
+            <Setter Property="VerticalAlignment" Value="Center" />
+        </Style>
+        <Style Selector="TextBlock.EnvVal">
+            <Setter Property="FontSize" Value="13" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+            <Setter Property="Foreground" Value="{DynamicResource TextBrush}" />
+            <Setter Property="VerticalAlignment" Value="Center" />
+        </Style>
+        <Style Selector="TextBlock.EnvVal.is-warn">
+            <Setter Property="Foreground" Value="{DynamicResource AmberTextBrush}" />
+        </Style>
+        <Style Selector="TextBlock.ConsumeVal">
+            <Setter Property="FontSize" Value="12.5" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+            <Setter Property="Foreground" Value="{DynamicResource TextBrush}" />
+            <Setter Property="VerticalAlignment" Value="Center" />
+        </Style>
+        <Style Selector="TextBlock.ConsumeVal.is-low">
+            <Setter Property="Foreground" Value="{DynamicResource AmberTextBrush}" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+        </Style>
+        <!-- 小爱语音：标题栏右侧「智能胶囊」入口（品牌紫渐变 + 柔光）+ 指令浮层 -->
+        <Style Selector="Button.XiaoAiCapsule">
+            <Setter Property="Height" Value="38" />
+            <Setter Property="CornerRadius" Value="19" />
+            <Setter Property="Background" Value="{DynamicResource BrandBrush}" />
+            <Setter Property="BorderBrush" Value="#33FFFFFF" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="Foreground" Value="White" />
+            <Setter Property="FontSize" Value="12.5" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="HorizontalContentAlignment" Value="Center" />
+            <Setter Property="Opacity" Value="1" />
+            <Setter Property="Transitions">
+                <Transitions>
+                    <DoubleTransition Property="Opacity" Duration="0:0:0.18" />
+                </Transitions>
+            </Setter>
+        </Style>
+        <!-- 悬停只做整体减淡，不改底色与描边 -->
+        <Style Selector="Button.XiaoAiCapsule:pointerover">
+            <Setter Property="Opacity" Value="0.82" />
+        </Style>
+        <!-- 覆盖 Fluent 模板自带的灰色悬停/按下底色，否则胶囊会变灰 -->
+        <Style Selector="Button.XiaoAiCapsule:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+            <Setter Property="Background" Value="{DynamicResource BrandBrush}" />
+        </Style>
+        <Style Selector="Button.XiaoAiCapsule:pressed /template/ ContentPresenter#PART_ContentPresenter">
+            <Setter Property="Background" Value="{DynamicResource BrandBrush}" />
+        </Style>
+        <!-- 发送中：纸飞机图标呼吸闪烁，只在 IsVoiceSending 时挂动画 -->
+        <Style Selector="Path.SendIcon">
+            <Setter Property="Opacity" Value="1" />
+        </Style>
+        <Style Selector="Path.SendIcon.run">
+            <Style.Animations>
+                <Animation Duration="0:0:0.9" IterationCount="Infinite" Easing="CubicEaseInOut">
+                    <KeyFrame Cue="0%">
+                        <Setter Property="Opacity" Value="1" />
+                    </KeyFrame>
+                    <KeyFrame Cue="50%">
+                        <Setter Property="Opacity" Value="0.3" />
+                    </KeyFrame>
+                    <KeyFrame Cue="100%">
+                        <Setter Property="Opacity" Value="1" />
+                    </KeyFrame>
+                </Animation>
+            </Style.Animations>
+        </Style>
+        <Style Selector="Button.XiaoAiCapsule.open">
+            <Setter Property="BorderBrush" Value="#80FFFFFF" />
+        </Style>
+        <Style Selector="Border.VoicePanel">
+            <Setter Property="Background" Value="{DynamicResource CardBrush}" />
+            <Setter Property="CornerRadius" Value="18" />
+            <Setter Property="Padding" Value="16" />
+            <Setter Property="BorderBrush" Value="{DynamicResource LineBrush}" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="BoxShadow" Value="0 12 28 0 #2A0F172A" />
+        </Style>
+        <Style Selector="TextBox.VoiceInput">
+            <Setter Property="MinHeight" Value="38" />
+            <Setter Property="CornerRadius" Value="12" />
+            <Setter Property="Padding" Value="11,7" />
+            <Setter Property="Background" Value="{DynamicResource Card2Brush}" />
+            <Setter Property="Foreground" Value="{DynamicResource TextBrush}" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="BorderBrush" Value="{DynamicResource LineBrush}" />
+            <Setter Property="FontSize" Value="12.5" />
+        </Style>
+        <!-- hover / 聚焦都不加深：统一保持细线描边与浅底，去掉默认的紫色粗焦点框 -->
+        <Style Selector="TextBox.VoiceInput:pointerover /template/ Border#PART_BorderElement">
+            <Setter Property="Background" Value="{DynamicResource Card2Brush}" />
+            <Setter Property="BorderBrush" Value="{DynamicResource LineBrush}" />
+            <Setter Property="BorderThickness" Value="1" />
+        </Style>
+        <Style Selector="TextBox.VoiceInput:focus /template/ Border#PART_BorderElement">
+            <Setter Property="Background" Value="{DynamicResource Card2Brush}" />
+            <Setter Property="BorderBrush" Value="{DynamicResource LineBrush}" />
+            <Setter Property="BorderThickness" Value="1" />
+        </Style>
+        <Style Selector="TextBox.VoiceInput:focus:pointerover /template/ Border#PART_BorderElement">
+            <Setter Property="Background" Value="{DynamicResource Card2Brush}" />
+            <Setter Property="BorderBrush" Value="{DynamicResource LineBrush}" />
+            <Setter Property="BorderThickness" Value="1" />
+        </Style>
+        <Style Selector="Border.VoiceFeed">
+            <Setter Property="Background" Value="{DynamicResource SurfaceBrush}" />
+            <Setter Property="CornerRadius" Value="10" />
+            <Setter Property="Padding" Value="10,8" />
+        </Style>
+        <Style Selector="TextBlock.VoiceHint">
+            <Setter Property="FontSize" Value="12" />
+            <Setter Property="Foreground" Value="{DynamicResource Text3Brush}" />
+            <Setter Property="VerticalAlignment" Value="Center" />
+        </Style>
+        <Style Selector="TextBlock.VoiceHint.is-warn">
+            <Setter Property="Foreground" Value="{DynamicResource AmberTextBrush}" />
+        </Style>
+        <!-- 环境明细弹窗：温湿度大读数 + 耗材进度条 -->
+        <Style Selector="Border.EnvTile">
+            <Setter Property="Background" Value="{DynamicResource SurfaceBrush}" />
+            <Setter Property="CornerRadius" Value="14" />
+            <Setter Property="Padding" Value="16,14" />
+        </Style>
+        <Style Selector="TextBlock.EnvTileLab">
+            <Setter Property="FontSize" Value="11" />
+            <Setter Property="Foreground" Value="{DynamicResource Text3Brush}" />
+            <Setter Property="VerticalAlignment" Value="Center" />
+        </Style>
+        <Style Selector="TextBlock.EnvTileVal">
+            <Setter Property="FontSize" Value="24" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+            <Setter Property="Foreground" Value="{DynamicResource TextBrush}" />
+        </Style>
+        <!-- 单位跟在数值后面，比数值小两档并压到底线，避免整串等大显得笨重 -->
+        <Style Selector="TextBlock.EnvTileUnit">
+            <Setter Property="FontSize" Value="12.5" />
+            <Setter Property="Foreground" Value="{DynamicResource Text3Brush}" />
+            <Setter Property="VerticalAlignment" Value="Bottom" />
+            <Setter Property="Margin" Value="0,0,0,4" />
+        </Style>
+        <!-- 房间小标签：浅底胶囊，只做定位提示，不抢设备名 -->
+        <Style Selector="Border.RoomTag">
+            <Setter Property="CornerRadius" Value="6" />
+            <Setter Property="Padding" Value="6,1" />
+            <Setter Property="Background" Value="{DynamicResource SurfaceBrush}" />
+            <Setter Property="VerticalAlignment" Value="Center" />
+        </Style>
+        <Style Selector="TextBlock.RoomTagTx">
+            <Setter Property="FontSize" Value="10.5" />
+            <Setter Property="Foreground" Value="{DynamicResource Text3Brush}" />
+        </Style>
+        <!-- 耗材状态徽标：正常走绿，余量偏低转琥珀 -->
+        <Style Selector="Border.EnvStatusTag">
+            <Setter Property="CornerRadius" Value="8" />
+            <Setter Property="Padding" Value="8,2" />
+            <Setter Property="Background" Value="{DynamicResource GreenSoftBrush}" />
+            <Setter Property="VerticalAlignment" Value="Center" />
+        </Style>
+        <Style Selector="Border.EnvStatusTag.is-warn">
+            <Setter Property="Background" Value="{DynamicResource AmberSoftBrush}" />
+        </Style>
+        <Style Selector="TextBlock.EnvStatusTx">
+            <Setter Property="FontSize" Value="10.5" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+            <Setter Property="Foreground" Value="{DynamicResource GreenBrush}" />
+        </Style>
+        <Style Selector="TextBlock.EnvStatusTx.is-warn">
+            <Setter Property="Foreground" Value="{DynamicResource AmberTextBrush}" />
+        </Style>
+        <Style Selector="ProgressBar.EnvBar">
+            <Setter Property="Height" Value="6" />
+            <Setter Property="MinHeight" Value="6" />
+            <Setter Property="CornerRadius" Value="3" />
+            <Setter Property="Background" Value="{DynamicResource SurfaceBrush}" />
+            <Setter Property="Foreground" Value="{DynamicResource Accent2Brush}" />
+        </Style>
+        <Style Selector="ProgressBar.EnvBar.is-low">
+            <Setter Property="Foreground" Value="{DynamicResource AmberBrush}" />
+        </Style>
     </Window.Styles>
-
-    <Grid RowDefinitions="48,*">
-
-        <!-- ================= 标题栏 48（§8.1） ================= -->
-        <Grid Grid.Row="0" x:Name="TitleBar" ColumnDefinitions="Auto,Auto,*,Auto"
+    <Grid RowDefinitions="60,*">
+        <!-- ================= 标题栏 60（§8.1） ================= -->
+        <Grid Grid.Row="0" x:Name="TitleBar" ColumnDefinitions="Auto,Auto,Auto,*,Auto"
               Background="{DynamicResource BgBrush}" Margin="16,0,12,0"
               PointerPressed="OnTitleBarPressed">
             <StackPanel Orientation="Horizontal" Spacing="10" VerticalAlignment="Center">
@@ -517,75 +1042,113 @@
                     <TextBlock Text="智能家居" />
                 </Border>
             </StackPanel>
-
-            <!-- 搜索框靠左，紧挨品牌区 -->
-            <TextBox Grid.Column="1" Classes="Search" Width="260" Margin="20,0,0,0"
-                     HorizontalAlignment="Left" VerticalAlignment="Center"
-                     Watermark="搜索设备、房间…" Text="{Binding SearchText}" />
-
-            <StackPanel Grid.Column="3" Orientation="Horizontal" VerticalAlignment="Center">
-                <!-- 登录信息：家庭名（多家庭可下拉切换）+ 在线绿点 -->
-                <Button Classes="TitleAccount" x:Name="HomeChipBtn"
-                        ToolTip.Tip="{Binding HomeChipTip}">
-                    <Button.Flyout>
-                        <Flyout Placement="BottomEdgeAlignedRight"
-                                ShowMode="TransientWithDismissOnPointerMoveAway">
-                            <!-- 不用 BoxShadow：Avalonia 阴影会按直角矩形外扩，盖住圆角 -->
-                            <Border Background="{DynamicResource CardBrush}" CornerRadius="14"
-                                    Padding="8" MinWidth="188" MaxWidth="260"
-                                    BorderBrush="{DynamicResource LineBrush}" BorderThickness="1">
-                                <StackPanel Spacing="2">
-                                    <TextBlock Text="切换家庭" FontSize="11" Margin="10,4,10,6"
-                                               Foreground="{DynamicResource Text3Brush}" />
-                                    <ItemsControl ItemsSource="{Binding HomeOptions}">
-                                        <ItemsControl.ItemTemplate>
-                                            <DataTemplate x:DataType="m:HomeOption">
-                                                <Button Classes="HomeMenuItem" Classes.is-on="{Binding IsSelected}"
-                                                        Command="{Binding $parent[Window].((vm:MainViewModel)DataContext).SwitchHomeCommand}"
-                                                        CommandParameter="{Binding}"
-                                                        ToolTip.Tip="{Binding Name}">
-                                                    <TextBlock Text="{Binding Name}" FontSize="13"
-                                                               Foreground="{DynamicResource TextBrush}"
-                                                               TextTrimming="CharacterEllipsis" />
-                                                </Button>
-                                            </DataTemplate>
-                                        </ItemsControl.ItemTemplate>
-                                    </ItemsControl>
-                                </StackPanel>
-                            </Border>
-                        </Flyout>
-                    </Button.Flyout>
-                    <StackPanel Orientation="Horizontal" Spacing="8">
-                        <Border Width="26" Height="26" CornerRadius="8"
-                                Background="{DynamicResource AccentSoftBrush}" VerticalAlignment="Center">
-                            <Image Width="14" Height="14" Source="{StaticResource LogoImage}"
-                                   VerticalAlignment="Center" />
-                        </Border>
-                        <TextBlock Text="{Binding HomeName}" FontSize="12.5" FontWeight="SemiBold"
-                                   Foreground="{DynamicResource TextBrush}"
-                                   VerticalAlignment="Center" TextTrimming="CharacterEllipsis"
-                                   MaxWidth="140" />
-                        <!-- 登录态：绿点 / 灰点，不带文字 -->
-                        <Ellipse Width="6" Height="6" VerticalAlignment="Center"
-                                 Fill="{DynamicResource GreenBrush}"
-                                 IsVisible="{Binding IsLoggedIn}" />
-                        <Ellipse Width="6" Height="6" VerticalAlignment="Center"
-                                 Fill="{DynamicResource Text3Brush}"
-                                 IsVisible="{Binding !IsLoggedIn}" />
-                        <!-- 仅多家庭时显示下拉箭头 -->
-                        <Path Width="10" Height="10" Stretch="Uniform" Margin="1,0,0,0"
-                              VerticalAlignment="Center" Stroke="{DynamicResource Text3Brush}"
-                              StrokeThickness="1.6" StrokeLineCap="Round" StrokeJoin="Round"
-                              Data="M6 9 L12 15 L18 9"
-                              IsVisible="{Binding CanSwitchHome}" />
+            <!-- 账户区：家庭名与登录收进一个全圆角胶囊，放在搜索框左侧，规格与搜索框一致（32 高） -->
+            <Border Grid.Column="1" Classes="AccountGroup" Margin="18,0,0,0">
+                <StackPanel Orientation="Horizontal">
+                    <Button Classes="AccountChip" x:Name="HomeChipBtn"
+                            ToolTip.Tip="{Binding HomeChipTip}">
+                        <Button.Flyout>
+                            <Flyout Placement="BottomEdgeAlignedLeft"
+                                    ShowMode="TransientWithDismissOnPointerMoveAway">
+                                <!-- 不用 BoxShadow：Avalonia 阴影会按直角矩形外扩，盖住圆角 -->
+                                <Border Background="{DynamicResource CardBrush}" CornerRadius="14"
+                                        Padding="8" MinWidth="188" MaxWidth="260"
+                                        BorderBrush="{DynamicResource LineBrush}" BorderThickness="1">
+                                    <StackPanel Spacing="2">
+                                        <TextBlock Text="切换家庭" FontSize="11" Margin="10,4,10,6"
+                                                   Foreground="{DynamicResource Text3Brush}" />
+                                        <ItemsControl ItemsSource="{Binding HomeOptions}">
+                                            <ItemsControl.ItemTemplate>
+                                                <DataTemplate x:DataType="m:HomeOption">
+                                                    <Button Classes="HomeMenuItem" Classes.is-on="{Binding IsSelected}"
+                                                            Command="{Binding $parent[Window].((vm:MainViewModel)DataContext).SwitchHomeCommand}"
+                                                            CommandParameter="{Binding}"
+                                                            ToolTip.Tip="{Binding Name}">
+                                                        <TextBlock Text="{Binding Name}" FontSize="13"
+                                                                   Foreground="{DynamicResource TextBrush}"
+                                                                   TextTrimming="CharacterEllipsis" />
+                                                    </Button>
+                                                </DataTemplate>
+                                            </ItemsControl.ItemTemplate>
+                                        </ItemsControl>
+                                    </StackPanel>
+                                </Border>
+                            </Flyout>
+                        </Button.Flyout>
+                        <StackPanel Orientation="Horizontal" Spacing="6">
+                            <!-- 与侧栏 house 图标同一份细线几何 -->
+                            <Path Width="13" Height="13" Stretch="Uniform" StrokeThickness="1.6"
+                                  StrokeLineCap="Round" StrokeJoin="Round"
+                                  Stroke="{DynamicResource Text2Brush}"
+                                  Data="{x:Static svc:NavIcons.HouseLine}"
+                                  VerticalAlignment="Center" />
+                            <TextBlock Text="{Binding HomeName}" FontSize="12"
+                                       Foreground="{DynamicResource TextBrush}"
+                                       VerticalAlignment="Center" TextTrimming="CharacterEllipsis"
+                                       MaxWidth="120" />
+                            <!-- 绿点只在已登录时出现；未登录状态由右侧「登录」表达 -->
+                            <Ellipse Width="5" Height="5" VerticalAlignment="Center"
+                                     Fill="{DynamicResource GreenBrush}"
+                                     IsVisible="{Binding IsLoggedIn}" />
+                            <!-- 仅多家庭时显示下拉箭头 -->
+                            <Path Width="8" Height="8" Stretch="Uniform" Margin="1,0,0,0"
+                                  VerticalAlignment="Center" Stroke="{DynamicResource Text3Brush}"
+                                  StrokeThickness="1.6" StrokeLineCap="Round" StrokeJoin="Round"
+                                  Data="M6 9 L12 15 L18 9"
+                                  IsVisible="{Binding CanSwitchHome}" />
+                        </StackPanel>
+                    </Button>
+                    <Border Width="1" Height="12" Margin="2,0" VerticalAlignment="Center"
+                            Background="{DynamicResource LineBrush}"
+                            IsVisible="{Binding !IsLoggedIn}" />
+                    <Button Classes="AccountLogin" Command="{Binding LoginCommand}"
+                            IsVisible="{Binding !IsLoggedIn}"
+                            ToolTip.Tip="登录">
+                        <TextBlock Text="登录" FontSize="12"
+                                   Foreground="{DynamicResource Accent2Brush}" />
+                    </Button>
+                </StackPanel>
+            </Border>
+            <!-- 搜索：圆形按钮本身就地展开成输入框，点击时宽度从 32 长到 252 -->
+            <Border Grid.Column="2" x:Name="SearchBox" Classes="SearchBox" Margin="12,0,0,0"
+                    Focusable="True" IsTabStop="False"
+                    PointerPressed="OnSearchBoxPressed">
+                <Grid ColumnDefinitions="30,*">
+                    <!-- 放大镜固定在左端 30px 内圈正中：24 栅格原坐标 + Viewbox 等比缩放，
+                         不能让 Path 自己 Stretch，否则几何原点不归零会整体偏移 -->
+                    <Viewbox Width="20" Height="20"
+                             HorizontalAlignment="Center" VerticalAlignment="Center">
+                        <Panel Width="24" Height="24">
+                            <Path StrokeThickness="1.9" StrokeLineCap="Round" StrokeJoin="Round"
+                                  Data="{StaticResource GeoSearch}" />
+                        </Panel>
+                    </Viewbox>
+                    <TextBox Grid.Column="1" x:Name="SearchInput" Classes="SearchInline"
+                             MinWidth="0" Height="30" VerticalAlignment="Center"
+                             IsTabStop="False"
+                             Watermark="搜索设备、房间…" Text="{Binding SearchText}"
+                             KeyDown="OnSearchKeyDown" LostFocus="OnSearchLostFocus" />
+                </Grid>
+            </Border>
+            <StackPanel Grid.Column="4" Orientation="Horizontal" VerticalAlignment="Center">
+                <!-- 小爱语音入口：标题栏右侧胶囊，左声纹图标右「小爱同学」；仅检测到音箱时出现 -->
+                <Button Classes="XiaoAiCapsule" Classes.open="{Binding IsVoiceOpen}" Margin="0,0,10,0"
+                        IsVisible="{Binding ShowVoiceFab}"
+                        Height="32"
+                        Command="{Binding ToggleVoiceCommand}" ToolTip.Tip="小爱语音指令">
+                    <StackPanel Orientation="Horizontal" Spacing="7" Margin="12,0" HorizontalAlignment="Center">
+                        <ctl:VoiceBars Width="15" Height="15" VerticalAlignment="Center"
+                                       BarBrush="{Binding $parent[Button].Foreground}"
+                                       IsActive="{Binding ShowVoiceFab}"
+                                       IsBusy="{Binding IsVoiceSending}" />
+                        <TextBlock Text="小爱同学" VerticalAlignment="Center" />
                     </StackPanel>
                 </Button>
-                <!-- 未登录时点击整块去登录；已登录且多家庭时由 Flyout 切换 -->
-                <Button Classes="TitleAccount" Command="{Binding LoginCommand}"
-                        IsVisible="{Binding !IsLoggedIn}"
-                        ToolTip.Tip="登录">
-                    <TextBlock Text="登录" FontSize="12.5" FontWeight="SemiBold"
-                               Foreground="{DynamicResource TextBrush}" />
+                <Button Classes="ThemeBtn" Margin="0,0,6,0" Command="{Binding OpenLogCommand}" ToolTip.Tip="操作日志">
+                    <Path Width="14" Height="14" Stretch="Uniform"
+                          Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}"
+                          StrokeThickness="1.6" StrokeLineCap="Round" StrokeJoin="Round"
+                          Data="{StaticResource GeoLog}" />
                 </Button>
                 <Button Classes="ThemeBtn" Margin="0,0,6,0" Command="{Binding ToggleThemeCommand}"
                         ToolTip.Tip="切换浅色/深色 (T)">
@@ -628,21 +1191,17 @@
                 </Button>
             </StackPanel>
         </Grid>
-
         <!-- ================= 主体：侧栏 + 内容面板 ================= -->
-        <Grid Grid.Row="1" ColumnDefinitions="200,*" Margin="10,0,10,10">
-
+        <Grid Grid.Row="1" ColumnDefinitions="180,*" Margin="10,0,10,10">
             <!-- 侧栏 -->
-            <DockPanel Grid.Column="0" Margin="0,6,0,12">
+            <DockPanel Grid.Column="0" Margin="10,10,10,0">
                 <StackPanel DockPanel.Dock="Top">
                     <Button Classes="NavRow" Classes.on="{Binding IsHome}" Tag="home"
                             Content="首页" Click="OnGotoHome" />
                     <Button Classes="NavRow" Classes.on="{Binding IsScenes}" Tag="scene"
                             Content="场景" Click="OnGotoScenes" />
                 </StackPanel>
-
                 <TextBlock DockPanel.Dock="Top" Classes="NavCaption" Text="{Binding RoomCount, StringFormat='房间 · {0}'}" />
-
                 <!-- 所有房间 -->
                 <ScrollViewer VerticalScrollBarVisibility="Auto" Margin="0,0,0,4">
                     <ItemsControl ItemsSource="{Binding Rooms}">
@@ -658,9 +1217,8 @@
                     </ItemsControl>
                 </ScrollViewer>
             </DockPanel>
-
             <!-- 内容面板：只左上圆角；左侧与侧栏齐平，右/下用 -10 抵掉主体网格的边距，贴住窗口边缘 -->
-            <Border Grid.Column="1" CornerRadius="20,0,0,0" Background="{DynamicResource PanelBrush}"
+            <Border Grid.Column="1" CornerRadius="40,0,0,0" Background="{DynamicResource PanelBrush}"
                     BoxShadow="0 3 10 0 #170F172A" ClipToBounds="True" Margin="0,0,-10,-10">
                 <Grid>
                     <!-- 环境光晕：面板底层两团超大半径的径向光斑 -->
@@ -684,200 +1242,160 @@
                             </Border.Background>
                         </Border>
                     </Panel>
-
                     <ScrollViewer HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Auto">
                         <StackPanel Margin="22,20,22,28">
-
                             <!-- ================= 首页 ================= -->
                             <StackPanel IsVisible="{Binding IsHome}">
-
-                                <!-- Hero：透明底；右侧统计用卡片色 -->
+                                <!-- Hero：透明底；左侧问候+概览按钮，右侧统计卡+环境概览 -->
                                 <Grid ColumnDefinitions="*,Auto" Margin="28,26">
-                                            <StackPanel VerticalAlignment="Center" Spacing="0">
-                                                <StackPanel Orientation="Horizontal" Spacing="0">
-                                                    <TextBlock Text="{Binding Greet}" FontSize="24" FontWeight="Bold"
+                                    <StackPanel VerticalAlignment="Top" Spacing="0">
+                                        <StackPanel Orientation="Horizontal" Spacing="0">
+                                            <TextBlock Text="{Binding Greet}" FontSize="24" FontWeight="Bold"
                                                                Foreground="{DynamicResource TextBrush}" />
-                                                    <TextBlock Text="，" FontSize="24" FontWeight="Bold"
+                                            <TextBlock Text="，" FontSize="24" FontWeight="Bold"
                                                                Foreground="{DynamicResource TextBrush}" />
-                                                    <TextBlock Text="欢迎回家" FontSize="24" FontWeight="Bold"
+                                            <TextBlock Text="欢迎回家" FontSize="24" FontWeight="Bold"
                                                                Foreground="{DynamicResource PinkBrush}" />
-                                                </StackPanel>
-                                                <StackPanel Orientation="Horizontal" Spacing="10" Margin="0,8,0,0">
-                                                    <TextBlock Text="{Binding ClockText}" FontSize="13"
+                                        </StackPanel>
+                                        <StackPanel Orientation="Horizontal" Spacing="10" Margin="0,8,0,0">
+                                            <TextBlock Text="{Binding ClockText}" FontSize="13"
                                                                Foreground="{DynamicResource Text2Brush}" />
-                                                    <Border Width="1" Height="12" Background="{DynamicResource LineBrush}"
+                                            <Border Width="1" Height="12" Background="{DynamicResource LineBrush}"
                                                             VerticalAlignment="Center" />
-                                                    <TextBlock Text="{Binding DateText}" FontSize="13"
+                                            <TextBlock Text="{Binding DateText}" FontSize="13"
                                                                Foreground="{DynamicResource Text2Brush}" />
-                                                    <Border Width="1" Height="12" Background="{DynamicResource LineBrush}"
+                                            <Border Width="1" Height="12" Background="{DynamicResource LineBrush}"
                                                             VerticalAlignment="Center" />
-                                                    <TextBlock Text="{Binding StatusText}" FontSize="13"
+                                            <TextBlock Text="{Binding StatusText}" FontSize="13"
                                                                Foreground="{DynamicResource Text3Brush}" />
+                                        </StackPanel>
+                                        <!-- 概览按钮区：全部场景 / 全部设备 / 刷新，移到时间日期行下方，左对齐 -->
+                                        <StackPanel Orientation="Horizontal" Spacing="8" HorizontalAlignment="Left" Margin="0,12,0,0">
+                                            <Button Classes="BtnGhost" Content="全部场景" Click="OnGotoScenes" />
+                                            <Button Classes="BtnGhost" Content="全部设备" Click="OnGotoRooms" />
+                                            <Button Classes="BtnGhost" Width="36" Padding="0"
+                                                    Command="{Binding LoadDevicesCommand}"
+                                                    IsEnabled="{Binding !IsLoading}"
+                                                    ToolTip.Tip="拉取最新状态">
+                                                <Panel>
+                                                    <Path Classes="RefreshIc" Width="13" Height="13" Stretch="Uniform"
+                                                          HorizontalAlignment="Center" VerticalAlignment="Center"
+                                                          Stroke="{DynamicResource Text2Brush}" StrokeThickness="1.4"
+                                                          StrokeLineCap="Round" StrokeJoin="Round"
+                                                          Data="{StaticResource GeoRefresh}"
+                                                          IsVisible="{Binding !IsLoading}" />
+                                                    <Path Classes="Spinner" Width="14" Height="14" Stretch="Uniform"
+                                                          HorizontalAlignment="Center" VerticalAlignment="Center"
+                                                          Stroke="{DynamicResource Text2Brush}" StrokeThickness="1.6"
+                                                          StrokeLineCap="Round"
+                                                          Data="{StaticResource GeoSpinner}"
+                                                          Classes.run="{Binding IsLoading}"
+                                                          IsVisible="{Binding IsLoading}" />
+                                                </Panel>
+                                            </Button>
+                                        </StackPanel>
+                                    </StackPanel>
+                                    <!-- 统计：卡片色底 + 轻投影；与左侧问候顶部对齐；按钮区已移至左侧时间行下方 -->
+                                    <StackPanel Grid.Column="1" VerticalAlignment="Top" Margin="16,0,0,0" Spacing="12">
+                                        <!-- 环境概览：温湿度聚合 + 耗材提醒，明细进弹窗；统计卡下方，底部右对齐 -->
+                                        <WrapPanel Margin="0,0,0,0" IsVisible="{Binding ShowEnvOverview}" HorizontalAlignment="Right">
+                                            <Border Classes="EnvPill" Margin="0,0,8,6">
+                                                <StackPanel Orientation="Horizontal" Spacing="6">
+                                                    <TextBlock Classes="EnvLab" Text="温度" />
+                                                    <TextBlock Classes="EnvVal" Text="{Binding EnvTemperatureText}" />
                                                 </StackPanel>
-                                                <StackPanel Orientation="Horizontal" Spacing="8" Margin="0,16,0,0">
-                                                    <Button Classes="BtnGhost" Content="全部场景" Click="OnGotoScenes" />
-                                                    <Button Classes="BtnGhost" Content="全部设备" Click="OnGotoRooms" />
-                                                    <Button Classes="BtnGhost" Width="36" Padding="0"
-                                                            Command="{Binding LoadDevicesCommand}"
-                                                            IsEnabled="{Binding !IsLoading}"
-                                                            ToolTip.Tip="拉取最新状态">
-                                                        <Panel>
-                                                            <Path Classes="RefreshIc" Width="13" Height="13" Stretch="Uniform"
-                                                                  HorizontalAlignment="Center" VerticalAlignment="Center"
-                                                                  Stroke="{DynamicResource Text2Brush}" StrokeThickness="1.4"
-                                                                  StrokeLineCap="Round" StrokeJoin="Round"
-                                                                  Data="{StaticResource GeoRefresh}"
-                                                                  IsVisible="{Binding !IsLoading}" />
-                                                            <Path Classes="Spinner" Width="14" Height="14" Stretch="Uniform"
-                                                                  HorizontalAlignment="Center" VerticalAlignment="Center"
-                                                                  Stroke="{DynamicResource Text2Brush}" StrokeThickness="1.6"
-                                                                  StrokeLineCap="Round"
-                                                                  Data="{StaticResource GeoSpinner}"
-                                                                  Classes.run="{Binding IsLoading}"
-                                                                  IsVisible="{Binding IsLoading}" />
-                                                        </Panel>
-                                                    </Button>
+                                            </Border>
+                                            <Border Classes="EnvPill" Margin="0,0,8,6">
+                                                <StackPanel Orientation="Horizontal" Spacing="6">
+                                                    <TextBlock Classes="EnvLab" Text="湿度" />
+                                                    <TextBlock Classes="EnvVal" Text="{Binding EnvHumidityText}" />
                                                 </StackPanel>
-                                            </StackPanel>
-
-                                            <!-- 统计：卡片色底 + 轻投影 -->
-                                            <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="10"
-                                                        VerticalAlignment="Center" Margin="16,0,0,0">
-                                                <Border CornerRadius="16" Padding="18,14" MinWidth="100"
+                                            </Border>
+                                            <Border Classes="EnvPill" Margin="0,0,8,6"
+                                                    Classes.is-warn="{Binding HasConsumableWarning}">
+                                                <TextBlock Classes="EnvVal" Classes.is-warn="{Binding HasConsumableWarning}"
+                                                           Text="{Binding ConsumablePillText}" />
+                                            </Border>
+                                            <Button Classes="BtnGhost" Margin="0,0,0,6" Height="28" Padding="12,0"
+                                                    FontSize="12" VerticalAlignment="Center"
+                                                    Content="查看明细"
+                                                    Command="{Binding OpenEnvDetailCommand}" />
+                                        </WrapPanel>
+                                        <StackPanel Orientation="Horizontal" Spacing="10" HorizontalAlignment="Right">
+                                            <Border CornerRadius="16" Padding="16,13" MinWidth="96"
                                                         Background="{DynamicResource CardBrush}"
                                                         BoxShadow="0 1 2 0 #050F172A, 0 5 16 0 #080F172A">
-                                                    <StackPanel Spacing="6">
-                                                        <StackPanel Orientation="Horizontal" Spacing="6">
-                                                            <Ellipse Width="5" Height="5" VerticalAlignment="Center"
+                                                <StackPanel Spacing="6">
+                                                    <StackPanel Orientation="Horizontal" Spacing="6">
+                                                        <Ellipse Width="5" Height="5" VerticalAlignment="Center"
                                                                      Fill="{DynamicResource StatGreenBrush}" />
-                                                            <TextBlock Text="在线设备" FontSize="11"
+                                                        <TextBlock Text="在线设备" FontSize="11"
                                                                        Foreground="{DynamicResource Text3Brush}" />
-                                                        </StackPanel>
-                                                        <StackPanel Orientation="Horizontal" Spacing="4" VerticalAlignment="Bottom">
-                                                            <TextBlock Text="{Binding OnlineCount}" FontSize="22" FontWeight="SemiBold"
+                                                    </StackPanel>
+                                                    <StackPanel Orientation="Horizontal" Spacing="4" VerticalAlignment="Bottom">
+                                                        <TextBlock Text="{Binding OnlineCount}" FontSize="21" FontWeight="SemiBold"
                                                                       Foreground="{DynamicResource StatGreenBrush}" />
-                                                            <TextBlock Text="{Binding TotalText}" FontSize="11.5" FontWeight="SemiBold"
+                                                        <TextBlock Text="{Binding TotalText}" FontSize="11.5" FontWeight="SemiBold"
                                                                       Foreground="{DynamicResource Text3Brush}" VerticalAlignment="Bottom"
                                                                       Margin="0,0,0,3" />
-                                                        </StackPanel>
                                                     </StackPanel>
-                                                </Border>
-                                                <Border CornerRadius="16" Padding="18,14" MinWidth="100"
-                                                        Background="{DynamicResource CardBrush}"
-                                                        BoxShadow="0 1 2 0 #050F172A, 0 5 16 0 #080F172A">
-                                                    <StackPanel Spacing="6">
-                                                        <StackPanel Orientation="Horizontal" Spacing="6">
-                                                            <Ellipse Width="5" Height="5" VerticalAlignment="Center"
-                                                                     Fill="{DynamicResource StatPurpleBrush}" />
-                                                            <TextBlock Text="已开启" FontSize="11"
-                                                                       Foreground="{DynamicResource Text3Brush}" />
-                                                        </StackPanel>
-                                                        <TextBlock Text="{Binding OnCount}" FontSize="22" FontWeight="SemiBold"
-                                                                   Foreground="{DynamicResource StatPurpleBrush}" />
-                                                    </StackPanel>
-                                                </Border>
-                                                <Border CornerRadius="16" Padding="18,14" MinWidth="100"
-                                                        Background="{DynamicResource CardBrush}"
-                                                        BoxShadow="0 1 2 0 #050F172A, 0 5 16 0 #080F172A">
-                                                    <StackPanel Spacing="6">
-                                                        <StackPanel Orientation="Horizontal" Spacing="6">
-                                                            <Ellipse Width="5" Height="5" VerticalAlignment="Center"
-                                                                     Fill="{DynamicResource StatPinkBrush}" />
-                                                            <TextBlock Text="场景" FontSize="11"
-                                                                       Foreground="{DynamicResource Text3Brush}" />
-                                                        </StackPanel>
-                                                        <TextBlock Text="{Binding SceneCount}" FontSize="22" FontWeight="SemiBold"
-                                                                   Foreground="{DynamicResource StatPinkBrush}" />
-                                                    </StackPanel>
-                                                </Border>
-                                            </StackPanel>
-                                        </Grid>
-
-                                <!-- 今日概览 -->
-                                <TextBlock Classes="SecTitle" Text="今日概览" Margin="2,26,0,12" />
-                                <UniformGrid Columns="4">
-                                    <Border Classes="Card" Padding="16,15" Margin="0,0,14,0">
-                                        <StackPanel Orientation="Horizontal" Spacing="20">
-                                            <Border Width="42" Height="42" CornerRadius="13"
-                                                    Background="{DynamicResource GreenSoftBrush}">
-                                                <Path Width="20" Height="20" Stretch="Uniform"
-                                                      Stroke="{DynamicResource GreenBrush}" StrokeThickness="1.8"
-                                                      StrokeLineCap="Round" StrokeJoin="Round"
-                                                      Data="{StaticResource GeoWifi}" />
-                                            </Border>
-                                            <StackPanel VerticalAlignment="Center" Spacing="2">
-                                                <TextBlock Text="在线设备" FontSize="12"
-                                                           Foreground="{DynamicResource Text2Brush}" />
-                                                <StackPanel Orientation="Horizontal" Spacing="6">
-                                                    <TextBlock Text="{Binding OnlineCount}" FontSize="21" FontWeight="Bold"
-                                                               Foreground="{DynamicResource TextBrush}" />
-                                                    <TextBlock Text="{Binding OfflineText}" FontSize="11" FontWeight="SemiBold"
-                                                               VerticalAlignment="Bottom" Margin="0,0,0,3"
-                                                               Foreground="{DynamicResource AmberBrush}" />
                                                 </StackPanel>
-                                            </StackPanel>
-                                        </StackPanel>
-                                    </Border>
-                                    <Border Classes="Card" Padding="16,15" Margin="0,0,14,0">
-                                        <StackPanel Orientation="Horizontal" Spacing="20">
-                                            <Border Width="42" Height="42" CornerRadius="13"
-                                                    Background="{DynamicResource AccentSoftBrush}">
-                                                <Path Width="20" Height="20" Stretch="Uniform" Fill="{DynamicResource Accent2Brush}"
-                                                      Data="{StaticResource GeoBolt}" />
                                             </Border>
-                                            <StackPanel VerticalAlignment="Center" Spacing="2">
-                                                <TextBlock Text="已开启" FontSize="12"
-                                                           Foreground="{DynamicResource Text2Brush}" />
-                                                <TextBlock Text="{Binding OnCount}" FontSize="21" FontWeight="Bold"
-                                                           Foreground="{DynamicResource TextBrush}" />
-                                            </StackPanel>
-                                        </StackPanel>
-                                    </Border>
-                                    <Border Classes="Card" Padding="16,15" Margin="0,0,14,0">
-                                        <StackPanel Orientation="Horizontal" Spacing="20">
-                                            <Border Width="42" Height="42" CornerRadius="13"
-                                                    Background="{DynamicResource BlueSoftBrush}">
-                                                <Path Width="20" Height="20" Stretch="Uniform"
-                                                      Stroke="{DynamicResource CoolBrush}" StrokeThickness="1.8"
-                                                      StrokeLineCap="Round" StrokeJoin="Round"
-                                                      Data="{StaticResource GeoRooms}" />
+                                            <Border CornerRadius="16" Padding="16,13" MinWidth="96"
+                                                        Background="{DynamicResource CardBrush}"
+                                                        BoxShadow="0 1 2 0 #050F172A, 0 5 16 0 #080F172A">
+                                                <StackPanel Spacing="6">
+                                                    <StackPanel Orientation="Horizontal" Spacing="6">
+                                                        <Ellipse Width="5" Height="5" VerticalAlignment="Center"
+                                                                     Fill="{DynamicResource StatPurpleBrush}" />
+                                                        <TextBlock Text="已开启" FontSize="11"
+                                                                       Foreground="{DynamicResource Text3Brush}" />
+                                                    </StackPanel>
+                                                    <TextBlock Text="{Binding OnCount}" FontSize="21" FontWeight="SemiBold"
+                                                                   Foreground="{DynamicResource StatPurpleBrush}" />
+                                                </StackPanel>
                                             </Border>
-                                            <StackPanel VerticalAlignment="Center" Spacing="2">
-                                                <TextBlock Text="房间" FontSize="12"
-                                                           Foreground="{DynamicResource Text2Brush}" />
-                                                <TextBlock Text="{Binding RoomCount}" FontSize="21" FontWeight="Bold"
-                                                           Foreground="{DynamicResource TextBrush}" />
-                                            </StackPanel>
-                                        </StackPanel>
-                                    </Border>
-                                    <Border Classes="Card" Padding="16,15">
-                                        <StackPanel Orientation="Horizontal" Spacing="20">
-                                            <Border Width="42" Height="42" CornerRadius="13"
-                                                    Background="{DynamicResource PurpleSoftBrush}">
-                                                <Path Width="20" Height="20" Stretch="Uniform" Fill="{DynamicResource PurpleBrush}"
-                                                      Data="{StaticResource GeoScene}" />
+                                            <Border CornerRadius="16" Padding="16,13" MinWidth="96"
+                                                        Background="{DynamicResource CardBrush}"
+                                                        BoxShadow="0 1 2 0 #050F172A, 0 5 16 0 #080F172A">
+                                                <StackPanel Spacing="6">
+                                                    <StackPanel Orientation="Horizontal" Spacing="6">
+                                                        <Ellipse Width="5" Height="5" VerticalAlignment="Center"
+                                                                     Fill="{DynamicResource StatBlueBrush}" />
+                                                        <TextBlock Text="房间" FontSize="11"
+                                                                       Foreground="{DynamicResource Text3Brush}" />
+                                                    </StackPanel>
+                                                    <TextBlock Text="{Binding RoomCount}" FontSize="21" FontWeight="SemiBold"
+                                                                   Foreground="{DynamicResource StatBlueBrush}" />
+                                                </StackPanel>
                                             </Border>
-                                            <StackPanel VerticalAlignment="Center" Spacing="2">
-                                                <TextBlock Text="场景" FontSize="12"
-                                                           Foreground="{DynamicResource Text2Brush}" />
-                                                <TextBlock Text="{Binding SceneCount}" FontSize="21" FontWeight="Bold"
-                                                           Foreground="{DynamicResource TextBrush}" />
-                                            </StackPanel>
+                                            <Border CornerRadius="16" Padding="16,13" MinWidth="96"
+                                                        Background="{DynamicResource CardBrush}"
+                                                        BoxShadow="0 1 2 0 #050F172A, 0 5 16 0 #080F172A">
+                                                <StackPanel Spacing="6">
+                                                    <StackPanel Orientation="Horizontal" Spacing="6">
+                                                        <Ellipse Width="5" Height="5" VerticalAlignment="Center"
+                                                                     Fill="{DynamicResource StatPinkBrush}" />
+                                                        <TextBlock Text="场景" FontSize="11"
+                                                                       Foreground="{DynamicResource Text3Brush}" />
+                                                    </StackPanel>
+                                                    <TextBlock Text="{Binding SceneCount}" FontSize="21" FontWeight="SemiBold"
+                                                                   Foreground="{DynamicResource StatPinkBrush}" />
+                                                </StackPanel>
+                                            </Border>
                                         </StackPanel>
-                                    </Border>
-                                </UniformGrid>
-
-                                <!-- 快捷场景 -->
-                                <TextBlock Classes="SecTitle" Text="快捷场景" IsVisible="{Binding !ShowSkeleton}" />
+                                    </StackPanel>
+                                </Grid>
+                                <!-- 快捷场景：没有场景时整条标题不出现 -->
+                                <TextBlock Classes="SecTitle" Text="快捷场景" IsVisible="{Binding HasScenes}" />
                                 <ItemsControl ItemsSource="{Binding SceneItems}" ItemTemplate="{StaticResource SceneMiniTemplate}"
-                                              IsVisible="{Binding !ShowSkeleton}">
+                                              IsVisible="{Binding HasScenes}">
                                     <ItemsControl.ItemsPanel>
                                         <ItemsPanelTemplate>
                                             <ctl:AdaptiveGridPanel MinItemWidth="180" Spacing="0" />
                                         </ItemsPanelTemplate>
                                     </ItemsControl.ItemsPanel>
                                 </ItemsControl>
-
                                 <!-- 首次拉取：先铺骨架宫格，设备一到就整块换成真卡片 -->
                                 <StackPanel IsVisible="{Binding ShowSkeleton}">
                                     <StackPanel Orientation="Horizontal" Spacing="10" Margin="2,26,0,12">
@@ -896,7 +1414,11 @@
                                         </ItemsControl.ItemsPanel>
                                     </ItemsControl>
                                 </StackPanel>
-
+                                <!-- 空家：设备与场景都没有时，用空提示替代空分组 -->
+                                <views:EmptyState IsVisible="{Binding ShowHomeEmpty}"
+                                                  Icon="{StaticResource GeoHome}"
+                                                  Title="家里还是空的"
+                                                  Description="在米家 App 添加设备或场景，这里会自动同步" />
                                 <!-- 按房间分组 -->
                                 <ItemsControl ItemsSource="{Binding HomeGroups}" IsVisible="{Binding !ShowSkeleton}">
                                     <ItemsControl.ItemTemplate>
@@ -916,25 +1438,8 @@
                                     </ItemsControl.ItemTemplate>
                                 </ItemsControl>
                             </StackPanel>
-
                             <!-- ================= 房间 ================= -->
                             <StackPanel IsVisible="{Binding IsRooms}">
-                                <ItemsControl ItemsSource="{Binding Rooms}" Margin="0,0,0,16">
-                                    <ItemsControl.ItemsPanel>
-                                        <ItemsPanelTemplate>
-                                            <StackPanel Orientation="Horizontal" Spacing="8" />
-                                        </ItemsPanelTemplate>
-                                    </ItemsControl.ItemsPanel>
-                                    <ItemsControl.ItemTemplate>
-                                        <DataTemplate x:DataType="m:RoomChip">
-                                            <ToggleButton Classes="Chip" Content="{Binding Name}"
-                                                          IsChecked="{Binding IsSelected, Mode=TwoWay}"
-                                                          Command="{Binding $parent[Window].((vm:MainViewModel)DataContext).PickRoomCommand}"
-                                                          CommandParameter="{Binding}" />
-                                        </DataTemplate>
-                                    </ItemsControl.ItemTemplate>
-                                </ItemsControl>
-
                                 <!-- 房间横幅 -->
                                 <Border CornerRadius="20" Padding="22,20" Margin="0,0,0,18"
                                         Background="{DynamicResource BannerBrush}">
@@ -970,7 +1475,6 @@
                                         </Border>
                                     </Grid>
                                 </Border>
-
                                 <ItemsControl ItemsSource="{Binding SkeletonSlots}"
                                               ItemTemplate="{StaticResource SkeletonCardTemplate}"
                                               IsVisible="{Binding ShowSkeleton}">
@@ -991,7 +1495,6 @@
                                 <TextBlock Classes="Hint" Text="该房间暂无匹配设备" HorizontalAlignment="Center"
                                            Margin="0,40" IsVisible="{Binding ShowEmptyHint}" />
                             </StackPanel>
-
                             <!-- ================= 场景 ================= -->
                             <StackPanel IsVisible="{Binding IsScenes}">
                                 <Grid ColumnDefinitions="*,Auto" Margin="0,0,0,18">
@@ -1011,85 +1514,29 @@
                                         </ItemsPanelTemplate>
                                     </ItemsControl.ItemsPanel>
                                 </ItemsControl>
-                                <TextBlock Classes="Hint" Text="还没有场景，可先在米家 App 中创建" HorizontalAlignment="Center"
-                                           Margin="0,40" IsVisible="{Binding !HasScenes}" />
+                                <views:EmptyState IsVisible="{Binding ShowSceneEmpty}"
+                                                  Icon="{StaticResource GeoScene}"
+                                                  Title="还没有场景"
+                                                  Description="在米家 App 创建场景后，会同步到这里" />
                             </StackPanel>
-
                         </StackPanel>
                     </ScrollViewer>
-
                     <!-- ================= 设备遮罩（只盖圆角内容面板，不盖侧栏/标题栏；由外层 Border 裁出圆角） ================= -->
                     <Border x:Name="DeviceMask" ZIndex="90" Classes="Mask" Background="{DynamicResource DrawerMaskBrush}"
                             Opacity="0" IsVisible="False" PointerReleased="OnMaskClick" />
                     <!-- 浅色遮罩层：叠在主遮罩之上，颜色更淡，随抽屉开关淡入淡出 -->
                     <Border x:Name="DeviceMaskLight" ZIndex="91" Classes="Mask" Background="{DynamicResource MaskLightBrush}"
                             Opacity="0" IsVisible="False" PointerReleased="OnMaskClick" />
-
-                    <!-- ================= 登录抽屉 ================= -->
-                    <Border Classes="Mask" Background="{DynamicResource MaskBrush}" IsVisible="{Binding IsLoginOpen}"
-                            PointerReleased="OnMaskClick" />
-                    <Border Width="380" HorizontalAlignment="Right" Background="{DynamicResource DrawerBgBrush}"
-                            BoxShadow="0 12 24 #00000050" IsVisible="{Binding IsLoginOpen}">
-                        <StackPanel Margin="24,22">
-                            <Panel>
-                                <TextBlock Text="登录" FontSize="19" FontWeight="Bold"
-                                           Foreground="{DynamicResource TextBrush}" VerticalAlignment="Center" />
-                                <Button Classes="ThemeBtn" HorizontalAlignment="Right"
-                                        Command="{Binding CloseOverlaysCommand}">
-                                    <Path Width="15" Height="15" Stretch="Uniform" Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" StrokeThickness="1.8"
-                                          StrokeLineCap="Round" Data="{StaticResource GeoClose}" />
-                                </Button>
-                            </Panel>
-
-                            <Border CornerRadius="16" Background="{DynamicResource CardBrush}" Padding="24"
-                                    Margin="0,22,0,0" HorizontalAlignment="Center"
-                                    IsVisible="{Binding QrImage, Converter={x:Static ObjectConverters.IsNotNull}}">
-                                <StackPanel Spacing="20">
-                                    <Image Source="{Binding QrImage}" Width="240" Height="240" />
-                                    <TextBlock Text="{Binding QrHint}" Classes="Hint" TextWrapping="Wrap"
-                                               TextAlignment="Center" />
-                                </StackPanel>
-                            </Border>
-
-                            <Border CornerRadius="16" Background="{DynamicResource CardBrush}" Padding="24"
-                                    Margin="0,22,0,0" HorizontalAlignment="Center"
-                                    IsVisible="{Binding QrImage, Converter={x:Static ObjectConverters.IsNull}}">
-                                <StackPanel Spacing="20">
-                                    <Border Width="240" Height="240" Background="{DynamicResource SurfaceBrush}"
-                                            CornerRadius="12" HorizontalAlignment="Center">
-                                        <TextBlock Text="二维码获取后显示在这里" Classes="Hint"
-                                                   HorizontalAlignment="Center" VerticalAlignment="Center" />
-                                    </Border>
-                                    <TextBlock Text="{Binding QrHint}" Classes="Hint" TextWrapping="Wrap"
-                                               TextAlignment="Center" />
-                                </StackPanel>
-                            </Border>
-
-                            <!-- 有 passToken 时主推一键登录；仍可改走扫码 -->
-                            <Button Classes="BtnPrimary" Content="一键登录" Margin="0,18,0,0"
-                                    HorizontalAlignment="Stretch"
-                                    Command="{Binding QuickLoginCommand}"
-                                    IsVisible="{Binding CanQuickLogin}" />
-                            <Button Classes="BtnPrimary" Content="获取二维码" Margin="0,18,0,0"
-                                    HorizontalAlignment="Stretch" Command="{Binding QrLoginCommand}"
-                                    IsVisible="{Binding !CanQuickLogin}" />
-                            <Button Classes="BtnGhost" Content="改用扫码登录" Margin="0,10,0,0"
-                                    HorizontalAlignment="Stretch" Command="{Binding QrLoginCommand}"
-                                    IsVisible="{Binding CanQuickLogin}" />
-                            <TextBlock Classes="Hint" Text="凭证仅保存在本机" HorizontalAlignment="Center" Margin="0,10,0,0" />
-                        </StackPanel>
-                    </Border>
                 </Grid>
             </Border>
         </Grid>
-
         <!-- ================= 设备详情抽屉（右→左滑入动画） =================
              遮罩已移入圆角内容面板内部（只盖内容区、随面板裁圆角，不盖侧栏/标题栏）；
              抽屉保留在根层，Grid.Row=1 + HorizontalAlignment=Right，滑入主体右侧。 -->
         <Border x:Name="DeviceDrawer" Grid.Row="1" ZIndex="100" Width="380" HorizontalAlignment="Right"
                 VerticalAlignment="Stretch"
                 Background="{DynamicResource DrawerBgBrush}"
-                CornerRadius="20" Margin="10,0,10,10"
+                CornerRadius="20" Margin="0,5,5,5"
                 BorderBrush="{DynamicResource LineBrush}" BorderThickness="1"
                 ClipToBounds="True"
                 BoxShadow="0 16 36 0 #2A0F172A" IsVisible="False">
@@ -1110,7 +1557,7 @@
                             <Border Classes="DevPhoto" Width="56" Height="56"
                                     IsVisible="{Binding DrawerDevice.Icon, Converter={x:Static ObjectConverters.IsNotNull}}">
                                 <Image Source="{Binding DrawerDevice.Icon}" Stretch="Uniform"
-                                       RenderOptions.BitmapInterpolationMode="HighQuality" />
+                                       RenderOptions.BitmapInterpolationMode="MediumQuality" />
                             </Border>
                         </Panel>
                         <TextBlock Text="{Binding DrawerDevice.Name}" FontSize="19" FontWeight="Bold"
@@ -1132,7 +1579,6 @@
                               StrokeLineCap="Round" Data="{StaticResource GeoClose}" />
                     </Button>
                 </Panel>
-
                 <!-- 内边距挂在内容 Margin，不能写在 ScrollViewer.Padding：
                      Avalonia 11.3.9 的 Extent 不含 Padding，会算短一截导致底部滚不到 -->
                 <ScrollViewer VerticalScrollBarVisibility="Auto"
@@ -1152,7 +1598,84 @@
                                               CommandParameter="{Binding DrawerDevice}" />
                             </Grid>
                         </Border>
-
+                        <!-- 多路开关：每一路独立一行；单路开关也用这张卡（此时没有整机电源卡） -->
+                        <Border Classes="DrCard" IsVisible="{Binding DrawerDevice.HasChannels}">
+                            <StackPanel Spacing="8">
+                                <TextBlock Text="开关" FontSize="14" FontWeight="SemiBold"
+                                           Foreground="{DynamicResource TextBrush}" />
+                                <ItemsControl ItemsSource="{Binding DrawerDevice.Channels}"
+                                              ItemTemplate="{StaticResource ChannelRowTemplate}" />
+                            </StackPanel>
+                        </Border>
+                        <!-- 小爱音箱：音量 + 播放 / 暂停 -->
+                        <Border Classes="DrCard" IsVisible="{Binding DrawerDevice.IsSpeaker}">
+                            <StackPanel Spacing="9">
+                                <Grid ColumnDefinitions="*,Auto">
+                                    <TextBlock Text="音量" FontSize="14" FontWeight="SemiBold"
+                                               VerticalAlignment="Center"
+                                               Foreground="{DynamicResource TextBrush}" />
+                                    <TextBlock Grid.Column="1" FontSize="12.5" FontWeight="SemiBold"
+                                               Foreground="{DynamicResource Accent2Brush}"
+                                               Text="{Binding DrawerDevice.SpeakerVolume, StringFormat='{}{0}%'}" />
+                                </Grid>
+                                <Slider Classes="DrSlider" Minimum="0" Maximum="100" TickFrequency="1"
+                                        Value="{Binding DrawerDevice.SpeakerVolume, Mode=TwoWay}"
+                                        IsEnabled="{Binding DrawerDevice.IsOnline}" />
+                                <Border Classes="SegTrack">
+                                    <Grid ColumnDefinitions="*,*,*">
+                                        <Button Classes="SegBtn" VerticalAlignment="Center" ToolTip.Tip="上一曲"
+                                                Command="{Binding PreviousTrackCommand}"
+                                                IsEnabled="{Binding !DrawerDevice.IsBusy}">
+                                            <Path Width="15" Height="15" Stretch="Uniform"
+                                                  Fill="{DynamicResource Text2Brush}"
+                                                  Data="{StaticResource GeoPrevTrack}" />
+                                        </Button>
+                                        <Button Grid.Column="1" Classes="SegBtn" VerticalAlignment="Center"
+                                                ToolTip.Tip="播放 / 暂停"
+                                                Command="{Binding ToggleSpeakerPlayCommand}"
+                                                IsEnabled="{Binding !DrawerDevice.IsBusy}">
+                                            <Panel>
+                                                <Path Width="14" Height="14" Stretch="Uniform"
+                                                      Fill="{DynamicResource Accent2Brush}"
+                                                      IsVisible="{Binding !DrawerDevice.IsPlaying}"
+                                                      Data="{StaticResource GeoPlay}" />
+                                                <Path Width="14" Height="14" Stretch="Uniform"
+                                                      Fill="{DynamicResource Accent2Brush}"
+                                                      IsVisible="{Binding DrawerDevice.IsPlaying}"
+                                                      Data="{StaticResource GeoPauseIc}" />
+                                            </Panel>
+                                        </Button>
+                                        <Button Grid.Column="2" Classes="SegBtn" VerticalAlignment="Center" ToolTip.Tip="下一曲"
+                                                Command="{Binding NextTrackCommand}"
+                                                IsEnabled="{Binding !DrawerDevice.IsBusy}">
+                                            <Path Width="15" Height="15" Stretch="Uniform"
+                                                  Fill="{DynamicResource Text2Brush}"
+                                                  Data="{StaticResource GeoNextTrack}" />
+                                        </Button>
+                                    </Grid>
+                                </Border>
+                                <TextBlock Classes="Hint" Text="播放状态以音箱实际响应为准" />
+                            </StackPanel>
+                        </Border>
+                        <!-- 耗材：滤芯 / 刷头余量，低于 20% 标琥珀色 -->
+                        <Border Classes="DrCard" IsVisible="{Binding DrawerDevice.HasConsumables}">
+                            <StackPanel Spacing="8">
+                                <TextBlock Text="耗材" FontSize="14" FontWeight="SemiBold"
+                                           Foreground="{DynamicResource TextBrush}" />
+                                <ItemsControl ItemsSource="{Binding DrawerDevice.Consumables}">
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate x:DataType="m:ConsumableState">
+                                            <Grid ColumnDefinitions="*,Auto" Margin="0,0,0,4">
+                                                <TextBlock Text="{Binding Desc}" FontSize="12.5"
+                                                           Foreground="{DynamicResource Text2Brush}" />
+                                                <TextBlock Grid.Column="1" Text="{Binding ValueText}"
+                                                           Classes="ConsumeVal" Classes.is-low="{Binding IsLow}" />
+                                            </Grid>
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
+                            </StackPanel>
+                        </Border>
                         <!-- 窗帘：开合度 + 电机控制 -->
                         <StackPanel Spacing="12" IsVisible="{Binding DrawerDevice.IsCurtain}">
                             <Border Classes="DrCard">
@@ -1188,7 +1711,6 @@
                             </Border>
                             <TextBlock Classes="Hint" Text="打开 / 暂停 / 关闭 电机指令即时下发" />
                         </StackPanel>
-
                         <!-- 灯光：亮度 + 色温（拖动松手后生效） -->
                         <StackPanel Spacing="12" IsVisible="{Binding DrawerDevice.IsLight}">
                             <Border Classes="DrCard">
@@ -1219,7 +1741,6 @@
                             </Border>
                             <TextBlock Classes="Hint" Text="拖动滑杆，松手后生效" />
                         </StackPanel>
-
                         <!-- 空调：模式 + 目标温度 + 风速（按钮按设备规格生成） -->
                         <StackPanel Spacing="12" IsVisible="{Binding DrawerDevice.IsAc}">
                             <StackPanel Spacing="12"
@@ -1296,23 +1817,47 @@
                             <TextBlock Classes="Hint" Text="未获取到该空调的控制参数，暂无法调节"
                                        IsVisible="{Binding DrawerDevice.AcSchema, Converter={x:Static ObjectConverters.IsNull}}" />
                         </StackPanel>
-
+                        <!-- 高级设置：常用控制卡之外的规格属性与低频动作，默认折叠，点击展开 -->
+                        <Border Classes="DrCard" IsVisible="{Binding HasAdvanced}">
+                            <StackPanel Spacing="8">
+                                <Button Classes="BtnGhost" HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch"
+                                        Command="{Binding ToggleAdvancedCommand}" Padding="0">
+                                    <Grid ColumnDefinitions="*,Auto">
+                                        <TextBlock Text="高级设置" FontSize="14" FontWeight="SemiBold"
+                                                   Foreground="{DynamicResource TextBrush}" VerticalAlignment="Center" />
+                                        <Path Grid.Column="1" Width="9" Height="9" Stretch="Uniform" Margin="8,0,0,0"
+                                              Stroke="{DynamicResource Text2Brush}" StrokeThickness="1.6"
+                                              VerticalAlignment="Center"
+                                              IsVisible="{Binding !IsAdvancedExpanded}"
+                                              Data="M4,3 L8,7 L4,11" />
+                                        <Path Grid.Column="1" Width="9" Height="9" Stretch="Uniform" Margin="8,0,0,0"
+                                              Stroke="{DynamicResource Text2Brush}" StrokeThickness="1.6"
+                                              VerticalAlignment="Center"
+                                              IsVisible="{Binding IsAdvancedExpanded}"
+                                              Data="M3,4 L7,8 L11,4" />
+                                    </Grid>
+                                </Button>
+                                <StackPanel Spacing="16" IsVisible="{Binding IsAdvancedExpanded}">
+                                    <ItemsControl ItemsSource="{Binding DrawerSpecAdvancedGroups}"
+                                                  ItemTemplate="{StaticResource SpecGroupTemplate}" />
+                                    <!-- 属性区与动作区之间只画一条淡分割线；只有两段都有内容时才出现 -->
+                                    <Border Height="1" Background="{DynamicResource LineBrush}" Opacity="0.5"
+                                            Margin="2,0" IsVisible="{Binding HasAdvancedDivider}" />
+                                    <ItemsControl ItemsSource="{Binding DrawerSpecAdvancedActions}"
+                                                  ItemTemplate="{StaticResource SpecActionTemplate}"
+                                                  IsVisible="{Binding HasAdvancedActions}" />
+                                </StackPanel>
+                            </StackPanel>
+                        </Border>
                         <TextBlock Classes="Hint" Text="这类设备没有开关指令，仅列出状态"
                                    IsVisible="{Binding DrawerDevice, Converter={x:Static conv:DeviceReadOnlyConverter.Instance}}" />
-
                         <!-- 设备信息 -->
                         <Border Classes="DrCard">
                             <StackPanel Spacing="12">
                                 <Grid ColumnDefinitions="*,Auto">
                                     <TextBlock Text="房间" Foreground="{DynamicResource Text2Brush}" FontSize="13" />
                                     <TextBlock Grid.Column="1" Text="{Binding DrawerDevice.RoomName}" FontSize="13"
-                                               FontWeight="SemiBold" Foreground="{DynamicResource TextBrush}" />
-                                </Grid>
-                                <Grid ColumnDefinitions="*,Auto">
-                                    <TextBlock Text="型号" Foreground="{DynamicResource Text2Brush}" FontSize="13" />
-                                    <TextBlock Grid.Column="1" Text="{Binding DrawerDevice.Model}" FontSize="13"
-                                               FontWeight="SemiBold" MaxWidth="180" TextTrimming="CharacterEllipsis"
-                                               Foreground="{DynamicResource TextBrush}" />
+                                               FontWeight="SemiBold" Foreground="{DynamicResource Text2Brush}" />
                                 </Grid>
                                 <Grid ColumnDefinitions="*,Auto">
                                     <TextBlock Text="连接" Foreground="{DynamicResource Text2Brush}" FontSize="13" />
@@ -1321,10 +1866,16 @@
                                                  Classes.is-on="{Binding DrawerDevice.IsOnline}"
                                                  Classes.is-warn="{Binding !DrawerDevice.IsOnline}" />
                                         <TextBlock FontSize="13" FontWeight="SemiBold"
-                                                   Foreground="{DynamicResource TextBrush}"
+                                                   Foreground="{DynamicResource Text2Brush}"
                                                    VerticalAlignment="Center"
                                                    Text="{Binding DrawerDevice.IsOnline, Converter={x:Static conv:BoolTextConverter.Instance}, ConverterParameter='在线|离线'}" />
                                     </StackPanel>
+                                </Grid>
+                                <Grid ColumnDefinitions="*,Auto">
+                                    <TextBlock Text="型号" Foreground="{DynamicResource Text2Brush}" FontSize="13" />
+                                    <TextBlock Grid.Column="1" Text="{Binding DrawerDevice.Model}" FontSize="13"
+                                               FontWeight="SemiBold" MaxWidth="180" TextTrimming="CharacterEllipsis"
+                                               Foreground="{DynamicResource Text2Brush}" />
                                 </Grid>
                                 <Grid ColumnDefinitions="*,Auto">
                                     <TextBlock Text="设备 ID" Foreground="{DynamicResource Text2Brush}" FontSize="13" />
@@ -1338,7 +1889,227 @@
                 </ScrollViewer>
             </DockPanel>
         </Border>
-
+        <!-- ================= 小爱语音：标题栏右侧胶囊唤出的指令浮层（仅检测到音箱时出现） ================= -->
+        <!-- 浮层右缘对齐标题栏胶囊右缘（右侧栏钮宽度固定，所以用右对齐 + 固定右边距） -->
+        <Border x:Name="VoicePanel" Classes="VoicePanel" Grid.Row="1" ZIndex="120" Width="344"
+                HorizontalAlignment="Right" VerticalAlignment="Top" Margin="0,2,262,0"
+                Opacity="0" IsVisible="False">
+            <Border.RenderTransform>
+                <TranslateTransform Y="0" />
+            </Border.RenderTransform>
+            <StackPanel Spacing="10">
+                <!-- 头部：声纹徽标 + 名称 + 音箱下拉（复用设置里的 OptionPicker） -->
+                <Grid ColumnDefinitions="Auto,*,Auto">
+                    <Border Width="32" Height="32" CornerRadius="10"
+                            Background="{DynamicResource AccentSoftBrush}"
+                            VerticalAlignment="Center">
+                        <ctl:VoiceBars Width="16" Height="16" HorizontalAlignment="Center"
+                                       VerticalAlignment="Center"
+                                       BarBrush="{DynamicResource Accent2Brush}"
+                                       IsActive="{Binding IsVoiceOpen}"
+                                       IsBusy="{Binding IsVoiceSending}" />
+                    </Border>
+                    <StackPanel Grid.Column="1" Margin="10,0,8,0" VerticalAlignment="Center" Spacing="1">
+                        <TextBlock Text="小爱同学" FontSize="13.5" FontWeight="SemiBold"
+                                   Foreground="{DynamicResource TextBrush}" />
+                        <TextBlock Classes="Hint Sub" FontSize="11" Text="下发指令的音箱" />
+                    </StackPanel>
+                    <ctl:OptionPicker Grid.Column="2" VerticalAlignment="Center" MaxWidth="146"
+                                      ToolTip.Tip="切换下发指令的音箱"
+                                      Options="{Binding SpeakerOptions}"
+                                      SelectedValue="{Binding SelectedSpeakerValue, Mode=TwoWay}" />
+                </Grid>
+                <!-- 输入 + 发送同行，发送收成图标按钮，把宽度让给输入框 -->
+                <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8" Margin="0,2,0,0">
+                    <TextBox Classes="VoiceInput" Watermark="说点什么，例如「打开客厅灯」"
+                             Text="{Binding VoiceText, Mode=TwoWay}" KeyDown="OnVoiceKeyDown" />
+                    <Button Grid.Column="1" Classes="BtnPrimary" Width="38" Height="38"
+                            Padding="0" MinWidth="0" ToolTip.Tip="发送指令"
+                            Command="{Binding SendVoiceCommand}"
+                            IsEnabled="{Binding !IsVoiceSending}">
+                        <Path Classes="SendIcon" Classes.run="{Binding IsVoiceSending}"
+                              Width="16" Height="16" Stretch="Uniform"
+                              HorizontalAlignment="Center" VerticalAlignment="Center"
+                              Stroke="White" StrokeThickness="1.6"
+                              StrokeLineCap="Round" StrokeJoin="Round"
+                              Data="{StaticResource GeoSend}" />
+                    </Button>
+                </Grid>
+                <!-- 反馈：圆点 + 文案，成功绿点 / 出错琥珀点 -->
+                <Border Classes="VoiceFeed" IsVisible="{Binding HasVoiceHint}">
+                    <StackPanel Orientation="Horizontal" Spacing="7">
+                        <Panel Width="6" Height="6" VerticalAlignment="Center">
+                            <Ellipse Width="6" Height="6" Fill="{DynamicResource StatGreenBrush}"
+                                     IsVisible="{Binding !VoiceHintIsError}" />
+                            <Ellipse Width="6" Height="6" Fill="{DynamicResource AmberBrush}"
+                                     IsVisible="{Binding VoiceHintIsError}" />
+                        </Panel>
+                        <TextBlock Classes="VoiceHint" Classes.is-warn="{Binding VoiceHintIsError}"
+                                   Text="{Binding VoiceHint}" TextWrapping="Wrap" />
+                    </StackPanel>
+                </Border>
+                <!-- 底部说明：仅在无反馈时显示，避免堆叠 -->
+                <StackPanel Orientation="Horizontal" Spacing="5" HorizontalAlignment="Center"
+                            IsVisible="{Binding !HasVoiceHint}">
+                    <Path Width="9" Height="9" Stretch="Uniform" VerticalAlignment="Center"
+                          Stroke="{DynamicResource Text3Brush}" StrokeThickness="1.4"
+                          StrokeLineCap="Round" StrokeJoin="Round" Data="{StaticResource GeoLock}" />
+                    <TextBlock Classes="Hint" FontSize="11" Text="下发到所选音箱执行，不会录音" />
+                </StackPanel>
+            </StackPanel>
+        </Border>
+        <!-- ================= 环境概览明细弹窗 ================= -->
+        <ctl:DialogPopup Grid.Row="0" Grid.RowSpan="2" CardWidth="470" CardMaxHeight="660"
+                         Title="环境概览" Subtitle="{Binding EnvSourceText}"
+                         IsOpen="{Binding IsEnvDetailOpen}"
+                         CloseCommand="{Binding CloseEnvDetailCommand}">
+            <StackPanel Spacing="14">
+                <!-- 温湿度大读数：一眼看到全屋聚合值，数值大、单位小 -->
+                <Grid ColumnDefinitions="*,*">
+                    <Border Classes="EnvTile">
+                        <StackPanel Spacing="7">
+                            <StackPanel Orientation="Horizontal" Spacing="6">
+                                <Ellipse Width="5" Height="5" VerticalAlignment="Center"
+                                         Fill="{DynamicResource AmberBrush}" />
+                                <TextBlock Classes="EnvTileLab" Text="室内温度" />
+                            </StackPanel>
+                            <StackPanel Orientation="Horizontal" Spacing="2" VerticalAlignment="Bottom">
+                                <TextBlock Classes="EnvTileVal" Text="{Binding EnvTemperatureValue}" />
+                                <TextBlock Classes="EnvTileUnit" Text="{Binding EnvTemperatureUnit}" />
+                            </StackPanel>
+                        </StackPanel>
+                    </Border>
+                    <Border Grid.Column="1" Classes="EnvTile" Margin="10,0,0,0">
+                        <StackPanel Spacing="7">
+                            <StackPanel Orientation="Horizontal" Spacing="6">
+                                <Ellipse Width="5" Height="5" VerticalAlignment="Center"
+                                         Fill="{DynamicResource BlueBrush}" />
+                                <TextBlock Classes="EnvTileLab" Text="室内湿度" />
+                            </StackPanel>
+                            <StackPanel Orientation="Horizontal" Spacing="2" VerticalAlignment="Bottom">
+                                <TextBlock Classes="EnvTileVal" Text="{Binding EnvHumidityValue}" />
+                                <TextBlock Classes="EnvTileUnit" Text="{Binding EnvHumidityUnit}" />
+                            </StackPanel>
+                        </StackPanel>
+                    </Border>
+                </Grid>
+                <!-- 逐设备读数：设备名 + 房间小标签，右侧温度为主、湿度为辅 -->
+                <Border Classes="DrCard">
+                    <StackPanel Spacing="10">
+                        <Grid ColumnDefinitions="*,Auto">
+                            <TextBlock Text="各设备读数" FontSize="13" FontWeight="SemiBold"
+                                       Foreground="{DynamicResource Text2Brush}" />
+                            <TextBlock Grid.Column="1" Classes="Hint" VerticalAlignment="Center"
+                                       Text="{Binding EnvReadingsCountText}"
+                                       IsVisible="{Binding HasEnvironment}" />
+                        </Grid>
+                        <ItemsControl ItemsSource="{Binding EnvReadings}" IsVisible="{Binding HasEnvironment}">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate x:DataType="m:EnvReadingItem">
+                                    <Grid ColumnDefinitions="*,Auto" Margin="0,0,0,9">
+                                        <StackPanel Orientation="Horizontal" Spacing="7">
+                                            <TextBlock Text="{Binding Title}" FontSize="12.5"
+                                                       Foreground="{DynamicResource Text2Brush}" />
+                                            <Border Classes="RoomTag">
+                                                <TextBlock Classes="RoomTagTx" Text="{Binding Subtitle}" />
+                                            </Border>
+                                        </StackPanel>
+                                        <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="4"
+                                                    VerticalAlignment="Center">
+                                            <TextBlock Text="{Binding Value}" FontSize="13" FontWeight="SemiBold"
+                                                       Foreground="{DynamicResource TextBrush}" />
+                                            <TextBlock Text="{Binding Extra}" FontSize="11.5"
+                                                       Foreground="{DynamicResource Text3Brush}"
+                                                       VerticalAlignment="Bottom" Margin="0,0,0,2"
+                                                       IsVisible="{Binding Extra, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
+                                        </StackPanel>
+                                    </Grid>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                        <TextBlock Classes="Hint" Text="暂无温湿度数据，设备上报后会自动出现在这里"
+                                   IsVisible="{Binding !HasEnvironment}" />
+                    </StackPanel>
+                </Border>
+                <!-- 耗材余量：带进度条，低于 20% 转琥珀色 -->
+                <Border Classes="DrCard" IsVisible="{Binding HasConsumables}">
+                    <StackPanel Spacing="12">
+                        <Grid ColumnDefinitions="*,Auto">
+                            <TextBlock Text="耗材余量" FontSize="13" FontWeight="SemiBold"
+                                       Foreground="{DynamicResource Text2Brush}" VerticalAlignment="Center" />
+                            <Border Grid.Column="1" Classes="EnvStatusTag"
+                                    Classes.is-warn="{Binding HasConsumableWarning}">
+                                <TextBlock Classes="EnvStatusTx"
+                                           Classes.is-warn="{Binding HasConsumableWarning}"
+                                           Text="{Binding ConsumableStatusText}" />
+                            </Border>
+                        </Grid>
+                        <ItemsControl ItemsSource="{Binding ConsumableItems}">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate x:DataType="m:ConsumableItem">
+                                    <StackPanel Spacing="7" Margin="0,0,0,11">
+                                        <Grid ColumnDefinitions="*,Auto">
+                                            <StackPanel Orientation="Horizontal" Spacing="7">
+                                                <TextBlock Text="{Binding DeviceName}" FontSize="12.5"
+                                                           Foreground="{DynamicResource Text2Brush}" />
+                                                <TextBlock Text="{Binding Desc}" Classes="Hint" FontSize="10.5"
+                                                           VerticalAlignment="Center" />
+                                            </StackPanel>
+                                            <TextBlock Grid.Column="1" Text="{Binding ValueText}"
+                                                       Classes="ConsumeVal" Classes.is-low="{Binding IsLow}" />
+                                        </Grid>
+                                        <ProgressBar Classes="EnvBar" Classes.is-low="{Binding IsLow}"
+                                                     Minimum="0" Maximum="100" Value="{Binding Percent}" />
+                                    </StackPanel>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                    </StackPanel>
+                </Border>
+            </StackPanel>
+        </ctl:DialogPopup>
+        <!-- ================= 登录弹窗（遮罩 + 居中卡片，跨满整个窗口与「设置」一致） ================= -->
+        <ctl:DialogPopup Grid.Row="0" Grid.RowSpan="2" CardWidth="420" CardMaxHeight="720"
+                         Title="登录"
+                         IsOpen="{Binding IsLoginOpen}"
+                         CloseCommand="{Binding CloseOverlaysCommand}">
+            <StackPanel>
+                <Border CornerRadius="16" Background="{DynamicResource CardBrush}" Padding="24"
+                        HorizontalAlignment="Center"
+                        IsVisible="{Binding QrImage, Converter={x:Static ObjectConverters.IsNotNull}}">
+                    <StackPanel Spacing="18">
+                        <Image Source="{Binding QrImage}" Width="228" Height="228" />
+                        <TextBlock Text="{Binding QrHint}" Classes="Hint" TextWrapping="Wrap"
+                                   TextAlignment="Center" />
+                    </StackPanel>
+                </Border>
+                <Border CornerRadius="16" Background="{DynamicResource CardBrush}" Padding="24"
+                        HorizontalAlignment="Center"
+                        IsVisible="{Binding QrImage, Converter={x:Static ObjectConverters.IsNull}}">
+                    <StackPanel Spacing="18">
+                        <Border Width="228" Height="228" Background="{DynamicResource SurfaceBrush}"
+                                CornerRadius="12" HorizontalAlignment="Center">
+                            <TextBlock Text="二维码获取后显示在这里" Classes="Hint"
+                                       HorizontalAlignment="Center" VerticalAlignment="Center" />
+                        </Border>
+                        <TextBlock Text="{Binding QrHint}" Classes="Hint" TextWrapping="Wrap"
+                                   TextAlignment="Center" />
+                    </StackPanel>
+                </Border>
+                <!-- 有 passToken 时主推一键登录；仍可改走扫码 -->
+                <Button Classes="BtnPrimary" Content="一键登录" Margin="0,18,0,0"
+                        HorizontalAlignment="Stretch"
+                        Command="{Binding QuickLoginCommand}"
+                        IsVisible="{Binding CanQuickLogin}" />
+                <Button Classes="BtnPrimary" Content="获取二维码" Margin="0,18,0,0"
+                        HorizontalAlignment="Stretch" Command="{Binding QrLoginCommand}"
+                        IsVisible="{Binding !CanQuickLogin}" />
+                <Button Classes="BtnGhost" Content="扫码登录" Margin="0,10,0,0"
+                        HorizontalAlignment="Stretch" Command="{Binding QrLoginCommand}"
+                        IsVisible="{Binding CanQuickLogin}" />
+                <TextBlock Classes="Hint" Text="凭证仅保存在本机" HorizontalAlignment="Center" Margin="0,10,0,0" />
+            </StackPanel>
+        </ctl:DialogPopup>
         <!-- ================= 设置弹窗（走 DialogPopup 基类：遮罩 + 居中卡片 + 标题栏 + 滚动正文） ================= -->
         <!-- 基类外壳跨满整个窗口（含 48px 标题栏），卡片以全窗口为基准居中 -->
         <ctl:DialogPopup Grid.Row="0" Grid.RowSpan="2"
@@ -1346,7 +2117,7 @@
                          IsOpen="{Binding IsSettingsOpen}"
                          CloseCommand="{Binding CloseOverlaysCommand}">
             <StackPanel>
-                <Grid ColumnDefinitions="*,*" RowDefinitions="Auto,Auto">
+                <Grid ColumnDefinitions="*,*" RowDefinitions="Auto,Auto,Auto">
                     <!-- 外观 -->
                     <Border Classes="Card" Margin="0,0,7,14">
                         <StackPanel Spacing="20">
@@ -1380,7 +2151,6 @@
                             </Grid>
                         </StackPanel>
                     </Border>
-
                     <!-- 账户 -->
                     <Border Grid.Column="1" Classes="Card" Margin="7,0,0,14">
                         <StackPanel Spacing="20">
@@ -1409,9 +2179,8 @@
                             </Grid>
                         </StackPanel>
                     </Border>
-
                     <!-- 数据 -->
-                    <Border Grid.Row="1" Classes="Card" Margin="0,0,7,0">
+                    <Border Grid.Row="2" Classes="Card" Margin="0,14,7,0">
                         <StackPanel Spacing="20">
                             <TextBlock Text="设备与场景" FontSize="14.5" FontWeight="SemiBold"
                                        Foreground="{DynamicResource TextBrush}" />
@@ -1427,11 +2196,25 @@
                                 <Button Grid.Column="2" Classes="BtnGhost" Content="刷新" VerticalAlignment="Center"
                                         Command="{Binding LoadDevicesCommand}" IsEnabled="{Binding !IsLoading}" />
                             </Grid>
+                            <!-- 默认音箱：小爱语音指令的落点，只在有音箱时出现 -->
+                            <Grid ColumnDefinitions="Auto,*,Auto" IsVisible="{Binding HasSpeaker}">
+                                <Border Classes="SetIc" Background="{DynamicResource PurpleSoftBrush}">
+                                    <Path Stroke="{DynamicResource PurpleBrush}"
+                                          Data="M12,3 C10,3 8,5 8,7 V12 C8,14 10,16 12,16 C14,16 16,14 16,12 V7 C16,5 14,3 12,3 Z M5,11 C5,15 8,18 12,18 C16,18 19,15 19,11 M12,18 V21 M8,21 H16" />
+                                </Border>
+                                <StackPanel Grid.Column="1" Margin="12,0" VerticalAlignment="Center">
+                                    <TextBlock Text="默认音箱" FontSize="13.5" FontWeight="SemiBold"
+                                               Foreground="{DynamicResource TextBrush}" />
+                                    <TextBlock Text="语音指令下发到这台小爱音箱" Classes="Hint Sub" Margin="0,2,0,0" />
+                                </StackPanel>
+                                <ctl:OptionPicker Grid.Column="2" VerticalAlignment="Center" MaxWidth="170"
+                                                  Options="{Binding SpeakerOptions}"
+                                                  SelectedValue="{Binding SelectedSpeakerValue, Mode=TwoWay}" />
+                            </Grid>
                         </StackPanel>
                     </Border>
-
                     <!-- 关于 -->
-                    <Border Grid.Row="1" Grid.Column="1" Classes="Card" Margin="7,0,0,0">
+                    <Border Grid.Row="2" Grid.Column="1" Classes="Card" Margin="7,14,0,0">
                         <StackPanel Spacing="20">
                             <TextBlock Text="关于" FontSize="14.5" FontWeight="SemiBold"
                                        Foreground="{DynamicResource TextBrush}" />
@@ -1446,16 +2229,63 @@
                             </Grid>
                         </StackPanel>
                     </Border>
+                    <!-- 启动与窗口：开关行并排，开机启动走当前用户 Run 键 -->
+                    <Border Grid.Row="1" Grid.ColumnSpan="2" Classes="Card">
+                        <StackPanel Spacing="20">
+                            <TextBlock Text="启动与窗口" FontSize="14.5" FontWeight="SemiBold"
+                                       Foreground="{DynamicResource TextBrush}" />
+                            <Grid ColumnDefinitions="*,*">
+                                <Grid ColumnDefinitions="Auto,*,Auto" Margin="0,0,10,0">
+                                    <Border Classes="SetIc" Background="{DynamicResource GreenSoftBrush}">
+                                        <Path Stroke="{DynamicResource GreenBrush}" Data="{StaticResource GeoPower}" />
+                                    </Border>
+                                    <StackPanel Grid.Column="1" Margin="12,0" VerticalAlignment="Center">
+                                        <TextBlock Text="开机启动" FontSize="13.5" FontWeight="SemiBold"
+                                                   Foreground="{DynamicResource TextBrush}" />
+                                        <TextBlock Text="登录 Windows 后静默驻留托盘" Classes="Hint Sub" Margin="0,2,0,0" />
+                                    </StackPanel>
+                                    <ToggleButton Grid.Column="2" Classes="Switch" VerticalAlignment="Center"
+                                                  IsChecked="{Binding AutoStart}" />
+                                </Grid>
+                                <Grid Grid.Column="1" ColumnDefinitions="Auto,*,Auto" Margin="10,0,0,0">
+                                    <Border Classes="SetIc" Background="{DynamicResource PurpleSoftBrush}">
+                                        <Path Stroke="{DynamicResource PurpleBrush}" Data="{StaticResource GeoTray}" />
+                                    </Border>
+                                    <StackPanel Grid.Column="1" Margin="12,0" VerticalAlignment="Center">
+                                        <TextBlock Text="关闭后进托盘" FontSize="13.5" FontWeight="SemiBold"
+                                                   Foreground="{DynamicResource TextBrush}" />
+                                        <TextBlock Text="关掉这项后点关闭直接退出应用" Classes="Hint Sub" Margin="0,2,0,0" />
+                                    </StackPanel>
+                                    <ToggleButton Grid.Column="2" Classes="Switch" VerticalAlignment="Center"
+                                                  IsChecked="{Binding CloseToTray}" />
+                                </Grid>
+                            </Grid>
+                        </StackPanel>
+                    </Border>
                 </Grid>
-
-                <!-- 日志 -->
-                <Border Classes="Card" Margin="0,14,0,0">
-                    <StackPanel Spacing="10">
-                        <TextBlock Text="操作日志" FontSize="14.5" FontWeight="SemiBold"
-                                   Foreground="{DynamicResource TextBrush}" />
-                        <TextBox Classes="Log" Text="{Binding LogText}" Height="160"
-                                 TextWrapping="Wrap" AcceptsReturn="True" />
+            </StackPanel>
+        </ctl:DialogPopup>
+        <!-- ================= 操作日志弹窗（走 DialogPopup 基类：遮罩 + 居中卡片，跨满整个窗口） ================= -->
+        <ctl:DialogPopup Grid.Row="0" Grid.RowSpan="2" CardWidth="620" CardMaxHeight="600"
+                         Title="操作日志" Subtitle="实时操作与设备响应记录"
+                         IsOpen="{Binding IsLogOpen}"
+                         CloseCommand="{Binding CloseOverlaysCommand}">
+            <StackPanel Spacing="12">
+                <Grid ColumnDefinitions="*,Auto">
+                    <TextBlock Text="记录本机控制操作与设备返回，方便排查与回溯。"
+                               Classes="Hint" VerticalAlignment="Center" TextWrapping="Wrap" />
+                    <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="6">
+                        <Button Classes="BtnGhost" Content="复制" Click="OnCopyLog" />
+                        <Button Classes="BtnGhost" Content="清空" Click="OnClearLog" />
                     </StackPanel>
+                </Grid>
+                <Border CornerRadius="10"
+                        Background="{DynamicResource Card2Brush}"
+                        BorderBrush="{DynamicResource LineBrush}" BorderThickness="1"
+                        Padding="12">
+                    <TextBox Classes="Log" Text="{Binding LogText}"
+                             Height="340" ScrollViewer.VerticalScrollBarVisibility="Auto"
+                             VerticalContentAlignment="Top" />
                 </Border>
             </StackPanel>
         </ctl:DialogPopup>

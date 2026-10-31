@@ -63,4 +63,7 @@ public static class NavIcons
         var k = key is not null && Line.ContainsKey(key) ? key : Fallback;
         return LineCache.GetOrAdd(k, x => Geometry.Parse(Line[x]));
     }
+
+    /// <summary>标题栏账户胶囊复用侧栏的 house 细线几何，避免两处画法走样。</summary>
+    public static Geometry HouseLine => LineFor("house");
 }

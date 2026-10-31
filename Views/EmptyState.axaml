@@ -1,0 +1,29 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             x:Class="MiHome.Views.EmptyState"
+             x:Name="Root">
+    <!-- 空态：同心细环 + 主题色软底图标，标题一句话、说明一句话 -->
+    <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center"
+                MaxWidth="340" Margin="0,46,0,34">
+        <Panel Width="104" Height="104" HorizontalAlignment="Center">
+            <Ellipse Width="104" Height="104" Stroke="{DynamicResource LineBrush}" StrokeThickness="1" Opacity="0.45" />
+            <Ellipse Width="72" Height="72" Stroke="{DynamicResource LineBrush}" StrokeThickness="1" Opacity="0.85" />
+            <Border Width="48" Height="48" CornerRadius="15"
+                    Background="{DynamicResource AccentSoftBrush}"
+                    HorizontalAlignment="Center" VerticalAlignment="Center">
+                <Path Width="22" Height="22" Stretch="Uniform"
+                      HorizontalAlignment="Center" VerticalAlignment="Center"
+                      Stroke="{DynamicResource Accent2Brush}" StrokeThickness="1.6"
+                      StrokeLineCap="Round" StrokeJoin="Round"
+                      Data="{Binding #Root.Icon}" />
+            </Border>
+        </Panel>
+        <TextBlock Text="{Binding #Root.Title}" FontSize="15" FontWeight="SemiBold"
+                   HorizontalAlignment="Center" Margin="0,18,0,0"
+                   Foreground="{DynamicResource TextBrush}" />
+        <TextBlock Text="{Binding #Root.Description}" FontSize="12.5"
+                   HorizontalAlignment="Center" TextAlignment="Center" TextWrapping="Wrap"
+                   Margin="0,8,0,0"
+                   Foreground="{DynamicResource Text3Brush}" />
+    </StackPanel>
+</UserControl>

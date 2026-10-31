@@ -139,7 +139,65 @@ public class MijiaClient
             try { return await GetDevicesAsync(h); } catch { return new List<MijiaDevice>(); }
         });
         var lists = await Task.WhenAll(tasks);
-        return lists.SelectMany(x => x).ToList();
+        var all = lists.SelectMany(x => x).ToList();
+
+        // 别人共享给我的设备不在任何家庭列表里，单独拉一次并按 did 去重合并
+        try
+        {
+            var seen = all.Select(d => d.Did).ToHashSet();
+            foreach (var d in await GetSharedDevicesAsync())
+                if (seen.Add(d.Did)) all.Add(d);
+        }
+        catch
+        {
+            // 共享设备是增量能力，拉取失败不影响自有设备
+        }
+        return all;
+    }
+
+    /// <summary>
+    /// 共享设备列表：接口把所有「有 owner 的设备」返回来，过滤 owner 为空的条目；
+    /// 归属统一标成 shared，避免被某个家庭的切换误删。
+    /// </summary>
+    public async Task<List<MijiaDevice>> GetSharedDevicesAsync()
+    {
+        var r = await RequestAsync("/v2/home/device_list_page", new
+        {
+            ssid = "<unknown ssid>",
+            bssid = "02:00:00:00:00:00",
+            getVirtualModel = true,
+            getHuamiDevices = 1,
+            get_split_device = true,
+            support_smart_home = true,
+            get_cariot_device = true,
+            get_third_device = true,
+            get_phone_device = true,
+            get_miwear_device = true
+        });
+        if (!r.TryGetProperty("list", out var arr) || arr.ValueKind != JsonValueKind.Array)
+            return new List<MijiaDevice>();
+
+        var list = new List<MijiaDevice>();
+        foreach (var item in arr.EnumerateArray())
+        {
+            if (!item.TryGetProperty("owner", out var owner)) continue;
+            var shared = owner.ValueKind switch
+            {
+                JsonValueKind.Object or JsonValueKind.Array => true,
+                JsonValueKind.String => !string.IsNullOrEmpty(owner.GetString()),
+                JsonValueKind.Number => owner.GetDouble() != 0,
+                JsonValueKind.True => true,
+                _ => false
+            };
+            if (!shared) continue;
+            var d = item.Deserialize<MijiaDevice>();
+            if (d == null || string.IsNullOrEmpty(d.Did)) continue;
+            d.HomeId = "shared";
+            if (string.IsNullOrWhiteSpace(d.RoomName) || d.RoomName == "未分配房间")
+                d.RoomName = "共享设备";
+            list.Add(d);
+        }
+        return list;
     }
 
     /// <summary>当前已缓存的家庭列表；先调 GetHomesAsync / GetAllDevicesAsync 才有内容。</summary>
@@ -307,48 +365,72 @@ public class MijiaClient
     };
 
     /// <summary>
-    /// 批量读开关状态。一次 /miotspec/prop/get 的每条 params 各自带 siid/piid，
-    /// 窗帘读 piid=3 位置；灯/插座/空调读 siid=2/piid=1；开关类不进本查询（只展示不可控）。
+    /// 跨设备批量读属性（轮询用）：一次请求最多 40 条，返回 (did,siid,piid) → 值。
+    /// 单条失败（不支持/离线）云端会带负 code，这里跳过，不打断整批。
     /// </summary>
-    public async Task<Dictionary<string, bool>> GetOnStatesAsync(IReadOnlyList<MijiaDevice> devices)
+    public async Task<Dictionary<(string Did, int Siid, int Piid), object?>> ReadPropsAsync(
+        IReadOnlyList<(string Did, int Siid, int Piid)> props)
     {
-        var targets = devices.Where(d => d.Control != MijiaControl.None).ToList();
-        var batches = new List<Task<Dictionary<string, bool>>>();
-        for (var start = 0; start < targets.Count; start += 40)
+        var map = new Dictionary<(string, int, int), object?>();
+        for (var start = 0; start < props.Count; start += 40)
         {
-            batches.Add(ReadStatesChunkAsync(targets.Skip(start).Take(40).ToList()));
-        }
+            var chunk = props.Skip(start).Take(40).ToList();
+            var r = await RequestAsync("/miotspec/prop/get", new
+            {
+                @params = chunk.Select(p => new { did = p.Did, siid = p.Siid, piid = p.Piid }).ToArray(),
+                datasource = 1
+            });
+            if (r.ValueKind != JsonValueKind.Array) continue;
 
-        var map = new Dictionary<string, bool>();
-        foreach (var part in await Task.WhenAll(batches))
-            foreach (var kv in part) map[kv.Key] = kv.Value;
-        return map;
-    }
-
-    private async Task<Dictionary<string, bool>> ReadStatesChunkAsync(List<MijiaDevice> chunk)
-    {
-        var map = new Dictionary<string, bool>();
-        var query = chunk
-            .Select(d => new { did = d.Did, siid = 2, piid = d.Control == MijiaControl.Curtain ? 3 : 1 })
-            .ToArray();
-        if (query.Length == 0) return map;
-        var r = await RequestAsync("/miotspec/prop/get", new { @params = query, datasource = 1 });
-        if (r.ValueKind != JsonValueKind.Array) return map;
-
-        foreach (var item in r.EnumerateArray())
-        {
-            if (!item.TryGetProperty("did", out var dd) || dd.ValueKind != JsonValueKind.String ||
-                !item.TryGetProperty("value", out var v))
-                continue;
-
-            var did = dd.GetString()!;
-            var isCurtain = chunk.Any(c => c.Did == did && c.Control == MijiaControl.Curtain);
-            map[did] = isCurtain
-                ? v.ValueKind == JsonValueKind.Number && v.GetDouble() > 0
-                : v.ValueKind == JsonValueKind.True;
+            foreach (var item in r.EnumerateArray())
+            {
+                if (!item.TryGetProperty("did", out var dd) || dd.ValueKind != JsonValueKind.String) continue;
+                if (!item.TryGetProperty("siid", out var sp) || sp.ValueKind != JsonValueKind.Number) continue;
+                if (!item.TryGetProperty("piid", out var pp) || pp.ValueKind != JsonValueKind.Number) continue;
+                var key = (dd.GetString()!, sp.GetInt32(), pp.GetInt32());
+                map[key] = item.TryGetProperty("value", out var v) ? ReadValue(v) : null;
+            }
         }
         return map;
     }
+
+    /// <summary>执行规格动作：米家 action 接口的 params 是单个对象，不是 prop/set 那样的数组。</summary>
+    public Task RunActionAsync(string did, int siid, int aiid) =>
+        RunActionWithParamsAsync(did, siid, aiid, null);
+
+    /// <summary>
+    /// 带入参的规格动作（小爱文本指令等）：入参按位置数组放在 in 里，
+    /// 例如 execute-text-directive 的 in = ["打开客厅灯", false]。
+    /// </summary>
+    public async Task RunActionWithParamsAsync(string did, int siid, int aiid, object? input)
+    {
+        var payload = input == null
+            ? (object)new { did, siid, aiid }
+            : new { did, siid, aiid, @in = input };
+        await RequestAsync("/miotspec/action", new { @params = payload });
+    }
+
+    /// <summary>音箱音量 0–100（speaker 服务 volume 属性）。</summary>
+    public async Task SetSpeakerVolumeAsync(string did, int siid, int piid, int volume)
+    {
+        await SetPropAsync(did, siid, piid, Math.Clamp(volume, 0, 100));
+    }
+
+    /// <summary>
+    /// 小爱文本指令：execute-text-directive 的入参是 [文本, 静默执行]，
+    /// 少传第二个参数云端会直接判定入参不合法，音箱不会有任何反应。
+    /// </summary>
+    public async Task SendTextDirectiveAsync(string did, int siid, int aiid, string text)
+        => await RunActionWithParamsAsync(did, siid, aiid, new object[] { text, false });
+
+    private static object? ReadValue(JsonElement v) => v.ValueKind switch
+    {
+        JsonValueKind.True => true,
+        JsonValueKind.False => false,
+        JsonValueKind.Number => v.TryGetInt32(out var i) ? i : v.GetDouble(),
+        JsonValueKind.String => v.GetString(),
+        _ => null
+    };
 
     /// <summary>
     /// 写属性：did + siid + piid + value。
@@ -375,54 +457,17 @@ public class MijiaClient
         }
     }
 
-    /// <summary>
-    /// 用云端设备实例（/miotspec/device/getspec）解析可写 on 通道。
-    /// </summary>
-    public async Task<SwitchControlSchema?> GetSwitchSchemaFromDeviceAsync(string did, string model)
+    /// <summary>bool 开关下发：优先用规格解析出的 siid/piid，未解析时回落 siid=2/piid=1。</summary>
+    public async Task SetPowerAsync(MijiaDevice device, bool on)
     {
-        var key = string.IsNullOrEmpty(model) ? did : model;
-        lock (SpecCache)
-        {
-            if (SpecCache.TryGetValue(key, out var hit)) return hit;
-        }
-
-        try
-        {
-            var spec = await GetSpecAsync(did);
-            if (!spec.TryGetProperty("services", out var services) || services.ValueKind != JsonValueKind.Array)
-                return null;
-
-            var schema = MijiaSpecService.ParseSwitchChannels(services);
-            lock (SpecCache) SpecCache[key] = schema;
-            return schema;
-        }
-        catch
-        {
-            return null;
-        }
+        await SetPropAsync(device.TargetDid, device.PowerSiid, device.PowerPiid, on);
     }
 
-    private readonly Dictionary<string, SwitchControlSchema?> SpecCache = new();
-
-    /// <summary>
-    /// 便捷：开关灯/墙开。灯与未解析规格的默认走 siid=2, piid=1；
-    /// 已解析规格的开关类按第一路可写 on 下发。
-    /// </summary>
-    public async Task ToggleLightAsync(string did, bool on, int siid = 2, int piid = 1)
+    /// <summary>多路开关的一路下发；虚拟子设备同样打父 did + 通道 siid。</summary>
+    public async Task SetChannelAsync(SwitchChannelState channel, bool on)
     {
-        await SetPropAsync(did, siid, piid, on);
-    }
-
-    /// <summary>bool 开关下发：无通道信息时走 siid=2/piid=1（灯/插座/空调）。</summary>
-    public async Task SetPowerAsync(MijiaDevice device, bool on, SwitchChannelState? channel = null)
-    {
-        var ch = channel;
-        if (ch != null)
-        {
-            await SetPropAsync(device.Did, ch.Siid, ch.Piid, on);
-            return;
-        }
-        await SetPropAsync(device.Did, 2, 1, on);
+        if (channel.Device is not { } device) return;
+        await SetPropAsync(device.TargetDid, channel.Siid, channel.Piid, on);
     }
 
     /// <summary>灯亮度 1–100（light 服务 piid=2）。</summary>
