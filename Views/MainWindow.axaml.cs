@@ -34,6 +34,12 @@ public partial class MainWindow : Window
     // 拖动/缩放期间位置连续变化，等变化停下（视为拖动结束）才写盘
     private IDisposable? _settleTimer;
 
+    // 空闲自动回收：记录最近交互时间，窗口安静超阈值后整理内存
+    private DateTimeOffset _lastInteraction = DateTimeOffset.UtcNow;
+    private DispatcherTimer? _idleTrimTimer;
+    private DispatcherTimer? _gpuReleaseTimer;
+    private const double IdleTrimSeconds = 30;
+
     public MainWindow()
     {
         InitializeComponent();
@@ -53,6 +59,9 @@ public partial class MainWindow : Window
         Opened += (_, _) => ApplySavedPlacement();
         // 拖动结束的写盘挂在定时器上，关闭时补一次，避免最后一次变化随静默期丢掉
         Closing += OnClosing;
+
+        // 空闲自动回收：窗口开着但用户不操作时，定期整理回收缩工作集
+        InitIdleMemoryTrimmer();
     }
 
     // ======== 特效测试开关：定位内存占用用 ========
@@ -143,6 +152,72 @@ public partial class MainWindow : Window
         }
         e.Cancel = true;
         Hide();
+        // 收进托盘后回收内存：窗口已隐藏，立即收缩工作集，降低常驻占用
+        Services.MemoryTrimmer.TrimForce();
+        // 安静几秒后无感回收 GPU 纹理（见下方 ScheduleGpuResourceRelease）
+        ScheduleGpuResourceRelease();
+    }
+
+    // ======== 空闲自动回收（参考 Feido InitIdleMemoryTrimmer） ========
+    /// <summary>
+    /// 空闲自动回收内存：hover、点按、滚轮、按键等交互会触发 JIT 与临时对象分配，
+    /// 使内存逐步攀升且 GC 不会主动回收；窗口内无交互超过阈值后自动整理，让占用回落。
+    /// </summary>
+    private void InitIdleMemoryTrimmer()
+    {
+        void MarkInteraction(object? s, RoutedEventArgs e) => _lastInteraction = DateTimeOffset.UtcNow;
+        AddHandler(InputElement.PointerMovedEvent, MarkInteraction, RoutingStrategies.Tunnel);
+        AddHandler(InputElement.PointerPressedEvent, MarkInteraction, RoutingStrategies.Tunnel);
+        AddHandler(InputElement.PointerWheelChangedEvent, MarkInteraction, RoutingStrategies.Tunnel);
+        AddHandler(InputElement.KeyDownEvent, MarkInteraction, RoutingStrategies.Tunnel);
+
+        _idleTrimTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(10) };
+        _idleTrimTimer.Tick += (s, e) =>
+        {
+            var idleSeconds = (DateTimeOffset.UtcNow - _lastInteraction).TotalSeconds;
+            if (idleSeconds >= IdleTrimSeconds && IsVisible)
+                Services.MemoryTrimmer.Trim();
+        };
+        _idleTrimTimer.Start();
+    }
+
+    // ======== 隐藏后进托盘的 GPU 纹理释放（参考 Feido ReleaseRenderCacheAsync） ========
+    /// <summary>
+    /// 安排 GPU 纹理释放：窗口收进托盘（已 Hide、不可见）后等几秒，无感回收 Avalonia 合成纹理。
+    /// 通过临时 Opacity=0 + ShowInTaskbar=false 地 Show 一帧再 Hide，用户完全无感，
+    /// 但能强制合成器释放该窗口的 GPU 纹理。需真机验证显存是否回落、有无副作用；
+    /// 若无效或有害，注释掉 OnClosing 中对本方法的调用即可。
+    /// </summary>
+    private void ScheduleGpuResourceRelease()
+    {
+        _gpuReleaseTimer ??= new DispatcherTimer { Interval = TimeSpan.FromSeconds(2) };
+        _gpuReleaseTimer.Tick -= OnGpuReleaseTick;
+        _gpuReleaseTimer.Tick += OnGpuReleaseTick;
+        _gpuReleaseTimer.Stop();
+        _gpuReleaseTimer.Start();
+    }
+
+    private void OnGpuReleaseTick(object? sender, EventArgs e)
+    {
+        _gpuReleaseTimer?.Stop();
+        // 仅在确已收进托盘（不可见）时做一次无感回收
+        if (IsVisible) return;
+        try
+        {
+            var prevOpacity = Opacity;
+            var prevTaskbar = ShowInTaskbar;
+            Opacity = 0;
+            ShowInTaskbar = false;
+            Show();
+            InvalidateVisual();
+            Hide();
+            Opacity = prevOpacity;
+            ShowInTaskbar = prevTaskbar;
+        }
+        catch
+        {
+            // 无感回收失败不影响托盘常驻
+        }
     }
 
     /// <summary>尺寸可在显示前设置；位置需等窗口真正显示后再设，见 <see cref="ApplySavedPlacement"/>。</summary>

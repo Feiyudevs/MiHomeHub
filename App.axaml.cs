@@ -115,6 +115,9 @@ public partial class App : Application
                 window.ShowInTaskbar = false;
             }
             desktop.MainWindow = window;
+            // 普通启动完成（JIT、主题、字体加载稳定）后延迟回收一次，收回启动期临时对象
+            if (!silent)
+                window.Opened += (_, _) => Services.MemoryTrimmer.TrimDelayed(3000);
             desktop.MainWindow.AddHandler(InputElement.PointerWheelChangedEvent, OnPointerWheel,
                 RoutingStrategies.Tunnel, handledEventsToo: true);
             desktop.MainWindow.AddHandler(Thumb.DragStartedEvent, OnThumbDragStarted,
@@ -150,6 +153,8 @@ public partial class App : Application
                 main.Opacity = 1;
                 main.ShowInTaskbar = true;
                 main.Hide();
+                // 静默启动即收进托盘：立即回收内存，让开机自启的常驻进程体积最小
+                Services.MemoryTrimmer.TrimForce();
             }
         }
 

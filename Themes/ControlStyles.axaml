@@ -7,8 +7,12 @@
     xmlns:vm="clr-namespace:MiHome.ViewModels"
     xmlns:m="clr-namespace:MiHome.Models">
         <!-- ======== 全局基础 ======== -->
+        <!-- 字体族顺序是内存敏感项，不要随意调整：
+             首选必须是「名字能自解析且字形自足」的字体（这里用雅黑，中英文都覆盖）。
+             若把 Segoe UI / Segoe UI Variable 放首位，Skia 每排版一次都会新建一份字型对象且不释放，
+             虚拟化列表来回滚动时会持续吃内存（实测 600 台设备滚 3000 步可涨到 8GB）。 -->
         <Style Selector="Window">
-            <Setter Property="FontFamily" Value="Segoe UI Variable Text, Segoe UI, Microsoft YaHei UI, PingFang SC"/>
+            <Setter Property="FontFamily" Value="Microsoft YaHei UI, Segoe UI"/>
             <Setter Property="Background" Value="{DynamicResource BgBrush}"/>
         </Style>
         <Style Selector="TextBlock.Hint">
@@ -641,7 +645,7 @@
             <Setter Property="BorderThickness" Value="0"/>
             <Setter Property="IsReadOnly" Value="True"/>
             <Setter Property="Foreground" Value="{DynamicResource Text3Brush}"/>
-            <Setter Property="FontFamily" Value="Consolas, Cascadia Mono, monospace"/>
+            <Setter Property="FontFamily" Value="Consolas"/>
             <Setter Property="FontSize" Value="12"/>
             <Setter Property="TextWrapping" Value="Wrap"/>
         </Style>

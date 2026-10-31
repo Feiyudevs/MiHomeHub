@@ -53,10 +53,15 @@ public sealed class VirtualizingAdaptiveGridPanel : VirtualizingPanel
     }
 
     /// <summary>缓存容器上限（相对可见容器数的倍数）：超出后按最久未访问淘汰，防常驻无上限。</summary>
-    private const double CacheRatio = 2.5;
+    /// <remarks>
+    /// 实测（真实进程 dotnet-dump + 工作集采样）：每个「隐藏但保留」的卡片容器仍挂着合成层与离屏纹理，
+    /// 单张约 2~3MB 原生内存。原值 2.5 倍 / 硬上限 160 张，在设备多时会让进程稳定在 800MB 以上；
+    /// 压到 1.25 倍 / 硬上限 48 张后，滚动仍能从缓存直接复用（不回退到重建），但常驻上限大幅下降。
+    /// </remarks>
+    private const double CacheRatio = 1.25;
 
     /// <summary>缓存硬上限，避免超大列表滚一圈后卡片全驻留。</summary>
-    private const int MaxCacheHard = 160;
+    private const int MaxCacheHard = 48;
 
     /// <summary>视口外缓冲（视口高度比例）：减少来回拖动时的边界抖动。</summary>
     private const double BufferFraction = 0.5;
