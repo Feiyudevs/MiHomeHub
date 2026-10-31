@@ -16,6 +16,9 @@ public sealed class AdaptiveGridPanel : Panel
     public static readonly StyledProperty<double> SpacingProperty =
         AvaloniaProperty.Register<AdaptiveGridPanel, double>(nameof(Spacing), 14d);
 
+    public static readonly StyledProperty<int> MaxRowsProperty =
+        AvaloniaProperty.Register<AdaptiveGridPanel, int>(nameof(MaxRows), 0);
+
     /// <summary>单个子项的最小宽度，决定最多能排几列。</summary>
     public double MinItemWidth
     {
@@ -30,10 +33,24 @@ public sealed class AdaptiveGridPanel : Panel
         set => SetValue(SpacingProperty, value);
     }
 
+    /// <summary>最多显示几行，0 表示不限。用于首页只展示一行、其余进详情页的场景。</summary>
+    public int MaxRows
+    {
+        get => GetValue(MaxRowsProperty);
+        set => SetValue(MaxRowsProperty, value);
+    }
+
     static AdaptiveGridPanel()
     {
-        AffectsMeasure<AdaptiveGridPanel>(MinItemWidthProperty, SpacingProperty);
+        AffectsMeasure<AdaptiveGridPanel>(MinItemWidthProperty, SpacingProperty, MaxRowsProperty);
     }
+
+    /// <summary>被行数上限裁掉的子项统一排到画布外，避免内容画在原点。</summary>
+    private static readonly Rect OffScreen = new(-10000, -10000, 0, 0);
+
+    /// <summary>实际排版的行数：自然行数与 MaxRows 取小。</summary>
+    private int VisibleRows(int naturalRows) =>
+        MaxRows <= 0 ? naturalRows : Math.Min(naturalRows, MaxRows);
 
     protected override Size MeasureOverride(Size availableSize)
     {
@@ -42,9 +59,10 @@ public sealed class AdaptiveGridPanel : Panel
             return default;
 
         var layout = BuildLayout(availableSize.Width, count);
+        var rows = VisibleRows(layout.Rows);
         var height = 0d;
 
-        for (var row = 0; row < layout.Rows; row++)
+        for (var row = 0; row < rows; row++)
         {
             var rowHeight = 0d;
             for (var index = row * layout.Columns; index < Math.Min(count, (row + 1) * layout.Columns); index++)
@@ -56,7 +74,11 @@ public sealed class AdaptiveGridPanel : Panel
             height += rowHeight;
         }
 
-        height += Spacing * (layout.Rows - 1);
+        // 超出可见行数的子项按零尺寸测量，避免它们残留旧的期望尺寸
+        for (var index = rows * layout.Columns; index < count; index++)
+            Children[index].Measure(default);
+
+        height += Spacing * (rows - 1);
         var width = double.IsInfinity(availableSize.Width) ? layout.ItemWidth : availableSize.Width;
         return new Size(width, height);
     }
@@ -68,9 +90,10 @@ public sealed class AdaptiveGridPanel : Panel
             return finalSize;
 
         var layout = BuildLayout(finalSize.Width, count);
+        var rows = VisibleRows(layout.Rows);
         var y = 0d;
 
-        for (var row = 0; row < layout.Rows; row++)
+        for (var row = 0; row < rows; row++)
         {
             var start = row * layout.Columns;
             var end = Math.Min(count, start + layout.Columns);
@@ -86,6 +109,11 @@ public sealed class AdaptiveGridPanel : Panel
 
             y += rowHeight + Spacing;
         }
+
+        // 超出可见行数的子项移到画布外：只排成零尺寸矩形还不够，
+        // 子控件默认不裁切自身内容，文字/图标仍会画到原点叠在可见卡上
+        for (var index = rows * layout.Columns; index < count; index++)
+            Children[index].Arrange(OffScreen);
 
         return finalSize;
     }

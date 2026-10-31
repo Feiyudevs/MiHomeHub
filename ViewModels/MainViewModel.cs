@@ -255,6 +255,12 @@ public partial class MainViewModel : ObservableObject
     /// <summary>列表还空着时铺骨架；已有设备只是刷新状态，不动内容。</summary>
     public bool ShowSkeleton => IsLoading && TotalCount == 0;
 
+    /// <summary>场景首次拉取期间铺骨架；已有场景只是刷新时不动内容。</summary>
+    public bool ShowSceneSkeleton => IsLoading && !HasScenes;
+
+    /// <summary>首页快捷场景区是否出现：有场景，或场景还在首次拉取中。</summary>
+    public bool ShowQuickScenes => HasScenes || ShowSceneSkeleton;
+
     /// <summary>空房间提示要等加载结束再判定，否则骨架期间就冒出来。</summary>
     public bool ShowEmptyHint => !IsLoading && !HasDevices;
 
@@ -418,6 +424,8 @@ public partial class MainViewModel : ObservableObject
         OnPropertyChanged(nameof(ShowEmptyHint));
         OnPropertyChanged(nameof(ShowHomeEmpty));
         OnPropertyChanged(nameof(ShowSceneEmpty));
+        OnPropertyChanged(nameof(ShowSceneSkeleton));
+        OnPropertyChanged(nameof(ShowQuickScenes));
     }
 
     partial void OnTotalCountChanged(int value)
@@ -432,6 +440,8 @@ public partial class MainViewModel : ObservableObject
     {
         OnPropertyChanged(nameof(ShowHomeEmpty));
         OnPropertyChanged(nameof(ShowSceneEmpty));
+        OnPropertyChanged(nameof(ShowSceneSkeleton));
+        OnPropertyChanged(nameof(ShowQuickScenes));
     }
 
     private void TickClock()
