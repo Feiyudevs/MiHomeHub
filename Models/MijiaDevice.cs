@@ -243,6 +243,49 @@ public partial class MijiaDevice : ObservableObject
     }
 
     /// <summary>
+    /// 轮询/刷新拿到的新对象把字段刷到现有实例上，**保留实例本身**。
+    /// 这样设备卡片的绑定、文本布局、图标与规格状态都不需要重建——
+    /// 重建会让 Skia 每次重新排版文本并新分配字体对象（Avalonia 字体缓存命中问题，只增不减），
+    /// 每轮刷新都整批重建的话，常驻内存会随刷新次数一直涨。
+    /// </summary>
+    public void UpdateFrom(MijiaDevice other)
+    {
+        if (!string.Equals(Name, other.Name, StringComparison.Ordinal))
+        {
+            Name = other.Name;
+            OnPropertyChanged(nameof(Name));
+        }
+
+        if (!string.Equals(Model, other.Model, StringComparison.Ordinal))
+        {
+            Model = other.Model;
+            OnPropertyChanged(nameof(IconKey));
+        }
+
+        if (!string.Equals(HomeId, other.HomeId, StringComparison.Ordinal))
+            HomeId = other.HomeId;
+
+        Uid = other.Uid;
+
+        if (IsOnline != other.IsOnline)
+        {
+            IsOnline = other.IsOnline;
+            OnPropertyChanged(nameof(IsOnline));
+        }
+
+        if (!string.Equals(SpecType, other.SpecType, StringComparison.Ordinal))
+            SpecType = other.SpecType;
+
+        if (!string.Equals(RoomName, other.RoomName, StringComparison.Ordinal))
+        {
+            RoomName = other.RoomName;
+            OnPropertyChanged(nameof(RoomName));
+            // 卡片副标题 = 房间 + 读数，房间变了要一起通知，否则卡片文字不刷新
+            OnPropertyChanged(nameof(CardSubtitle));
+        }
+    }
+
+    /// <summary>
     /// 规格未到手前的兜底：灯/插座/空调沿用 siid=2/piid=1 的整机 on；
     /// 开关类不猜，等规格解析出真实通道。虚拟子设备这里只拆 did。
     /// </summary>

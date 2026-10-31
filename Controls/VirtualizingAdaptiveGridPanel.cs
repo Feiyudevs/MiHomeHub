@@ -13,7 +13,12 @@ namespace MiHome.Controls;
 /// <summary>
 /// 自适应网格 + UI 虚拟化：只生成视口内可见的卡片容器，屏幕外设备不进可视树。
 /// 布局规则与 AdaptiveGridPanel 一致：按可用宽度自动算列数、行等高、可选 MaxRows。
-/// 容器带回收池：滚出视口的卡片隐藏入池复用（不销毁重建），来回拖动滚动条不产生分配churn。
+///
+/// 关键设计（v3）：容器按「设备索引」缓存，而不是按类型回收池复用。
+/// 滚出视口的容器只隐藏、保留其数据绑定；滚回来时同一个索引拿回同一张卡片，
+/// 不做 ClearItemContainer / PrepareItemContainer，因此不会重建文本布局。
+/// 这一点很重要：反复 rebind 会让 Skia 的字体对象被反复创建（框架侧只增不减），
+/// 来回拖动滚动条时内存持续上涨；按索引稳定复用后，滚动不再产生新的文本排版。
 /// </summary>
 public sealed class VirtualizingAdaptiveGridPanel : VirtualizingPanel
 {
@@ -47,14 +52,14 @@ public sealed class VirtualizingAdaptiveGridPanel : VirtualizingPanel
         set => SetValue(MaxRowsProperty, value);
     }
 
-    /// <summary>回收池每 key 上限：超过则真销毁，避免滚完整表后隐藏容器无限累积。</summary>
-    private const int MaxPooledPerKey = 64;
+    /// <summary>缓存容器上限（相对可见容器数的倍数）：超出后按最久未访问淘汰，防常驻无上限。</summary>
+    private const double CacheRatio = 2.5;
 
-    /// <summary>视口外缓冲（视口高度比例）：减少来回拖动时的生成/回收抖动。</summary>
+    /// <summary>缓存硬上限，避免超大列表滚一圈后卡片全驻留。</summary>
+    private const int MaxCacheHard = 160;
+
+    /// <summary>视口外缓冲（视口高度比例）：减少来回拖动时的边界抖动。</summary>
     private const double BufferFraction = 0.5;
-
-    /// <summary>标记「项自身即容器」的哨兵 key。</summary>
-    private static readonly object OwnContainerKey = new();
 
     static VirtualizingAdaptiveGridPanel()
     {
@@ -62,12 +67,23 @@ public sealed class VirtualizingAdaptiveGridPanel : VirtualizingPanel
     }
 
     private Rect _viewport;
+
+    /// <summary>当前在可视树里可见（已排布）的容器：索引 → 容器。</summary>
     private readonly Dictionary<int, Control> _realized = new();
+
+    /// <summary>隐藏的容器：索引 → 容器。保留数据绑定，滚回来直接显示，不重新准备。</summary>
+    private readonly Dictionary<int, Control> _hidden = new();
+
+    /// <summary>LRU：队首最久未用，用于淘汰。</summary>
+    private readonly LinkedList<int> _lru = new();
+
+    /// <summary>该容器对应的回收 key（用于销毁前的清理），null 表示项自身即容器。</summary>
     private readonly Dictionary<Control, object?> _keys = new();
-    private readonly Dictionary<object, Stack<Control>> _pool = new();
+
     private int _columns;
     private double _itemWidth;
     private double _rowHeight;
+    private double _layoutWidth;
 
     protected override void OnAttachedToVisualTree(VisualTreeAttachmentEventArgs e)
     {
@@ -83,13 +99,17 @@ public sealed class VirtualizingAdaptiveGridPanel : VirtualizingPanel
 
     private void OnEffectiveViewportChanged(object? sender, EffectiveViewportChangedEventArgs e)
     {
+        // 视口没实际变化就别再触发测量，避免「布局 → 视口变化 → 再布局」的自激
+        if (e.EffectiveViewport == _viewport)
+            return;
+
         _viewport = e.EffectiveViewport;
         InvalidateMeasure();
     }
 
     protected override void OnItemsChanged(IReadOnlyList<object?> items, NotifyCollectionChangedEventArgs e)
     {
-        // 集合变化：全部丢弃（含回收池）并重新布局；设备刷新不频繁，重建成本可接受
+        // 集合变化：索引与数据的对应关系失效，全部丢弃并重新布局
         ClearAll();
         InvalidateMeasure();
     }
@@ -115,6 +135,13 @@ public sealed class VirtualizingAdaptiveGridPanel : VirtualizingPanel
         var layout = BuildLayout(width, items.Count);
         int rows = MaxRows > 0 ? Math.Min(layout.Rows, MaxRows) : layout.Rows;
 
+        // 列数或宽度变了：行高缓存作废（卡片宽度变了，高度可能跟着变）
+        if (Math.Abs(width - _layoutWidth) > 0.5)
+        {
+            _layoutWidth = width;
+            _rowHeight = 0;
+        }
+
         var vp = _viewport;
         bool hasVp = vp is { Height: > 0 };
         double vpTop = hasVp ? vp.Top : 0;
@@ -122,7 +149,6 @@ public sealed class VirtualizingAdaptiveGridPanel : VirtualizingPanel
             ? vp.Bottom
             : (double.IsInfinity(availableSize.Height) ? vpTop + 400 : vpTop + availableSize.Height);
 
-        // 先用缓存行高（或 90 估算）算可见窗口，实测后再校正
         double stride = (_rowHeight > 0 ? _rowHeight : 90) + Spacing;
         double buffer = hasVp ? vp.Height * BufferFraction : 0;
         double top = Math.Max(0, vpTop - buffer);
@@ -143,7 +169,7 @@ public sealed class VirtualizingAdaptiveGridPanel : VirtualizingPanel
         var keep = new HashSet<int>();
         double maxH = 0;
 
-        // 首次没有行高时确保 realize 首行实测
+        // 首行实测：首次没有行高时先量一张，保证 stride 准确
         if (_rowHeight <= 0)
         {
             var c0 = GetOrCreate(gen, items, 0);
@@ -168,11 +194,14 @@ public sealed class VirtualizingAdaptiveGridPanel : VirtualizingPanel
         if (maxH > 0)
             _rowHeight = maxH;
 
-        // 窗口之外的已实现容器 → 入回收池（隐藏复用）
-        var indexSnapshot = new List<int>(_realized.Keys);
-        foreach (var idx in indexSnapshot)
-            if (!keep.Contains(idx))
-                Unrealize(gen, idx);
+        // 窗口外的可见容器 → 隐藏进缓存（不清绑定，滚回来零成本）
+        if (_realized.Count > keep.Count)
+        {
+            var indexSnapshot = new List<int>(_realized.Keys);
+            foreach (var idx in indexSnapshot)
+                if (!keep.Contains(idx))
+                    Hide(gen, idx);
+        }
 
         _columns = layout.Columns;
         _itemWidth = layout.ItemWidth;
@@ -206,23 +235,22 @@ public sealed class VirtualizingAdaptiveGridPanel : VirtualizingPanel
         if (_realized.TryGetValue(index, out var existing))
             return existing;
 
+        // 这个索引之前生成过：直接显示原容器，数据绑定原样保留（关键：不 rebind）
+        if (_hidden.Remove(index, out var cached))
+        {
+            Touch(index);
+            cached.SetCurrentValue(Visual.IsVisibleProperty, true);
+            _realized[index] = cached;
+            return cached;
+        }
+
         var item = items[index];
         Control container;
 
         if (gen.NeedsContainer(item, index, out var recycleKey))
         {
-            if (recycleKey is not null && _pool.TryGetValue(recycleKey, out var stack) && stack.Count > 0)
-            {
-                // 从回收池复用：重新绑数据即可，不新建可视树
-                container = stack.Pop();
-                container.SetCurrentValue(Visual.IsVisibleProperty, true);
-            }
-            else
-            {
-                container = gen.CreateContainer(item, index, recycleKey);
-                AddInternalChild(container);
-            }
-
+            container = gen.CreateContainer(item, index, recycleKey);
+            AddInternalChild(container);
             gen.PrepareItemContainer(container, item, index);
             gen.ItemContainerPrepared(container, item, index);
             _keys[container] = recycleKey;
@@ -235,58 +263,71 @@ public sealed class VirtualizingAdaptiveGridPanel : VirtualizingPanel
                 gen.PrepareItemContainer(container, container, index);
                 AddInternalChild(container);
                 gen.ItemContainerPrepared(container, item, index);
-                _keys[container] = OwnContainerKey;
+                _keys[container] = null;
             }
             container.SetCurrentValue(Visual.IsVisibleProperty, true);
         }
 
         _realized[index] = container;
+        Touch(index);
+        TrimCache(gen);
         return container;
     }
 
-    private void Unrealize(ItemContainerGenerator gen, int index)
+    /// <summary>可见 → 隐藏缓存。保留绑定，只切 IsVisible。</summary>
+    private void Hide(ItemContainerGenerator gen, int index)
     {
-        if (!_realized.TryGetValue(index, out var c))
+        if (!_realized.Remove(index, out var c))
             return;
-        _realized.Remove(index);
+
         if (!_keys.TryGetValue(c, out var key))
             return;
 
-        if (ReferenceEquals(key, OwnContainerKey))
+        if (key is null && ReferenceEquals(c, Items.Count > index ? Items[index] : null))
         {
+            // 项自身即容器：不能回收，只能隐藏
             c.SetCurrentValue(Visual.IsVisibleProperty, false);
             return;
         }
 
-        gen.ClearItemContainer(c);
         c.SetCurrentValue(Visual.IsVisibleProperty, false);
+        _hidden[index] = c;
+        Touch(index);
+        TrimCache(gen);
+    }
 
-        if (key is null)
+    /// <summary>超出上限时按 LRU 淘汰：真正解除绑定并移出可视树。</summary>
+    private void TrimCache(ItemContainerGenerator gen)
+    {
+        int visible = _realized.Count;
+        int limit = Math.Min(MaxCacheHard, (int)(Math.Max(visible, 8) * CacheRatio) + 16);
+
+        while (_hidden.Count > limit && _lru.First is { } node)
         {
-            // 无回收 key 的容器只能销毁
+            int idx = node.Value;
+            _lru.RemoveFirst();
+            if (!_hidden.Remove(idx, out var c))
+                continue; // 该索引已在可见集合，跳过
+
+            if (_keys.TryGetValue(c, out var key) && key is not null)
+                gen.ClearItemContainer(c);
+
             RemoveInternalChild(c);
             _keys.Remove(c);
-            return;
         }
+    }
 
-        if (!_pool.TryGetValue(key, out var pool))
-            _pool[key] = pool = new Stack<Control>();
-
-        if (pool.Count >= MaxPooledPerKey)
-        {
-            // 池满：真销毁，防隐藏容器无限累积
-            RemoveInternalChild(c);
-            _keys.Remove(c);
-        }
-        else
-        {
-            pool.Push(c);
-        }
+    private void Touch(int index)
+    {
+        var node = _lru.Find(index);
+        if (node is not null)
+            _lru.Remove(node);
+        _lru.AddLast(index);
     }
 
     private void ClearAll()
     {
-        if (_keys.Count == 0 && _realized.Count == 0)
+        if (_keys.Count == 0 && _realized.Count == 0 && _hidden.Count == 0)
             return;
 
         var gen = ItemContainerGenerator;
@@ -297,8 +338,11 @@ public sealed class VirtualizingAdaptiveGridPanel : VirtualizingPanel
             RemoveInternalChild(c);
 
         _realized.Clear();
-        _pool.Clear();
+        _hidden.Clear();
+        _lru.Clear();
         _keys.Clear();
+        _rowHeight = 0;
+        _layoutWidth = 0;
     }
 
     private readonly record struct LayoutInfo(int Columns, int Rows, double ItemWidth);

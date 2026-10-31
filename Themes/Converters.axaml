@@ -1,0 +1,13 @@
+<ResourceDictionary
+    xmlns="https://github.com/avaloniaui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:ani="clr-namespace:Avalonia.Animation.Easings;assembly=Avalonia.Base"
+    xmlns:conv="clr-namespace:MiHome.Converters"
+    xmlns:ctl="clr-namespace:MiHome.Controls"
+    xmlns:vm="clr-namespace:MiHome.ViewModels"
+    xmlns:m="clr-namespace:MiHome.Models">
+            <!-- ======== 侧栏导航图标：玻璃 SVG 优先，缺资源回退细线 ======== -->
+            <conv:NavSvgConverter x:Key="NavSvg" />
+            <conv:NavLineConverter x:Key="NavLine" />
+            <conv:DeviceIconConverter x:Key="DeviceIcon" />
+</ResourceDictionary>

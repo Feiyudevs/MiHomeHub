@@ -400,22 +400,26 @@ public partial class MainViewModel : ObservableObject
             Log("正在拉取设备列表…");
             // 网络请求的 await 会在线程池回来，ObservableCollection 的增删必须切回 UI 线程，
             // 否则 ItemsControl 收不到集合通知，页面上就一个卡片都不显示。
-            var devices = await _client.GetAllDevicesAsync();
+            var fresh = await _client.GetAllDevicesAsync();
             var homes = _client.Homes.ToList();
-            foreach (var d in devices) d.ApplyLegacyDefaults();
+            foreach (var d in fresh) d.ApplyLegacyDefaults();
             var gen = ++_loadGeneration;
 
             // 设备到手就先渲染并落盘，开关状态和场景随后补，不让用户干等
             await Dispatcher.UIThread.InvokeAsync(() =>
             {
                 SyncHomeOptions(homes);
-                _allDevices = devices;
+                // 复用已有实例（按 did 匹配），避免每轮刷新把整屏卡片重新绑定一遍
+                _allDevices = MergeDevices(_allDevices, fresh);
                 RebuildRooms();
                 ApplyFilter();
                 RebuildHomeGroups();
                 UpdateStats();
                 RefreshSpeakers();
             });
+
+            // 合并后的实例（旧对象被复用），后续图标/规格/状态都回填到它们身上
+            var devices = _allDevices;
             _ = Task.Run(() => DeviceCacheStore.Save(devices));
 
             // 先按旧版 siid 兜底读一次状态，规格解析完再用真实 iid 校正一遍
@@ -498,19 +502,22 @@ public partial class MainViewModel : ObservableObject
             }
 
             Log($"切换到家庭「{home.Name}」，正在拉取设备…");
-            var devices = await LoadHomeDevicesAsync(home);
-            foreach (var d in devices) d.ApplyLegacyDefaults();
+            var fresh = await LoadHomeDevicesAsync(home);
+            foreach (var d in fresh) d.ApplyLegacyDefaults();
             var gen = ++_loadGeneration;
             await Dispatcher.UIThread.InvokeAsync(() =>
             {
                 HomeName = string.IsNullOrWhiteSpace(home.Name) ? "我的家" : home.Name.Trim();
-                _allDevices = devices;
+                // 同一 did 复用旧实例；换家庭时 did 不同，旧实例自然被丢弃
+                _allDevices = MergeDevices(_allDevices, fresh);
                 RebuildRooms();
                 ApplyFilter();
                 RebuildHomeGroups();
                 UpdateStats();
                 RefreshSpeakers();
             });
+
+            var devices = _allDevices;
             _ = Task.Run(() => DeviceCacheStore.Save(devices));
 
             await Task.WhenAll(LoadScenesAsync(), RefreshStatesAsync(includeMetrics: false));
@@ -926,6 +933,27 @@ public partial class MainViewModel : ObservableObject
             .ToList();
         if (!names.Contains(_selectedRoom)) _selectedRoom = "全部";
 
+        // 房间没变化就不重建侧栏 chip：重建同样会触发文本重排
+        if (Rooms.Count == names.Count + 1 && string.Equals(Rooms[0].Name, "全部", StringComparison.Ordinal))
+        {
+            var same = true;
+            for (var i = 0; i < names.Count; i++)
+            {
+                if (!string.Equals(Rooms[i + 1].Name, names[i], StringComparison.Ordinal))
+                {
+                    same = false;
+                    break;
+                }
+            }
+
+            if (same)
+            {
+                RoomCount = names.Count;
+                SyncRoomChips();
+                return;
+            }
+        }
+
         Rooms.Clear();
         Rooms.Add(new RoomChip("全部"));
         foreach (var n in names)
@@ -944,24 +972,86 @@ public partial class MainViewModel : ObservableObject
     private void ApplyFilter()
     {
         var list = OrderDevices(_allDevices
-            .Where(d => (_selectedRoom == "全部" || d.RoomName == _selectedRoom) && MatchesSearch(d)));
-        Devices.Clear();
-        foreach (var d in list) Devices.Add(d);
+            .Where(d => (_selectedRoom == "全部" || d.RoomName == _selectedRoom) && MatchesSearch(d))).ToList();
+
+        // 集合没变就别重建：Clear+Add 会让每张卡片重新绑定数据、重排文字，
+        // 而重排会在 Avalonia 的字体缓存里不断新建字体对象（只增不减），
+        // 每轮刷新都整批重建的话内存会随刷新次数一直涨。
+        if (!SameSequence(Devices, list))
+        {
+            Devices.Clear();
+            foreach (var d in list) Devices.Add(d);
+        }
+
         HasDevices = Devices.Count > 0;
         UpdateBanner();
     }
 
     private void RebuildHomeGroups()
     {
-        HomeGroups.Clear();
+        var groups = new List<DeviceGroup>();
         foreach (var g in _allDevices
                      .GroupBy(d => d.RoomName)
                      .OrderByDescending(g => g.Count()))
         {
             var items = OrderDevices(g.Where(MatchesSearch)).ToList();
             if (items.Count == 0) continue;
-            HomeGroups.Add(new DeviceGroup { Name = g.Key, Total = g.Count(), Items = items });
+            groups.Add(new DeviceGroup { Name = g.Key, Total = g.Count(), Items = items });
         }
+
+        if (SameGroups(HomeGroups, groups))
+            return;
+
+        HomeGroups.Clear();
+        foreach (var g in groups) HomeGroups.Add(g);
+    }
+
+    /// <summary>两组设备是否同一批实例、同样顺序（用于跳过无意义的重建）。</summary>
+    private static bool SameSequence(IReadOnlyList<MijiaDevice> a, IReadOnlyList<MijiaDevice> b)
+    {
+        if (a.Count != b.Count) return false;
+        for (var i = 0; i < a.Count; i++)
+            if (!ReferenceEquals(a[i], b[i]))
+                return false;
+        return true;
+    }
+
+    private static bool SameGroups(IReadOnlyList<DeviceGroup> a, List<DeviceGroup> b)
+    {
+        if (a.Count != b.Count) return false;
+        for (var i = 0; i < a.Count; i++)
+            if (!string.Equals(a[i].Name, b[i].Name, StringComparison.Ordinal) ||
+                !SameSequence(a[i].Items, b[i].Items))
+                return false;
+        return true;
+    }
+
+    /// <summary>
+    /// 按 did 把新拉到的设备合并进现有列表：同 did 的沿用旧实例、只刷新字段，
+    /// 这样已渲染的卡片绑定与文本布局都不用重建。新设备/已移除的设备按需增删。
+    /// </summary>
+    private static List<MijiaDevice> MergeDevices(List<MijiaDevice> existing, List<MijiaDevice> fresh)
+    {
+        if (existing.Count == 0) return fresh;
+
+        var byDid = new Dictionary<string, MijiaDevice>(existing.Count, StringComparer.Ordinal);
+        foreach (var d in existing)
+            if (!string.IsNullOrEmpty(d.Did)) byDid[d.Did] = d;
+
+        var merged = new List<MijiaDevice>(fresh.Count);
+        foreach (var d in fresh)
+        {
+            if (!string.IsNullOrEmpty(d.Did) && byDid.TryGetValue(d.Did, out var keep))
+            {
+                keep.UpdateFrom(d);
+                merged.Add(keep);
+            }
+            else
+            {
+                merged.Add(d);
+            }
+        }
+        return merged;
     }
 
     private void UpdateStats()

@@ -1,0 +1,161 @@
+<ResourceDictionary
+    xmlns="https://github.com/avaloniaui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:ani="clr-namespace:Avalonia.Animation.Easings;assembly=Avalonia.Base"
+    xmlns:conv="clr-namespace:MiHome.Converters"
+    xmlns:ctl="clr-namespace:MiHome.Controls"
+    xmlns:vm="clr-namespace:MiHome.ViewModels"
+    xmlns:m="clr-namespace:MiHome.Models">
+            <!-- ======== 全局 DataTemplate：设备卡/骨架卡/场景迷你卡（MainWindow 与 HomeView 共用） ======== -->
+            <!-- 加载骨架：与设备卡同尺寸同圆角，先用占位块占住宫格，真设备到手整块换掉 -->
+            <DataTemplate x:Key="SkeletonCardTemplate" x:DataType="x:String">
+                <Border Classes="SkelCard">
+                    <Panel ClipToBounds="True">
+                        <Grid ColumnDefinitions="Auto,*,Auto">
+                            <Border Classes="SkelIc" VerticalAlignment="Center" />
+                            <StackPanel Grid.Column="1" VerticalAlignment="Center" Margin="12,0,10,0" Spacing="7">
+                                <Border Classes="SkelBar" Width="104" />
+                                <Border Classes="SkelBar" Width="64" Height="9" />
+                            </StackPanel>
+                            <Border Grid.Column="2" Classes="SkelSw" VerticalAlignment="Center" />
+                        </Grid>
+                        <Canvas IsHitTestVisible="False">
+                            <!-- 高光带的扫动动画写在 App.axaml 的 Border.SkelShine.run 样式里：
+                                 run 类跟骨架可见性同开关，收起时动画必须一起停，否则合成器满帧空转 -->
+                            <Border Classes="SkelShine"
+                                    Classes.run="{Binding $parent[ItemsControl].((vm:MainViewModel)DataContext).ShowSkeleton}" />
+                        </Canvas>
+                    </Panel>
+                </Border>
+            </DataTemplate>
+            <!-- 场景骨架：与场景迷你卡同尺寸同圆角，首次拉取场景时先占住一行 -->
+            <DataTemplate x:Key="SceneSkeletonTemplate" x:DataType="x:String">
+                <Border Classes="SkelCard" MinHeight="80">
+                    <Panel ClipToBounds="True">
+                        <StackPanel VerticalAlignment="Top" HorizontalAlignment="Left" Spacing="10">
+                            <Border Classes="SkelIc" Width="30" Height="30" CornerRadius="10" HorizontalAlignment="Left" />
+                            <Border Classes="SkelBar" Width="88" HorizontalAlignment="Left" />
+                        </StackPanel>
+                        <Canvas IsHitTestVisible="False">
+                            <Border Classes="SkelShine"
+                                    Classes.run="{Binding $parent[ItemsControl].((vm:MainViewModel)DataContext).ShowSceneSkeleton}" />
+                        </Canvas>
+                    </Panel>
+                </Border>
+            </DataTemplate>
+            <!-- 设备卡（§8.6）：图标 | 名称 + 房间·状态 | 开关 -->
+            <DataTemplate x:Key="DeviceCardTemplate" x:DataType="m:MijiaDevice">
+                <Button Classes="DevCard" Classes.on="{Binding IsOn}"
+                        Command="{Binding $parent[Window].((vm:MainViewModel)DataContext).OpenDrawerCommand}"
+                        CommandParameter="{Binding}">
+                    <Grid ColumnDefinitions="Auto,*,Auto">
+                        <Panel Grid.Column="0" Width="48" Height="48" VerticalAlignment="Center">
+                            <Border Classes="DevIc"
+                                    IsVisible="{Binding Icon, Converter={x:Static ObjectConverters.IsNull}}">
+                                <Path Classes="DevIcon" Classes.on="{Binding IsOn}" Width="24" Height="24"
+                                      Stretch="Uniform" StrokeThickness="1.7" StrokeLineCap="Round" StrokeJoin="Round"
+                                      Data="{Binding Converter={StaticResource DeviceIcon}}" />
+                            </Border>
+                            <Border Classes="DevPhoto" IsVisible="{Binding Icon, Converter={x:Static ObjectConverters.IsNotNull}}">
+                                <!-- 缩小 10 倍用 MediumQuality（双线性+mipmap 预滤波）：
+                                     HighQuality 在 Skia 是固定 4×4 核三次采样，大比例缩小时欠采样，白描边会断成锯齿点 -->
+                                <Image Source="{Binding Icon}" Stretch="Uniform"
+                                       RenderOptions.BitmapInterpolationMode="MediumQuality" />
+                            </Border>
+                        </Panel>
+                        <StackPanel Grid.Column="1" VerticalAlignment="Center" Margin="12,0,10,0" Spacing="3">
+                            <TextBlock Text="{Binding Name}" Foreground="{DynamicResource Text2Brush}" FontSize="13.5"
+                                       FontWeight="SemiBold" TextTrimming="CharacterEllipsis" />
+                            <StackPanel Orientation="Horizontal" Spacing="6">
+                                <TextBlock Text="{Binding CardSubtitle}" Foreground="{DynamicResource Text3Brush}" FontSize="11.5"
+                                           TextTrimming="CharacterEllipsis" />
+                                <!-- 离线角标：仅离线设备显示，琥珀底 + 暖字，与抽屉 is-warn 同色系 -->
+                                <Border CornerRadius="8" Padding="6,1.5" VerticalAlignment="Center"
+                                        Background="{DynamicResource AmberSoftBrush}" IsVisible="{Binding !IsOnline}">
+                                    <TextBlock Text="离线" FontSize="9.5" FontWeight="Bold"
+                                               Foreground="{DynamicResource AmberBrush}" />
+                                </Border>
+                            </StackPanel>
+                        </StackPanel>
+                        <ToggleButton Grid.Column="2" Classes="Power" VerticalAlignment="Center"
+                                      IsVisible="{Binding ShowCardSwitch}"
+                                      IsChecked="{Binding IsOn}" IsEnabled="{Binding !IsBusy}"
+                                      Command="{Binding $parent[Window].((vm:MainViewModel)DataContext).ToggleDeviceCommand}"
+                                      CommandParameter="{Binding}" />
+                        <!-- 多路开关不在卡片上铺满多个开关：显示路数，进抽屉逐路操作 -->
+                        <Border Grid.Column="2" CornerRadius="8" Padding="8,3" VerticalAlignment="Center"
+                                Background="{DynamicResource SurfaceBrush}"
+                                IsVisible="{Binding ShowChannelBadge}">
+                            <TextBlock FontSize="10.5" FontWeight="SemiBold"
+                                       Foreground="{DynamicResource Text3Brush}"
+                                       Text="{Binding Channels.Count, StringFormat='{}{0} 路'}" />
+                        </Border>
+                    </Grid>
+                </Button>
+            </DataTemplate>
+            <!-- 场景迷你卡（首页条）：点卡片不执行，仅右下角播放按钮执行 -->
+            <DataTemplate x:Key="SceneMiniTemplate" x:DataType="m:SceneCardItem">
+                <Border CornerRadius="16" Margin="8" MinHeight="80"
+                        Background="{DynamicResource CardBrush}"
+                        BoxShadow="0 1 2 0 #050F172A, 0 5 16 0 #080F172A">
+                    <Panel>
+                        <Border CornerRadius="16" Background="{Binding GlowBrush}" IsHitTestVisible="False"/>
+                        <Border Padding="12">
+                            <Panel>
+                                <StackPanel VerticalAlignment="Top" HorizontalAlignment="Left">
+                                    <Border Width="30" Height="30" CornerRadius="10" Background="{Binding IconBgBrush}"
+                                            HorizontalAlignment="Left">
+                                        <Path Width="16" Height="16" Stretch="Uniform" Stroke="{Binding IconFgBrush}"
+                                              StrokeThickness="1.7" StrokeLineCap="Round" StrokeJoin="Round"
+                                              Data="{Binding Icon}" />
+                                    </Border>
+                                    <TextBlock Text="{Binding Name}" FontSize="12.5" FontWeight="SemiBold" Margin="0,8,0,0"
+                                               Foreground="{DynamicResource Text2Brush}" />
+                                </StackPanel>
+                                <Border HorizontalAlignment="Right" VerticalAlignment="Top" CornerRadius="20" Padding="7,3"
+                                        Background="{DynamicResource GreenSoftBrush}" IsVisible="{Binding IsRunning}">
+                                    <TextBlock Text="运行中" FontSize="10.5" FontWeight="Bold"
+                                               Foreground="{DynamicResource GreenBrush}" />
+                                </Border>
+                                <Button Classes="PlayCircle" Width="30" Height="30"
+                                        HorizontalAlignment="Right" VerticalAlignment="Bottom"
+                                        Command="{Binding $parent[Window].((vm:MainViewModel)DataContext).RunSceneCommand}"
+                                        CommandParameter="{Binding}" />
+                            </Panel>
+                        </Border>
+                    </Panel>
+                </Border>
+            </DataTemplate>
+        <DataTemplate x:Key="SceneBigTemplate" x:DataType="m:SceneCardItem">
+            <Border CornerRadius="16" Margin="8" MinHeight="112"
+                    Background="{DynamicResource CardBrush}"
+                    BoxShadow="0 1 2 0 #050F172A, 0 5 16 0 #080F172A">
+                <Panel>
+                    <Border CornerRadius="16" Background="{Binding GlowBrush}" IsHitTestVisible="False"/>
+                    <Border Padding="14">
+                        <Panel>
+                            <StackPanel VerticalAlignment="Top">
+                                <Border Width="40" Height="40" CornerRadius="12" Background="{Binding IconBgBrush}"
+                                        HorizontalAlignment="Left">
+                                    <Path Width="20" Height="20" Stretch="Uniform" Stroke="{Binding IconFgBrush}"
+                                          StrokeThickness="1.7" StrokeLineCap="Round" StrokeJoin="Round"
+                                          Data="{Binding Icon}" />
+                                </Border>
+                                <TextBlock Text="{Binding Name}" FontSize="14" FontWeight="Bold" Margin="0,10,0,0"
+                                           Foreground="{DynamicResource TextBrush}" />
+                            </StackPanel>
+                            <Border HorizontalAlignment="Right" VerticalAlignment="Top" CornerRadius="20" Padding="8,4"
+                                    Background="{DynamicResource GreenSoftBrush}" IsVisible="{Binding IsRunning}">
+                                <TextBlock Text="运行中 ✓" FontSize="10.5" FontWeight="Bold"
+                                           Foreground="{DynamicResource GreenBrush}" />
+                            </Border>
+                            <Button Classes="PlayCircle" Width="36" Height="36"
+                                    HorizontalAlignment="Right" VerticalAlignment="Bottom"
+                                    Command="{Binding $parent[Window].((vm:MainViewModel)DataContext).RunSceneCommand}"
+                                    CommandParameter="{Binding}" />
+                        </Panel>
+                    </Border>
+                </Panel>
+            </Border>
+        </DataTemplate>
+</ResourceDictionary>
