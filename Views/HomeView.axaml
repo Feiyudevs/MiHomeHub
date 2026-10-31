@@ -1,218 +1,226 @@
-<UserControl xmlns="https://github.com/avaloniaui"
-             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-             xmlns:m="clr-namespace:MiHome.Models"
-             xmlns:vm="clr-namespace:MiHome.ViewModels"
-             xmlns:ctl="clr-namespace:MiHome.Controls"
-             xmlns:views="clr-namespace:MiHome.Views"
+<UserControl 
+    xmlns="https://github.com/avaloniaui"
+             
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             
+    xmlns:m="clr-namespace:MiHome.Models"
+             
+    xmlns:vm="clr-namespace:MiHome.ViewModels"
+             
+    xmlns:ctl="clr-namespace:MiHome.Controls"
+             
+    xmlns:views="clr-namespace:MiHome.Views"
              x:Class="MiHome.Views.HomeView">
-    <StackPanel IsVisible="{Binding IsHome}" x:DataType="vm:MainViewModel">
-    <!-- Hero：透明底；左侧问候+概览按钮，右侧统计卡+环境概览 -->
-    <Grid ColumnDefinitions="*,Auto" Margin="28,26">
-        <StackPanel VerticalAlignment="Top" Spacing="0">
-            <StackPanel Orientation="Horizontal" Spacing="0">
-                <TextBlock Text="{Binding Greet}" FontSize="24" FontWeight="Bold"
+    <StackPanel x:DataType="vm:MainViewModel">
+        <!-- Hero：透明底；左侧问候+概览按钮，右侧统计卡+环境概览 -->
+        <Grid ColumnDefinitions="*,Auto" Margin="28,26">
+            <StackPanel VerticalAlignment="Top" Spacing="0">
+                <StackPanel Orientation="Horizontal" Spacing="0">
+                    <TextBlock Text="{Binding Greet}" FontSize="24" FontWeight="Bold"
                                    Foreground="{DynamicResource TextBrush}" />
-                <TextBlock Text="，" FontSize="24" FontWeight="Bold"
+                    <TextBlock Text="，" FontSize="24" FontWeight="Bold"
                                    Foreground="{DynamicResource TextBrush}" />
-                <TextBlock Text="欢迎回家" FontSize="24" FontWeight="Bold"
+                    <TextBlock Text="欢迎回家" FontSize="24" FontWeight="Bold"
                                    Foreground="{DynamicResource PinkBrush}" />
-            </StackPanel>
-            <StackPanel Orientation="Horizontal" Spacing="10" Margin="0,8,0,0">
-                <TextBlock Text="{Binding ClockText}" FontSize="13"
+                </StackPanel>
+                <StackPanel Orientation="Horizontal" Spacing="10" Margin="0,8,0,0">
+                    <TextBlock Text="{Binding ClockText}" FontSize="13"
                                    Foreground="{DynamicResource Text2Brush}" />
-                <Border Width="1" Height="12" Background="{DynamicResource LineBrush}"
+                    <Border Width="1" Height="12" Background="{DynamicResource LineBrush}"
                                 VerticalAlignment="Center" />
-                <TextBlock Text="{Binding DateText}" FontSize="13"
+                    <TextBlock Text="{Binding DateText}" FontSize="13"
                                    Foreground="{DynamicResource Text2Brush}" />
-                <Border Width="1" Height="12" Background="{DynamicResource LineBrush}"
+                    <Border Width="1" Height="12" Background="{DynamicResource LineBrush}"
                                 VerticalAlignment="Center" />
-                <TextBlock Text="{Binding StatusText}" FontSize="13"
+                    <TextBlock Text="{Binding StatusText}" FontSize="13"
                                    Foreground="{DynamicResource Text3Brush}" />
-            </StackPanel>
-            <!-- 概览按钮区：全部场景 / 全部设备 / 刷新，移到时间日期行下方，左对齐 -->
-            <StackPanel Orientation="Horizontal" Spacing="8" HorizontalAlignment="Left" Margin="0,12,0,0">
-                <Button Classes="BtnGhost" Content="全部场景" Click="OnGotoScenes" />
-                <Button Classes="BtnGhost" Content="全部设备" Click="OnGotoRooms" />
-                <Button Classes="BtnGhost" Width="36" Padding="0"
+                </StackPanel>
+                <!-- 概览按钮区：全部场景 / 全部设备 / 刷新，移到时间日期行下方，左对齐 -->
+                <StackPanel Orientation="Horizontal" Spacing="8" HorizontalAlignment="Left" Margin="0,12,0,0">
+                    <Button Classes="BtnGhost" Content="全部场景" Click="OnGotoScenes" />
+                    <Button Classes="BtnGhost" Content="全部设备" Click="OnGotoRooms" />
+                    <Button Classes="BtnGhost" Width="36" Padding="0"
                         Command="{Binding LoadDevicesCommand}"
                         IsEnabled="{Binding !IsLoading}"
                         ToolTip.Tip="拉取最新状态">
-                    <Panel>
-                        <Path Classes="RefreshIc" Width="13" Height="13" Stretch="Uniform"
+                        <Panel>
+                            <Path Classes="RefreshIc" Width="13" Height="13" Stretch="Uniform"
                               HorizontalAlignment="Center" VerticalAlignment="Center"
                               Stroke="{DynamicResource Text2Brush}" StrokeThickness="1.4"
                               StrokeLineCap="Round" StrokeJoin="Round"
                               Data="{StaticResource GeoRefresh}"
                               IsVisible="{Binding !IsLoading}" />
-                        <Path Classes="Spinner" Width="14" Height="14" Stretch="Uniform"
+                            <Path Classes="Spinner" Width="14" Height="14" Stretch="Uniform"
                               HorizontalAlignment="Center" VerticalAlignment="Center"
                               Stroke="{DynamicResource Text2Brush}" StrokeThickness="1.6"
                               StrokeLineCap="Round"
                               Data="{StaticResource GeoSpinner}"
                               Classes.run="{Binding IsLoading}"
                               IsVisible="{Binding IsLoading}" />
-                    </Panel>
-                </Button>
+                        </Panel>
+                    </Button>
+                </StackPanel>
             </StackPanel>
-        </StackPanel>
-        <!-- 统计：卡片色底 + 轻投影；与左侧问候顶部对齐；按钮区已移至左侧时间行下方 -->
-        <StackPanel Grid.Column="1" VerticalAlignment="Top" Margin="16,0,0,0" Spacing="12">
-            <!-- 环境概览：温湿度聚合 + 耗材提醒，明细进弹窗；统计卡下方，底部右对齐 -->
-            <WrapPanel Margin="0,0,0,0" IsVisible="{Binding ShowEnvOverview}" HorizontalAlignment="Right">
-                <Border Classes="EnvPill" Margin="0,0,8,6">
-                    <StackPanel Orientation="Horizontal" Spacing="6">
-                        <TextBlock Classes="EnvLab" Text="温度" />
-                        <TextBlock Classes="EnvVal" Text="{Binding EnvTemperatureText}" />
-                    </StackPanel>
-                </Border>
-                <Border Classes="EnvPill" Margin="0,0,8,6">
-                    <StackPanel Orientation="Horizontal" Spacing="6">
-                        <TextBlock Classes="EnvLab" Text="湿度" />
-                        <TextBlock Classes="EnvVal" Text="{Binding EnvHumidityText}" />
-                    </StackPanel>
-                </Border>
-                <Border Classes="EnvPill" Margin="0,0,8,6"
+            <!-- 统计：卡片色底 + 轻投影；与左侧问候顶部对齐；按钮区已移至左侧时间行下方 -->
+            <StackPanel Grid.Column="1" VerticalAlignment="Top" Margin="16,0,0,0" Spacing="12">
+                <!-- 环境概览：温湿度聚合 + 耗材提醒，明细进弹窗；统计卡下方，底部右对齐 -->
+                <WrapPanel Margin="0,0,0,0" IsVisible="{Binding ShowEnvOverview}" HorizontalAlignment="Right">
+                    <Border Classes="EnvPill" Margin="0,0,8,6">
+                        <StackPanel Orientation="Horizontal" Spacing="6">
+                            <TextBlock Classes="EnvLab" Text="温度" />
+                            <TextBlock Classes="EnvVal" Text="{Binding EnvTemperatureText}" />
+                        </StackPanel>
+                    </Border>
+                    <Border Classes="EnvPill" Margin="0,0,8,6">
+                        <StackPanel Orientation="Horizontal" Spacing="6">
+                            <TextBlock Classes="EnvLab" Text="湿度" />
+                            <TextBlock Classes="EnvVal" Text="{Binding EnvHumidityText}" />
+                        </StackPanel>
+                    </Border>
+                    <Border Classes="EnvPill" Margin="0,0,8,6"
                         Classes.is-warn="{Binding HasConsumableWarning}">
-                    <TextBlock Classes="EnvVal" Classes.is-warn="{Binding HasConsumableWarning}"
+                        <TextBlock Classes="EnvVal" Classes.is-warn="{Binding HasConsumableWarning}"
                                Text="{Binding ConsumablePillText}" />
-                </Border>
-                <Button Classes="BtnGhost" Margin="0,0,0,6" Height="28" Padding="12,0"
+                    </Border>
+                    <Button Classes="BtnGhost" Margin="0,0,0,6" Height="28" Padding="12,0"
                         FontSize="12" VerticalAlignment="Center"
-                        Content="查看明细"
+                        Content="明细"
                         Command="{Binding OpenEnvDetailCommand}" />
-            </WrapPanel>
-            <StackPanel Orientation="Horizontal" Spacing="10" HorizontalAlignment="Right">
-                <Border CornerRadius="16" Padding="16,13" MinWidth="96"
+                </WrapPanel>
+                <StackPanel Orientation="Horizontal" Spacing="10" HorizontalAlignment="Right">
+                    <Border CornerRadius="16" Padding="16,13" MinWidth="96"
                             Background="{DynamicResource CardBrush}"
                             BoxShadow="0 1 2 0 #050F172A, 0 5 16 0 #080F172A">
-                    <StackPanel Spacing="6">
-                        <StackPanel Orientation="Horizontal" Spacing="6">
-                            <Ellipse Width="5" Height="5" VerticalAlignment="Center"
+                        <StackPanel Spacing="6">
+                            <StackPanel Orientation="Horizontal" Spacing="6">
+                                <Ellipse Width="5" Height="5" VerticalAlignment="Center"
                                          Fill="{DynamicResource StatGreenBrush}" />
-                            <TextBlock Text="在线设备" FontSize="11"
+                                <TextBlock Text="在线设备" FontSize="11"
                                            Foreground="{DynamicResource Text3Brush}" />
-                        </StackPanel>
-                        <StackPanel Orientation="Horizontal" Spacing="4" VerticalAlignment="Bottom">
-                            <TextBlock Text="{Binding OnlineCount}" FontSize="21" FontWeight="SemiBold"
+                            </StackPanel>
+                            <StackPanel Orientation="Horizontal" Spacing="4" VerticalAlignment="Bottom">
+                                <TextBlock Text="{Binding OnlineCount}" FontSize="21" FontWeight="SemiBold"
                                           Foreground="{DynamicResource StatGreenBrush}" />
-                            <TextBlock Text="{Binding TotalText}" FontSize="11.5" FontWeight="SemiBold"
+                                <TextBlock Text="{Binding TotalText}" FontSize="11.5" FontWeight="SemiBold"
                                           Foreground="{DynamicResource Text3Brush}" VerticalAlignment="Bottom"
                                           Margin="0,0,0,3" />
+                            </StackPanel>
                         </StackPanel>
-                    </StackPanel>
-                </Border>
-                <Border CornerRadius="16" Padding="16,13" MinWidth="96"
+                    </Border>
+                    <Border CornerRadius="16" Padding="16,13" MinWidth="96"
                             Background="{DynamicResource CardBrush}"
                             BoxShadow="0 1 2 0 #050F172A, 0 5 16 0 #080F172A">
-                    <StackPanel Spacing="6">
-                        <StackPanel Orientation="Horizontal" Spacing="6">
-                            <Ellipse Width="5" Height="5" VerticalAlignment="Center"
+                        <StackPanel Spacing="6">
+                            <StackPanel Orientation="Horizontal" Spacing="6">
+                                <Ellipse Width="5" Height="5" VerticalAlignment="Center"
                                          Fill="{DynamicResource StatPurpleBrush}" />
-                            <TextBlock Text="已开启" FontSize="11"
+                                <TextBlock Text="已开启" FontSize="11"
                                            Foreground="{DynamicResource Text3Brush}" />
-                        </StackPanel>
-                        <TextBlock Text="{Binding OnCount}" FontSize="21" FontWeight="SemiBold"
+                            </StackPanel>
+                            <TextBlock Text="{Binding OnCount}" FontSize="21" FontWeight="SemiBold"
                                        Foreground="{DynamicResource StatPurpleBrush}" />
-                    </StackPanel>
-                </Border>
-                <Border CornerRadius="16" Padding="16,13" MinWidth="96"
+                        </StackPanel>
+                    </Border>
+                    <Border CornerRadius="16" Padding="16,13" MinWidth="96"
                             Background="{DynamicResource CardBrush}"
                             BoxShadow="0 1 2 0 #050F172A, 0 5 16 0 #080F172A">
-                    <StackPanel Spacing="6">
-                        <StackPanel Orientation="Horizontal" Spacing="6">
-                            <Ellipse Width="5" Height="5" VerticalAlignment="Center"
+                        <StackPanel Spacing="6">
+                            <StackPanel Orientation="Horizontal" Spacing="6">
+                                <Ellipse Width="5" Height="5" VerticalAlignment="Center"
                                          Fill="{DynamicResource StatBlueBrush}" />
-                            <TextBlock Text="房间" FontSize="11"
+                                <TextBlock Text="房间" FontSize="11"
                                            Foreground="{DynamicResource Text3Brush}" />
-                        </StackPanel>
-                        <TextBlock Text="{Binding RoomCount}" FontSize="21" FontWeight="SemiBold"
+                            </StackPanel>
+                            <TextBlock Text="{Binding RoomCount}" FontSize="21" FontWeight="SemiBold"
                                        Foreground="{DynamicResource StatBlueBrush}" />
-                    </StackPanel>
-                </Border>
-                <Border CornerRadius="16" Padding="16,13" MinWidth="96"
+                        </StackPanel>
+                    </Border>
+                    <Border CornerRadius="16" Padding="16,13" MinWidth="96"
                             Background="{DynamicResource CardBrush}"
                             BoxShadow="0 1 2 0 #050F172A, 0 5 16 0 #080F172A">
-                    <StackPanel Spacing="6">
-                        <StackPanel Orientation="Horizontal" Spacing="6">
-                            <Ellipse Width="5" Height="5" VerticalAlignment="Center"
+                        <StackPanel Spacing="6">
+                            <StackPanel Orientation="Horizontal" Spacing="6">
+                                <Ellipse Width="5" Height="5" VerticalAlignment="Center"
                                          Fill="{DynamicResource StatPinkBrush}" />
-                            <TextBlock Text="场景" FontSize="11"
+                                <TextBlock Text="场景" FontSize="11"
                                            Foreground="{DynamicResource Text3Brush}" />
-                        </StackPanel>
-                        <TextBlock Text="{Binding SceneCount}" FontSize="21" FontWeight="SemiBold"
+                            </StackPanel>
+                            <TextBlock Text="{Binding SceneCount}" FontSize="21" FontWeight="SemiBold"
                                        Foreground="{DynamicResource StatPinkBrush}" />
-                    </StackPanel>
-                </Border>
+                        </StackPanel>
+                    </Border>
+                </StackPanel>
             </StackPanel>
-        </StackPanel>
-    </Grid>
-    <!-- 快捷场景：标题行右侧「更多」进场景页；没有场景时整条不出现 -->
-    <Grid ColumnDefinitions="*,Auto" IsVisible="{Binding ShowQuickScenes}">
-        <TextBlock Classes="SecTitle" Text="快捷场景" VerticalAlignment="Center" />
-        <Button Grid.Column="1" Classes="BtnGhost" Content="更多"
+        </Grid>
+        <!-- 快捷场景：标题行右侧「更多」进场景页；没有场景时整条不出现 -->
+        <Grid ColumnDefinitions="*,Auto" IsVisible="{Binding ShowQuickScenes}">
+            <TextBlock Classes="SecTitle" Text="快捷场景" VerticalAlignment="Center" />
+            <Button Grid.Column="1" Classes="BtnGhost" Content="更多"
                 Height="28" Padding="12,0" FontSize="12" VerticalAlignment="Center"
                 IsVisible="{Binding HasScenes}" ToolTip.Tip="查看全部场景"
                 Click="OnGotoScenes" />
-    </Grid>
-    <!-- 默认只显示一行，其余场景进场景页查看 -->
-    <ItemsControl ItemsSource="{Binding SceneItems}" ItemTemplate="{StaticResource SceneMiniTemplate}"
+        </Grid>
+        <!-- 默认只显示一行，其余场景进场景页查看 -->
+        <ItemsControl ItemsSource="{Binding SceneItems}" ItemTemplate="{StaticResource SceneMiniTemplate}"
                   IsVisible="{Binding HasScenes}">
-        <ItemsControl.ItemsPanel>
-            <ItemsPanelTemplate>
-                <ctl:AdaptiveGridPanel MinItemWidth="180" Spacing="0" MaxRows="1" />
-            </ItemsPanelTemplate>
-        </ItemsControl.ItemsPanel>
-    </ItemsControl>
-    <!-- 场景首次拉取：先铺一行骨架，到货后整块换成真卡片 -->
-    <ItemsControl ItemsSource="{Binding SkeletonSlots}"
-                  ItemTemplate="{StaticResource SceneSkeletonTemplate}"
-                  IsVisible="{Binding ShowSceneSkeleton}">
-        <ItemsControl.ItemsPanel>
-            <ItemsPanelTemplate>
-                <ctl:AdaptiveGridPanel MinItemWidth="180" Spacing="0" MaxRows="1" />
-            </ItemsPanelTemplate>
-        </ItemsControl.ItemsPanel>
-    </ItemsControl>
-    <!-- 首次拉取：先铺骨架宫格，设备一到就整块换成真卡片 -->
-    <StackPanel IsVisible="{Binding ShowSkeleton}">
-        <StackPanel Orientation="Horizontal" Spacing="10" Margin="2,26,0,12">
-            <Path Classes="Spinner" Width="15" Height="15" Stretch="Uniform"
-                  Stroke="{DynamicResource Accent2Brush}" StrokeThickness="2.4"
-                  StrokeLineCap="Round" Data="{StaticResource GeoSpinner}"
-                  Classes.run="{Binding ShowSkeleton}" />
-            <TextBlock Classes="SecTitle" Margin="0" Text="正在从米家云端获取设备…" />
-        </StackPanel>
-        <ItemsControl ItemsSource="{Binding SkeletonSlots}"
-                      ItemTemplate="{StaticResource SkeletonCardTemplate}">
             <ItemsControl.ItemsPanel>
                 <ItemsPanelTemplate>
-                    <ctl:AdaptiveGridPanel MinItemWidth="240" Spacing="0" />
+                    <ctl:AdaptiveGridPanel MinItemWidth="180" Spacing="0" MaxRows="1" />
                 </ItemsPanelTemplate>
             </ItemsControl.ItemsPanel>
         </ItemsControl>
-    </StackPanel>
-    <!-- 空家：设备与场景都没有时，用空提示替代空分组 -->
-    <views:EmptyState IsVisible="{Binding ShowHomeEmpty}"
+        <!-- 场景首次拉取：先铺一行骨架，到货后整块换成真卡片 -->
+        <ItemsControl ItemsSource="{Binding SkeletonSlots}"
+                  ItemTemplate="{StaticResource SceneSkeletonTemplate}"
+                  IsVisible="{Binding ShowSceneSkeleton}">
+            <ItemsControl.ItemsPanel>
+                <ItemsPanelTemplate>
+                    <ctl:AdaptiveGridPanel MinItemWidth="180" Spacing="0" MaxRows="1" />
+                </ItemsPanelTemplate>
+            </ItemsControl.ItemsPanel>
+        </ItemsControl>
+        <!-- 首次拉取：先铺骨架宫格，设备一到就整块换成真卡片 -->
+        <StackPanel IsVisible="{Binding ShowSkeleton}">
+            <StackPanel Orientation="Horizontal" Spacing="10" Margin="2,26,0,12">
+                <Path Classes="Spinner" Width="15" Height="15" Stretch="Uniform"
+                  Stroke="{DynamicResource Accent2Brush}" StrokeThickness="2.4"
+                  StrokeLineCap="Round" Data="{StaticResource GeoSpinner}"
+                  Classes.run="{Binding ShowSkeleton}" />
+                <TextBlock Classes="SecTitle" Margin="0" Text="正在从米家云端获取设备…" />
+            </StackPanel>
+            <ItemsControl ItemsSource="{Binding SkeletonSlots}"
+                      ItemTemplate="{StaticResource SkeletonCardTemplate}">
+                <ItemsControl.ItemsPanel>
+                    <ItemsPanelTemplate>
+                        <ctl:AdaptiveGridPanel MinItemWidth="240" Spacing="0" />
+                    </ItemsPanelTemplate>
+                </ItemsControl.ItemsPanel>
+            </ItemsControl>
+        </StackPanel>
+        <!-- 空家：设备与场景都没有时，用空提示替代空分组 -->
+        <views:EmptyState IsVisible="{Binding ShowHomeEmpty}"
                       Icon="{StaticResource GeoHome}"
                       Title="家里还是空的"
                       Description="在米家 App 添加设备或场景，这里会自动同步" />
-    <!-- 按房间分组 -->
-    <ItemsControl ItemsSource="{Binding HomeGroups}" IsVisible="{Binding !ShowSkeleton}">
-        <ItemsControl.ItemTemplate>
-            <DataTemplate x:DataType="m:DeviceGroup">
-                <StackPanel>
-                    <TextBlock Classes="SecTitle" Text="{Binding TitleText}" />
-                    <ItemsControl ItemsSource="{Binding Items}"
-                                  ItemTemplate="{StaticResource DeviceCardTemplate}">
-                        <ItemsControl.ItemsPanel>
-                            <ItemsPanelTemplate>
-                                <ctl:AdaptiveGridPanel MinItemWidth="240" Spacing="0" />
-                            </ItemsPanelTemplate>
-                        </ItemsControl.ItemsPanel>
-                    </ItemsControl>
-                </StackPanel>
-            </DataTemplate>
-        </ItemsControl.ItemTemplate>
-    </ItemsControl>
+        <!-- 按房间分组 -->
+        <ItemsControl ItemsSource="{Binding HomeGroups}" IsVisible="{Binding !ShowSkeleton}">
+            <ItemsControl.ItemTemplate>
+                <DataTemplate x:DataType="m:DeviceGroup">
+                    <StackPanel>
+                        <TextBlock Classes="SecTitle" Text="{Binding TitleText}" />
+                        <!-- 虚拟化：每组卡片仅生成视口内的可视树 -->
+                        <ItemsControl ItemsSource="{Binding Items}"
+                                      ItemTemplate="{StaticResource DeviceCardTemplate}">
+                            <ItemsControl.ItemsPanel>
+                                <ItemsPanelTemplate>
+                                    <!-- 虚拟化自适应网格：每组仅生成视口内可见的卡片容器 -->
+                                    <ctl:VirtualizingAdaptiveGridPanel MinItemWidth="240" Spacing="0" />
+                                </ItemsPanelTemplate>
+                            </ItemsControl.ItemsPanel>
+                        </ItemsControl>
+                    </StackPanel>
+                </DataTemplate>
+            </ItemsControl.ItemTemplate>
+        </ItemsControl>
     </StackPanel>
 </UserControl>

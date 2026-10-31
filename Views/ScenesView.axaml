@@ -1,0 +1,31 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:m="clr-namespace:MiHome.Models"
+             xmlns:vm="clr-namespace:MiHome.ViewModels"
+             xmlns:ctl="clr-namespace:MiHome.Controls"
+             xmlns:views="clr-namespace:MiHome.Views"
+             x:Class="MiHome.Views.ScenesView">
+    <StackPanel x:DataType="vm:MainViewModel">
+    <Grid ColumnDefinitions="*,Auto" Margin="0,0,0,18">
+        <StackPanel>
+            <TextBlock Text="我的场景" FontSize="19" FontWeight="Bold"
+                       Foreground="{DynamicResource TextBrush}" />
+            <TextBlock Text="点击卡片右下角播放按钮即可执行" FontSize="12.5" Margin="0,5,0,0"
+                       Foreground="{DynamicResource Text3Brush}" />
+        </StackPanel>
+        <Button Grid.Column="1" Classes="BtnGhost" Content="刷新" VerticalAlignment="Top"
+                Command="{Binding LoadDevicesCommand}" IsEnabled="{Binding !IsLoading}" />
+    </Grid>
+    <ItemsControl ItemsSource="{Binding SceneItems}" ItemTemplate="{StaticResource SceneBigTemplate}">
+        <ItemsControl.ItemsPanel>
+            <ItemsPanelTemplate>
+                <ctl:AdaptiveGridPanel MinItemWidth="260" Spacing="0" />
+            </ItemsPanelTemplate>
+        </ItemsControl.ItemsPanel>
+    </ItemsControl>
+    <views:EmptyState IsVisible="{Binding ShowSceneEmpty}"
+                      Icon="{StaticResource GeoScene}"
+                      Title="还没有场景"
+                      Description="在米家 App 创建场景后，会同步到这里" />
+    </StackPanel>
+</UserControl>

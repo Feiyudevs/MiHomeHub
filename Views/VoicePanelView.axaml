@@ -1,0 +1,75 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:m="clr-namespace:MiHome.Models"
+             xmlns:vm="clr-namespace:MiHome.ViewModels"
+             xmlns:ctl="clr-namespace:MiHome.Controls"
+             x:Class="MiHome.Views.VoicePanelView"
+             x:DataType="vm:MainViewModel">
+    <Border x:Name="VoicePanel" Classes="VoicePanel" Width="344"
+            HorizontalAlignment="Right" VerticalAlignment="Top" Margin="0,2,262,0"
+            Opacity="0" IsVisible="False">
+        <Border.RenderTransform>
+            <TranslateTransform Y="0" />
+        </Border.RenderTransform>
+        <StackPanel Spacing="10">
+            <!-- 头部：声纹徽标 + 名称 + 音箱下拉（复用设置里的 OptionPicker） -->
+            <Grid ColumnDefinitions="Auto,*,Auto">
+                <Border Width="32" Height="32" CornerRadius="10"
+                        Background="{DynamicResource AccentSoftBrush}"
+                        VerticalAlignment="Center">
+                    <ctl:VoiceBars Width="16" Height="16" HorizontalAlignment="Center"
+                                   VerticalAlignment="Center"
+                                   BarBrush="{DynamicResource Accent2Brush}"
+                                   IsActive="{Binding IsVoiceOpen}"
+                                   IsBusy="{Binding IsVoiceSending}" />
+                </Border>
+                <StackPanel Grid.Column="1" Margin="10,0,8,0" VerticalAlignment="Center" Spacing="1">
+                    <TextBlock Text="小爱同学" FontSize="13.5" FontWeight="SemiBold"
+                               Foreground="{DynamicResource TextBrush}" />
+                    <TextBlock Classes="Hint Sub" FontSize="11" Text="下发指令的音箱" />
+                </StackPanel>
+                <ctl:OptionPicker Grid.Column="2" VerticalAlignment="Center" MaxWidth="146"
+                                  ToolTip.Tip="切换下发指令的音箱"
+                                  Options="{Binding SpeakerOptions}"
+                                  SelectedValue="{Binding SelectedSpeakerValue, Mode=TwoWay}" />
+            </Grid>
+            <!-- 输入 + 发送同行，发送收成图标按钮，把宽度让给输入框 -->
+            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8" Margin="0,2,0,0">
+                <TextBox Classes="VoiceInput" Watermark="说点什么，例如「打开客厅灯」"
+                         Text="{Binding VoiceText, Mode=TwoWay}" KeyDown="OnVoiceKeyDown" />
+                <Button Grid.Column="1" Classes="BtnPrimary" Width="38" Height="38"
+                        Padding="0" MinWidth="0" ToolTip.Tip="发送指令"
+                        Command="{Binding SendVoiceCommand}"
+                        IsEnabled="{Binding !IsVoiceSending}">
+                    <Path Classes="SendIcon" Classes.run="{Binding IsVoiceSending}"
+                          Width="16" Height="16" Stretch="Uniform"
+                          HorizontalAlignment="Center" VerticalAlignment="Center"
+                          Stroke="White" StrokeThickness="1.6"
+                          StrokeLineCap="Round" StrokeJoin="Round"
+                          Data="{StaticResource GeoSend}" />
+                </Button>
+            </Grid>
+            <!-- 反馈：圆点 + 文案，成功绿点 / 出错琥珀点 -->
+            <Border Classes="VoiceFeed" IsVisible="{Binding HasVoiceHint}">
+                <StackPanel Orientation="Horizontal" Spacing="7">
+                    <Panel Width="6" Height="6" VerticalAlignment="Center">
+                        <Ellipse Width="6" Height="6" Fill="{DynamicResource StatGreenBrush}"
+                                 IsVisible="{Binding !VoiceHintIsError}" />
+                        <Ellipse Width="6" Height="6" Fill="{DynamicResource AmberBrush}"
+                                 IsVisible="{Binding VoiceHintIsError}" />
+                    </Panel>
+                    <TextBlock Classes="VoiceHint" Classes.is-warn="{Binding VoiceHintIsError}"
+                               Text="{Binding VoiceHint}" TextWrapping="Wrap" />
+                </StackPanel>
+            </Border>
+            <!-- 底部说明：仅在无反馈时显示，避免堆叠 -->
+            <StackPanel Orientation="Horizontal" Spacing="5" HorizontalAlignment="Center"
+                        IsVisible="{Binding !HasVoiceHint}">
+                <Path Width="9" Height="9" Stretch="Uniform" VerticalAlignment="Center"
+                      Stroke="{DynamicResource Text3Brush}" StrokeThickness="1.4"
+                      StrokeLineCap="Round" Data="{StaticResource GeoLock}" />
+                <TextBlock Classes="Hint" FontSize="11" Text="下发到所选音箱执行，不会录音" />
+            </StackPanel>
+        </StackPanel>
+    </Border>
+</UserControl>

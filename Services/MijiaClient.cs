@@ -14,7 +14,7 @@ namespace MiHome.Services;
 /// 米家云端 API 客户端（api.mijia.tech/app）
 /// 所有请求走 BuildEncParams 加密签名。
 /// </summary>
-public class MijiaClient
+public class MijiaClient : IDisposable
 {
     private const string ApiBase = "https://api.mijia.tech/app";
     private const string SceneListUri = "/appgateway/miot/appsceneservice/AppSceneService/GetSimpleSceneList";
@@ -541,5 +541,15 @@ public class MijiaClient
             return r.TryGetProperty("value", out var v) && v.GetBoolean();
         }
         catch { return false; }
+    }
+
+    /// <summary>
+    /// 释放底层 HttpClient 与其连接池。每次登录/重登都会新建一个 MijiaClient，
+    /// 不复用也不释放就会把旧会话的 socket 与 handler 一直挂在进程里；退出登录、
+    /// 切换账号时务必 Dispose，否则常驻内存随登录次数线性增长。
+    /// </summary>
+    public void Dispose()
+    {
+        try { _http.Dispose(); } catch { }
     }
 }

@@ -70,6 +70,23 @@ public static class MijiaIconService
             ? Task.FromResult<Bitmap?>(null)
             : Cache.GetOrAdd(model, LoadAsync);
 
+    /// <summary>
+    /// 退出登录时释放全部已缓存的真机图（Skia 原生像素），并把内存缓存清空，
+    /// 让 GC 把这部分常驻内存收回来。磁盘缓存保留，下次登录仍秒出。
+    /// 进行中的加载任务（Task 尚未结束）不阻塞等待，其位图随后随任务一起被 GC 回收。
+    /// </summary>
+    public static void Reset()
+    {
+        foreach (var task in Cache.Values)
+        {
+            if (task.IsCompleted)
+            {
+                try { task.Result?.Dispose(); } catch { }
+            }
+        }
+        Cache.Clear();
+    }
+
     private static async Task<Bitmap?> LoadAsync(string model)
     {
         try

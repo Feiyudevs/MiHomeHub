@@ -1,0 +1,65 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:m="clr-namespace:MiHome.Models"
+             xmlns:vm="clr-namespace:MiHome.ViewModels"
+             xmlns:ctl="clr-namespace:MiHome.Controls"
+             xmlns:views="clr-namespace:MiHome.Views"
+             x:Class="MiHome.Views.RoomsView">
+    <StackPanel x:DataType="vm:MainViewModel">
+    <!-- 房间横幅 -->
+    <Border CornerRadius="20" Padding="22,20" Margin="0,0,0,18"
+            Background="{DynamicResource BannerBrush}">
+        <Grid ColumnDefinitions="*,Auto">
+            <StackPanel VerticalAlignment="Center">
+                <TextBlock Text="{Binding BannerTitle}" FontSize="19" FontWeight="Bold"
+                           Foreground="{DynamicResource TextBrush}" />
+                <TextBlock Text="{Binding BannerDesc}" FontSize="12.5" Margin="0,6,0,0"
+                           Foreground="{DynamicResource Text2Brush}" />
+                <StackPanel Orientation="Horizontal" Spacing="24" Margin="0,14,0,0">
+                    <StackPanel>
+                        <TextBlock Classes="RbNum" Text="{Binding BannerTotal}" />
+                        <TextBlock Classes="RbLab" Text="设备总数" />
+                    </StackPanel>
+                    <StackPanel>
+                        <TextBlock Classes="RbNum" Text="{Binding BannerOn}"
+                                   Foreground="{DynamicResource GreenBrush}" />
+                        <TextBlock Classes="RbLab" Text="当前开启" />
+                    </StackPanel>
+                    <StackPanel>
+                        <TextBlock Classes="RbNum" Text="{Binding BannerOffline}"
+                                   Foreground="{DynamicResource AmberBrush}" />
+                        <TextBlock Classes="RbLab" Text="离线" />
+                    </StackPanel>
+                </StackPanel>
+            </StackPanel>
+            <Border Grid.Column="1" Width="120" Height="120" CornerRadius="30"
+                    Background="{DynamicResource Surface4Brush}" VerticalAlignment="Center">
+                <Path Width="56" Height="56" Stretch="Uniform"
+                      Stroke="{DynamicResource Text3Brush}" StrokeThickness="1.4"
+                      StrokeLineCap="Round" StrokeJoin="Round" Opacity="0.7"
+                      Data="{StaticResource GeoRooms}" />
+            </Border>
+        </Grid>
+    </Border>
+    <ItemsControl ItemsSource="{Binding SkeletonSlots}"
+                  ItemTemplate="{StaticResource SkeletonCardTemplate}"
+                  IsVisible="{Binding ShowSkeleton}">
+        <ItemsControl.ItemsPanel>
+            <ItemsPanelTemplate>
+                <ctl:AdaptiveGridPanel MinItemWidth="240" Spacing="0" />
+            </ItemsPanelTemplate>
+        </ItemsControl.ItemsPanel>
+    </ItemsControl>
+    <ItemsControl ItemsSource="{Binding Devices}" IsVisible="{Binding !ShowSkeleton}"
+                  ItemTemplate="{StaticResource DeviceCardTemplate}">
+        <ItemsControl.ItemsPanel>
+            <ItemsPanelTemplate>
+                <!-- 虚拟化自适应网格：仅生成视口内可见的卡片容器 -->
+                <ctl:VirtualizingAdaptiveGridPanel MinItemWidth="240" Spacing="0" />
+            </ItemsPanelTemplate>
+        </ItemsControl.ItemsPanel>
+    </ItemsControl>
+    <TextBlock Classes="Hint" Text="该房间暂无匹配设备" HorizontalAlignment="Center"
+               Margin="0,40" IsVisible="{Binding ShowEmptyHint}" />
+    </StackPanel>
+</UserControl>

@@ -8,7 +8,9 @@ using Avalonia.Interactivity;
 using Avalonia.Media;
 using Avalonia.Styling;
 using Avalonia.Threading;
+using Avalonia.VisualTree;
 using System.Threading.Tasks;
+using System.Runtime;
 using MiHome.Services;
 using MiHome.ViewModels;
 
@@ -51,6 +53,71 @@ public partial class MainWindow : Window
         Opened += (_, _) => ApplySavedPlacement();
         // 拖动结束的写盘挂在定时器上，关闭时补一次，避免最后一次变化随静默期丢掉
         Closing += OnClosing;
+    }
+
+    // ======== 特效测试开关：定位内存占用用 ========
+    // 点击标题栏「特效」按钮：关闭所有 BoxShadow + 隐藏环境光晕，并强制 GC；
+    // 再点恢复。用于对比开关前后进程内存，判断阴影/光晕是否是内存大头。
+    private bool _fxOff;
+    private readonly Dictionary<Border, BoxShadows> _savedShadows = new();
+
+    private void OnToggleFxClick(object? sender, RoutedEventArgs e)
+    {
+        _fxOff = !_fxOff;
+        if (_fxOff)
+            DisableEffects();
+        else
+            RestoreEffects();
+
+        // 虚拟化滚动新 realize 的卡片会重新带上样式阴影，延迟再兜底扫两轮
+        Dispatcher.UIThread.Post(ReapplyIfOff, DispatcherPriority.Background);
+        Dispatcher.UIThread.Post(ReapplyIfOff, DispatcherPriority.Background);
+
+        ForceGc();
+
+        ToolTip.SetTip(FxBadge, _fxOff
+            ? "特效已关闭（阴影/光晕），点击恢复"
+            : "测试：关闭所有阴影/光晕并强制回收内存（再点恢复）");
+        FxBadge.Opacity = _fxOff ? 0.45 : 1.0;
+    }
+
+    private void ReapplyIfOff()
+    {
+        if (_fxOff) DisableEffects();
+    }
+
+    private void DisableEffects()
+    {
+        foreach (var border in this.GetVisualDescendants().OfType<Border>())
+        {
+            var shadow = border.BoxShadow;
+            if (shadow.Count == 0)
+                continue;
+            if (!_savedShadows.ContainsKey(border))
+                _savedShadows[border] = shadow;
+            border.BoxShadow = default;
+        }
+
+        if (AmbientGlow is not null)
+            AmbientGlow.IsVisible = false;
+    }
+
+    private void RestoreEffects()
+    {
+        foreach (var kv in _savedShadows)
+            kv.Key.BoxShadow = kv.Value;
+        _savedShadows.Clear();
+
+        if (AmbientGlow is not null)
+            AmbientGlow.IsVisible = true;
+    }
+
+    private static void ForceGc()
+    {
+        GCSettings.LargeObjectHeapCompactionMode = GCLargeObjectHeapCompactionMode.CompactOnce;
+        GC.Collect(2, GCCollectionMode.Aggressive, blocking: true, compacting: true);
+        GC.WaitForPendingFinalizers();
+        GC.Collect(2, GCCollectionMode.Aggressive, blocking: true, compacting: true);
     }
 
     // 托盘「退出」才真正结束进程；点关闭按钮只是收进托盘
@@ -254,17 +321,6 @@ public partial class MainWindow : Window
         Vm?.OpenSettingsCommand.Execute(null);
     }
 
-    private async void OnCopyLog(object? sender, RoutedEventArgs e)
-    {
-        if (Vm != null && !string.IsNullOrEmpty(Vm.LogText) && Clipboard != null)
-            await Clipboard.SetTextAsync(Vm.LogText);
-    }
-
-    private void OnClearLog(object? sender, RoutedEventArgs e)
-    {
-        if (Vm != null) Vm.LogText = "";
-    }
-
     private void OnGotoRooms(object? sender, RoutedEventArgs e)
     {
         if (Vm != null) Vm.SelectedNavIndex = 1;
@@ -296,13 +352,6 @@ public partial class MainWindow : Window
         if (e.Key != Key.Escape) return;
         e.Handled = true; // 不让窗口级 Escape 顺手关掉其他浮层
         SetSearchOpen(false);
-    }
-
-    private void OnVoiceKeyDown(object? sender, KeyEventArgs e)
-    {
-        if (e.Key != Key.Enter) return;
-        e.Handled = true; // 回车直接发送，不插入换行
-        Vm?.SendVoiceCommand.Execute(null);
     }
 
     private void OnSearchLostFocus(object? sender, RoutedEventArgs e)
@@ -367,61 +416,9 @@ public partial class MainWindow : Window
                 if (args.PropertyName == nameof(MainViewModel.IsDrawerOpen))
                     Dispatcher.UIThread.Post(() => AnimateDeviceDrawer(vm.IsDrawerOpen));
                 if (args.PropertyName == nameof(MainViewModel.IsVoiceOpen))
-                    Dispatcher.UIThread.Post(() => AnimateVoicePanel(vm.IsVoiceOpen));
+                    Dispatcher.UIThread.Post(() => VoicePanelView?.Animate(vm.IsVoiceOpen));
             };
-            // 浮层可见性由动画接管，XAML 里默认是隐藏的；若初始就是打开状态则直接落位
-            if (vm.IsVoiceOpen)
-            {
-                VoicePanel.IsVisible = true;
-                VoicePanel.Opacity = 1;
-            }
         }
-    }
-
-    /// <summary>
-    /// 小爱指令浮层开合：打开时淡入并从标题栏下方轻落，关闭时反向收起后再隐藏，
-    /// 避免收起过程中残留的浮层挡住下面的点击。
-    /// </summary>
-    private void AnimateVoicePanel(bool open)
-    {
-        var panel = VoicePanel;
-        if (panel.RenderTransform is not TranslateTransform tx) return;
-
-        var duration = TimeSpan.FromMilliseconds(open ? 240 : 160);
-        Easing ease = open ? new CubicEaseOut() : new CubicEaseIn();
-        var fromY = open ? -8d : tx.Y;
-        var toY = open ? 0d : -8d;
-        var fromOpacity = open ? 0d : panel.Opacity;
-        var toOpacity = open ? 1d : 0d;
-
-        panel.IsVisible = true;
-        tx.Y = fromY;
-
-        var slide = new Animation
-        {
-            Duration = duration,
-            Easing = ease,
-            FillMode = FillMode.Forward
-        };
-        slide.Children.Add(new KeyFrame
-        {
-            Cue = new Cue(0d),
-            Setters = { new Setter(TranslateTransform.YProperty, fromY) }
-        });
-        slide.Children.Add(new KeyFrame
-        {
-            Cue = new Cue(1d),
-            Setters = { new Setter(TranslateTransform.YProperty, toY) }
-        });
-
-        _ = FadeAnimation(fromOpacity, toOpacity, duration, ease).RunAsync(panel);
-        _ = slide.RunAsync(panel).ContinueWith(_ =>
-            Dispatcher.UIThread.Post(() =>
-            {
-                // 收起动画结束后若用户又打开了，就保持可见（以 VM 的当前状态为准）
-                if (!open && Vm?.IsVoiceOpen != true) panel.IsVisible = false;
-                tx.Y = 0;
-            }));
     }
 
     /// <summary>
@@ -430,52 +427,32 @@ public partial class MainWindow : Window
     /// </summary>
     private void AnimateDeviceDrawer(bool open)
     {
-        var drawer = DeviceDrawer;
         var mask = DeviceMask;
         var maskLight = DeviceMaskLight;
-        var tx = drawer?.RenderTransform as TranslateTransform;
-        if (drawer == null || mask == null || maskLight == null || tx == null) return;
+        if (mask == null || maskLight == null) return;
 
-        const double slide = 430;                    // 抽屉 380 宽 + 10 边距 + 余量，够完全出屏
         var duration = TimeSpan.FromMilliseconds(open ? 300 : 230);
         var ease = new CubicEaseOut();
 
-        // 打开：先显示（遮罩从透明开始淡入），关闭：保持当前显示直到淡出完成
-        drawer.IsVisible = true;
         mask.IsVisible = true;
         maskLight.IsVisible = true;
-        tx.X = open ? slide : 0;
 
-        // 抽屉滑入 / 滑出（位移动画）
-        var slideAnim = new Animation
-        {
-            Duration = duration,
-            Easing = ease,
-            FillMode = FillMode.Forward
-        };
-        slideAnim.Children.Add(new KeyFrame
-        {
-            Cue = new Cue(1d),
-            Setters = { new Setter(TranslateTransform.XProperty, open ? 0 : slide) }
-        });
-
-        // 两层遮罩淡入 / 淡出（完整关键帧，从明确起点到明确终点）
         var maskAnim = FadeAnimation(open ? 0 : 1, open ? 1 : 0, duration, ease);
         var maskLightAnim = FadeAnimation(open ? 0 : 1, open ? 1 : 0, duration, ease);
 
-        _ = maskAnim.RunAsync(mask);
-        _ = maskLightAnim.RunAsync(maskLight);
-        _ = slideAnim.RunAsync(drawer).ContinueWith(_ =>
+        _ = maskAnim.RunAsync(mask).ContinueWith(_ =>
             Dispatcher.UIThread.Post(() =>
             {
-                tx.X = 0;                            // 复位位移，供下次打开复用
                 if (!open)
                 {
-                    drawer.IsVisible = false;
                     mask.IsVisible = false;
                     maskLight.IsVisible = false;
                 }
             }));
+        _ = maskLightAnim.RunAsync(maskLight);
+
+        // 抽屉本身的滑入 / 滑出动画交给子控件处理
+        DeviceDrawerView?.Animate(open);
     }
 
     /// <summary>构造一个透明度关键帧动画（0% 起、100% 止，FillMode.Forward 保持终值）。</summary>

@@ -1,0 +1,117 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:m="clr-namespace:MiHome.Models"
+             xmlns:vm="clr-namespace:MiHome.ViewModels"
+             xmlns:ctl="clr-namespace:MiHome.Controls"
+             x:Class="MiHome.Views.EnvDetailDialogView"
+             x:DataType="vm:MainViewModel">
+    <ctl:DialogPopup CardWidth="470" CardMaxHeight="660"
+                     Title="环境概览" Subtitle="{Binding EnvSourceText}"
+                     IsOpen="{Binding IsEnvDetailOpen}"
+                     CloseCommand="{Binding CloseEnvDetailCommand}">
+        <StackPanel Spacing="14">
+            <!-- 温湿度大读数：一眼看到全屋聚合值，数值大、单位小 -->
+            <Grid ColumnDefinitions="*,*">
+                <Border Classes="EnvTile">
+                    <StackPanel Spacing="7">
+                        <StackPanel Orientation="Horizontal" Spacing="6">
+                            <Ellipse Width="5" Height="5" VerticalAlignment="Center"
+                                     Fill="{DynamicResource AmberBrush}" />
+                            <TextBlock Classes="EnvTileLab" Text="室内温度" />
+                        </StackPanel>
+                        <StackPanel Orientation="Horizontal" Spacing="2" VerticalAlignment="Bottom">
+                            <TextBlock Classes="EnvTileVal" Text="{Binding EnvTemperatureValue}" />
+                            <TextBlock Classes="EnvTileUnit" Text="{Binding EnvTemperatureUnit}" />
+                        </StackPanel>
+                    </StackPanel>
+                </Border>
+                <Border Grid.Column="1" Classes="EnvTile" Margin="10,0,0,0">
+                    <StackPanel Spacing="7">
+                        <StackPanel Orientation="Horizontal" Spacing="6">
+                            <Ellipse Width="5" Height="5" VerticalAlignment="Center"
+                                     Fill="{DynamicResource BlueBrush}" />
+                            <TextBlock Classes="EnvTileLab" Text="室内湿度" />
+                        </StackPanel>
+                        <StackPanel Orientation="Horizontal" Spacing="2" VerticalAlignment="Bottom">
+                            <TextBlock Classes="EnvTileVal" Text="{Binding EnvHumidityValue}" />
+                            <TextBlock Classes="EnvTileUnit" Text="{Binding EnvHumidityUnit}" />
+                        </StackPanel>
+                    </StackPanel>
+                </Border>
+            </Grid>
+            <!-- 逐设备读数：设备名 + 房间小标签，右侧温度为主、湿度为辅 -->
+            <Border Classes="DrCard">
+                <StackPanel Spacing="10">
+                    <Grid ColumnDefinitions="*,Auto">
+                        <TextBlock Text="各设备读数" FontSize="13" FontWeight="SemiBold"
+                                   Foreground="{DynamicResource Text2Brush}" />
+                        <TextBlock Grid.Column="1" Classes="Hint" VerticalAlignment="Center"
+                                   Text="{Binding EnvReadingsCountText}"
+                                   IsVisible="{Binding HasEnvironment}" />
+                    </Grid>
+                    <ItemsControl ItemsSource="{Binding EnvReadings}" IsVisible="{Binding HasEnvironment}">
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate x:DataType="m:EnvReadingItem">
+                                <Grid ColumnDefinitions="*,Auto" Margin="0,0,0,9">
+                                    <StackPanel Orientation="Horizontal" Spacing="7">
+                                        <TextBlock Text="{Binding Title}" FontSize="12.5"
+                                                   Foreground="{DynamicResource Text2Brush}" />
+                                        <Border Classes="RoomTag">
+                                            <TextBlock Classes="RoomTagTx" Text="{Binding Subtitle}" />
+                                        </Border>
+                                    </StackPanel>
+                                    <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="4"
+                                                VerticalAlignment="Center">
+                                        <TextBlock Text="{Binding Value}" FontSize="13" FontWeight="SemiBold"
+                                                   Foreground="{DynamicResource TextBrush}" />
+                                        <TextBlock Text="{Binding Extra}" FontSize="11.5"
+                                                   Foreground="{DynamicResource Text3Brush}"
+                                                   VerticalAlignment="Bottom" Margin="0,0,0,2"
+                                                   IsVisible="{Binding Extra, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
+                                    </StackPanel>
+                                </Grid>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                    <TextBlock Classes="Hint" Text="暂无温湿度数据，设备上报后会自动出现在这里"
+                               IsVisible="{Binding !HasEnvironment}" />
+                </StackPanel>
+            </Border>
+            <!-- 耗材余量：带进度条，低于 20% 转琥珀色 -->
+            <Border Classes="DrCard" IsVisible="{Binding HasConsumables}">
+                <StackPanel Spacing="12">
+                    <Grid ColumnDefinitions="*,Auto">
+                        <TextBlock Text="耗材余量" FontSize="13" FontWeight="SemiBold"
+                                   Foreground="{DynamicResource Text2Brush}" VerticalAlignment="Center" />
+                        <Border Grid.Column="1" Classes="EnvStatusTag"
+                                Classes.is-warn="{Binding HasConsumableWarning}">
+                            <TextBlock Classes="EnvStatusTx"
+                                       Classes.is-warn="{Binding HasConsumableWarning}"
+                                       Text="{Binding ConsumableStatusText}" />
+                        </Border>
+                    </Grid>
+                    <ItemsControl ItemsSource="{Binding ConsumableItems}">
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate x:DataType="m:ConsumableItem">
+                                <StackPanel Spacing="7" Margin="0,0,0,11">
+                                    <Grid ColumnDefinitions="*,Auto">
+                                        <StackPanel Orientation="Horizontal" Spacing="7">
+                                            <TextBlock Text="{Binding DeviceName}" FontSize="12.5"
+                                                       Foreground="{DynamicResource Text2Brush}" />
+                                            <TextBlock Text="{Binding Desc}" Classes="Hint" FontSize="10.5"
+                                                       VerticalAlignment="Center" />
+                                        </StackPanel>
+                                        <TextBlock Grid.Column="1" Text="{Binding ValueText}"
+                                                   Classes="ConsumeVal" Classes.is-low="{Binding IsLow}" />
+                                    </Grid>
+                                    <ProgressBar Classes="EnvBar" Classes.is-low="{Binding IsLow}"
+                                                 Minimum="0" Maximum="100" Value="{Binding Percent}" />
+                                </StackPanel>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                </StackPanel>
+            </Border>
+        </StackPanel>
+    </ctl:DialogPopup>
+</UserControl>

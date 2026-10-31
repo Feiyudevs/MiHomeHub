@@ -1,0 +1,31 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:m="clr-namespace:MiHome.Models"
+             xmlns:vm="clr-namespace:MiHome.ViewModels"
+             xmlns:ctl="clr-namespace:MiHome.Controls"
+             x:Class="MiHome.Views.LogDialogView"
+             x:DataType="vm:MainViewModel">
+    <ctl:DialogPopup CardWidth="620" CardMaxHeight="600"
+                     Title="操作日志" Subtitle="实时操作与设备响应记录"
+                     IsOpen="{Binding IsLogOpen}"
+                     CloseCommand="{Binding CloseOverlaysCommand}">
+        <StackPanel Spacing="12">
+            <Grid ColumnDefinitions="*,Auto">
+                <TextBlock Text="记录本机控制操作与设备返回，方便排查与回溯。"
+                           Classes="Hint" VerticalAlignment="Center" TextWrapping="Wrap" />
+                <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="6">
+                    <Button Classes="BtnGhost" Content="复制" Click="OnCopyLog" />
+                    <Button Classes="BtnGhost" Content="清空" Click="OnClearLog" />
+                </StackPanel>
+            </Grid>
+            <Border CornerRadius="10"
+                    Background="{DynamicResource Card2Brush}"
+                    BorderBrush="{DynamicResource LineBrush}" BorderThickness="1"
+                    Padding="12">
+                <TextBox Classes="Log" Text="{Binding LogText}"
+                         Height="340" ScrollViewer.VerticalScrollBarVisibility="Auto"
+                         VerticalContentAlignment="Top" />
+            </Border>
+        </StackPanel>
+    </ctl:DialogPopup>
+</UserControl>

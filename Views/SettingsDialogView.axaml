@@ -1,0 +1,161 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:m="clr-namespace:MiHome.Models"
+             xmlns:vm="clr-namespace:MiHome.ViewModels"
+             xmlns:ctl="clr-namespace:MiHome.Controls"
+             x:Class="MiHome.Views.SettingsDialogView"
+             x:DataType="vm:MainViewModel">
+    <ctl:DialogPopup
+                     Title="设置" Subtitle="外观 · 账户与数据"
+                     IsOpen="{Binding IsSettingsOpen}"
+                     CloseCommand="{Binding CloseOverlaysCommand}">
+        <StackPanel>
+            <Grid ColumnDefinitions="*,*" RowDefinitions="Auto,Auto,Auto">
+                <!-- 外观 -->
+                <Border Classes="Card" Margin="0,0,7,14">
+                    <StackPanel Spacing="20">
+                        <TextBlock Text="外观" FontSize="14.5" FontWeight="SemiBold"
+                                   Foreground="{DynamicResource TextBrush}" />
+                        <Grid ColumnDefinitions="Auto,*,Auto">
+                            <Border Classes="SetIc" Background="{DynamicResource PurpleSoftBrush}">
+                                <Path Stroke="{DynamicResource PurpleBrush}" Data="{StaticResource GeoGear}" />
+                            </Border>
+                            <StackPanel Grid.Column="1" Margin="12,0" VerticalAlignment="Center">
+                                <TextBlock Text="主题" FontSize="13.5" FontWeight="SemiBold"
+                                           Foreground="{DynamicResource TextBrush}" />
+                                <TextBlock Text="界面明暗配色" Classes="Hint Sub" Margin="0,2,0,0" />
+                            </StackPanel>
+                            <ctl:OptionPicker Grid.Column="2" VerticalAlignment="Center"
+                                              Options="{Binding ThemeOptions}"
+                                              SelectedValue="{Binding IsDark}" />
+                        </Grid>
+                        <Grid ColumnDefinitions="Auto,*,Auto">
+                            <Border Classes="SetIc" Background="{DynamicResource PurpleSoftBrush}">
+                                <Path Stroke="{DynamicResource PurpleBrush}" Data="{StaticResource GeoGrid}" />
+                            </Border>
+                            <StackPanel Grid.Column="1" Margin="12,0" VerticalAlignment="Center">
+                                <TextBlock Text="侧栏图标" FontSize="13.5" FontWeight="SemiBold"
+                                           Foreground="{DynamicResource TextBrush}" />
+                                <TextBlock Text="导航区图标的画法" Classes="Hint Sub" Margin="0,2,0,0" />
+                            </StackPanel>
+                            <ctl:OptionPicker Grid.Column="2" VerticalAlignment="Center"
+                                              Options="{Binding IconOptions}"
+                                              SelectedValue="{Binding IconGlass}" />
+                        </Grid>
+                    </StackPanel>
+                </Border>
+                <!-- 账户 -->
+                <Border Grid.Column="1" Classes="Card" Margin="7,0,0,14">
+                    <StackPanel Spacing="20">
+                        <TextBlock Text="账户" FontSize="14.5" FontWeight="SemiBold"
+                                   Foreground="{DynamicResource TextBrush}" />
+                        <Grid ColumnDefinitions="Auto,*,Auto">
+                            <Border Classes="SetIc" Background="{DynamicResource AccentSoftBrush}">
+                                <Path Stroke="{DynamicResource Accent2Brush}" Data="{StaticResource GeoLock}" />
+                            </Border>
+                            <StackPanel Grid.Column="1" Margin="12,0" VerticalAlignment="Center">
+                                <TextBlock Text="{Binding StatusText}" FontSize="13.5" FontWeight="SemiBold"
+                                           Foreground="{DynamicResource TextBrush}"
+                                           TextTrimming="CharacterEllipsis" />
+                                <TextBlock Text="凭证仅保存在本机 · 不上传第三方" Classes="Hint Sub" Margin="0,2,0,0" />
+                            </StackPanel>
+                            <!-- 已登录：一键退出；未登录：一键登录或扫码 -->
+                            <Button Grid.Column="2" Classes="BtnGhost" Content="退出登录" VerticalAlignment="Center"
+                                    Command="{Binding LogoutCommand}"
+                                    IsVisible="{Binding IsLoggedIn}" />
+                            <Button Grid.Column="2" Classes="BtnGhost" Content="一键登录" VerticalAlignment="Center"
+                                    Command="{Binding QuickLoginCommand}"
+                                    IsVisible="{Binding ShowQuickLoginAction}" />
+                            <Button Grid.Column="2" Classes="BtnGhost" Content="扫码登录" VerticalAlignment="Center"
+                                    Command="{Binding QrLoginCommand}"
+                                    IsVisible="{Binding ShowQrLoginAction}" />
+                        </Grid>
+                    </StackPanel>
+                </Border>
+                <!-- 数据 -->
+                <Border Grid.Row="2" Classes="Card" Margin="0,14,7,0">
+                    <StackPanel Spacing="20">
+                        <TextBlock Text="设备与场景" FontSize="14.5" FontWeight="SemiBold"
+                                   Foreground="{DynamicResource TextBrush}" />
+                        <Grid ColumnDefinitions="Auto,*,Auto">
+                            <Border Classes="SetIc" Background="{DynamicResource GreenSoftBrush}">
+                                <Path Stroke="{DynamicResource GreenBrush}" Data="{StaticResource GeoRefresh}" />
+                            </Border>
+                            <StackPanel Grid.Column="1" Margin="12,0" VerticalAlignment="Center">
+                                <TextBlock Text="重新拉取" FontSize="13.5" FontWeight="SemiBold"
+                                           Foreground="{DynamicResource TextBrush}" />
+                                <TextBlock Text="从米家云端刷新设备列表与开关状态" Classes="Hint Sub" Margin="0,2,0,0" />
+                            </StackPanel>
+                            <Button Grid.Column="2" Classes="BtnGhost" Content="刷新" VerticalAlignment="Center"
+                                    Command="{Binding LoadDevicesCommand}" IsEnabled="{Binding !IsLoading}" />
+                        </Grid>
+                        <!-- 默认音箱：小爱语音指令的落点，只在有音箱时出现 -->
+                        <Grid ColumnDefinitions="Auto,*,Auto" IsVisible="{Binding HasSpeaker}">
+                            <Border Classes="SetIc" Background="{DynamicResource PurpleSoftBrush}">
+                                <Path Stroke="{DynamicResource PurpleBrush}"
+                                      Data="M12,3 C10,3 8,5 8,7 V12 C8,14 10,16 12,16 C14,16 16,14 16,12 V7 C16,5 14,3 12,3 Z M5,11 C5,15 8,18 12,18 C16,18 19,15 19,11 M12,18 V21 M8,21 H16" />
+                            </Border>
+                            <StackPanel Grid.Column="1" Margin="12,0" VerticalAlignment="Center">
+                                <TextBlock Text="默认音箱" FontSize="13.5" FontWeight="SemiBold"
+                                           Foreground="{DynamicResource TextBrush}" />
+                                <TextBlock Text="语音指令下发到这台小爱音箱" Classes="Hint Sub" Margin="0,2,0,0" />
+                            </StackPanel>
+                            <ctl:OptionPicker Grid.Column="2" VerticalAlignment="Center" MaxWidth="170"
+                                              Options="{Binding SpeakerOptions}"
+                                              SelectedValue="{Binding SelectedSpeakerValue, Mode=TwoWay}" />
+                        </Grid>
+                    </StackPanel>
+                </Border>
+                <!-- 关于 -->
+                <Border Grid.Row="2" Grid.Column="1" Classes="Card" Margin="7,14,0,0">
+                    <StackPanel Spacing="20">
+                        <TextBlock Text="关于" FontSize="14.5" FontWeight="SemiBold"
+                                   Foreground="{DynamicResource TextBrush}" />
+                        <Grid ColumnDefinitions="Auto,*">
+                            <Image Width="34" Height="34" Source="{StaticResource LogoImage}"
+                                   VerticalAlignment="Center" />
+                            <StackPanel Grid.Column="1" Margin="12,0" VerticalAlignment="Center">
+                                <TextBlock Text="米家控制中心 for Windows" FontSize="13.5" FontWeight="SemiBold"
+                                           Foreground="{DynamicResource TextBrush}" />
+                                <TextBlock Text="版本 1.0.0 · 直连米家云端 · by Feiyu" Classes="Hint Sub" Margin="0,2,0,0" />
+                            </StackPanel>
+                        </Grid>
+                    </StackPanel>
+                </Border>
+                <!-- 启动与窗口：开关行并排，开机启动走当前用户 Run 键 -->
+                <Border Grid.Row="1" Grid.ColumnSpan="2" Classes="Card">
+                    <StackPanel Spacing="20">
+                        <TextBlock Text="启动与窗口" FontSize="14.5" FontWeight="SemiBold"
+                                   Foreground="{DynamicResource TextBrush}" />
+                        <Grid ColumnDefinitions="*,*">
+                            <Grid ColumnDefinitions="Auto,*,Auto" Margin="0,0,10,0">
+                                <Border Classes="SetIc" Background="{DynamicResource GreenSoftBrush}">
+                                    <Path Stroke="{DynamicResource GreenBrush}" Data="{StaticResource GeoPower}" />
+                                </Border>
+                                <StackPanel Grid.Column="1" Margin="12,0" VerticalAlignment="Center">
+                                    <TextBlock Text="开机启动" FontSize="13.5" FontWeight="SemiBold"
+                                               Foreground="{DynamicResource TextBrush}" />
+                                    <TextBlock Text="登录 Windows 后静默驻留托盘" Classes="Hint Sub" Margin="0,2,0,0" />
+                                </StackPanel>
+                                <ToggleButton Grid.Column="2" Classes="Switch" VerticalAlignment="Center"
+                                              IsChecked="{Binding AutoStart}" />
+                            </Grid>
+                            <Grid Grid.Column="1" ColumnDefinitions="Auto,*,Auto" Margin="10,0,0,0">
+                                <Border Classes="SetIc" Background="{DynamicResource PurpleSoftBrush}">
+                                    <Path Stroke="{DynamicResource PurpleBrush}" Data="{StaticResource GeoTray}" />
+                                </Border>
+                                <StackPanel Grid.Column="1" Margin="12,0" VerticalAlignment="Center">
+                                    <TextBlock Text="关闭后进托盘" FontSize="13.5" FontWeight="SemiBold"
+                                               Foreground="{DynamicResource TextBrush}" />
+                                    <TextBlock Text="关掉这项后点关闭直接退出应用" Classes="Hint Sub" Margin="0,2,0,0" />
+                                </StackPanel>
+                                <ToggleButton Grid.Column="2" Classes="Switch" VerticalAlignment="Center"
+                                              IsChecked="{Binding CloseToTray}" />
+                            </Grid>
+                        </Grid>
+                    </StackPanel>
+                </Border>
+            </Grid>
+        </StackPanel>
+    </ctl:DialogPopup>
+</UserControl>

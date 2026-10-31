@@ -1,0 +1,49 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:m="clr-namespace:MiHome.Models"
+             xmlns:vm="clr-namespace:MiHome.ViewModels"
+             xmlns:ctl="clr-namespace:MiHome.Controls"
+             x:Class="MiHome.Views.LoginDialogView"
+             x:DataType="vm:MainViewModel">
+    <ctl:DialogPopup CardWidth="420" CardMaxHeight="720"
+                     Title="登录"
+                     IsOpen="{Binding IsLoginOpen}"
+                     CloseCommand="{Binding CloseOverlaysCommand}">
+        <StackPanel>
+            <Border CornerRadius="16" Background="{DynamicResource CardBrush}" Padding="24"
+                    HorizontalAlignment="Center"
+                    IsVisible="{Binding QrImage, Converter={x:Static ObjectConverters.IsNotNull}}">
+                <StackPanel Spacing="18">
+                    <Image Source="{Binding QrImage}" Width="228" Height="228" />
+                    <TextBlock Text="{Binding QrHint}" Classes="Hint" TextWrapping="Wrap"
+                               TextAlignment="Center" />
+                </StackPanel>
+            </Border>
+            <Border CornerRadius="16" Background="{DynamicResource CardBrush}" Padding="24"
+                    HorizontalAlignment="Center"
+                    IsVisible="{Binding QrImage, Converter={x:Static ObjectConverters.IsNull}}">
+                <StackPanel Spacing="18">
+                    <Border Width="228" Height="228" Background="{DynamicResource SurfaceBrush}"
+                            CornerRadius="12" HorizontalAlignment="Center">
+                        <TextBlock Text="二维码获取后显示在这里" Classes="Hint"
+                                   HorizontalAlignment="Center" VerticalAlignment="Center" />
+                    </Border>
+                    <TextBlock Text="{Binding QrHint}" Classes="Hint" TextWrapping="Wrap"
+                               TextAlignment="Center" />
+                </StackPanel>
+            </Border>
+            <!-- 有 passToken 时主推一键登录；仍可改走扫码 -->
+            <Button Classes="BtnPrimary" Content="一键登录" Margin="0,18,0,0"
+                    HorizontalAlignment="Stretch"
+                    Command="{Binding QuickLoginCommand}"
+                    IsVisible="{Binding CanQuickLogin}" />
+            <Button Classes="BtnPrimary" Content="获取二维码" Margin="0,18,0,0"
+                    HorizontalAlignment="Stretch" Command="{Binding QrLoginCommand}"
+                    IsVisible="{Binding !CanQuickLogin}" />
+            <Button Classes="BtnGhost" Content="扫码登录" Margin="0,10,0,0"
+                    HorizontalAlignment="Stretch" Command="{Binding QrLoginCommand}"
+                    IsVisible="{Binding CanQuickLogin}" />
+            <TextBlock Classes="Hint" Text="凭证仅保存在本机" HorizontalAlignment="Center" Margin="0,10,0,0" />
+        </StackPanel>
+    </ctl:DialogPopup>
+</UserControl>
