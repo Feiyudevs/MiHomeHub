@@ -1,6 +1,7 @@
 using System.Windows.Input;
 using Avalonia;
 using Avalonia.Controls;
+using Avalonia.Controls.Primitives;
 using Avalonia.Input;
 using Avalonia.Interactivity;
 
@@ -32,6 +33,10 @@ public class DialogPopup : ContentControl
 
     public static readonly StyledProperty<ICommand?> CloseCommandProperty =
         AvaloniaProperty.Register<DialogPopup, ICommand?>(nameof(CloseCommand));
+
+    /// <summary>标题栏是否可拖动宿主窗口（弹窗宿主是自绘无边框窗时用）。</summary>
+    public static readonly StyledProperty<bool> CanDragProperty =
+        AvaloniaProperty.Register<DialogPopup, bool>(nameof(CanDrag));
 
     public bool IsOpen
     {
@@ -69,11 +74,47 @@ public class DialogPopup : ContentControl
         set => SetValue(CloseCommandProperty, value);
     }
 
-    protected override void OnPointerReleased(PointerReleasedEventArgs e)
+    public bool CanDrag
     {
-        base.OnPointerReleased(e);
+        get => GetValue(CanDragProperty);
+        set => SetValue(CanDragProperty, value);
+    }
+
+    protected override void OnApplyTemplate(TemplateAppliedEventArgs e)
+    {
+        base.OnApplyTemplate(e);
+
+        // 模板里的标题栏（Panel 名为 DialogHeader）负责拖动
+        if (e.NameScope.Find<Control>("DialogHeader") is { } header)
+        {
+            header.PointerPressed -= OnHeaderPressed;
+            header.PointerPressed += OnHeaderPressed;
+            header.Cursor = CanDrag ? new Cursor(StandardCursorType.SizeAll) : Cursor.Default;
+        }
+    }
+
+    private void OnHeaderPressed(object? sender, PointerPressedEventArgs e)
+    {
+        if (!CanDrag) return;
+        if (!e.GetCurrentPoint(this).Properties.IsLeftButtonPressed) return;
+        if (TopLevel.GetTopLevel(this) is not Window win) return;
+
+        win.BeginMoveDrag(e);
+        e.Handled = true;
+    }
+
+    /// <summary>
+    /// 点遮罩关闭。判定放在按下而不是抬起：拖动标题栏移动窗口时，抬起的那一刻光标可能已经在遮罩上，
+    /// 用抬起判定会把「拖完松手」误当成「点了遮罩」，窗口直接被关掉。
+    /// </summary>
+    protected override void OnPointerPressed(PointerPressedEventArgs e)
+    {
+        base.OnPointerPressed(e);
         if (e.Source is Control { Classes: not null } source && source.Classes.Contains(MaskClass))
+        {
+            e.Handled = true;
             Close();
+        }
     }
 
     /// <summary>走宿主给的关闭命令，让遮罩点击与右上角按钮落在同一个出口。</summary>

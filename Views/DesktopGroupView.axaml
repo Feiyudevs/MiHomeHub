@@ -1,0 +1,235 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="clr-namespace:MiHome.ViewModels"
+             xmlns:ctl="clr-namespace:MiHome.Controls"
+             x:Class="MiHome.Views.DesktopGroupView"
+             x:DataType="vm:DesktopGroupVm"
+             ClipToBounds="False">
+
+    <UserControl.Styles>
+        <!-- 内联重命名输入框：与标题同一号字，压掉 Fluent 的加粗描边与内边距，只留一层很淡的凹槽 -->
+        <Style Selector="TextBox.TitleEdit">
+            <Setter Property="Height" Value="22" />
+            <Setter Property="MinWidth" Value="86" />
+            <Setter Property="FontSize" Value="12.5" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+            <Setter Property="Padding" Value="4,0" />
+            <Setter Property="CornerRadius" Value="6" />
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="BorderBrush" Value="Transparent" />
+            <Setter Property="Foreground" Value="{DynamicResource DskTextBrush}" />
+            <Setter Property="CaretBrush" Value="{DynamicResource DskTextBrush}" />
+            <Setter Property="SelectionBrush" Value="{DynamicResource AccentBrush}" />
+            <Setter Property="VerticalContentAlignment" Value="Center" />
+        </Style>
+        <Style Selector="TextBox.TitleEdit /template/ Border#PART_BorderElement">
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="BorderBrush" Value="Transparent" />
+            <Setter Property="CornerRadius" Value="6" />
+        </Style>
+        <Style Selector="TextBox.TitleEdit:pointerover /template/ Border#PART_BorderElement">
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="BorderBrush" Value="Transparent" />
+        </Style>
+        <Style Selector="TextBox.TitleEdit:focus /template/ Border#PART_BorderElement">
+            <Setter Property="Background" Value="#26101018" />
+            <Setter Property="BorderBrush" Value="#55FFFFFF" />
+        </Style>
+        <!-- 标题栏图标按钮：24×24 圆角 7，图标靠居中容器对齐，不依赖模板内边距 -->
+        <Style Selector="Button.DskIcon">
+            <Setter Property="Width" Value="24" />
+            <Setter Property="Height" Value="24" />
+            <Setter Property="Padding" Value="0" />
+            <Setter Property="CornerRadius" Value="7" />
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="BorderThickness" Value="0" />
+            <Setter Property="Focusable" Value="False" />
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="Opacity" Value="0.85" />
+            <Setter Property="Foreground" Value="{DynamicResource DskTextBrush}" />
+            <Setter Property="HorizontalContentAlignment" Value="Center" />
+            <Setter Property="VerticalContentAlignment" Value="Center" />
+            <Setter Property="Transitions">
+                <Transitions>
+                    <DoubleTransition Property="Opacity" Duration="0:0:0.12" />
+                </Transitions>
+            </Setter>
+        </Style>
+        <Style Selector="Button.DskIcon:pointerover">
+            <Setter Property="Opacity" Value="1" />
+        </Style>
+        <Style Selector="Button.DskIcon:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+            <Setter Property="Background" Value="#26FFFFFF" />
+        </Style>
+        <Style Selector="Button.DskIcon:pressed /template/ ContentPresenter#PART_ContentPresenter">
+            <Setter Property="Background" Value="#33FFFFFF" />
+        </Style>
+
+        <!-- 分区里的设备卡：开/关同一种半透明底（不再出现「渐变紫」第二种背景），
+             也不投影 —— 贴桌面窗本身就是一块玻璃，卡片再叠阴影会显脏。
+             主窗口列表里的同一张卡不受影响（那是应用级样式，这里的局部样式优先级更高） -->
+        <Style Selector="Button.DevCard /template/ Border#Card">
+            <Setter Property="Background" Value="{DynamicResource DskCardBrush}" />
+            <Setter Property="BoxShadow" Value="0 0 0 0 #00000000" />
+        </Style>
+        <Style Selector="Button.DevCard.on /template/ Border#Card">
+            <Setter Property="Background" Value="{DynamicResource DskCardBrush}" />
+            <Setter Property="BoxShadow" Value="0 0 0 0 #00000000" />
+        </Style>
+
+        <!-- 卡面是半透明的（透出墙纸），主窗口那套灰压上去读不清：
+             名称用近纯白，房间 / 路数 / 计数用提亮后的次级色（DskText2Brush） -->
+        <Style Selector="Button.DevCard TextBlock.DevName">
+            <Setter Property="Foreground" Value="{DynamicResource DskTextBrush}" />
+        </Style>
+        <Style Selector="Button.DevCard TextBlock.DevMeta">
+            <Setter Property="Foreground" Value="{DynamicResource DskText2Brush}" />
+        </Style>
+        <Style Selector="Button.DevCard TextBlock.DevBadgeText">
+            <Setter Property="Foreground" Value="{DynamicResource DskText2Brush}" />
+        </Style>
+        <!-- 路数角标底色也提亮一档，否则深色角标上的亮字看起来像被糊住 -->
+        <Style Selector="Button.DevCard Border.DevBadge">
+            <Setter Property="Background" Value="#1FFFFFFF" />
+        </Style>
+        <!-- 上面三处文字（名称/房间/路数）在 Templates.axaml 里已改为「样式上色」而非写死本地 Foreground，
+             所以这里的覆盖才会真正生效：桌面分区卡上的文字比主窗口更亮一档，压在磨砂上才读得清 -->
+
+        <!-- 电源键：底色同样半透明，实心深色在磨砂玻璃上会像一块黑板 -->
+        <Style Selector="ToggleButton.Power /template/ Border#Disc">
+            <Setter Property="Background" Value="{DynamicResource DskSwitchBrush}" />
+        </Style>
+        <Style Selector="ToggleButton.Power:checked /template/ Border#Disc">
+            <Setter Property="Background" Value="{DynamicResource PowerOnBrush}" />
+        </Style>
+    </UserControl.Styles>
+
+    <Panel>
+        <!-- CornerRadius 必须 = 8：DWM 圆角固定 8 DIP，两层曲线重合才不会在角部露出硬边 -->
+        <Border Name="Card" CornerRadius="8"
+                Background="{Binding CardBrush}"
+                BorderBrush="{DynamicResource LineBrush}"
+                BorderThickness="1"
+                ClipToBounds="True">
+            <Grid RowDefinitions="Auto,*">
+
+                <!-- ===== 标题栏：拖动区 ===== -->
+                <Border Grid.Row="0" Name="Header" Height="38" Background="Transparent"
+                        PointerPressed="OnHeaderPressed"
+                        PointerMoved="OnHeaderMoved"
+                        PointerReleased="OnHeaderReleased"
+                        PointerCaptureLost="OnHeaderCaptureLost">
+                    <Grid ColumnDefinitions="Auto,*,Auto" Margin="10,0,6,0">
+                        <StackPanel Orientation="Horizontal" Spacing="7" VerticalAlignment="Center">
+                            <Border Width="5" Height="13" CornerRadius="3" VerticalAlignment="Center"
+                                    Background="{DynamicResource Accent2Brush}" />
+                            <!-- 名称：显示态 TextBlock / 编辑态 TextBox 同槽切换（双击名称进入改名） -->
+                            <Grid Name="TitleNameHost" VerticalAlignment="Center" MaxWidth="150">
+                                <TextBlock Name="TitleText" Text="{Binding Name}" FontSize="12.5"
+                                           FontWeight="SemiBold" VerticalAlignment="Center"
+                                           MaxWidth="150" TextTrimming="CharacterEllipsis"
+                                           Foreground="{DynamicResource DskTextBrush}" />
+                                <TextBox Name="TitleEditBox" Classes="TitleEdit" IsVisible="False"
+                                         Watermark="分区名称" />
+                            </Grid>
+                            <Border CornerRadius="999" Height="16" Padding="6,0" VerticalAlignment="Center"
+                                    Background="#1FFFFFFF">
+                                <TextBlock Text="{Binding CountText}" FontSize="10" FontWeight="SemiBold"
+                                           VerticalAlignment="Center"
+                                           Foreground="{DynamicResource DskText2Brush}" />
+                            </Border>
+                        </StackPanel>
+
+                        <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="2"
+                                    VerticalAlignment="Center" HorizontalAlignment="Right">
+                            <!-- 折叠 / 展开：chevron 旋转 90ms，与内容淡出同步。
+                                 图标一律走「Viewbox 缩放的 24 网格 Panel」——Path 单独用 Stretch 时是按几何包围盒
+                                 对齐的，非正方几何（chevron 是 12×6）在框里会偏；套一层 24 网格才真正居中。
+                                 StrokeThickness 用 1.92（24 网格坐标）= 15px 下 1.2px，与主窗口图标同线宽 -->
+                            <Button Name="CollapseBtn" Classes="DskIcon" Click="OnCollapseClick"
+                                    ToolTip.Tip="折叠 / 展开">
+                                <Viewbox Width="15" Height="15" Stretch="Uniform"
+                                         HorizontalAlignment="Center" VerticalAlignment="Center"
+                                         RenderTransformOrigin="50%,50%">
+                                    <Viewbox.RenderTransform>
+                                        <RotateTransform Angle="{Binding CollapseArrowAngle}">
+                                            <RotateTransform.Transitions>
+                                                <Transitions>
+                                                    <DoubleTransition Property="Angle" Duration="0:0:0.09" />
+                                                </Transitions>
+                                            </RotateTransform.Transitions>
+                                        </RotateTransform>
+                                    </Viewbox.RenderTransform>
+                                    <Panel Width="24" Height="24">
+                                        <Path StrokeThickness="1.92" StrokeLineCap="Round" StrokeJoin="Round"
+                                              Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}"
+                                              Data="{StaticResource GeoChevron}" />
+                                    </Panel>
+                                </Viewbox>
+                            </Button>
+                            <!-- 添加设备 -->
+                            <Button Classes="DskIcon" Command="{Binding AddDeviceCommand}" ToolTip.Tip="添加设备">
+                                <Viewbox Width="15" Height="15" Stretch="Uniform"
+                                         HorizontalAlignment="Center" VerticalAlignment="Center">
+                                    <Panel Width="24" Height="24">
+                                        <Path StrokeThickness="1.92" StrokeLineCap="Round" StrokeJoin="Round"
+                                              Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}"
+                                              Data="{StaticResource GeoPlus}" />
+                                    </Panel>
+                                </Viewbox>
+                            </Button>
+                            <!-- 分区菜单：点开一个贴着按钮的菜单窗口（默认在下方） -->
+                            <Button Name="MenuBtn" Classes="DskIcon" Click="OnMenuClick" ToolTip.Tip="分区菜单">
+                                <StackPanel Orientation="Horizontal" Spacing="2.4"
+                                            HorizontalAlignment="Center" VerticalAlignment="Center">
+                                    <Ellipse Width="2.4" Height="2.4"
+                                             Fill="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" />
+                                    <Ellipse Width="2.4" Height="2.4"
+                                             Fill="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" />
+                                    <Ellipse Width="2.4" Height="2.4"
+                                             Fill="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" />
+                                </StackPanel>
+                            </Button>
+                        </StackPanel>
+                    </Grid>
+                </Border>
+
+                <!-- ===== 设备宫格：直接复用主窗口列表那张设备卡（图标 | 名称·房间 | 开关），
+                     点卡片走宿主契约弹控制窗，开关也直接下发 ===== -->
+                <StackPanel Grid.Row="1" Margin="2,0,2,6"
+                            IsVisible="{Binding ContentVisible}"
+                            Opacity="{Binding ContentOpacity}">
+                    <StackPanel.Transitions>
+                        <Transitions>
+                            <DoubleTransition Property="Opacity" Duration="0:0:0.08" />
+                        </Transitions>
+                    </StackPanel.Transitions>
+                    <ItemsControl ItemsSource="{Binding Devices}"
+                                  ItemTemplate="{StaticResource DeviceCardTemplate}"
+                                  IsVisible="{Binding !IsEmpty}">
+                        <ItemsControl.ItemsPanel>
+                            <ItemsPanelTemplate>
+                                <!-- MinItemWidth 与 DesktopGroupView.CardMinWidth 同步改（宿主窗口按它推算加列需要多宽） -->
+                                <ctl:AdaptiveGridPanel MinItemWidth="240" Spacing="0" />
+                            </ItemsPanelTemplate>
+                        </ItemsControl.ItemsPanel>
+                    </ItemsControl>
+                    <TextBlock Text="还没有设备，点右上角 ＋ 添加" FontSize="11.5"
+                               Margin="2,12,2,14" TextAlignment="Center" TextWrapping="Wrap"
+                               Foreground="{DynamicResource DskText3Brush}"
+                               IsVisible="{Binding IsEmpty}" />
+                </StackPanel>
+            </Grid>
+        </Border>
+
+        <!-- 右缘宽度拖拽条：贴在卡片外沿，不抢卡片内容区的命中 -->
+        <Border Name="ResizeGrip" Width="7" HorizontalAlignment="Right"
+                Background="Transparent" Cursor="SizeWestEast"
+                PointerPressed="OnResizePressed"
+                PointerMoved="OnResizeMoved"
+                PointerReleased="OnResizeReleased"
+                PointerCaptureLost="OnResizeCaptureLost" />
+    </Panel>
+</UserControl>

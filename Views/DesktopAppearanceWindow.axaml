@@ -1,0 +1,126 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="clr-namespace:MiHome.ViewModels"
+        xmlns:ctl="clr-namespace:MiHome.Controls"
+        x:Class="MiHome.Views.DesktopAppearanceWindow"
+        x:DataType="vm:DesktopAppearanceVm"
+        Title="桌面组件外观"
+        Width="520" Height="570"
+        SystemDecorations="None"
+        CanResize="False"
+        ShowInTaskbar="False"
+        Topmost="True"
+        WindowStartupLocation="Manual"
+        TransparencyLevelHint="Transparent"
+        Background="Transparent">
+
+    <Window.Styles>
+        <!-- 预设色块：按钮本身完全透明，色点与选中环都是内层 Border。
+             不依赖 Button 的 BorderBrush —— Fluent 模板把边框画在 ContentPresenter 上，
+             样式优先级压不过主题的 :pointerover/:pressed，选中环会被吃掉。 -->
+        <Style Selector="Button.Swatch">
+            <Setter Property="Width" Value="26" />
+            <Setter Property="Height" Value="26" />
+            <Setter Property="Padding" Value="0" />
+            <Setter Property="CornerRadius" Value="13" />
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="BorderThickness" Value="0" />
+            <Setter Property="Margin" Value="0" />
+            <Setter Property="Focusable" Value="False" />
+            <Setter Property="Cursor" Value="Hand" />
+        </Style>
+        <Style Selector="Button.Swatch /template/ ContentPresenter#PART_ContentPresenter">
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="BorderThickness" Value="0" />
+            <Setter Property="CornerRadius" Value="13" />
+            <Setter Property="Padding" Value="0" />
+        </Style>
+        <!-- 悬停：整个色点轻微放大，给出「这个能点」的反馈 -->
+        <Style Selector="Button.Swatch:pointerover">
+            <Setter Property="Opacity" Value="0.9" />
+        </Style>
+    </Window.Styles>
+
+    <!-- 卡片高度按「未选色」提示行也在时算：CardMaxHeight 留够，否则一出现提示行正文就滚动 -->
+    <ctl:DialogPopup CardWidth="472" CardMaxHeight="520"
+                     CanDrag="True"
+                     Title="桌面组件外观"
+                     Subtitle="背景 · 透明度 · 毛玻璃"
+                     IsOpen="True" CloseCommand="{Binding CloseCommand}">
+        <ctl:DialogPopup.Resources>
+            <SolidColorBrush x:Key="MaskBrush" Color="Transparent" />
+        </ctl:DialogPopup.Resources>
+
+        <StackPanel Spacing="16">
+            <!-- 背景色 -->
+            <Border Classes="Card">
+                <StackPanel Spacing="12">
+                    <Grid ColumnDefinitions="*,Auto">
+                        <TextBlock Text="背景" FontSize="13.5" FontWeight="SemiBold"
+                                   Foreground="{DynamicResource TextBrush}" VerticalAlignment="Center" />
+                        <Button Grid.Column="1" Classes="BtnGhost" Height="26" Padding="10,0" FontSize="11.5"
+                                Content="恢复默认" Command="{Binding RestoreDefaultCommand}" />
+                    </Grid>
+                    <!-- 预设色板：Zonex 同款 7 色，点一下即设为分区底色（并自动关掉「跟随主题」） -->
+                    <ItemsControl ItemsSource="{Binding Presets}">
+                        <ItemsControl.ItemsPanel>
+                            <ItemsPanelTemplate>
+                                <StackPanel Orientation="Horizontal" Spacing="7" />
+                            </ItemsPanelTemplate>
+                        </ItemsControl.ItemsPanel>
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate x:DataType="vm:ColorSwatch">
+                                <Button Classes="Swatch"
+                                        Tag="{Binding Hex}" Click="OnSwatchClick"
+                                        ToolTip.Tip="{Binding Hex}">
+                                    <Panel>
+                                        <!-- 色点 -->
+                                        <Border Width="20" Height="20" CornerRadius="10"
+                                                Background="{Binding Brush}"
+                                                BorderThickness="1" BorderBrush="#33FFFFFF" />
+                                        <!-- 选中环：只切可见性，避免再和主题样式抢属性 -->
+                                        <Border Width="26" Height="26" CornerRadius="13"
+                                                BorderThickness="2"
+                                                BorderBrush="{DynamicResource AccentBrush}"
+                                                IsVisible="{Binding IsSelected}" />
+                                    </Panel>
+                                </Button>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                    <TextBlock Classes="Hint" Text="未选背景色时，底色随深/浅色主题自动切换"
+                               IsVisible="{Binding FollowTheme}" />
+                </StackPanel>
+            </Border>
+
+            <!-- 背景透明度 -->
+            <Border Classes="Card">
+                <StackPanel Spacing="10">
+                    <Grid ColumnDefinitions="*,Auto">
+                        <TextBlock Text="背景透明度" FontSize="13.5" FontWeight="SemiBold"
+                                   Foreground="{DynamicResource TextBrush}" />
+                        <TextBlock Grid.Column="1" Text="{Binding OpacityText}" FontSize="12.5" FontWeight="SemiBold"
+                                   Foreground="{DynamicResource Accent2Brush}" VerticalAlignment="Center" />
+                    </Grid>
+                    <Slider Classes="DrSlider" Minimum="{x:Static vm:DesktopAppearanceVm.MinOpacityPercent}"
+                            Maximum="100" TickFrequency="1"
+                            Value="{Binding OpacityPercent, Mode=TwoWay}" />
+                    <TextBlock Classes="Hint" Text="调低更透，能看清墙纸；调高更沉，文字对比更强" />
+                </StackPanel>
+            </Border>
+
+            <!-- 毛玻璃 -->
+            <Border Classes="Card">
+                <Grid ColumnDefinitions="*,Auto">
+                    <StackPanel Spacing="3" VerticalAlignment="Center">
+                        <TextBlock Text="毛玻璃" FontSize="13.5" FontWeight="SemiBold"
+                                   Foreground="{DynamicResource TextBrush}" />
+                        <TextBlock Classes="Hint" Text="用系统亚克力模糊墙纸，与透明度叠加生效" />
+                    </StackPanel>
+                    <ToggleButton Grid.Column="1" Classes="Switch" VerticalAlignment="Center"
+                                  IsChecked="{Binding Glass, Mode=TwoWay}" />
+                </Grid>
+            </Border>
+        </StackPanel>
+    </ctl:DialogPopup>
+</Window>

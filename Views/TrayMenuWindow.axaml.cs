@@ -29,6 +29,7 @@ public partial class TrayMenuWindow : Window
 
     public event Action? ShowMainRequested;
     public event Action? ToggleThemeRequested;
+    public event Action? RestartRequested;
     public event Action? ExitRequested;
 
     public TrayMenuWindow()
@@ -126,6 +127,12 @@ public partial class TrayMenuWindow : Window
     {
         Dismiss();
         ToggleThemeRequested?.Invoke();
+    }
+
+    private void OnRestartClick(object? sender, RoutedEventArgs e)
+    {
+        Dismiss();
+        RestartRequested?.Invoke();
     }
 
     private void OnExitClick(object? sender, RoutedEventArgs e)

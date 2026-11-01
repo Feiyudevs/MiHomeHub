@@ -51,6 +51,9 @@ public partial class MainWindow : Window
         // 点击搜索胶囊以外的任意位置 → 收起搜索
         AddHandler(PointerPressedEvent, OnGlobalPointerPressed, RoutingStrategies.Tunnel);
 
+        // 点击小爱浮层与唤出胶囊以外的空白区域 → 收起小爱浮层
+        AddHandler(PointerPressedEvent, OnVoiceOutsidePressed, RoutingStrategies.Tunnel);
+
         // DataContext 在窗口构造后由 App 注入，这里订阅属性变化来驱动抽屉滑入/滑出动画
         DataContextChanged += OnDataContextChanged;
 
@@ -417,6 +420,28 @@ public partial class MainWindow : Window
     {
         if (!_searchOpen || SearchBox.IsPointerOver) return;
         SetSearchOpen(false);
+    }
+
+    /// <summary>
+    /// 点击浮层与唤出胶囊以外的空白区域收起小爱浮层。
+    /// 音箱下拉是独立 Popup（TopLevel 不是本窗口），在其中的选择不算“点外部”。
+    /// </summary>
+    private void OnVoiceOutsidePressed(object? sender, PointerPressedEventArgs e)
+    {
+        if (Vm is not { IsVoiceOpen: true }) return;
+        if (e.Source is not Visual src) return;
+        if (!e.GetCurrentPoint(this).Properties.IsLeftButtonPressed) return;
+        if (TopLevel.GetTopLevel(src) != this) return;
+        if (IsWithin(src, XiaoAiBtn) || IsWithin(src, VoicePanelView)) return;
+        Vm.IsVoiceOpen = false;
+    }
+
+    private static bool IsWithin(Visual src, Visual? container)
+    {
+        if (container == null) return false;
+        for (Visual? v = src; v != null; v = v.GetVisualParent())
+            if (v == container) return true;
+        return false;
     }
 
     private void OnSearchBoxPressed(object? sender, PointerPressedEventArgs e)

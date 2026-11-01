@@ -15,6 +15,11 @@ docs/
 # VS / Rider / VS Code
 .vs/
 .idea/
+.mimocode/
+.workbuddy/
+.screenshots/
+.ui/
+_icon_debug/
 *.swp
 
 # Publish output

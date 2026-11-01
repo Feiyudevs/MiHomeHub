@@ -1,11 +1,19 @@
 <Window 
+    
     xmlns="https://github.com/avaloniaui"
+    
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    
     xmlns:vm="clr-namespace:MiHome.ViewModels"
+    
     xmlns:m="clr-namespace:MiHome.Models"
+    
     xmlns:conv="clr-namespace:MiHome.Converters"
+    
     xmlns:ctl="clr-namespace:MiHome.Controls"
+    
     xmlns:views="clr-namespace:MiHome.Views"
+    
     xmlns:svc="clr-namespace:MiHome.Services"
         x:Class="MiHome.Views.MainWindow"
         x:DataType="vm:MainViewModel"
@@ -138,55 +146,55 @@
                 </Grid>
             </Border>
             <StackPanel Grid.Column="5" Orientation="Horizontal" VerticalAlignment="Center">
-                <Button Classes="ThemeBtn" Margin="0,0,6,0" Command="{Binding OpenLogCommand}" ToolTip.Tip="操作日志">
-                    <Path Width="14" Height="14" Stretch="Uniform"
-                          Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}"
-                          StrokeThickness="1.6" StrokeLineCap="Round" StrokeJoin="Round"
-                          Data="{StaticResource GeoLog}" />
-                </Button>
-                <Button Classes="ThemeBtn" Margin="0,0,6,0" Command="{Binding ToggleThemeCommand}"
-                        ToolTip.Tip="切换浅色/深色 (T)">
-                    <Panel>
-                        <Path Width="13" Height="13" Stretch="Uniform" Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" StrokeThickness="1.8"
-                              StrokeLineCap="Round" StrokeJoin="Round" Data="{StaticResource GeoMoon}"
-                              IsVisible="{Binding IsDark}" />
-                        <Path Width="13" Height="13" Stretch="Uniform" Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" StrokeThickness="1.8"
-                              StrokeLineCap="Round" StrokeJoin="Round" Data="{StaticResource GeoSun}"
-                              IsVisible="{Binding !IsDark}" />
-                    </Panel>
-                </Button>
-                <Button Classes="ThemeBtn" Margin="0,0,6,0" Click="OnGotoSettings" ToolTip.Tip="设置">
-                    <Path Width="14" Height="14" Stretch="Uniform" Stroke="{DynamicResource TextBrush}" StrokeThickness="1.0"
-                          StrokeLineCap="Round" StrokeJoin="Round" Data="{StaticResource GeoCog}" />
-                </Button>
                 <!-- 特效测试开关：定位内存占用用（关闭所有阴影/光晕 + 强制 GC） -->
                 <Button x:Name="FxBadge" Classes="ThemeBtn" Margin="0,0,6,0" Click="OnToggleFxClick"
                         ToolTip.Tip="测试：关闭所有阴影/光晕并强制回收内存（再点恢复）">
                     <TextBlock Text="特效" FontSize="11" FontWeight="SemiBold" />
                 </Button>
+                <Button Classes="ThemeBtn" Margin="0,0,6,0" Command="{Binding OpenLogCommand}" ToolTip.Tip="操作日志">
+                    <Path Width="15" Height="15" Stretch="Uniform"
+                          Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}"
+                          StrokeThickness="1.2" StrokeLineCap="Round" StrokeJoin="Round"
+                          Data="{StaticResource GeoLog}" />
+                </Button>
+                <Button Classes="ThemeBtn" Margin="0,0,6,0" Command="{Binding ToggleThemeCommand}"
+                        ToolTip.Tip="切换浅色/深色 (T)">
+                    <Panel>
+                        <Path Width="15" Height="15" Stretch="Uniform" Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" StrokeThickness="1.2"
+                              StrokeLineCap="Round" StrokeJoin="Round" Data="{StaticResource GeoMoon}"
+                              IsVisible="{Binding IsDark}" />
+                        <Path Width="15" Height="15" Stretch="Uniform" Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" StrokeThickness="1.2"
+                              StrokeLineCap="Round" StrokeJoin="Round" Data="{StaticResource GeoSun}"
+                              IsVisible="{Binding !IsDark}" />
+                    </Panel>
+                </Button>
+                <Button Classes="ThemeBtn" Margin="0,0,6,0" Click="OnGotoSettings" ToolTip.Tip="设置">
+                    <Path Width="15" Height="15" Stretch="Uniform" Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" StrokeThickness="1.2"
+                          StrokeLineCap="Round" StrokeJoin="Round" Data="{StaticResource GeoCog}" />
+                </Button>
                 <Button Classes="WinBtn" Click="OnMinClick" ToolTip.Tip="最小化">
-                    <Path Width="12" Height="12" Stretch="None" RenderTransformOrigin="50%,50%" Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" StrokeThickness="1.4"
-                          StrokeLineCap="Round" Data="{StaticResource GeoMin}">
-                        <Path.RenderTransform>
-                            <ScaleTransform ScaleX="1.2" ScaleY="1.2" />
-                        </Path.RenderTransform>
-                    </Path>
+                    <Viewbox Width="14" Height="14" HorizontalAlignment="Center" VerticalAlignment="Center">
+                        <Panel Width="24" Height="24">
+                            <Path Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" StrokeThickness="2.06"
+                                  StrokeLineCap="Round" Data="{StaticResource GeoMin}" />
+                        </Panel>
+                    </Viewbox>
                 </Button>
                 <Button Classes="WinBtn" Click="OnMaxClick" ToolTip.Tip="最大化 / 还原">
-                    <Path Width="12" Height="12" Stretch="None" RenderTransformOrigin="50%,50%" Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" StrokeThickness="1.4"
-                          StrokeLineCap="Round" StrokeJoin="Round" Data="{StaticResource GeoMax}">
-                        <Path.RenderTransform>
-                            <ScaleTransform ScaleX="1.2" ScaleY="1.2" />
-                        </Path.RenderTransform>
-                    </Path>
+                    <Viewbox Width="14" Height="14" HorizontalAlignment="Center" VerticalAlignment="Center">
+                        <Panel Width="24" Height="24">
+                            <Path Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" StrokeThickness="2.06"
+                                  StrokeLineCap="Round" StrokeJoin="Round" Data="{StaticResource GeoMax}" />
+                        </Panel>
+                    </Viewbox>
                 </Button>
                 <Button Classes="WinBtn close" Click="OnCloseClick" ToolTip.Tip="关闭">
-                    <Path Width="12" Height="12" Stretch="None" RenderTransformOrigin="50%,50%" Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" StrokeThickness="1.4"
-                          StrokeLineCap="Round" Data="{StaticResource GeoClose}">
-                        <Path.RenderTransform>
-                            <ScaleTransform ScaleX="1.2" ScaleY="1.2" />
-                        </Path.RenderTransform>
-                    </Path>
+                    <Viewbox Width="14" Height="14" HorizontalAlignment="Center" VerticalAlignment="Center">
+                        <Panel Width="24" Height="24">
+                            <Path Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" StrokeThickness="2.06"
+                                  StrokeLineCap="Round" Data="{StaticResource GeoClose}" />
+                        </Panel>
+                    </Viewbox>
                 </Button>
             </StackPanel>
         </Grid>

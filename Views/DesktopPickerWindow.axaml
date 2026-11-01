@@ -1,0 +1,334 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="clr-namespace:MiHome.ViewModels"
+        xmlns:m="clr-namespace:MiHome.Models"
+        x:Class="MiHome.Views.DesktopPickerWindow"
+        x:DataType="vm:DesktopPickerVm"
+        Title="添加设备"
+        Width="900" Height="680"
+        SystemDecorations="None"
+        CanResize="False"
+        ShowInTaskbar="False"
+        Topmost="True"
+        WindowStartupLocation="Manual"
+        TransparencyLevelHint="Transparent"
+        Background="Transparent">
+
+    <Window.Styles>
+        <!-- 设备卡片：一整块有底色的卡（之前是 Transparent，只有一圈描边，看着像表格行）。
+             选中态不再画勾选圈，直接把卡面切成主色 —— 一眼就能看出哪些已加进分区。
+             底色一律画在 ContentPresenter 上（Fluent 的悬停态也是改这里，画在 Button.Background 上会被压掉） -->
+        <Style Selector="Button.PickCard">
+            <Setter Property="Width" Value="244" />
+            <Setter Property="Height" Value="58" />
+            <Setter Property="Padding" Value="11,0" />
+            <Setter Property="Margin" Value="0,0,10,10" />
+            <Setter Property="CornerRadius" Value="13" />
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="BorderThickness" Value="0" />
+            <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+            <Setter Property="VerticalContentAlignment" Value="Center" />
+            <Setter Property="Focusable" Value="False" />
+            <Setter Property="Cursor" Value="Hand" />
+        </Style>
+        <Style Selector="Button.PickCard /template/ ContentPresenter#PART_ContentPresenter">
+            <Setter Property="Background" Value="{DynamicResource PickCardBrush}" />
+            <Setter Property="BorderBrush" Value="{DynamicResource LineBrush}" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="CornerRadius" Value="13" />
+        </Style>
+        <Style Selector="Button.PickCard:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+            <Setter Property="Background" Value="{DynamicResource PickCardHoverBrush}" />
+            <Setter Property="BorderBrush" Value="{DynamicResource LineBrush}" />
+        </Style>
+        <Style Selector="Button.PickCard.in /template/ ContentPresenter#PART_ContentPresenter">
+            <Setter Property="Background" Value="{DynamicResource PickCardOnBrush}" />
+            <Setter Property="BorderBrush" Value="{DynamicResource PickCardOnBrush}" />
+        </Style>
+        <Style Selector="Button.PickCard.in:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+            <Setter Property="Background" Value="{DynamicResource PickCardOnBrush}" />
+            <Setter Property="BorderBrush" Value="{DynamicResource PickCardOnBrush}" />
+        </Style>
+
+        <!-- 卡内文字/图标：选中时统一提成纯白，压在紫底上才清楚。
+             不能用元素上的本地 Foreground/Stroke（本地值压过样式），所以这里走类选择器 -->
+        <Style Selector="TextBlock.PickName">
+            <Setter Property="Foreground" Value="{DynamicResource TextBrush}" />
+        </Style>
+        <Style Selector="TextBlock.PickRoom">
+            <Setter Property="Foreground" Value="{DynamicResource Text2Brush}" />
+        </Style>
+        <Style Selector="Button.PickCard.in TextBlock.PickName">
+            <Setter Property="Foreground" Value="#FFFFFFFF" />
+        </Style>
+        <Style Selector="Button.PickCard.in TextBlock.PickRoom">
+            <Setter Property="Foreground" Value="#E4E8FF" />
+        </Style>
+        <Style Selector="Path.PickIc">
+            <Setter Property="Stroke" Value="{DynamicResource Text2Brush}" />
+        </Style>
+        <Style Selector="Button.PickCard.in Path.PickIc">
+            <Setter Property="Stroke" Value="#FFFFFFFF" />
+        </Style>
+        <Style Selector="Image.PickPhoto">
+            <Setter Property="Opacity" Value="0.9" />
+        </Style>
+        <Style Selector="Button.PickCard.in Image.PickPhoto">
+            <Setter Property="Opacity" Value="1" />
+        </Style>
+
+        <!-- 分组标题右侧的数量胶囊 -->
+        <Style Selector="Border.GrpChip">
+            <Setter Property="CornerRadius" Value="999" />
+            <Setter Property="Height" Value="17" />
+            <Setter Property="Padding" Value="7,0" />
+            <Setter Property="VerticalAlignment" Value="Center" />
+            <Setter Property="Background" Value="{DynamicResource HoverBrush}" />
+        </Style>
+
+        <!-- 搜索输入框：外层 Border 已经画了底色与描边，内层 TextBox 模板自带的边框（含聚焦态的
+             高亮描边）必须全部压掉，否则会出现「圆角框里套一个方角亮框」的双层边框 -->
+        <Style Selector="TextBox.Flat">
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="BorderThickness" Value="0" />
+            <Setter Property="Padding" Value="9,0" />
+            <Setter Property="FontSize" Value="13" />
+            <Setter Property="VerticalContentAlignment" Value="Center" />
+        </Style>
+        <Style Selector="TextBox.Flat /template/ Border#PART_BorderElement">
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="BorderThickness" Value="0" />
+        </Style>
+        <Style Selector="TextBox.Flat:pointerover /template/ Border#PART_BorderElement">
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="BorderThickness" Value="0" />
+        </Style>
+        <Style Selector="TextBox.Flat:focus /template/ Border#PART_BorderElement">
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="BorderThickness" Value="0" />
+        </Style>
+        <!-- 聚焦态改由外层圆角框表态：描边切到主色 -->
+        <Style Selector="Border.SearchBox:focus-within">
+            <Setter Property="BorderBrush" Value="{DynamicResource AccentBrush}" />
+        </Style>
+
+        <!-- 房间直达条：一枚胶囊一个房间，选中铺主色（和已选设备卡同一套色，视觉上有呼应） -->
+        <Style Selector="Button.RoomTab">
+            <Setter Property="Height" Value="28" />
+            <Setter Property="Padding" Value="13,0" />
+            <Setter Property="FontSize" Value="12" />
+            <Setter Property="CornerRadius" Value="14" />
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="BorderBrush" Value="Transparent" />
+            <Setter Property="Foreground" Value="{DynamicResource Text2Brush}" />
+            <Setter Property="Focusable" Value="False" />
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="VerticalContentAlignment" Value="Center" />
+            <Setter Property="HorizontalContentAlignment" Value="Center" />
+        </Style>
+        <Style Selector="Button.RoomTab /template/ ContentPresenter#PART_ContentPresenter">
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="BorderBrush" Value="Transparent" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="CornerRadius" Value="14" />
+            <Setter Property="Padding" Value="13,0" />
+        </Style>
+        <Style Selector="Button.RoomTab:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+            <Setter Property="Background" Value="{DynamicResource HoverBrush}" />
+            <Setter Property="BorderBrush" Value="Transparent" />
+        </Style>
+        <Style Selector="Button.RoomTab.on">
+            <Setter Property="Foreground" Value="#FFFFFFFF" />
+        </Style>
+        <Style Selector="Button.RoomTab.on /template/ ContentPresenter#PART_ContentPresenter">
+            <Setter Property="Background" Value="{DynamicResource PickCardOnBrush}" />
+            <Setter Property="BorderBrush" Value="{DynamicResource PickCardOnBrush}" />
+        </Style>
+        <Style Selector="Button.RoomTab.on:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+            <Setter Property="Background" Value="{DynamicResource PickCardOnBrush}" />
+            <Setter Property="BorderBrush" Value="{DynamicResource PickCardOnBrush}" />
+        </Style>
+
+        <!-- 顶栏图标按钮 -->
+        <Style Selector="Button.TopIcon">
+            <Setter Property="Width" Value="26" />
+            <Setter Property="Height" Value="26" />
+            <Setter Property="Padding" Value="0" />
+            <Setter Property="CornerRadius" Value="8" />
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="BorderThickness" Value="0" />
+            <Setter Property="Focusable" Value="False" />
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="HorizontalContentAlignment" Value="Center" />
+            <Setter Property="VerticalContentAlignment" Value="Center" />
+            <Setter Property="Foreground" Value="{DynamicResource Text2Brush}" />
+        </Style>
+        <Style Selector="Button.TopIcon:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+            <Setter Property="Background" Value="{DynamicResource HoverBrush}" />
+        </Style>
+    </Window.Styles>
+
+    <Panel>
+        <!-- 遮罩：窗口透明，这里只负责「点外面关掉」 -->
+        <Border Name="Mask" Background="Transparent" PointerPressed="OnMaskPressed" />
+
+        <Border Classes="DialogCard" Width="840" MaxHeight="620"
+                HorizontalAlignment="Center" VerticalAlignment="Center">
+            <Grid RowDefinitions="Auto,Auto,Auto,*">
+
+                <!-- ===== 标题栏（可拖动）+ 关闭 =====
+                     边距与关闭按钮刻意对齐弹窗基类 DialogPopup（Margin 28,20,22,0 + Button.ThemeBtn），
+                     这个窗因为「顶栏 + 工具条 + 滚动网格」三段式布局没用基类模板，视觉必须和它一致 -->
+                <Panel Name="Header" Grid.Row="0" Background="Transparent"
+                       Margin="28,20,22,0" PointerPressed="OnHeaderPressed">
+                    <StackPanel>
+                        <TextBlock Text="添加设备" FontSize="19" FontWeight="Bold"
+                                   Foreground="{DynamicResource TextBrush}" />
+                        <!-- 副标题原本用 .Hint（Text3），在 #0E1118 上发灰读不清，提到次级亮 -->
+                        <TextBlock Margin="0,5,0,0" Text="{Binding Subtitle}" FontSize="12"
+                                   Foreground="{DynamicResource Text2Brush}" />
+                    </StackPanel>
+                    <Button Classes="ThemeBtn" HorizontalAlignment="Right" VerticalAlignment="Top"
+                            Command="{Binding CloseCommand}" ToolTip.Tip="关闭">
+                        <Path Width="11" Height="11" Stretch="Uniform" StrokeThickness="0.8"
+                              StrokeLineCap="Round"
+                              Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}"
+                              Data="{StaticResource GeoClose}" />
+                    </Button>
+                </Panel>
+
+                <!-- ===== 房间直达条：点哪个房间就滚到那个房间的分组 ===== -->
+                <ScrollViewer Grid.Row="1" Margin="28,14,22,0"
+                              HorizontalScrollBarVisibility="Hidden"
+                              VerticalScrollBarVisibility="Disabled">
+                    <ItemsControl Name="TabList" ItemsSource="{Binding Tabs}">
+                        <ItemsControl.ItemsPanel>
+                            <ItemsPanelTemplate>
+                                <StackPanel Orientation="Horizontal" Spacing="6" />
+                            </ItemsPanelTemplate>
+                        </ItemsControl.ItemsPanel>
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate x:DataType="vm:PickerTab">
+                                <Button Classes="RoomTab" Classes.on="{Binding IsActive}"
+                                        Content="{Binding Title}" Tag="{Binding}"
+                                        Click="OnRoomTabClick" />
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                </ScrollViewer>
+
+                <!-- ===== 工具条：搜索框（有底色的圆角输入框）+ 全部移出 ===== -->
+                <Grid Grid.Row="2" ColumnDefinitions="*,Auto" Margin="28,14,22,0">
+                    <Border Name="SearchBoxHost" Classes="SearchBox" Height="40" CornerRadius="12"
+                            Background="{DynamicResource SearchBgBrush}"
+                            BorderThickness="1" BorderBrush="{DynamicResource SearchLineBrush}">
+                        <Grid ColumnDefinitions="Auto,*,Auto" Margin="12,0,6,0">
+                            <Path Grid.Column="0" Width="15" Height="15" Stretch="Uniform"
+                                  StrokeThickness="1.7" StrokeLineCap="Round" StrokeJoin="Round"
+                                  VerticalAlignment="Center"
+                                  Stroke="{DynamicResource Text2Brush}"
+                                  Data="{StaticResource GeoSearch}" />
+                            <Grid Grid.Column="1">
+                                <TextBox Name="SearchBox" Classes="Flat"
+                                         Foreground="{DynamicResource TextBrush}"
+                                         CaretBrush="{DynamicResource AccentBrush}"
+                                         Text="{Binding SearchText, Mode=TwoWay}" />
+                                <!-- 自己的水印：TextBox 自带的 Watermark 由主题模板上色，字重/颜色压不住，
+                                     这里用一层不参与命中的 TextBlock 顶上去（Normal 字重 + 更淡的灰） -->
+                                <TextBlock Text="搜索设备名称或房间…" FontSize="13" FontWeight="Normal"
+                                           Margin="9,0,0,0"
+                                           VerticalAlignment="Center"
+                                           Foreground="{DynamicResource Text3Brush}"
+                                           Opacity="0.72"
+                                           IsHitTestVisible="False"
+                                           IsVisible="{Binding !HasQuery}" />
+                            </Grid>
+                            <Button Grid.Column="2" Classes="TopIcon" Width="24" Height="24"
+                                    Command="{Binding ClearSearchCommand}"
+                                    IsVisible="{Binding HasQuery}" ToolTip.Tip="清除">
+                                <Path Width="9" Height="9" Stretch="Uniform" StrokeThickness="1.2"
+                                      StrokeLineCap="Round"
+                                      Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}"
+                                      Data="{StaticResource GeoClose}" />
+                            </Button>
+                        </Grid>
+                    </Border>
+
+                    <Button Grid.Column="1" Classes="BtnGhost" Content="全部移出"
+                            Height="36" Padding="14,0" FontSize="12.5" Margin="10,0,0,0"
+                            Command="{Binding ClearAllCommand}" />
+                </Grid>
+
+                <!-- ===== 按房间分组 + 网格卡片 ===== -->
+                <!-- 右边距缩到 6 把滚动条推到卡片内侧边缘，正文用 16 内距补回，卡片位置不变 -->
+                <ScrollViewer Name="BodyScroll" Grid.Row="3" Margin="28,14,6,22"
+                              VerticalScrollBarVisibility="Auto"
+                              HorizontalScrollBarVisibility="Disabled">
+                    <StackPanel Margin="0,0,16,0">
+                        <ItemsControl Name="GroupList" ItemsSource="{Binding Groups}">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate x:DataType="vm:PickerGroup">
+                                    <StackPanel Margin="0,0,0,12">
+                                        <StackPanel Orientation="Horizontal" Spacing="7" Margin="2,0,0,9">
+                                            <TextBlock Text="{Binding Title}" FontSize="12.5" FontWeight="SemiBold"
+                                                       VerticalAlignment="Center"
+                                                       Foreground="{DynamicResource TextBrush}" />
+                                            <Border Classes="GrpChip">
+                                                <TextBlock Text="{Binding CountText}" FontSize="10" FontWeight="SemiBold"
+                                                           VerticalAlignment="Center"
+                                                           Foreground="{DynamicResource Text2Brush}" />
+                                            </Border>
+                                        </StackPanel>
+
+                                        <ItemsControl ItemsSource="{Binding Items}">
+                                            <ItemsControl.ItemsPanel>
+                                                <ItemsPanelTemplate>
+                                                    <WrapPanel Orientation="Horizontal" />
+                                                </ItemsPanelTemplate>
+                                            </ItemsControl.ItemsPanel>
+                                            <ItemsControl.ItemTemplate>
+                                                <DataTemplate x:DataType="vm:PickerItem">
+                                                    <Button Classes="PickCard" Classes.in="{Binding IsIn}"
+                                                            Command="{Binding $parent[Window].((vm:DesktopPickerVm)DataContext).ToggleCommand}"
+                                                            CommandParameter="{Binding}">
+                                                        <Grid ColumnDefinitions="Auto,*">
+                                                            <Panel Width="32" Height="32" VerticalAlignment="Center">
+                                                                <Border IsVisible="{Binding Device.Icon, Converter={x:Static ObjectConverters.IsNull}}">
+                                                                    <Path Classes="PickIc" Width="18" Height="18" Stretch="Uniform"
+                                                                          StrokeThickness="1.6" StrokeLineCap="Round" StrokeJoin="Round"
+                                                                          VerticalAlignment="Center" HorizontalAlignment="Center"
+                                                                          Data="{Binding Device, Converter={StaticResource DeviceIcon}}" />
+                                                                </Border>
+                                                                <Image Classes="PickPhoto" Width="32" Height="32" Source="{Binding Device.Icon}"
+                                                                       Stretch="Uniform"
+                                                                       RenderOptions.BitmapInterpolationMode="MediumQuality"
+                                                                       IsVisible="{Binding Device.Icon, Converter={x:Static ObjectConverters.IsNotNull}}" />
+                                                            </Panel>
+                                                            <StackPanel Grid.Column="1" Margin="10,0,4,0"
+                                                                        VerticalAlignment="Center" Spacing="2">
+                                                                <TextBlock Classes="PickName" Text="{Binding Device.Name}" FontSize="12.5"
+                                                                           FontWeight="SemiBold"
+                                                                           TextTrimming="CharacterEllipsis" />
+                                                                <TextBlock Classes="PickRoom" Text="{Binding Category}" FontSize="10.5"
+                                                                           TextTrimming="CharacterEllipsis" />
+                                                            </StackPanel>
+                                                        </Grid>
+                                                    </Button>
+                                                </DataTemplate>
+                                            </ItemsControl.ItemTemplate>
+                                        </ItemsControl>
+                                    </StackPanel>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+
+                        <TextBlock Text="没有匹配的设备" FontSize="12" Margin="2,24,0,0"
+                                   Foreground="{DynamicResource Text2Brush}"
+                                   IsVisible="{Binding IsEmptyResult}" />
+                    </StackPanel>
+                </ScrollViewer>
+            </Grid>
+        </Border>
+    </Panel>
+</Window>

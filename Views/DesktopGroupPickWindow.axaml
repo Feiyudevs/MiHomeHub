@@ -1,0 +1,127 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="clr-namespace:MiHome.ViewModels"
+        xmlns:ctl="clr-namespace:MiHome.Controls"
+        x:Class="MiHome.Views.DesktopGroupPickWindow"
+        x:DataType="vm:DesktopGroupPickVm"
+        Title="添加到桌面组件"
+        Width="452" Height="560"
+        SystemDecorations="None"
+        CanResize="False"
+        ShowInTaskbar="False"
+        Topmost="True"
+        WindowStartupLocation="Manual"
+        TransparencyLevelHint="Transparent"
+        Background="Transparent">
+
+    <Window.Styles>
+        <!-- 分区行：整行可点的卡。与添加设备弹窗的 PickCard 同一套视觉（底色画在 ContentPresenter 上，
+             Fluent 悬停态也是改这里，画在 Button.Background 上会被压掉） -->
+        <Style Selector="Button.GrpRow">
+            <Setter Property="Height" Value="56" />
+            <Setter Property="Padding" Value="12,0" />
+            <Setter Property="CornerRadius" Value="13" />
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="BorderThickness" Value="0" />
+            <Setter Property="HorizontalAlignment" Value="Stretch" />
+            <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+            <Setter Property="VerticalContentAlignment" Value="Center" />
+            <Setter Property="Focusable" Value="False" />
+            <Setter Property="Cursor" Value="Hand" />
+        </Style>
+        <Style Selector="Button.GrpRow /template/ ContentPresenter#PART_ContentPresenter">
+            <Setter Property="Background" Value="{DynamicResource PickCardBrush}" />
+            <Setter Property="BorderBrush" Value="{DynamicResource LineBrush}" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="CornerRadius" Value="13" />
+        </Style>
+        <Style Selector="Button.GrpRow:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+            <Setter Property="Background" Value="{DynamicResource PickCardHoverBrush}" />
+            <Setter Property="BorderBrush" Value="{DynamicResource LineBrush}" />
+        </Style>
+    </Window.Styles>
+
+    <ctl:DialogPopup CardWidth="404" CardMaxHeight="500"
+                     CanDrag="True"
+                     Title="添加到桌面组件"
+                     Subtitle="{Binding Subtitle}"
+                     IsOpen="True" CloseCommand="{Binding CloseCommand}">
+        <ctl:DialogPopup.Resources>
+            <SolidColorBrush x:Key="MaskBrush" Color="Transparent" />
+        </ctl:DialogPopup.Resources>
+
+        <StackPanel Spacing="14">
+
+            <!-- ===== 已有分区：点一行即加入 ===== -->
+            <ItemsControl ItemsSource="{Binding Groups}">
+                <ItemsControl.ItemsPanel>
+                    <ItemsPanelTemplate>
+                        <StackPanel Orientation="Vertical" Spacing="8" />
+                    </ItemsPanelTemplate>
+                </ItemsControl.ItemsPanel>
+                <ItemsControl.ItemTemplate>
+                    <DataTemplate x:DataType="vm:GroupPickItem">
+                        <Button Classes="GrpRow" Tag="{Binding}" Click="OnGroupClick">
+                            <Grid ColumnDefinitions="Auto,*,Auto">
+                                <Border Width="36" Height="36" CornerRadius="10"
+                                        Background="{DynamicResource HoverBrush}">
+                                    <Path Width="18" Height="18" Stretch="Uniform"
+                                          StrokeThickness="1.6" StrokeLineCap="Round" StrokeJoin="Round"
+                                          VerticalAlignment="Center" HorizontalAlignment="Center"
+                                          Stroke="{DynamicResource Text2Brush}"
+                                          Data="{StaticResource GeoGrid}" />
+                                </Border>
+                                <StackPanel Grid.Column="1" Margin="12,0,0,0"
+                                            VerticalAlignment="Center" Spacing="2">
+                                    <TextBlock Text="{Binding Name}" FontSize="13.5" FontWeight="SemiBold"
+                                               Foreground="{DynamicResource TextBrush}"
+                                               TextTrimming="CharacterEllipsis" />
+                                    <TextBlock Text="{Binding CountText}" FontSize="11"
+                                               Foreground="{DynamicResource Text2Brush}" />
+                                </StackPanel>
+                                <Panel Grid.Column="2" VerticalAlignment="Center">
+                                    <Border CornerRadius="8" Padding="8,3"
+                                            Background="{DynamicResource GreenSoftBrush}"
+                                            IsVisible="{Binding Contains}">
+                                        <TextBlock Text="已添加" FontSize="10" FontWeight="SemiBold"
+                                                   Foreground="{DynamicResource GreenBrush}" />
+                                    </Border>
+                                    <Path Width="12" Height="12" Stretch="Uniform"
+                                          StrokeThickness="1.7" StrokeLineCap="Round" StrokeJoin="Round"
+                                          Stroke="{DynamicResource Text3Brush}"
+                                          Data="{StaticResource GeoArrow}"
+                                          IsVisible="{Binding !Contains}" />
+                                </Panel>
+                            </Grid>
+                        </Button>
+                    </DataTemplate>
+                </ItemsControl.ItemTemplate>
+            </ItemsControl>
+
+            <TextBlock Text="还没有分区，输入名称新建一个"
+                       FontSize="12" HorizontalAlignment="Center" Margin="0,6,0,0"
+                       Foreground="{DynamicResource Text2Brush}"
+                       IsVisible="{Binding IsEmpty}" />
+
+            <Border Height="1" Background="{DynamicResource LineBrush}" />
+
+            <!-- ===== 新建分区：名字 + 新建并添加 ===== -->
+            <StackPanel Spacing="10">
+                <TextBlock Text="新建分区" FontSize="13.5" FontWeight="SemiBold"
+                           Foreground="{DynamicResource TextBrush}" />
+                <Grid ColumnDefinitions="*,Auto">
+                    <TextBox Name="NameBox" Height="38" FontSize="13.5" Padding="12,0"
+                             Background="{DynamicResource SearchBgBrush}"
+                             BorderBrush="{DynamicResource SearchLineBrush}"
+                             CornerRadius="10"
+                             Watermark="分区名称"
+                             Text="{Binding NewName, Mode=TwoWay}" />
+                    <Button Grid.Column="1" Classes="BtnPrimary" Content="新建并添加"
+                            Height="38" Padding="18,0" FontSize="12.5" Margin="10,0,0,0"
+                            Click="OnCreateClick" />
+                </Grid>
+                <TextBlock Classes="Hint" Text="回车也可以直接新建；点上方分区行即加入已有分区" />
+            </StackPanel>
+        </StackPanel>
+    </ctl:DialogPopup>
+</Window>

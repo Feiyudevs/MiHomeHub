@@ -10,7 +10,7 @@
                      IsOpen="{Binding IsSettingsOpen}"
                      CloseCommand="{Binding CloseOverlaysCommand}">
         <StackPanel>
-            <Grid ColumnDefinitions="*,*" RowDefinitions="Auto,Auto,Auto">
+            <Grid ColumnDefinitions="*,*" RowDefinitions="Auto,Auto,Auto,Auto">
                 <!-- 外观 -->
                 <Border Classes="Card" Margin="0,0,7,14">
                     <StackPanel Spacing="20">
@@ -152,6 +152,38 @@
                                 <ToggleButton Grid.Column="2" Classes="Switch" VerticalAlignment="Center"
                                               IsChecked="{Binding CloseToTray}" />
                             </Grid>
+                        </Grid>
+                    </StackPanel>
+                </Border>
+                <!-- 桌面组件：设备分区常驻桌面，外观三项（背景色 / 透明度 / 毛玻璃）单独一窗调 -->
+                <Border Grid.Row="3" Grid.ColumnSpan="2" Classes="Card" Margin="0,14,0,0">
+                    <StackPanel Spacing="20">
+                        <TextBlock Text="桌面组件" FontSize="14.5" FontWeight="SemiBold"
+                                   Foreground="{DynamicResource TextBrush}" />
+                        <Grid ColumnDefinitions="Auto,*,Auto">
+                            <Border Classes="SetIc" Background="{DynamicResource BlueSoftBrush}">
+                                <Path Stroke="{DynamicResource BlueBrush}" Data="{StaticResource GeoGrid}" />
+                            </Border>
+                            <StackPanel Grid.Column="1" Margin="12,0" VerticalAlignment="Center">
+                                <TextBlock Text="在桌面显示设备分区" FontSize="13.5" FontWeight="SemiBold"
+                                           Foreground="{DynamicResource TextBrush}" />
+                                <TextBlock Text="设备卡悬停点「＋」即可添加入口；关掉只是收起，分区配置保留"
+                                           Classes="Hint Sub" Margin="0,2,0,0" TextWrapping="Wrap" />
+                            </StackPanel>
+                            <ToggleButton Grid.Column="2" Classes="Switch" VerticalAlignment="Center"
+                                          IsChecked="{Binding DesktopWidgetsEnabled}" />
+                        </Grid>
+                        <Grid ColumnDefinitions="Auto,*,Auto">
+                            <Border Classes="SetIc" Background="{DynamicResource AccentSoftBrush}">
+                                <Path Stroke="{DynamicResource Accent2Brush}" Data="{StaticResource GeoGear}" />
+                            </Border>
+                            <StackPanel Grid.Column="1" Margin="12,0" VerticalAlignment="Center">
+                                <TextBlock Text="分区外观" FontSize="13.5" FontWeight="SemiBold"
+                                           Foreground="{DynamicResource TextBrush}" />
+                                <TextBlock Text="背景色 · 背景透明度 · 毛玻璃" Classes="Hint Sub" Margin="0,2,0,0" />
+                            </StackPanel>
+                            <Button Grid.Column="2" Classes="BtnGhost" Content="调整" VerticalAlignment="Center"
+                                    Command="{Binding OpenDesktopAppearanceCommand}" />
                         </Grid>
                     </StackPanel>
                 </Border>

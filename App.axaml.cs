@@ -11,6 +11,7 @@ using Avalonia.VisualTree;
 using MiHome.Services;
 using MiHome.ViewModels;
 using MiHome.Views;
+using System.Diagnostics;
 using System.Runtime.CompilerServices;
 
 namespace MiHome;
@@ -115,6 +116,10 @@ public partial class App : Application
                 window.ShowInTaskbar = false;
             }
             desktop.MainWindow = window;
+
+            // 桌面组件：读上次的分区布局，开着的分区直接贴回桌面（主窗口收起进托盘也照样显示）
+            Services.DesktopHost.Initialize((MainViewModel)window.DataContext);
+            if (window.DataContext is MainViewModel mainVm) mainVm.DesktopWidgetsEnabled = Services.DesktopHost.Enabled;
             // 普通启动完成（JIT、主题、字体加载稳定）后延迟回收一次，收回启动期临时对象
             if (!silent)
                 window.Opened += (_, _) => Services.MemoryTrimmer.TrimDelayed(3000);
@@ -137,6 +142,7 @@ public partial class App : Application
         _trayMenu = new TrayMenuWindow();
         _trayMenu.ShowMainRequested += () => ShowMainWindow(main);
         _trayMenu.ToggleThemeRequested += () => ToggleTheme(main);
+        _trayMenu.RestartRequested += () => RestartApplication(main);
         _trayMenu.ExitRequested += main.ExitApplication;
 
         // 托盘消息挂在窗口句柄上，得等窗口真正创建出来
@@ -192,5 +198,13 @@ public partial class App : Application
         }
         ThemeStore.Set(!ThemeStore.IsLight);
         Application.Current!.RequestedThemeVariant = ThemeStore.CurrentVariant;
+    }
+
+    // 重新拉起一个实例后再退出当前进程；不带 --startup，重启后主界面正常显示
+    private static void RestartApplication(MainWindow main)
+    {
+        if (Environment.ProcessPath is { } exe)
+            Process.Start(new ProcessStartInfo(exe) { UseShellExecute = true });
+        main.ExitApplication();
     }
 }

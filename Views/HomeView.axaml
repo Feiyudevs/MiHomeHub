@@ -9,6 +9,8 @@
              
     xmlns:ctl="clr-namespace:MiHome.Controls"
              
+    xmlns:conv="clr-namespace:MiHome.Converters"
+             
     xmlns:views="clr-namespace:MiHome.Views"
              x:Class="MiHome.Views.HomeView">
     <StackPanel x:DataType="vm:MainViewModel">
@@ -63,6 +65,16 @@
             </StackPanel>
             <!-- 统计：卡片色底 + 轻投影；与左侧问候顶部对齐；按钮区已移至左侧时间行下方 -->
             <StackPanel Grid.Column="1" VerticalAlignment="Top" Margin="16,0,0,0" Spacing="12">
+                <!-- 环境读数未到货且仍在首拉：先铺同尺寸胶囊占位，读数到了整行换真胶囊 -->
+                <ItemsControl ItemsSource="{Binding EnvSkeletonSlots}"
+                          ItemTemplate="{StaticResource EnvPillSkeletonTemplate}"
+                          IsVisible="{Binding ShowEnvSkeleton}" HorizontalAlignment="Right">
+                    <ItemsControl.ItemsPanel>
+                        <ItemsPanelTemplate>
+                            <WrapPanel Orientation="Horizontal" />
+                        </ItemsPanelTemplate>
+                    </ItemsControl.ItemsPanel>
+                </ItemsControl>
                 <!-- 环境概览：温湿度聚合 + 耗材提醒，明细进弹窗；统计卡下方，底部右对齐 -->
                 <WrapPanel Margin="0,0,0,0" IsVisible="{Binding ShowEnvOverview}" HorizontalAlignment="Right">
                     <Border Classes="EnvPill" Margin="0,0,8,6">
@@ -87,7 +99,18 @@
                         Content="明细"
                         Command="{Binding OpenEnvDetailCommand}" />
                 </WrapPanel>
-                <StackPanel Orientation="Horizontal" Spacing="10" HorizontalAlignment="Right">
+                <!-- 首拉期间统计数字还是 0，先铺四张同尺寸骨架卡，设备一到整行换真卡 -->
+                <ItemsControl ItemsSource="{Binding StatSkeletonSlots}"
+                          ItemTemplate="{StaticResource StatSkeletonTemplate}"
+                          IsVisible="{Binding ShowSkeleton}" HorizontalAlignment="Right">
+                    <ItemsControl.ItemsPanel>
+                        <ItemsPanelTemplate>
+                            <StackPanel Orientation="Horizontal" Spacing="10" />
+                        </ItemsPanelTemplate>
+                    </ItemsControl.ItemsPanel>
+                </ItemsControl>
+                <StackPanel Orientation="Horizontal" Spacing="10" HorizontalAlignment="Right"
+                            IsVisible="{Binding !ShowSkeleton}">
                     <Border CornerRadius="16" Padding="16,13" MinWidth="96"
                             Background="{DynamicResource CardBrush}"
                             BoxShadow="0 1 2 0 #050F172A, 0 5 16 0 #080F172A">
@@ -152,6 +175,72 @@
                 </StackPanel>
             </StackPanel>
         </Grid>
+        <!-- 音响播放媒体区：控制所选音箱的上一曲 / 播放暂停 / 下一曲；仅在检测到音箱时出现 -->
+        <Border Margin="28,2,28,10" CornerRadius="18" Padding="18,15"
+                Background="{DynamicResource CardBrush}"
+                BorderBrush="{DynamicResource LineBrush}" BorderThickness="1"
+                BoxShadow="0 1 2 0 #050F172A, 0 5 16 0 #080F172A"
+                IsVisible="{Binding HasSpeaker}">
+            <Grid ColumnDefinitions="*,Auto" RowDefinitions="Auto,Auto" RowSpacing="15">
+                <!-- 音箱身份：图标 + 名称 + 在线状态 -->
+                <StackPanel Orientation="Horizontal" Spacing="11" VerticalAlignment="Center">
+                    <Border Width="40" Height="40" CornerRadius="12"
+                            Background="{DynamicResource AccentSoftBrush}">
+                        <Path Width="20" Height="20" Stretch="Uniform"
+                              HorizontalAlignment="Center" VerticalAlignment="Center"
+                              Stroke="{DynamicResource Accent2Brush}" StrokeThickness="1.5"
+                              StrokeLineCap="Round" StrokeJoin="Round"
+                              Data="{StaticResource GeoSpeaker}" />
+                    </Border>
+                    <StackPanel VerticalAlignment="Center" Spacing="3">
+                        <TextBlock Text="{Binding MediaSpeaker.Name}" FontSize="14.5" FontWeight="SemiBold"
+                                   Foreground="{DynamicResource TextBrush}" MaxWidth="240"
+                                   TextTrimming="CharacterEllipsis" />
+                        <StackPanel Orientation="Horizontal" Spacing="6">
+                            <Ellipse Classes="StatusDot" Width="6" Height="6" VerticalAlignment="Center"
+                                     Classes.is-on="{Binding MediaSpeaker.IsOnline}"
+                                     Classes.is-warn="{Binding !MediaSpeaker.IsOnline}" />
+                            <TextBlock FontSize="11.5" VerticalAlignment="Center"
+                                       Foreground="{DynamicResource Text3Brush}"
+                                       Text="{Binding MediaSpeaker.IsOnline, Converter={x:Static conv:BoolTextConverter.Instance}, ConverterParameter='在线|离线'}" />
+                        </StackPanel>
+                    </StackPanel>
+                </StackPanel>
+                <!-- 音箱选择：与语音浮层同源的下拉，切换即改变本区控制的设备 -->
+                <ctl:OptionPicker Grid.Column="1" VerticalAlignment="Center" MinWidth="120" MaxWidth="170"
+                                  ToolTip.Tip="选择要控制的音箱"
+                                  Options="{Binding SpeakerOptions}"
+                                  SelectedValue="{Binding SelectedSpeakerValue, Mode=TwoWay}" />
+                <!-- 播放控制：上一曲 / 播放暂停 / 下一曲 -->
+                <Border Grid.Row="1" Grid.ColumnSpan="2" Classes="SegTrack">
+                    <Grid ColumnDefinitions="*,*,*">
+                        <Button Classes="SegBtn" Height="42" VerticalAlignment="Center" ToolTip.Tip="上一曲"
+                                Command="{Binding MediaPreviousCommand}"
+                                IsEnabled="{Binding !MediaSpeaker.IsBusy}">
+                            <Path Width="16" Height="16" Stretch="Uniform" Fill="{DynamicResource Text2Brush}"
+                                  Data="{StaticResource GeoPrevTrack}" />
+                        </Button>
+                        <Button Grid.Column="1" Classes="SegBtn" Height="42" VerticalAlignment="Center"
+                                ToolTip.Tip="播放 / 暂停"
+                                Command="{Binding MediaTogglePlayCommand}"
+                                IsEnabled="{Binding !MediaSpeaker.IsBusy}">
+                            <Panel>
+                                <Path Width="16" Height="16" Stretch="Uniform" Fill="{DynamicResource Accent2Brush}"
+                                      IsVisible="{Binding !MediaSpeaker.IsPlaying}" Data="{StaticResource GeoPlay}" />
+                                <Path Width="16" Height="16" Stretch="Uniform" Fill="{DynamicResource Accent2Brush}"
+                                      IsVisible="{Binding MediaSpeaker.IsPlaying}" Data="{StaticResource GeoPauseIc}" />
+                            </Panel>
+                        </Button>
+                        <Button Grid.Column="2" Classes="SegBtn" Height="42" VerticalAlignment="Center" ToolTip.Tip="下一曲"
+                                Command="{Binding MediaNextCommand}"
+                                IsEnabled="{Binding !MediaSpeaker.IsBusy}">
+                            <Path Width="16" Height="16" Stretch="Uniform" Fill="{DynamicResource Text2Brush}"
+                                  Data="{StaticResource GeoNextTrack}" />
+                        </Button>
+                    </Grid>
+                </Border>
+            </Grid>
+        </Border>
         <!-- 快捷场景：标题行右侧「更多」进场景页；没有场景时整条不出现 -->
         <Grid ColumnDefinitions="*,Auto" IsVisible="{Binding ShowQuickScenes}">
             <TextBlock Classes="SecTitle" Text="快捷场景" VerticalAlignment="Center" />

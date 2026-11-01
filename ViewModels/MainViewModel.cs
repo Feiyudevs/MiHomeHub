@@ -135,14 +135,23 @@ public partial class MainViewModel : ObservableObject
         OnPropertyChanged(nameof(ConsumablePillText));
         OnPropertyChanged(nameof(ConsumableStatusText));
     }
-    partial void OnHasEnvironmentChanged(bool value) => OnPropertyChanged(nameof(ShowEnvOverview));
-    partial void OnHasConsumablesChanged(bool value) => OnPropertyChanged(nameof(ShowEnvOverview));
+    partial void OnHasEnvironmentChanged(bool value)
+    {
+        OnPropertyChanged(nameof(ShowEnvOverview));
+        OnPropertyChanged(nameof(ShowEnvSkeleton));
+    }
+    partial void OnHasConsumablesChanged(bool value)
+    {
+        OnPropertyChanged(nameof(ShowEnvOverview));
+        OnPropertyChanged(nameof(ShowEnvSkeleton));
+    }
 
     partial void OnHasConsumableWarningChanged(bool value)
     {
         OnPropertyChanged(nameof(ConsumablePillText));
         OnPropertyChanged(nameof(ConsumableStatusText));
         OnPropertyChanged(nameof(ShowEnvOverview));
+        OnPropertyChanged(nameof(ShowEnvSkeleton));
     }
 
     // ===== 小爱音箱：默认音箱与语音指令 =====
@@ -156,8 +165,17 @@ public partial class MainViewModel : ObservableObject
     /// <summary>首次拉取期间的骨架格数量，只用来给 ItemsControl 供位。</summary>
     public IReadOnlyList<string> SkeletonSlots { get; } = new string[10];
 
+    /// <summary>概览统计卡的骨架槽位：真实统计卡固定四张（在线/开启/房间/场景），占位数量与之一致。</summary>
+    public IReadOnlyList<string> StatSkeletonSlots { get; } = new string[4];
+
+    /// <summary>环境胶囊的骨架槽位：温度/湿度/耗材三枚。</summary>
+    public IReadOnlyList<string> EnvSkeletonSlots { get; } = new string[3];
+
     /// <summary>列表还空着时铺骨架；已有设备只是刷新状态，不动内容。</summary>
     public bool ShowSkeleton => IsLoading && TotalCount == 0;
+
+    /// <summary>还在首拉且环境读数没到货时铺胶囊占位；读数到了立刻换真胶囊。</summary>
+    public bool ShowEnvSkeleton => IsLoading && !ShowEnvOverview;
 
     /// <summary>场景首次拉取期间铺骨架；已有场景只是刷新时不动内容。</summary>
     public bool ShowSceneSkeleton => IsLoading && !HasScenes;
@@ -244,6 +262,8 @@ public partial class MainViewModel : ObservableObject
         ThemeStore.Set(!value);
         if (Application.Current != null)
             Application.Current.RequestedThemeVariant = value ? ThemeVariant.Dark : ThemeVariant.Light;
+        // 桌面分区底色跟着主题卡片色走，切主题要重算一次
+        DesktopHost.OnThemeChanged();
     }
 
     partial void OnIconGlassChanged(bool value) => IconStyleStore.Set(value);
@@ -323,6 +343,7 @@ public partial class MainViewModel : ObservableObject
         OnPropertyChanged(nameof(ShowSceneEmpty));
         OnPropertyChanged(nameof(ShowSceneSkeleton));
         OnPropertyChanged(nameof(ShowQuickScenes));
+        OnPropertyChanged(nameof(ShowEnvSkeleton));
     }
 
     partial void OnTotalCountChanged(int value)
@@ -356,6 +377,8 @@ public partial class MainViewModel : ObservableObject
     {
         // 先铺上次缓存的设备，联网成功后整表替换，避免开屏干等
         ApplyCachedDevices();
+        // 没有缓存时 TotalCount 仍为 0，这里提前置加载态，让概览/设备骨架在刷 token 的等待期就出现
+        IsLoading = true;
         if (refreshToken)
         {
             try
@@ -1065,6 +1088,8 @@ public partial class MainViewModel : ObservableObject
         TotalText = $"/ {TotalCount}";
         OfflineText = $"离线 {OfflineCount}";
         UpdateBanner();
+        // 桌面分区按 did 从这里取实例：列表换代后让它们重绑一次（同实例时内部直接跳过）
+        RaiseDevicesReloaded();
     }
 
     private void UpdateBanner()

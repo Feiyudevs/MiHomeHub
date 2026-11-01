@@ -1,0 +1,21 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="clr-namespace:MiHome.ViewModels"
+        xmlns:views="clr-namespace:MiHome.Views"
+        x:Class="MiHome.Views.DesktopGroupWindow"
+        x:DataType="vm:DesktopGroupVm"
+        Title="{Binding Name}"
+        SystemDecorations="None"
+        ExtendClientAreaToDecorationsHint="True"
+        ExtendClientAreaChromeHints="NoChrome"
+        TransparencyLevelHint="Transparent"
+        Background="Transparent"
+        ShowInTaskbar="False"
+        ShowActivated="False"
+        CanResize="False"
+        Topmost="False"
+        SizeToContent="Height"
+        WindowStartupLocation="Manual"
+        RequestedThemeVariant="Dark">
+    <views:DesktopGroupView x:Name="Root" />
+</Window>

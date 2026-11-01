@@ -25,6 +25,18 @@
             <Setter Property="TextWrapping" Value="Wrap"/>
             <Setter Property="LineHeight" Value="16"/>
         </Style>
+        <!-- 设备卡文字：默认按主窗口配色（名称次级亮、房间/路数次级灰）。
+             桌面分区卡在 DesktopGroupView 里用更具体的选择器覆盖成 DskText* 提亮一档，
+             因此这三处都必须只由样式上色，元素上不能写本地 Foreground -->
+        <Style Selector="TextBlock.DevName">
+            <Setter Property="Foreground" Value="{DynamicResource Text2Brush}"/>
+        </Style>
+        <Style Selector="TextBlock.DevMeta">
+            <Setter Property="Foreground" Value="{DynamicResource Text3Brush}"/>
+        </Style>
+        <Style Selector="TextBlock.DevBadgeText">
+            <Setter Property="Foreground" Value="{DynamicResource Text3Brush}"/>
+        </Style>
         <Style Selector="TextBlock.SecTitle">
             <Setter Property="Foreground" Value="{DynamicResource Text2Brush}"/>
             <Setter Property="FontSize" Value="13"/>
@@ -111,10 +123,10 @@
         <Style Selector="Button.IconBtn:pointerover /template/ Border#Bd">
             <Setter Property="Background" Value="{DynamicResource HoverBrush}"/>
         </Style>
-        <!-- 窗口控制钮 36×30（图标 12 网格、圆角悬浮） -->
+        <!-- 窗口控制钮 36×36（与 ThemeBtn 同高，图标垂直对齐、圆角悬浮） -->
         <Style Selector="Button.WinBtn">
             <Setter Property="Width" Value="36"/>
-            <Setter Property="Height" Value="30"/>
+            <Setter Property="Height" Value="36"/>
             <Setter Property="Margin" Value="2,0,0,0"/>
             <Setter Property="Foreground" Value="{DynamicResource Text2Brush}"/>
             <Setter Property="Cursor" Value="Hand"/>
@@ -157,6 +169,28 @@
             <Setter Property="Background" Value="{DynamicResource SurfaceBrush}"/>
         </Style>
         <Style Selector="Button.ThemeBtn:pointerover">
+            <Setter Property="Foreground" Value="{DynamicResource TextBrush}"/>
+        </Style>
+        <!-- 圆形图标钮：底色 SurfaceBrush 是分主题的一层轻微抬升（暗底加白、亮底加深），悬停换 HoverBrush -->
+        <Style Selector="Button.IconDisc">
+            <Setter Property="Width" Value="34"/>
+            <Setter Property="Height" Value="34"/>
+            <Setter Property="Padding" Value="0"/>
+            <Setter Property="Foreground" Value="{DynamicResource Text2Brush}"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="Template">
+                <ControlTemplate>
+                    <Border Name="Bd" CornerRadius="17" Background="{DynamicResource SurfaceBrush}">
+                        <ContentPresenter Content="{TemplateBinding Content}"
+                                          HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                    </Border>
+                </ControlTemplate>
+            </Setter>
+        </Style>
+        <Style Selector="Button.IconDisc:pointerover /template/ Border#Bd">
+            <Setter Property="Background" Value="{DynamicResource HoverBrush}"/>
+        </Style>
+        <Style Selector="Button.IconDisc:pointerover">
             <Setter Property="Foreground" Value="{DynamicResource TextBrush}"/>
         </Style>
         <!-- ======== 开关 40×22（§8.4） ======== -->
@@ -207,19 +241,19 @@
         <!-- ======== 卡片电源按钮：圆形底 + 电源图标（关=淡底，开=主色底） ======== -->
         <!-- 关闭态用 TrackBrush：SurfaceBrush 只有 5% 白，深色卡上圆底几乎不可见，会被看成一个小图标 -->
         <Style Selector="ToggleButton.Power">
-            <Setter Property="Width" Value="40"/>
-            <Setter Property="Height" Value="40"/>
+            <Setter Property="Width" Value="32"/>
+            <Setter Property="Height" Value="32"/>
             <Setter Property="Cursor" Value="Hand"/>
             <Setter Property="Background" Value="{DynamicResource TrackBrush}"/>
             <Setter Property="Foreground" Value="{DynamicResource Text2Brush}"/>
             <Setter Property="Template">
                 <ControlTemplate>
                     <!-- Disc 不设对齐（默认 Stretch 铺满按钮）；设 Center 会收缩到图标大小 -->
-                    <Border Name="Disc" CornerRadius="20" Background="{TemplateBinding Background}">
+                    <Border Name="Disc" CornerRadius="16" Background="{TemplateBinding Background}">
                         <!-- 电源符号：上竖线 + 开口圆弧，描边绘制保证小尺寸不糊 -->
-                        <Path Width="16" Height="16" Stretch="Uniform"
+                        <Path Width="13" Height="13" Stretch="Uniform"
                               HorizontalAlignment="Center" VerticalAlignment="Center"
-                              Stroke="{TemplateBinding Foreground}" StrokeThickness="2"
+                              Stroke="{TemplateBinding Foreground}" StrokeThickness="1.7"
                               StrokeLineCap="Round" StrokeJoin="Round"
                               Data="M18.36,6.64 A9,9 0 1 1 6.64,6.64 M12,2 V12"/>
                     </Border>
@@ -233,11 +267,25 @@
                 </Transitions>
             </Setter>
         </Style>
+        <Style Selector="ToggleButton.Power">
+            <Setter Property="RenderTransform" Value="translate(0px,0px)"/>
+            <Setter Property="Transitions">
+                <Transitions>
+                    <TransformOperationsTransition Property="RenderTransform" Duration="0:0:0.18"/>
+                </Transitions>
+            </Setter>
+        </Style>
+        <!-- 卡片悬停时右列「一分为二」：电源键从垂直居中滑到右下角（16px：32+32 两枚按钮
+             在 48px 内容高里排下，上「更多」-9 起、下电源键 24 起，留 1px 不重叠），
+             给上方浮现的「更多」让位 -->
+        <Style Selector="Button.DevCard:pointerover ToggleButton.Power">
+            <Setter Property="RenderTransform" Value="translate(0px,16px)"/>
+        </Style>
         <Style Selector="ToggleButton.Power:pointerover /template/ Border#Disc">
             <Setter Property="Opacity" Value="0.85"/>
         </Style>
         <Style Selector="ToggleButton.Power:checked">
-            <Setter Property="Background" Value="{DynamicResource AccentBrush}"/>
+            <Setter Property="Background" Value="{DynamicResource PowerOnBrush}"/>
             <Setter Property="Foreground" Value="White"/>
         </Style>
         <Style Selector="ToggleButton.Power:disabled">
@@ -451,6 +499,31 @@
                     </KeyFrame>
                     <KeyFrame Cue="100%">
                         <Setter Property="TranslateTransform.X" Value="416"/>
+                    </KeyFrame>
+                </Animation>
+            </Style.Animations>
+        </Style>
+        <!-- 窄版高光带：统计卡这类小卡用。类名单独开一个，不复用 SkelShine，
+             否则 .SkelShine.run 的 416 扫程动画会和窄版动画同时命中、互相抢写 X。 -->
+        <Style Selector="Border.SkelShineSm">
+            <Setter Property="Width" Value="56"/>
+            <Setter Property="Height" Value="70"/>
+            <Setter Property="Canvas.Top" Value="-8"/>
+            <Setter Property="Canvas.Left" Value="-64"/>
+            <Setter Property="IsHitTestVisible" Value="False"/>
+            <Setter Property="Background" Value="{DynamicResource SkelShineBrush}"/>
+            <Setter Property="RenderTransform">
+                <TranslateTransform X="0"/>
+            </Setter>
+        </Style>
+        <Style Selector="Border.SkelShineSm.run">
+            <Style.Animations>
+                <Animation Duration="0:0:1.5" IterationCount="Infinite" Easing="CubicEaseInOut">
+                    <KeyFrame Cue="0%">
+                        <Setter Property="TranslateTransform.X" Value="0"/>
+                    </KeyFrame>
+                    <KeyFrame Cue="100%">
+                        <Setter Property="TranslateTransform.X" Value="190"/>
                     </KeyFrame>
                 </Animation>
             </Style.Animations>
@@ -702,6 +775,52 @@
                 </Transitions>
             </Setter>
         </Style>
+        <!-- ======== 设备卡「更多」按钮 ======== -->
+        <!-- 平时完全隐形且不参与命中，整卡悬停才浮现（透明度过渡）；
+             点击行为由 Controls/MenuOpener 附加属性接管：打开与右键同一份菜单。
+             菜单本体（外壳 + 菜单项主题）直接内联在 Templates.axaml 的设备卡模板里，
+             不依赖样式匹配 —— 弹出层的样式应用时机不可控，本地值最稳。 -->
+        <!-- 「更多」：比电源键略小（26×26 正圆）、同轴对齐（都贴右列右边线 -6）；
+             默认隐藏 + 上浮 3px，卡片悬停时淡入下滑浮现 -->
+        <Style Selector="Button.MoreBtn">
+            <Setter Property="Width" Value="26"/>
+            <Setter Property="Height" Value="26"/>
+            <Setter Property="Padding" Value="0"/>
+            <Setter Property="CornerRadius" Value="13"/>
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="Focusable" Value="False"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="Opacity" Value="0"/>
+            <Setter Property="IsHitTestVisible" Value="False"/>
+            <Setter Property="Foreground" Value="{DynamicResource Text3Brush}"/>
+            <Setter Property="RenderTransform" Value="translate(0px,-3px)"/>
+            <Setter Property="Transitions">
+                <Transitions>
+                    <DoubleTransition Property="Opacity" Duration="0:0:0.12"/>
+                    <TransformOperationsTransition Property="RenderTransform" Duration="0:0:0.15"/>
+                </Transitions>
+            </Setter>
+        </Style>
+        <Style Selector="Button.DevCard:pointerover Button.MoreBtn">
+            <Setter Property="Opacity" Value="1"/>
+            <Setter Property="IsHitTestVisible" Value="True"/>
+            <Setter Property="RenderTransform" Value="translate(0px,0px)"/>
+        </Style>
+        <Style Selector="Button.MoreBtn:pointerover">
+            <Setter Property="Foreground" Value="{DynamicResource TextBrush}"/>
+        </Style>
+        <!-- 圆形背景：卡片悬停时浮现淡色圆底，悬停/按下自身时加深一层 -->
+        <Style Selector="Button.DevCard:pointerover Button.MoreBtn /template/ ContentPresenter#PART_ContentPresenter">
+            <Setter Property="Background" Value="{DynamicResource MenuHoverBrush}"/>
+        </Style>
+        <Style Selector="Button.MoreBtn:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+            <Setter Property="Background" Value="{DynamicResource MenuPressBrush}"/>
+        </Style>
+        <Style Selector="Button.MoreBtn:pressed /template/ ContentPresenter#PART_ContentPresenter">
+            <Setter Property="Background" Value="{DynamicResource MenuPressBrush}"/>
+        </Style>
+
         <!-- ======== 弹窗基类 DialogPopup：遮罩 + 居中卡片 + 标题栏 + 可滚动正文 ======== -->
         <!-- 卡片四周 1px LineBrush 浅描边：暗色下是极淡的白、浅色下是极淡的蓝黑，只负责把卡片从背景里分出来 -->
         <Style Selector="Border.DialogCard">
@@ -709,6 +828,8 @@
             <Setter Property="BorderBrush" Value="{DynamicResource LineBrush}"/>
             <Setter Property="BorderThickness" Value="1"/>
             <Setter Property="CornerRadius" Value="24"/>
+            <!-- 正文再长也只在卡片内滚：不裁切时超出一行的内容会画到卡片圆角外面 -->
+            <Setter Property="ClipToBounds" Value="True"/>
             <Setter Property="BoxShadow" Value="0 24 48 0 #3311182B"/>
         </Style>
         <Style Selector="ctl|DialogPopup">
@@ -722,7 +843,7 @@
                                 Width="{TemplateBinding CardWidth}"
                                 MaxHeight="{TemplateBinding CardMaxHeight}">
                             <Grid RowDefinitions="Auto,*">
-                                <Panel Margin="28,24,22,0">
+                                <Panel Name="DialogHeader" Background="Transparent" Margin="28,20,22,0">
                                     <StackPanel>
                                         <TextBlock Text="{TemplateBinding Title}" FontSize="19" FontWeight="Bold"
                                                    Foreground="{DynamicResource TextBrush}"/>
@@ -730,6 +851,7 @@
                                                    IsVisible="{Binding Subtitle, RelativeSource={RelativeSource TemplatedParent}, Converter={x:Static ObjectConverters.IsNotNull}}"/>
                                     </StackPanel>
                                     <Button Classes="ThemeBtn" HorizontalAlignment="Right" VerticalAlignment="Top"
+                                            Cursor="Hand"
                                             Command="{TemplateBinding CloseCommand}" ToolTip.Tip="关闭">
                                         <Path Width="11" Height="11" Stretch="Uniform" StrokeThickness="0.8"
                                               StrokeLineCap="Round"
@@ -737,10 +859,13 @@
                                               Data="{StaticResource GeoClose}"/>
                                     </Button>
                                 </Panel>
-                                <ScrollViewer Grid.Row="1" Margin="28,18,22,26"
+                                <!-- 右外距缩到 6：把滚动条推到卡片内侧边缘，不再压在卡片上；
+                                     正文右侧补 16 内距，正文可用宽度与卡片位置都和原来完全一致 -->
+                                <ScrollViewer Grid.Row="1" Margin="28,18,6,26"
+                                              ClipToBounds="True"
                                               VerticalScrollBarVisibility="Auto"
                                               HorizontalScrollBarVisibility="Disabled">
-                                    <ContentPresenter Content="{TemplateBinding Content}"/>
+                                    <ContentPresenter Content="{TemplateBinding Content}" Margin="0,0,16,0"/>
                                 </ScrollViewer>
                             </Grid>
                         </Border>

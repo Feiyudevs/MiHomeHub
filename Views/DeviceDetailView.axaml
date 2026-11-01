@@ -1,0 +1,315 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="clr-namespace:MiHome.ViewModels"
+             xmlns:m="clr-namespace:MiHome.Models"
+             xmlns:conv="clr-namespace:MiHome.Converters"
+             xmlns:ctl="clr-namespace:MiHome.Controls"
+             xmlns:views="clr-namespace:MiHome.Views"
+             xmlns:svc="clr-namespace:MiHome.Services"
+             x:Class="MiHome.Views.DeviceDetailView"
+             x:DataType="vm:MainViewModel">
+    <!-- 设备详情正文：右侧抽屉与桌面分区的控制弹窗共用这一份，
+         两处永远是同一套卡片、同一套命令，不复制不漂移。
+         外边距由宿主（抽屉 ScrollViewer / DialogPopup 正文区）决定。 -->
+    <StackPanel Spacing="16">
+        <Border Classes="DrCard" IsVisible="{Binding DrawerDevice.IsPower}">
+            <Grid ColumnDefinitions="*,Auto">
+                <TextBlock Text="电源" FontSize="14" FontWeight="SemiBold"
+                           VerticalAlignment="Center"
+                           Foreground="{DynamicResource TextBrush}" />
+                <ToggleButton Grid.Column="1" Classes="Switch" VerticalAlignment="Center"
+                              IsChecked="{Binding DrawerDevice.IsOn, Mode=TwoWay}"
+                              IsEnabled="{Binding !DrawerDevice.IsBusy}"
+                              Command="{Binding ToggleDeviceCommand}"
+                              CommandParameter="{Binding DrawerDevice}" />
+            </Grid>
+        </Border>
+        <!-- 多路开关：每一路独立一行；单路开关也用这张卡（此时没有整机电源卡） -->
+        <Border Classes="DrCard" IsVisible="{Binding DrawerDevice.HasChannels}">
+            <StackPanel Spacing="8">
+                <TextBlock Text="开关" FontSize="14" FontWeight="SemiBold"
+                           Foreground="{DynamicResource TextBrush}" />
+                <ItemsControl ItemsSource="{Binding DrawerDevice.Channels}"
+                              ItemTemplate="{StaticResource ChannelRowTemplate}" />
+            </StackPanel>
+        </Border>
+        <!-- 小爱音箱：音量 + 播放 / 暂停 -->
+        <Border Classes="DrCard" IsVisible="{Binding DrawerDevice.IsSpeaker}">
+            <StackPanel Spacing="9">
+                <Grid ColumnDefinitions="*,Auto">
+                    <TextBlock Text="音量" FontSize="14" FontWeight="SemiBold"
+                               VerticalAlignment="Center"
+                               Foreground="{DynamicResource TextBrush}" />
+                    <TextBlock Grid.Column="1" FontSize="12.5" FontWeight="SemiBold"
+                               Foreground="{DynamicResource Accent2Brush}"
+                               Text="{Binding DrawerDevice.SpeakerVolume, StringFormat='{}{0}%'}" />
+                </Grid>
+                <Slider Classes="DrSlider" Minimum="0" Maximum="100" TickFrequency="1"
+                        Value="{Binding DrawerDevice.SpeakerVolume, Mode=TwoWay}"
+                        IsEnabled="{Binding DrawerDevice.IsOnline}" />
+                <Border Classes="SegTrack">
+                    <Grid ColumnDefinitions="*,*,*">
+                        <Button Classes="SegBtn" VerticalAlignment="Center" ToolTip.Tip="上一曲"
+                                Command="{Binding PreviousTrackCommand}"
+                                IsEnabled="{Binding !DrawerDevice.IsBusy}">
+                            <Path Width="15" Height="15" Stretch="Uniform"
+                                  Fill="{DynamicResource Text2Brush}"
+                                  Data="{StaticResource GeoPrevTrack}" />
+                        </Button>
+                        <Button Grid.Column="1" Classes="SegBtn" VerticalAlignment="Center"
+                                ToolTip.Tip="播放 / 暂停"
+                                Command="{Binding ToggleSpeakerPlayCommand}"
+                                IsEnabled="{Binding !DrawerDevice.IsBusy}">
+                            <Panel>
+                                <Path Width="14" Height="14" Stretch="Uniform"
+                                      Fill="{DynamicResource Accent2Brush}"
+                                      IsVisible="{Binding !DrawerDevice.IsPlaying}"
+                                      Data="{StaticResource GeoPlay}" />
+                                <Path Width="14" Height="14" Stretch="Uniform"
+                                      Fill="{DynamicResource Accent2Brush}"
+                                      IsVisible="{Binding DrawerDevice.IsPlaying}"
+                                      Data="{StaticResource GeoPauseIc}" />
+                            </Panel>
+                        </Button>
+                        <Button Grid.Column="2" Classes="SegBtn" VerticalAlignment="Center" ToolTip.Tip="下一曲"
+                                Command="{Binding NextTrackCommand}"
+                                IsEnabled="{Binding !DrawerDevice.IsBusy}">
+                            <Path Width="15" Height="15" Stretch="Uniform"
+                                  Fill="{DynamicResource Text2Brush}"
+                                  Data="{StaticResource GeoNextTrack}" />
+                        </Button>
+                    </Grid>
+                </Border>
+                <TextBlock Classes="Hint" Text="播放状态以音箱实际响应为准" />
+            </StackPanel>
+        </Border>
+        <!-- 耗材：滤芯 / 刷头余量，低于 20% 标琥珀色 -->
+        <Border Classes="DrCard" IsVisible="{Binding DrawerDevice.HasConsumables}">
+            <StackPanel Spacing="8">
+                <TextBlock Text="耗材" FontSize="14" FontWeight="SemiBold"
+                           Foreground="{DynamicResource TextBrush}" />
+                <ItemsControl ItemsSource="{Binding DrawerDevice.Consumables}">
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate x:DataType="m:ConsumableState">
+                            <Grid ColumnDefinitions="*,Auto" Margin="0,0,0,4">
+                                <TextBlock Text="{Binding Desc}" FontSize="12.5"
+                                           Foreground="{DynamicResource Text2Brush}" />
+                                <TextBlock Grid.Column="1" Text="{Binding ValueText}"
+                                           Classes="ConsumeVal" Classes.is-low="{Binding IsLow}" />
+                            </Grid>
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
+            </StackPanel>
+        </Border>
+        <!-- 窗帘：开合度 + 电机控制 -->
+        <StackPanel Spacing="12" IsVisible="{Binding DrawerDevice.IsCurtain}">
+            <Border Classes="DrCard">
+                <StackPanel Spacing="7">
+                    <Grid ColumnDefinitions="*,Auto">
+                        <TextBlock Text="开合度" FontSize="12.5" Foreground="{DynamicResource Text2Brush}" />
+                        <TextBlock Grid.Column="1" FontSize="12.5" FontWeight="SemiBold"
+                                   Foreground="{DynamicResource Accent2Brush}"
+                                   Text="{Binding DrawerDevice.CurtainPosition, StringFormat='{}{0}%'}" />
+                    </Grid>
+                    <Slider Classes="DrSlider" Minimum="0" Maximum="100"
+                            Value="{Binding DrawerDevice.CurtainPosition, Mode=OneWay}"
+                            IsEnabled="False" />
+                </StackPanel>
+            </Border>
+            <Border Classes="DrCard">
+                <StackPanel Spacing="7" IsEnabled="{Binding DrawerDevice.IsOnline}">
+                    <TextBlock Text="控制" FontSize="12.5" Foreground="{DynamicResource Text2Brush}" />
+                    <Border Classes="SegTrack">
+                        <UniformGrid Columns="3">
+                            <Button Classes="SegBtn" Content="打开" VerticalAlignment="Center"
+                                    Command="{Binding CurtainOpenCommand}"
+                                    IsEnabled="{Binding !DrawerDevice.IsBusy}" />
+                            <Button Classes="SegBtn" Content="暂停" VerticalAlignment="Center"
+                                    Command="{Binding CurtainPauseCommand}"
+                                    IsEnabled="{Binding !DrawerDevice.IsBusy}" />
+                            <Button Classes="SegBtn" Content="关闭" VerticalAlignment="Center"
+                                    Command="{Binding CurtainCloseCommand}"
+                                    IsEnabled="{Binding !DrawerDevice.IsBusy}" />
+                        </UniformGrid>
+                    </Border>
+                </StackPanel>
+            </Border>
+            <TextBlock Classes="Hint" Text="打开 / 暂停 / 关闭 电机指令即时下发" />
+        </StackPanel>
+        <!-- 灯光：亮度 + 色温（拖动松手后生效） -->
+        <StackPanel Spacing="12" IsVisible="{Binding DrawerDevice.IsLight}">
+            <Border Classes="DrCard">
+                <StackPanel Spacing="7">
+                    <Grid ColumnDefinitions="*,Auto">
+                        <TextBlock Text="亮度" FontSize="12.5" Foreground="{DynamicResource Text2Brush}" />
+                        <TextBlock Grid.Column="1" FontSize="12.5" FontWeight="SemiBold"
+                                   Foreground="{DynamicResource Accent2Brush}"
+                                   Text="{Binding DrawerDevice.Brightness, StringFormat='{}{0}%'}" />
+                    </Grid>
+                    <Slider Classes="DrSlider" Minimum="1" Maximum="100"
+                            Value="{Binding DrawerDevice.Brightness, Mode=TwoWay}"
+                            IsEnabled="{Binding DrawerDevice.IsOnline}" />
+                </StackPanel>
+            </Border>
+            <Border Classes="DrCard">
+                <StackPanel Spacing="7">
+                    <Grid ColumnDefinitions="*,Auto">
+                        <TextBlock Text="色温" FontSize="12.5" Foreground="{DynamicResource Text2Brush}" />
+                        <TextBlock Grid.Column="1" FontSize="12.5" FontWeight="SemiBold"
+                                   Foreground="{DynamicResource Accent2Brush}"
+                                   Text="{Binding DrawerDevice.ColorTemp, StringFormat='{}{0}K'}" />
+                    </Grid>
+                    <Slider Classes="DrSlider" Minimum="2700" Maximum="6500" TickFrequency="100"
+                            Value="{Binding DrawerDevice.ColorTemp, Mode=TwoWay}"
+                            IsEnabled="{Binding DrawerDevice.IsOnline}" />
+                </StackPanel>
+            </Border>
+            <TextBlock Classes="Hint" Text="拖动滑杆，松手后生效" />
+        </StackPanel>
+        <!-- 空调：模式 + 目标温度 + 风速（按钮按设备规格生成） -->
+        <StackPanel Spacing="12" IsVisible="{Binding DrawerDevice.IsAc}">
+            <StackPanel Spacing="12"
+                        IsVisible="{Binding DrawerDevice.AcSchema, Converter={x:Static ObjectConverters.IsNotNull}}">
+                <Border Classes="DrCard">
+                    <StackPanel Spacing="7" IsEnabled="{Binding DrawerDevice.IsOnline}">
+                        <TextBlock Text="模式" FontSize="12.5" Foreground="{DynamicResource Text2Brush}" />
+                        <Border Classes="SegTrack">
+                            <ItemsControl ItemsSource="{Binding DrawerDevice.AcSchema.Modes}"
+                                          ItemTemplate="{StaticResource AcModeOptionTemplate}">
+                                <ItemsControl.ItemsPanel>
+                                    <ItemsPanelTemplate>
+                                        <!-- 列数 = 模式数：4 个模式就 4 列，右侧不留空格 -->
+                                        <UniformGrid Columns="{Binding DrawerDevice.AcSchema.Modes.Count}" />
+                                    </ItemsPanelTemplate>
+                                </ItemsControl.ItemsPanel>
+                            </ItemsControl>
+                        </Border>
+                    </StackPanel>
+                </Border>
+                <Border Classes="DrCard">
+                    <Grid ColumnDefinitions="*,Auto" IsEnabled="{Binding DrawerDevice.IsOnline}">
+                        <TextBlock Text="目标温度" FontSize="12.5" Foreground="{DynamicResource Text2Brush}"
+                                   VerticalAlignment="Center" />
+                        <!-- 温度步进器：白胶囊容器 + 无底加减钮，悬停泛主色 -->
+                        <Border Grid.Column="1" VerticalAlignment="Center"
+                                Background="{DynamicResource CardBrush}"
+                                BorderBrush="{DynamicResource LineBrush}" BorderThickness="1"
+                                CornerRadius="10" Padding="3">
+                            <StackPanel Orientation="Horizontal" Spacing="4" VerticalAlignment="Center">
+                                <Button Classes="SegMini" Command="{Binding AcTempDownCommand}"
+                                        ToolTip.Tip="降低目标温度">
+                                    <!-- Path 减号：几何居中，不受字体基线影响 -->
+                                    <Path Width="10" Height="2" Stretch="None"
+                                          Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}"
+                                          StrokeThickness="1.8" StrokeLineCap="Round"
+                                          Data="M0,1 H10" />
+                                </Button>
+                                <TextBlock FontSize="15.5" FontWeight="Bold" MinWidth="56"
+                                           Foreground="{DynamicResource TextBrush}" TextAlignment="Center"
+                                           VerticalAlignment="Center"
+                                           Text="{Binding DrawerDevice.AcTargetTemp, StringFormat='{}{0:0.#}℃'}" />
+                                <Button Classes="SegMini" Command="{Binding AcTempUpCommand}"
+                                        ToolTip.Tip="升高目标温度">
+                                    <!-- Path 加号：10×10 十字，中心与按钮中心重合 -->
+                                    <Path Width="10" Height="10" Stretch="None"
+                                          Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}"
+                                          StrokeThickness="1.8" StrokeLineCap="Round"
+                                          Data="M0,5 H10 M5,0 V10" />
+                                </Button>
+                            </StackPanel>
+                        </Border>
+                    </Grid>
+                </Border>
+                <Border Classes="DrCard">
+                    <StackPanel Spacing="7" IsEnabled="{Binding DrawerDevice.IsOnline}">
+                        <TextBlock Text="风速" FontSize="12.5" Foreground="{DynamicResource Text2Brush}" />
+                        <Border Classes="SegTrack">
+                            <ItemsControl ItemsSource="{Binding DrawerDevice.AcSchema.Fans}"
+                                          ItemTemplate="{StaticResource AcFanOptionTemplate}">
+                                <ItemsControl.ItemsPanel>
+                                    <ItemsPanelTemplate>
+                                        <UniformGrid Columns="5" />
+                                    </ItemsPanelTemplate>
+                                </ItemsControl.ItemsPanel>
+                            </ItemsControl>
+                        </Border>
+                    </StackPanel>
+                </Border>
+                <TextBlock Classes="Hint" Foreground="{DynamicResource Accent2Brush}"
+                           Text="空调未开机：温度/风速/模式需开机后调节"
+                           IsVisible="{Binding !DrawerDevice.IsOn}" />
+            </StackPanel>
+            <TextBlock Classes="Hint" Text="未获取到该空调的控制参数，暂无法调节"
+                       IsVisible="{Binding DrawerDevice.AcSchema, Converter={x:Static ObjectConverters.IsNull}}" />
+        </StackPanel>
+        <!-- 高级设置：常用控制卡之外的规格属性与低频动作，默认折叠，点击展开 -->
+        <Border Classes="DrCard" IsVisible="{Binding HasAdvanced}">
+            <StackPanel Spacing="8">
+                <Button Classes="BtnGhost" HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch"
+                        Command="{Binding ToggleAdvancedCommand}" Padding="0">
+                    <Grid ColumnDefinitions="*,Auto">
+                        <TextBlock Text="高级设置" FontSize="14" FontWeight="SemiBold"
+                                   Foreground="{DynamicResource TextBrush}" VerticalAlignment="Center" />
+                        <Path Grid.Column="1" Width="9" Height="9" Stretch="Uniform" Margin="8,0,0,0"
+                              Stroke="{DynamicResource Text2Brush}" StrokeThickness="1.6"
+                              VerticalAlignment="Center"
+                              IsVisible="{Binding !IsAdvancedExpanded}"
+                              Data="M4,3 L8,7 L4,11" />
+                        <Path Grid.Column="1" Width="9" Height="9" Stretch="Uniform" Margin="8,0,0,0"
+                              Stroke="{DynamicResource Text2Brush}" StrokeThickness="1.6"
+                              VerticalAlignment="Center"
+                              IsVisible="{Binding IsAdvancedExpanded}"
+                              Data="M3,4 L7,8 L11,4" />
+                    </Grid>
+                </Button>
+                <StackPanel Spacing="16" IsVisible="{Binding IsAdvancedExpanded}">
+                    <ItemsControl ItemsSource="{Binding DrawerSpecAdvancedGroups}"
+                                  ItemTemplate="{StaticResource SpecGroupTemplate}" />
+                    <!-- 属性区与动作区之间只画一条淡分割线；只有两段都有内容时才出现 -->
+                    <Border Height="1" Background="{DynamicResource LineBrush}" Opacity="0.5"
+                            Margin="2,0" IsVisible="{Binding HasAdvancedDivider}" />
+                    <ItemsControl ItemsSource="{Binding DrawerSpecAdvancedActions}"
+                                  ItemTemplate="{StaticResource SpecActionTemplate}"
+                                  IsVisible="{Binding HasAdvancedActions}" />
+                </StackPanel>
+            </StackPanel>
+        </Border>
+        <TextBlock Classes="Hint" Text="这类设备没有开关指令，仅列出状态"
+                   IsVisible="{Binding DrawerDevice, Converter={x:Static conv:DeviceReadOnlyConverter.Instance}}" />
+        <!-- 设备信息 -->
+        <Border Classes="DrCard">
+            <StackPanel Spacing="12">
+                <Grid ColumnDefinitions="*,Auto">
+                    <TextBlock Text="房间" Foreground="{DynamicResource Text2Brush}" FontSize="13" />
+                    <TextBlock Grid.Column="1" Text="{Binding DrawerDevice.RoomName}" FontSize="13"
+                               FontWeight="SemiBold" Foreground="{DynamicResource Text2Brush}" />
+                </Grid>
+                <Grid ColumnDefinitions="*,Auto">
+                    <TextBlock Text="连接" Foreground="{DynamicResource Text2Brush}" FontSize="13" />
+                    <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="6">
+                        <Ellipse Classes="StatusDot"
+                                 Classes.is-on="{Binding DrawerDevice.IsOnline}"
+                                 Classes.is-warn="{Binding !DrawerDevice.IsOnline}" />
+                        <TextBlock FontSize="13" FontWeight="SemiBold"
+                                   Foreground="{DynamicResource Text2Brush}"
+                                   VerticalAlignment="Center"
+                                   Text="{Binding DrawerDevice.IsOnline, Converter={x:Static conv:BoolTextConverter.Instance}, ConverterParameter='在线|离线'}" />
+                    </StackPanel>
+                </Grid>
+                <Grid ColumnDefinitions="*,Auto">
+                    <TextBlock Text="型号" Foreground="{DynamicResource Text2Brush}" FontSize="13" />
+                    <TextBlock Grid.Column="1" Text="{Binding DrawerDevice.Model}" FontSize="13"
+                               FontWeight="SemiBold" MaxWidth="180" TextTrimming="CharacterEllipsis"
+                               Foreground="{DynamicResource Text2Brush}" />
+                </Grid>
+                <Grid ColumnDefinitions="*,Auto">
+                    <TextBlock Text="设备 ID" Foreground="{DynamicResource Text2Brush}" FontSize="13" />
+                    <TextBlock Grid.Column="1" Text="{Binding DrawerDevice.Did}" FontSize="11.5"
+                               MaxWidth="180" TextTrimming="CharacterEllipsis"
+                               Foreground="{DynamicResource Text3Brush}" />
+                </Grid>
+            </StackPanel>
+        </Border>
+    </StackPanel>
+</UserControl>

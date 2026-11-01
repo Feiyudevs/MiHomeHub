@@ -506,7 +506,8 @@
         <Style Selector="TextBox.VoiceInput">
             <Setter Property="MinHeight" Value="38" />
             <Setter Property="CornerRadius" Value="12" />
-            <Setter Property="Padding" Value="11,7" />
+            <Setter Property="Padding" Value="11,0" />
+            <Setter Property="VerticalContentAlignment" Value="Center" />
             <Setter Property="Background" Value="{DynamicResource Card2Brush}" />
             <Setter Property="Foreground" Value="{DynamicResource TextBrush}" />
             <Setter Property="BorderThickness" Value="1" />

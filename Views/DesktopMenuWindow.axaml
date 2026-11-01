@@ -1,0 +1,93 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="clr-namespace:MiHome.ViewModels"
+        x:Class="MiHome.Views.DesktopMenuWindow"
+        x:DataType="vm:DesktopGroupVm"
+        Title="分区菜单"
+        Width="184" SizeToContent="Height"
+        SystemDecorations="None" CanResize="False"
+        ShowInTaskbar="False" Topmost="True"
+        WindowStartupLocation="Manual"
+        TransparencyLevelHint="Transparent"
+        Background="Transparent">
+
+    <Window.Styles>
+        <!-- 菜单项：整行可点，左侧图标固定 14，文字左对齐 -->
+        <Style Selector="Button.MItem">
+            <Setter Property="Height" Value="32" />
+            <Setter Property="Padding" Value="8,0" />
+            <Setter Property="CornerRadius" Value="7" />
+            <Setter Property="HorizontalAlignment" Value="Stretch" />
+            <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="BorderThickness" Value="0" />
+            <Setter Property="Focusable" Value="False" />
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="FontSize" Value="12.5" />
+            <Setter Property="Foreground" Value="{DynamicResource TextBrush}" />
+            <Setter Property="Transitions">
+                <Transitions>
+                    <BrushTransition Property="Background" Duration="0:0:0.1" />
+                </Transitions>
+            </Setter>
+        </Style>
+        <Style Selector="Button.MItem:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+            <Setter Property="Background" Value="{DynamicResource Surface5Brush}" />
+        </Style>
+        <Style Selector="Button.MItem:pressed /template/ ContentPresenter#PART_ContentPresenter">
+            <Setter Property="Background" Value="{DynamicResource Surface4Brush}" />
+        </Style>
+        <Style Selector="Button.MItem.danger">
+            <Setter Property="Foreground" Value="{DynamicResource AmberBrush}" />
+        </Style>
+        <Style Selector="Button.MItem Path.MIc">
+            <Setter Property="Stroke" Value="{DynamicResource Text2Brush}" />
+            <Setter Property="StrokeThickness" Value="1.5" />
+            <Setter Property="StrokeLineCap" Value="Round" />
+            <Setter Property="StrokeJoin" Value="Round" />
+        </Style>
+        <Style Selector="Button.MItem.danger Path.MIc">
+            <Setter Property="Stroke" Value="{DynamicResource AmberBrush}" />
+        </Style>
+    </Window.Styles>
+
+    <Border Background="{DynamicResource DrawerBgBrush}"
+            BorderBrush="{DynamicResource LineBrush}"
+            BorderThickness="1"
+            CornerRadius="12"
+            Padding="6"
+            BoxShadow="0 18 40 0 #4D0B0F1A">
+        <StackPanel>
+            <Button Classes="MItem" Tag="add" Click="OnItemClick">
+                <Grid ColumnDefinitions="14,*">
+                    <Path Classes="MIc" Width="14" Height="14" Stretch="Uniform" VerticalAlignment="Center"
+                          Data="M7,1.4 V12.6 M1.4,7 H12.6" />
+                    <TextBlock Grid.Column="1" Text="添加设备" Margin="10,0,0,0" VerticalAlignment="Center" />
+                </Grid>
+            </Button>
+            <Button Classes="MItem" Tag="rename" Click="OnItemClick">
+                <Grid ColumnDefinitions="14,*">
+                    <Path Classes="MIc" Width="14" Height="14" Stretch="Uniform" VerticalAlignment="Center"
+                          Data="M2,12 L2.6,9.2 L9.8,2 L12,4.2 L4.8,11.4 Z M8.6,3.2 L10.8,5.4" />
+                    <TextBlock Grid.Column="1" Text="重命名" Margin="10,0,0,0" VerticalAlignment="Center" />
+                </Grid>
+            </Button>
+            <Button Classes="MItem" Tag="appearance" Click="OnItemClick">
+                <Grid ColumnDefinitions="14,*">
+                    <Path Classes="MIc" Width="14" Height="14" Stretch="Uniform" VerticalAlignment="Center"
+                          Data="M12,7 A5,5 0 1 1 2,7 A5,5 0 1 1 12,7 Z M7,2 V7 H12" />
+                    <TextBlock Grid.Column="1" Text="外观设置" Margin="10,0,0,0" VerticalAlignment="Center" />
+                </Grid>
+            </Button>
+            <Border Height="1" Background="{DynamicResource LineBrush}" Margin="8,4" />
+            <Button Classes="MItem danger" Tag="dissolve" Click="OnItemClick">
+                <Grid ColumnDefinitions="14,*">
+                    <Path Classes="MIc" Width="14" Height="14" Stretch="Uniform" VerticalAlignment="Center"
+                          Data="M2.5,4 H11.5 M5.5,4 V2.5 H8.5 V4 M3.6,4 L4.3,12 H9.7 L10.4,4 M6,6.4 V9.8 M8,6.4 V9.8" />
+                    <TextBlock Grid.Column="1" Text="{Binding DissolveLabel}" Margin="10,0,0,0"
+                               VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
+                </Grid>
+            </Button>
+        </StackPanel>
+    </Border>
+</Window>

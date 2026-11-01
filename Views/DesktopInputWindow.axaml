@@ -1,0 +1,40 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="clr-namespace:MiHome.ViewModels"
+        xmlns:ctl="clr-namespace:MiHome.Controls"
+        x:Class="MiHome.Views.DesktopInputWindow"
+        x:DataType="vm:DesktopInputVm"
+        Title="重命名"
+        Width="452" Height="300"
+        SystemDecorations="None"
+        CanResize="False"
+        ShowInTaskbar="False"
+        Topmost="True"
+        WindowStartupLocation="Manual"
+        TransparencyLevelHint="Transparent"
+        Background="Transparent">
+
+    <ctl:DialogPopup CardWidth="404" CardMaxHeight="240"
+                     CanDrag="True"
+                     Title="{Binding Header}" Subtitle="回车确认，Esc 取消"
+                     IsOpen="True" CloseCommand="{Binding CancelCommand}">
+        <ctl:DialogPopup.Resources>
+            <SolidColorBrush x:Key="MaskBrush" Color="Transparent" />
+        </ctl:DialogPopup.Resources>
+
+        <StackPanel Spacing="14">
+            <TextBox x:Name="Input" Height="38" FontSize="13.5" Padding="12,0"
+                     Classes="Input"
+                     Background="{DynamicResource SearchBgBrush}"
+                     BorderBrush="{DynamicResource SearchLineBrush}"
+                     CornerRadius="10"
+                     Text="{Binding Value, Mode=TwoWay}" />
+            <StackPanel Orientation="Horizontal" Spacing="8" HorizontalAlignment="Right">
+                <Button Classes="BtnGhost" Content="取消" Height="32" Padding="18,0" FontSize="12.5"
+                        Command="{Binding CancelCommand}" />
+                <Button Classes="BtnPrimary" Content="确定" Height="32" Padding="22,0" FontSize="12.5"
+                        Command="{Binding ConfirmCommand}" />
+            </StackPanel>
+        </StackPanel>
+    </ctl:DialogPopup>
+</Window>

@@ -97,6 +97,7 @@ public partial class MainViewModel : ObservableObject
     {
         var d = DefaultSpeaker;
         DefaultSpeakerName = d?.Name ?? (HasSpeaker ? "未选择音箱" : "");
+        OnPropertyChanged(nameof(MediaSpeaker));
     }
 
     [RelayCommand]
@@ -192,17 +193,54 @@ public partial class MainViewModel : ObservableObject
     [RelayCommand(AllowConcurrentExecutions = true)]
     private Task NextTrackAsync() => RunTrackStepAsync(true);
 
-    /// <summary>上一曲/下一曲：优先规格动作，缺失时退化成文本指令。</summary>
+    // ===== 首页「音响播放」媒体区：控制所选音箱（DefaultSpeaker），与音箱下拉同源 =====
+
+    /// <summary>媒体区当前控制的音箱：跟随音箱下拉选择。</summary>
+    public MijiaDevice? MediaSpeaker => DefaultSpeaker;
+
+    [RelayCommand(AllowConcurrentExecutions = true)]
+    private async Task MediaTogglePlayAsync()
+    {
+        if (DefaultSpeaker is not { } d) return;
+        var play = !d.IsPlaying;
+        if (d.PlaySiid > 0 || d.TogglePlaySiid > 0 || d.HasTextDirective)
+        {
+            var sent = await RunSpeakerPowerAsync(d, play);
+            if (!sent) return;
+            d.IsPlaying = play;
+            Log($"{d.Name} → {(play ? "播放" : "暂停")}");
+        }
+        else Log($"{d.Name} 不支持播放控制");
+    }
+
+    [RelayCommand(AllowConcurrentExecutions = true)]
+    private Task MediaPreviousAsync()
+    {
+        var d = DefaultSpeaker;
+        return SendSpeakerActionAsync(d, "上一首", d?.PreviousSiid ?? 0, d?.PreviousAiid ?? 0);
+    }
+
+    [RelayCommand(AllowConcurrentExecutions = true)]
+    private Task MediaNextAsync()
+    {
+        var d = DefaultSpeaker;
+        return SendSpeakerActionAsync(d, "下一首", d?.NextSiid ?? 0, d?.NextAiid ?? 0);
+    }
+
+    /// <summary>抽屉里的上一曲/下一曲：优先规格动作，缺失时退化成文本指令。</summary>
     private async Task RunTrackStepAsync(bool next)
-        => await SendSpeakerActionAsync(
+    {
+        var d = DrawerDevice;
+        await SendSpeakerActionAsync(d,
             next ? "下一首" : "上一首",
-            next ? DrawerDevice?.NextSiid ?? 0 : DrawerDevice?.PreviousSiid ?? 0,
-            next ? DrawerDevice?.NextAiid ?? 0 : DrawerDevice?.PreviousAiid ?? 0);
+            next ? d?.NextSiid ?? 0 : d?.PreviousSiid ?? 0,
+            next ? d?.NextAiid ?? 0 : d?.PreviousAiid ?? 0);
+    }
 
     /// <summary>带播放控制卡片的动作下发：统一处理离线/忙/异常，返回是否真的发给了设备。</summary>
-    private async Task SendSpeakerActionAsync(string label, int siid, int aiid)
+    private async Task SendSpeakerActionAsync(MijiaDevice? device, string label, int siid, int aiid)
     {
-        if (_client is not { } client || DrawerDevice is not { IsSpeaker: true } d) return;
+        if (_client is not { } client || device is not { IsSpeaker: true } d) return;
         if (!d.IsOnline)
         {
             Log($"{d.Name} 离线，指令未下发");

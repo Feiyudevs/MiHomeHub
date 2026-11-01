@@ -62,6 +62,11 @@
                     <SolidColorBrush x:Key="TextBrush" Color="#EEF1F6"/>
                     <SolidColorBrush x:Key="Text2Brush" Color="#99A1B3"/>
                     <SolidColorBrush x:Key="Text3Brush" Color="#646C7E"/>
+                    <!-- 桌面分区卡 / 半透明弹窗专用文字：底色是「透出墙纸的磨砂」，主窗口那套灰压上去读不清，
+                         这里统一往上提亮两档（主文字接近纯白，次级仍保持层次） -->
+                    <SolidColorBrush x:Key="DskTextBrush" Color="#F8FAFD"/>
+                    <SolidColorBrush x:Key="DskText2Brush" Color="#C9D1DF"/>
+                    <SolidColorBrush x:Key="DskText3Brush" Color="#A6AFC0"/>
                     <!-- 滚动条胶囊：静止用 ScrollBarThumbFill，悬停/拖动由主题的 /template/ Border 规则取这两个画刷 -->
                     <SolidColorBrush x:Key="ScrollBarThumbFill" Color="#646C7E"/>
                     <SolidColorBrush x:Key="ScrollBarThumbFillPointerOver" Color="#99A1B3"/>
@@ -72,6 +77,8 @@
                     <SolidColorBrush x:Key="AccentSoftBrush" Color="#247C5CFC"/>
                     <SolidColorBrush x:Key="WarmTextBrush" Color="#C7BCFF"/>
                     <SolidColorBrush x:Key="NavActiveTextBrush" Color="#C7BCFF"/>
+                    <!-- 电源键开启态：比导航选中文字色（浅薰衣草）更深的次级主色，实心紫更压得住深色卡 -->
+                    <SolidColorBrush x:Key="PowerOnBrush" Color="#7C5CFC"/>
                     <SolidColorBrush x:Key="GreenBrush" Color="#6BE894"/>
                     <SolidColorBrush x:Key="GreenSoftBrush" Color="#242FD573"/>
                     <SolidColorBrush x:Key="BlueBrush" Color="#7FABFF"/>
@@ -128,6 +135,19 @@
                         <GradientStop Color="#0D7C5CFC" Offset="0.55"/>
                         <GradientStop Color="#1A1F2C" Offset="1"/>
                     </LinearGradientBrush>
+                    <!-- 添加设备（选择器）里的设备卡：只在弹窗底 #0E1118 上淡淡浮起一层，
+                         做成「可点的卡」但不抢镜（选中态才用实心主色） -->
+                    <SolidColorBrush x:Key="PickCardBrush" Color="#12161F"/>
+                    <SolidColorBrush x:Key="PickCardHoverBrush" Color="#1B212D"/>
+                    <!-- 已选中：直接铺品牌主色（不能用 AccentBrush，它带 47% 透明且偏青，白字压上去糊） -->
+                    <SolidColorBrush x:Key="PickCardOnBrush" Color="#6A55D8"/>
+                    <!-- 桌面分区里的设备卡：开/关只用这一种半透明底，让窗口磨砂透上来
+                         （主窗口列表里的 DevCard 用 CardBrush / DevOnBrush，不受影响）
+                         10% 白：卡与卡的差别交给图标和文字，底只作「可点」提示，压深了整块会糊成紫板 -->
+                    <SolidColorBrush x:Key="DskCardBrush" Color="#1AFFFFFF"/>
+                    <!-- 分区里的电源键：底也是半透明白，不能压住磨砂 -->
+                    <SolidColorBrush x:Key="DskSwitchBrush" Color="#33FFFFFF"/>
+                    <SolidColorBrush x:Key="DskSwitchOnBrush" Color="#9984ECFF"/>
                     <LinearGradientBrush x:Key="PrimaryBtnBrush" StartPoint="0,0" EndPoint="1,1">
                         <GradientStop Color="#7C5CFC" Offset="0"/>
                         <GradientStop Color="#8B7CFF" Offset="1"/>
@@ -158,6 +178,12 @@
                         <GradientStop Color="#40FFFFFF" Offset="0.5"/>
                         <GradientStop Color="Transparent" Offset="1"/>
                     </LinearGradientBrush>
+                    <!-- ======== 右键菜单（设备卡）：Fluent 默认是直角深灰板，这里换成与卡片同族的浮层
+                         （外壳与菜单项模板内联在 Templates.axaml，这里只配色） ======== -->
+                    <SolidColorBrush x:Key="MenuBgBrush" Color="#1E2431"/>
+                    <SolidColorBrush x:Key="MenuLineBrush" Color="#1AFFFFFF"/>
+                    <SolidColorBrush x:Key="MenuHoverBrush" Color="#1FFFFFFF"/>
+                    <SolidColorBrush x:Key="MenuPressBrush" Color="#2EFFFFFF"/>
                 </ResourceDictionary>
                 <ResourceDictionary x:Key="Light">
                     <SolidColorBrush x:Key="BgBrush" Color="#E6EAF1"/>
@@ -177,6 +203,10 @@
                     <SolidColorBrush x:Key="TextBrush" Color="#0F172A"/>
                     <SolidColorBrush x:Key="Text2Brush" Color="#5A6478"/>
                     <SolidColorBrush x:Key="Text3Brush" Color="#8A93A6"/>
+                    <!-- 浅色主题下磨砂偏亮，文字反而要往下压深才清晰（与深色主题相反方向） -->
+                    <SolidColorBrush x:Key="DskTextBrush" Color="#0B1220"/>
+                    <SolidColorBrush x:Key="DskText2Brush" Color="#3A4457"/>
+                    <SolidColorBrush x:Key="DskText3Brush" Color="#5A6478"/>
                     <!-- 浅色主题下滚动条整体压浅：静止更淡，悬停/拖动只略深一档，避免出现一条黑条 -->
                     <SolidColorBrush x:Key="ScrollBarThumbFill" Color="#C6CCD8"/>
                     <SolidColorBrush x:Key="ScrollBarThumbFillPointerOver" Color="#AFB8C7"/>
@@ -187,6 +217,8 @@
                     <SolidColorBrush x:Key="AccentSoftBrush" Color="#1F6D5BE3"/>
                     <SolidColorBrush x:Key="WarmTextBrush" Color="#5B4BC9"/>
                     <SolidColorBrush x:Key="NavActiveTextBrush" Color="#5B4BC9"/>
+                    <!-- 电源键开启态：浅色主题下再提亮一档，更通透 -->
+                    <SolidColorBrush x:Key="PowerOnBrush" Color="#9B8CFF"/>
                     <SolidColorBrush x:Key="GreenBrush" Color="#4ADE80"/>
                     <SolidColorBrush x:Key="GreenSoftBrush" Color="#1F16A34A"/>
                     <SolidColorBrush x:Key="BlueBrush" Color="#60A5FA"/>
@@ -243,6 +275,14 @@
                         <GradientStop Color="#0A6D5BE3" Offset="0.55"/>
                         <GradientStop Color="#FFFFFF" Offset="1"/>
                     </LinearGradientBrush>
+                    <!-- 添加设备（选择器）里的设备卡：浅色下用纯白卡 + 悬停淡灰 -->
+                    <SolidColorBrush x:Key="PickCardBrush" Color="#FFFFFF"/>
+                    <SolidColorBrush x:Key="PickCardHoverBrush" Color="#EDF1F8"/>
+                    <SolidColorBrush x:Key="PickCardOnBrush" Color="#6F5AE6"/>
+                    <!-- 桌面分区里的设备卡：开/关同一种半透明白底 -->
+                    <SolidColorBrush x:Key="DskCardBrush" Color="#B8FFFFFF"/>
+                    <SolidColorBrush x:Key="DskSwitchBrush" Color="#B3E7EBF3"/>
+                    <SolidColorBrush x:Key="DskSwitchOnBrush" Color="#CC8E83F0"/>
                     <LinearGradientBrush x:Key="PrimaryBtnBrush" StartPoint="0,0" EndPoint="1,1">
                         <GradientStop Color="#6D5BE3" Offset="0"/>
                         <GradientStop Color="#8B7CFF" Offset="1"/>
@@ -271,6 +311,11 @@
                     </LinearGradientBrush>
                     <SolidColorBrush x:Key="SkelCardBrush" Color="#FFFFFF"/>
                     <SolidColorBrush x:Key="SkelBarBrush" Color="#DDE3EE"/>
+                    <!-- ======== 右键菜单（设备卡）：浅色下用纯白浮层 + 极淡描边 ======== -->
+                    <SolidColorBrush x:Key="MenuBgBrush" Color="#FFFFFF"/>
+                    <SolidColorBrush x:Key="MenuLineBrush" Color="#140F172A"/>
+                    <SolidColorBrush x:Key="MenuHoverBrush" Color="#0F0F172A"/>
+                    <SolidColorBrush x:Key="MenuPressBrush" Color="#1A0F172A"/>
                 </ResourceDictionary>
             </ResourceDictionary.ThemeDictionaries>
 </ResourceDictionary>

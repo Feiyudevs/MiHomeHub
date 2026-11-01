@@ -1,0 +1,36 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="clr-namespace:MiHome.ViewModels"
+        xmlns:views="clr-namespace:MiHome.Views"
+        xmlns:ctl="clr-namespace:MiHome.Controls"
+        x:Class="MiHome.Views.DeviceControlWindow"
+        x:DataType="vm:MainViewModel"
+        Title="设备控制"
+        Width="500" Height="780"
+        SystemDecorations="None"
+        CanResize="False"
+        ShowInTaskbar="False"
+        Topmost="True"
+        WindowStartupLocation="Manual"
+        TransparencyLevelHint="Transparent"
+        Background="Transparent">
+
+    <Window.Styles>
+        <!-- 分区弹窗与主窗口抽屉共用同一套详情控件样式（DrCard / SegTrack / SegBtn / SegMini …），
+             少了这一份，弹窗里的分段按钮会退回 Fluent 默认外观，和侧边栏对不上 -->
+        <StyleInclude Source="avares://MiHome/Themes/MainWindowStyles.axaml" />
+    </Window.Styles>
+
+    <ctl:DialogPopup CardWidth="456" CardMaxHeight="716"
+                     CanDrag="True"
+                     Title="{Binding DrawerDevice.Name}"
+                     Subtitle="{Binding DrawerDevice.RoomName}"
+                     IsOpen="{Binding IsDevicePanelOpen}"
+                     CloseCommand="{Binding CloseDevicePanelCommand}">
+        <ctl:DialogPopup.Resources>
+            <!-- 窗口本身透明：遮罩透明化，只留卡片，四周留白给投影 -->
+            <SolidColorBrush x:Key="MaskBrush" Color="Transparent" />
+        </ctl:DialogPopup.Resources>
+        <views:DeviceDetailView />
+    </ctl:DialogPopup>
+</Window>
