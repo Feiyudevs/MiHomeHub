@@ -44,6 +44,14 @@ public partial class VoicePanelView : UserControl
     }
 
     /// <summary>
+    /// 左沿对齐唤出按钮：由 MainWindow 传入按钮左沿在浮层坐标系中的位置（已夹在窗口内）。
+    /// </summary>
+    public void AlignToButton(double left)
+    {
+        VoicePanel.Margin = new Thickness(left, 2, 0, 0);
+    }
+
+    /// <summary>
     /// 浮层开合：打开时淡入并从标题栏下方轻落，关闭时反向收起后再隐藏，
     /// 避免收起过程中残留的浮层挡住下面的点击。
     /// </summary>

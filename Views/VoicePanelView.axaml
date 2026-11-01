@@ -6,7 +6,7 @@
              x:Class="MiHome.Views.VoicePanelView"
              x:DataType="vm:MainViewModel">
     <Border x:Name="VoicePanel" Classes="VoicePanel" Width="344"
-            HorizontalAlignment="Right" VerticalAlignment="Top" Margin="0,2,262,0"
+            HorizontalAlignment="Left" VerticalAlignment="Top" Margin="12,2,0,0"
             Opacity="0" IsVisible="False">
         <Border.RenderTransform>
             <TranslateTransform Y="0" />

@@ -7,12 +7,13 @@
     xmlns:vm="clr-namespace:MiHome.ViewModels"
     xmlns:m="clr-namespace:MiHome.Models">
         <!-- ======== 全局基础 ======== -->
-        <!-- 字体族顺序是内存敏感项，不要随意调整：
-             首选必须是「名字能自解析且字形自足」的字体（这里用雅黑，中英文都覆盖）。
-             若把 Segoe UI / Segoe UI Variable 放首位，Skia 每排版一次都会新建一份字型对象且不释放，
-             虚拟化列表来回滚动时会持续吃内存（实测 600 台设备滚 3000 步可涨到 8GB）。 -->
+        <!-- 字体族是内存敏感项，不要改成多段链（如 "A, B, C"），也不要换成 Segoe UI：
+             多段链会让 Avalonia 每排版一次都去逐个探测候选字族，探测过程会新建 GlyphTypeface；
+             而 Segoe 系（含 Segoe UI Variable）的请求名与系统实际返回名不一致，字型缓存永远不命中，
+             于是每排版一次就新建一份字型对象 + 整张 Name 表且释放不掉（实测可涨到 1GB 量级）。
+             这里只写单一字体，字形自足（中英文都覆盖），命中缓存后不再产生新对象。 -->
         <Style Selector="Window">
-            <Setter Property="FontFamily" Value="Microsoft YaHei UI, Segoe UI"/>
+            <Setter Property="FontFamily" Value="Microsoft YaHei UI"/>
             <Setter Property="Background" Value="{DynamicResource BgBrush}"/>
         </Style>
         <Style Selector="TextBlock.Hint">

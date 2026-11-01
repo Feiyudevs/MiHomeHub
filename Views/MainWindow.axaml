@@ -23,7 +23,7 @@
     </Window.Styles>
     <Grid RowDefinitions="60,*">
         <!-- ================= 标题栏 60（§8.1） ================= -->
-        <Grid Grid.Row="0" x:Name="TitleBar" ColumnDefinitions="Auto,Auto,Auto,*,Auto"
+        <Grid Grid.Row="0" x:Name="TitleBar" ColumnDefinitions="Auto,Auto,Auto,Auto,*,Auto"
               Background="{DynamicResource BgBrush}" Margin="16,0,12,0"
               PointerPressed="OnTitleBarPressed">
             <StackPanel Orientation="Horizontal" Spacing="10" VerticalAlignment="Center">
@@ -102,8 +102,22 @@
                     </Button>
                 </StackPanel>
             </Border>
+            <!-- 小爱语音入口：弱化主色胶囊，紧贴「我的家庭」右侧，与家庭胶囊同高；仅检测到音箱时出现 -->
+            <!-- 浮层左沿与本按钮左沿对齐（打开时由 MainWindow 计算并传入） -->
+            <Button Grid.Column="2" x:Name="XiaoAiBtn" Classes="XiaoAiCapsule"
+                    Classes.open="{Binding IsVoiceOpen}" Margin="8,0,0,0"
+                    IsVisible="{Binding ShowVoiceFab}"
+                    Command="{Binding ToggleVoiceCommand}" ToolTip.Tip="小爱语音指令">
+                <StackPanel Orientation="Horizontal" Spacing="6" Margin="11,0" HorizontalAlignment="Center">
+                    <ctl:VoiceBars Width="14" Height="14" VerticalAlignment="Center"
+                                   BarBrush="{Binding $parent[Button].Foreground}"
+                                   IsActive="{Binding ShowVoiceFab}"
+                                   IsBusy="{Binding IsVoiceSending}" />
+                    <TextBlock Text="小爱同学" VerticalAlignment="Center" />
+                </StackPanel>
+            </Button>
             <!-- 搜索：圆形按钮本身就地展开成输入框，点击时宽度从 32 长到 252 -->
-            <Border Grid.Column="2" x:Name="SearchBox" Classes="SearchBox" Margin="12,0,0,0"
+            <Border Grid.Column="3" x:Name="SearchBox" Classes="SearchBox" Margin="12,0,0,0"
                     Focusable="True" IsTabStop="False"
                     PointerPressed="OnSearchBoxPressed">
                 <Grid ColumnDefinitions="30,*">
@@ -123,20 +137,7 @@
                              KeyDown="OnSearchKeyDown" LostFocus="OnSearchLostFocus" />
                 </Grid>
             </Border>
-            <StackPanel Grid.Column="4" Orientation="Horizontal" VerticalAlignment="Center">
-                <!-- 小爱语音入口：标题栏右侧胶囊，左声纹图标右「小爱同学」；仅检测到音箱时出现 -->
-                <Button Classes="XiaoAiCapsule" Classes.open="{Binding IsVoiceOpen}" Margin="0,0,10,0"
-                        IsVisible="{Binding ShowVoiceFab}"
-                        Height="33"
-                        Command="{Binding ToggleVoiceCommand}" ToolTip.Tip="小爱语音指令">
-                    <StackPanel Orientation="Horizontal" Spacing="7" Margin="12,0" HorizontalAlignment="Center">
-                        <ctl:VoiceBars Width="15" Height="15" VerticalAlignment="Center"
-                                       BarBrush="{Binding $parent[Button].Foreground}"
-                                       IsActive="{Binding ShowVoiceFab}"
-                                       IsBusy="{Binding IsVoiceSending}" />
-                        <TextBlock Text="小爱同学" VerticalAlignment="Center" />
-                    </StackPanel>
-                </Button>
+            <StackPanel Grid.Column="5" Orientation="Horizontal" VerticalAlignment="Center">
                 <Button Classes="ThemeBtn" Margin="0,0,6,0" Command="{Binding OpenLogCommand}" ToolTip.Tip="操作日志">
                     <Path Width="14" Height="14" Stretch="Uniform"
                           Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}"

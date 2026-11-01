@@ -289,14 +289,23 @@ public partial class MainWindow : Window
     protected override void OnPropertyChanged(AvaloniaPropertyChangedEventArgs change)
     {
         base.OnPropertyChanged(change);
-        if (change.Property != WindowStateProperty || WindowState != WindowState.Maximized) return;
-
-        Dispatcher.UIThread.Post(() =>
+        if (change.Property == WindowStateProperty)
         {
+            // 最小化到任务栏：窗口已不可见，立即收缩工作集，降低常驻占用
+            if (WindowState == WindowState.Minimized)
+            {
+                Services.MemoryTrimmer.TrimForce();
+                return;
+            }
             if (WindowState != WindowState.Maximized) return;
-            WindowState = WindowState.Normal;
-            MaximizeToWorkArea();
-        }, DispatcherPriority.Background);
+
+            Dispatcher.UIThread.Post(() =>
+            {
+                if (WindowState != WindowState.Maximized) return;
+                WindowState = WindowState.Normal;
+                MaximizeToWorkArea();
+            }, DispatcherPriority.Background);
+        }
     }
 
     /// <summary>判断窗口左上角落在该坐标时，是否仍有足够区域（标题栏）处于某块屏幕的工作区内。</summary>
@@ -491,9 +500,27 @@ public partial class MainWindow : Window
                 if (args.PropertyName == nameof(MainViewModel.IsDrawerOpen))
                     Dispatcher.UIThread.Post(() => AnimateDeviceDrawer(vm.IsDrawerOpen));
                 if (args.PropertyName == nameof(MainViewModel.IsVoiceOpen))
+                {
+                    if (vm.IsVoiceOpen) AlignVoicePanel();
                     Dispatcher.UIThread.Post(() => VoicePanelView?.Animate(vm.IsVoiceOpen));
+                }
             };
         }
+    }
+
+    /// <summary>
+    /// 小爱浮层左沿对齐唤出的胶囊按钮；靠右放不下时夹在窗口右边距内。
+    /// </summary>
+    private void AlignVoicePanel()
+    {
+        if (VoicePanelView == null || XiaoAiBtn == null) return;
+        var pt = XiaoAiBtn.TranslatePoint(new Point(0, 0), VoicePanelView);
+        if (pt is null) return;
+
+        const double panelWidth = 344;
+        const double edge = 12;
+        var maxLeft = Bounds.Width - edge - panelWidth;
+        VoicePanelView.AlignToButton(Math.Clamp(pt.Value.X, edge, Math.Max(edge, maxLeft)));
     }
 
     /// <summary>

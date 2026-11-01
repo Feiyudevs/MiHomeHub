@@ -449,35 +449,29 @@
             <Setter Property="Foreground" Value="{DynamicResource AmberTextBrush}" />
             <Setter Property="FontWeight" Value="SemiBold" />
         </Style>
-        <!-- 小爱语音：标题栏右侧「智能胶囊」入口（品牌紫渐变 + 柔光）+ 指令浮层 -->
+        <!-- 小爱语音：标题栏「弱化主色胶囊」入口（淡主色底 + 主色字）+ 指令浮层，与家庭胶囊同高 32 -->
         <Style Selector="Button.XiaoAiCapsule">
-            <Setter Property="Height" Value="38" />
-            <Setter Property="CornerRadius" Value="19" />
-            <Setter Property="Background" Value="{DynamicResource BrandBrush}" />
-            <Setter Property="BorderBrush" Value="#33FFFFFF" />
+            <Setter Property="Height" Value="32" />
+            <Setter Property="CornerRadius" Value="16" />
+            <Setter Property="Background" Value="{DynamicResource AccentSoftBrush}" />
+            <Setter Property="BorderBrush" Value="{DynamicResource AccentSoftBrush}" />
             <Setter Property="BorderThickness" Value="1" />
-            <Setter Property="Foreground" Value="White" />
-            <Setter Property="FontSize" Value="12.5" />
-            <Setter Property="FontWeight" Value="SemiBold" />
+            <Setter Property="Foreground" Value="{DynamicResource Accent2Brush}" />
+            <Setter Property="FontSize" Value="12" />
+            <Setter Property="FontWeight" Value="Medium" />
             <Setter Property="Cursor" Value="Hand" />
             <Setter Property="HorizontalContentAlignment" Value="Center" />
-            <Setter Property="Opacity" Value="1" />
-            <Setter Property="Transitions">
-                <Transitions>
-                    <DoubleTransition Property="Opacity" Duration="0:0:0.18" />
-                </Transitions>
-            </Setter>
         </Style>
-        <!-- 悬停只做整体减淡，不改底色与描边 -->
+        <!-- 悬停只加一道主色细环，底色不变，保持“弱化”观感 -->
         <Style Selector="Button.XiaoAiCapsule:pointerover">
-            <Setter Property="Opacity" Value="0.82" />
+            <Setter Property="BorderBrush" Value="{DynamicResource Accent2Brush}" />
         </Style>
         <!-- 覆盖 Fluent 模板自带的灰色悬停/按下底色，否则胶囊会变灰 -->
         <Style Selector="Button.XiaoAiCapsule:pointerover /template/ ContentPresenter#PART_ContentPresenter">
-            <Setter Property="Background" Value="{DynamicResource BrandBrush}" />
+            <Setter Property="Background" Value="{DynamicResource AccentSoftBrush}" />
         </Style>
         <Style Selector="Button.XiaoAiCapsule:pressed /template/ ContentPresenter#PART_ContentPresenter">
-            <Setter Property="Background" Value="{DynamicResource BrandBrush}" />
+            <Setter Property="Background" Value="{DynamicResource AccentSoftBrush}" />
         </Style>
         <!-- 发送中：纸飞机图标呼吸闪烁，只在 IsVoiceSending 时挂动画 -->
         <Style Selector="Path.SendIcon">
@@ -499,7 +493,7 @@
             </Style.Animations>
         </Style>
         <Style Selector="Button.XiaoAiCapsule.open">
-            <Setter Property="BorderBrush" Value="#80FFFFFF" />
+            <Setter Property="BorderBrush" Value="{DynamicResource Accent2Brush}" />
         </Style>
         <Style Selector="Border.VoicePanel">
             <Setter Property="Background" Value="{DynamicResource CardBrush}" />
