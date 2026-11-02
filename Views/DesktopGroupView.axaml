@@ -1,141 +1,71 @@
 <UserControl xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:vm="clr-namespace:MiHome.ViewModels"
-             xmlns:ctl="clr-namespace:MiHome.Controls"
+             xmlns:views="clr-namespace:MiHome.Views"
              x:Class="MiHome.Views.DesktopGroupView"
-             x:DataType="vm:DesktopGroupVm"
+             x:DataType="vm:DesktopZoneVm"
              ClipToBounds="False">
 
     <UserControl.Styles>
-        <!-- 内联重命名输入框：与标题同一号字，压掉 Fluent 的加粗描边与内边距，只留一层很淡的凹槽 -->
-        <Style Selector="TextBox.TitleEdit">
-            <Setter Property="Height" Value="22" />
-            <Setter Property="MinWidth" Value="86" />
-            <Setter Property="FontSize" Value="12.5" />
-            <Setter Property="FontWeight" Value="SemiBold" />
-            <Setter Property="Padding" Value="4,0" />
-            <Setter Property="CornerRadius" Value="6" />
-            <Setter Property="Background" Value="Transparent" />
-            <Setter Property="BorderThickness" Value="1" />
-            <Setter Property="BorderBrush" Value="Transparent" />
-            <Setter Property="Foreground" Value="{DynamicResource DskTextBrush}" />
-            <Setter Property="CaretBrush" Value="{DynamicResource DskTextBrush}" />
-            <Setter Property="SelectionBrush" Value="{DynamicResource AccentBrush}" />
-            <Setter Property="VerticalContentAlignment" Value="Center" />
+        <!-- 图标按钮（DskIcon）与分区设备卡的玻璃覆盖分别在全局 ControlStyles 与
+             DesktopDevicesPanel 里：贴桌面的分区窗、它的菜单/音量浮层都是独立 Window，
+             取不到视图内局部样式，公共按钮样式只能放全局。 -->
+        <!-- 内容区边距必须写在样式里、不能写在元素上：元素上的 Margin 是本地值，优先级高于
+             样式 Setter，会让下面 .media 这条永远不生效（之前「改了没反应」就是这个原因）。
+             设备分区有 44 高标题栏，内容顶部只用 8；媒体分区没有标题栏，四边统一 12。 -->
+        <Style Selector="StackPanel.ZoneBody">
+            <Setter Property="Margin" Value="12,8,12,12" />
         </Style>
-        <Style Selector="TextBox.TitleEdit /template/ Border#PART_BorderElement">
-            <Setter Property="Background" Value="Transparent" />
-            <Setter Property="BorderThickness" Value="1" />
-            <Setter Property="BorderBrush" Value="Transparent" />
-            <Setter Property="CornerRadius" Value="6" />
-        </Style>
-        <Style Selector="TextBox.TitleEdit:pointerover /template/ Border#PART_BorderElement">
-            <Setter Property="Background" Value="Transparent" />
-            <Setter Property="BorderBrush" Value="Transparent" />
-        </Style>
-        <Style Selector="TextBox.TitleEdit:focus /template/ Border#PART_BorderElement">
-            <Setter Property="Background" Value="#26101018" />
-            <Setter Property="BorderBrush" Value="#55FFFFFF" />
-        </Style>
-        <!-- 标题栏图标按钮：24×24 圆角 7，图标靠居中容器对齐，不依赖模板内边距 -->
-        <Style Selector="Button.DskIcon">
-            <Setter Property="Width" Value="24" />
-            <Setter Property="Height" Value="24" />
-            <Setter Property="Padding" Value="0" />
-            <Setter Property="CornerRadius" Value="7" />
-            <Setter Property="Background" Value="Transparent" />
-            <Setter Property="BorderThickness" Value="0" />
-            <Setter Property="Focusable" Value="False" />
-            <Setter Property="Cursor" Value="Hand" />
-            <Setter Property="Opacity" Value="0.85" />
-            <Setter Property="Foreground" Value="{DynamicResource DskTextBrush}" />
-            <Setter Property="HorizontalContentAlignment" Value="Center" />
-            <Setter Property="VerticalContentAlignment" Value="Center" />
-            <Setter Property="Transitions">
-                <Transitions>
-                    <DoubleTransition Property="Opacity" Duration="0:0:0.12" />
-                </Transitions>
-            </Setter>
-        </Style>
-        <Style Selector="Button.DskIcon:pointerover">
-            <Setter Property="Opacity" Value="1" />
-        </Style>
-        <Style Selector="Button.DskIcon:pointerover /template/ ContentPresenter#PART_ContentPresenter">
-            <Setter Property="Background" Value="#26FFFFFF" />
-        </Style>
-        <Style Selector="Button.DskIcon:pressed /template/ ContentPresenter#PART_ContentPresenter">
-            <Setter Property="Background" Value="#33FFFFFF" />
-        </Style>
-
-        <!-- 分区里的设备卡：开/关同一种半透明底（不再出现「渐变紫」第二种背景），
-             也不投影 —— 贴桌面窗本身就是一块玻璃，卡片再叠阴影会显脏。
-             主窗口列表里的同一张卡不受影响（那是应用级样式，这里的局部样式优先级更高） -->
-        <Style Selector="Button.DevCard /template/ Border#Card">
-            <Setter Property="Background" Value="{DynamicResource DskCardBrush}" />
-            <Setter Property="BoxShadow" Value="0 0 0 0 #00000000" />
-        </Style>
-        <Style Selector="Button.DevCard.on /template/ Border#Card">
-            <Setter Property="Background" Value="{DynamicResource DskCardBrush}" />
-            <Setter Property="BoxShadow" Value="0 0 0 0 #00000000" />
-        </Style>
-
-        <!-- 卡面是半透明的（透出墙纸），主窗口那套灰压上去读不清：
-             名称用近纯白，房间 / 路数 / 计数用提亮后的次级色（DskText2Brush） -->
-        <Style Selector="Button.DevCard TextBlock.DevName">
-            <Setter Property="Foreground" Value="{DynamicResource DskTextBrush}" />
-        </Style>
-        <Style Selector="Button.DevCard TextBlock.DevMeta">
-            <Setter Property="Foreground" Value="{DynamicResource DskText2Brush}" />
-        </Style>
-        <Style Selector="Button.DevCard TextBlock.DevBadgeText">
-            <Setter Property="Foreground" Value="{DynamicResource DskText2Brush}" />
-        </Style>
-        <!-- 路数角标底色也提亮一档，否则深色角标上的亮字看起来像被糊住 -->
-        <Style Selector="Button.DevCard Border.DevBadge">
-            <Setter Property="Background" Value="#1FFFFFFF" />
-        </Style>
-        <!-- 上面三处文字（名称/房间/路数）在 Templates.axaml 里已改为「样式上色」而非写死本地 Foreground，
-             所以这里的覆盖才会真正生效：桌面分区卡上的文字比主窗口更亮一档，压在磨砂上才读得清 -->
-
-        <!-- 电源键：底色同样半透明，实心深色在磨砂玻璃上会像一块黑板 -->
-        <Style Selector="ToggleButton.Power /template/ Border#Disc">
-            <Setter Property="Background" Value="{DynamicResource DskSwitchBrush}" />
-        </Style>
-        <Style Selector="ToggleButton.Power:checked /template/ Border#Disc">
-            <Setter Property="Background" Value="{DynamicResource PowerOnBrush}" />
+        <Style Selector="StackPanel.ZoneBody.media">
+            <Setter Property="Margin" Value="12" />
         </Style>
     </UserControl.Styles>
 
+    <UserControl.DataTemplates>
+        <!-- 分区内容按视图模型类型选面板：设备分区是宫格，媒体分区是音响播放卡。
+             标题栏、拖动、磨砂、圆角、宽度拉伸都由这层壳共用，两种分区行为永远一致。 -->
+        <DataTemplate DataType="{x:Type vm:DesktopGroupVm}" x:DataType="vm:DesktopGroupVm">
+            <views:DesktopDevicesPanel />
+        </DataTemplate>
+        <DataTemplate DataType="{x:Type vm:DesktopMediaVm}" x:DataType="vm:DesktopMediaVm">
+            <views:DesktopMediaPanel />
+        </DataTemplate>
+    </UserControl.DataTemplates>
+
     <Panel>
-        <!-- CornerRadius 必须 = 8：DWM 圆角固定 8 DIP，两层曲线重合才不会在角部露出硬边 -->
+        <!-- CornerRadius 必须 = 8：DWM 圆角固定 8 DIP，两层曲线重合才不会在角部露出硬边。
+             媒体分区没有标题栏，整张卡就是拖动面（按下落在按钮上时由按钮自己吃掉事件） -->
         <Border Name="Card" CornerRadius="8"
                 Background="{Binding CardBrush}"
                 BorderBrush="{DynamicResource LineBrush}"
                 BorderThickness="1"
-                ClipToBounds="True">
+                ClipToBounds="True"
+                PointerPressed="OnBodyPressed"
+                PointerMoved="OnBodyMoved"
+                PointerReleased="OnBodyReleased"
+                PointerCaptureLost="OnBodyCaptureLost">
             <Grid RowDefinitions="Auto,*">
 
-                <!-- ===== 标题栏：拖动区 ===== -->
-                <Border Grid.Row="0" Name="Header" Height="38" Background="Transparent"
+                <!-- ===== 标题栏：拖动区（媒体分区不显示，卡面自己承担拖动） ===== -->
+                <Border Grid.Row="0" Name="Header" Height="44" Background="Transparent"
+                        IsVisible="{Binding !IsMedia}"
                         PointerPressed="OnHeaderPressed"
                         PointerMoved="OnHeaderMoved"
                         PointerReleased="OnHeaderReleased"
                         PointerCaptureLost="OnHeaderCaptureLost">
-                    <Grid ColumnDefinitions="Auto,*,Auto" Margin="10,0,6,0">
+                    <Grid ColumnDefinitions="Auto,*,Auto" Margin="16,0,12,0">
                         <StackPanel Orientation="Horizontal" Spacing="7" VerticalAlignment="Center">
                             <Border Width="5" Height="13" CornerRadius="3" VerticalAlignment="Center"
                                     Background="{DynamicResource Accent2Brush}" />
-                            <!-- 名称：显示态 TextBlock / 编辑态 TextBox 同槽切换（双击名称进入改名） -->
+                            <!-- 名称：双击进入改名（浮层是独立窗口，见 DesktopRenameWindow） -->
                             <Grid Name="TitleNameHost" VerticalAlignment="Center" MaxWidth="150">
                                 <TextBlock Name="TitleText" Text="{Binding Name}" FontSize="12.5"
                                            FontWeight="SemiBold" VerticalAlignment="Center"
                                            MaxWidth="150" TextTrimming="CharacterEllipsis"
                                            Foreground="{DynamicResource DskTextBrush}" />
-                                <TextBox Name="TitleEditBox" Classes="TitleEdit" IsVisible="False"
-                                         Watermark="分区名称" />
                             </Grid>
                             <Border CornerRadius="999" Height="16" Padding="6,0" VerticalAlignment="Center"
-                                    Background="#1FFFFFFF">
+                                    Background="#1FFFFFFF" IsVisible="{Binding ShowCount}">
                                 <TextBlock Text="{Binding CountText}" FontSize="10" FontWeight="SemiBold"
                                            VerticalAlignment="Center"
                                            Foreground="{DynamicResource DskText2Brush}" />
@@ -169,8 +99,10 @@
                                     </Panel>
                                 </Viewbox>
                             </Button>
-                            <!-- 添加设备 -->
-                            <Button Classes="DskIcon" Command="{Binding AddDeviceCommand}" ToolTip.Tip="添加设备">
+                            <!-- 添加设备只在设备分区出现；媒体分区换音箱是点卡里那一行音箱 -->
+                            <!-- 加号同时管设备和场景，具体加什么在弹窗顶部分组条里切 -->
+                            <Button Classes="DskIcon" Click="OnAddDeviceClick" IsVisible="{Binding !IsMedia}"
+                                    ToolTip.Tip="添加设备 / 场景">
                                 <Viewbox Width="15" Height="15" Stretch="Uniform"
                                          HorizontalAlignment="Center" VerticalAlignment="Center">
                                     <Panel Width="24" Height="24">
@@ -196,9 +128,9 @@
                     </Grid>
                 </Border>
 
-                <!-- ===== 设备宫格：直接复用主窗口列表那张设备卡（图标 | 名称·房间 | 开关），
-                     点卡片走宿主契约弹控制窗，开关也直接下发 ===== -->
-                <StackPanel Grid.Row="1" Margin="2,0,2,6"
+                <!-- ===== 内容区：设备宫格或媒体卡（按视图模型类型装载），折叠时整块淡出并退出布局 =====
+                     边距由上面 ZoneBody / ZoneBody.media 两条样式控制（媒体分区四边 12，与标题栏留白对齐） -->
+                <StackPanel Grid.Row="1" Classes="ZoneBody" Classes.media="{Binding IsMedia}"
                             IsVisible="{Binding ContentVisible}"
                             Opacity="{Binding ContentOpacity}">
                     <StackPanel.Transitions>
@@ -206,20 +138,8 @@
                             <DoubleTransition Property="Opacity" Duration="0:0:0.08" />
                         </Transitions>
                     </StackPanel.Transitions>
-                    <ItemsControl ItemsSource="{Binding Devices}"
-                                  ItemTemplate="{StaticResource DeviceCardTemplate}"
-                                  IsVisible="{Binding !IsEmpty}">
-                        <ItemsControl.ItemsPanel>
-                            <ItemsPanelTemplate>
-                                <!-- MinItemWidth 与 DesktopGroupView.CardMinWidth 同步改（宿主窗口按它推算加列需要多宽） -->
-                                <ctl:AdaptiveGridPanel MinItemWidth="240" Spacing="0" />
-                            </ItemsPanelTemplate>
-                        </ItemsControl.ItemsPanel>
-                    </ItemsControl>
-                    <TextBlock Text="还没有设备，点右上角 ＋ 添加" FontSize="11.5"
-                               Margin="2,12,2,14" TextAlignment="Center" TextWrapping="Wrap"
-                               Foreground="{DynamicResource DskText3Brush}"
-                               IsVisible="{Binding IsEmpty}" />
+                    <ContentControl Content="{Binding}" HorizontalContentAlignment="Stretch"
+                                    VerticalContentAlignment="Top" />
                 </StackPanel>
             </Grid>
         </Border>

@@ -50,6 +50,29 @@ public partial class MainViewModel : IDeviceCardHost
         Log(value ? "桌面组件已显示" : "桌面组件已收起");
     }
 
+    /// <summary>
+    /// 桌面媒体分区开关：与总开关彼此独立。
+    /// 关掉 = 收起这块分区并记住「不再自动放回」；打开 = 重新放一块回桌面。
+    /// </summary>
+    public bool DesktopMediaZone
+    {
+        get => !DesktopHost.Layout.MediaHidden;
+        set
+        {
+            if (DesktopHost.Layout.MediaHidden == !value) return;
+            if (value) DesktopHost.ShowMedia();
+            else DesktopHost.HideMedia();
+            OnPropertyChanged(nameof(DesktopMediaZone));
+            Log(value ? "桌面媒体分区已显示" : "桌面媒体分区已关闭");
+        }
+    }
+
+    /// <summary>设置弹窗每次打开都按当前配置刷一次媒体分区开关的显示状态。</summary>
+    partial void OnIsSettingsOpenChanged(bool value)
+    {
+        if (value) OnPropertyChanged(nameof(DesktopMediaZone));
+    }
+
     /// <summary>点分区里的设备卡片：复用抽屉那套设备详情（规格面板 + 属性回填），只是换到弹窗里展示。</summary>
     public void ShowDevicePanel(MijiaDevice device)
     {

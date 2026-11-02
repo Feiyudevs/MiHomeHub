@@ -138,6 +138,10 @@ public partial class MijiaDevice : ObservableObject
     [JsonIgnore] public int PlayingStateSiid { get; private set; }
     [JsonIgnore] public int PlayingStatePiid { get; private set; }
 
+    /// <summary>播放状态原值（playing-state 枚举）：0 停止、1 播放中、2 暂停。
+    /// 音箱规格里只有这一个状态枚举，没有任何曲目文本属性，所以「正在播放什么」拿不到，只能报状态。</summary>
+    [property: JsonIgnore] [ObservableProperty] private int _playingState;
+
     /// <summary>是否支持 execute-text-directive（小爱语音指令依赖这个动作）。</summary>
     [JsonIgnore] public bool HasTextDirective => TextDirectiveSiid > 0 && TextDirectiveAiid > 0;
 
@@ -361,7 +365,7 @@ public partial class MijiaDevice : ObservableObject
         var toggle = spec.FindAction("toggle-play");
         var previous = spec.FindAction("previous");
         var next = spec.FindAction("next");
-        var playingState = spec.FindProp("playing-state");
+        var playingState = spec.PlayingState;
 
         // 只认音箱大类或真的带文本指令；电视也有 volume + play/pause，不能按「音量+播放」误判成音箱
         IsSpeaker = isSpeakerCategory || text != null;

@@ -65,6 +65,8 @@ public sealed class SpecPropertyDef
     public bool IsNumeric => Format is "int" or "uint8" or "uint16" or "uint32" or "int8"
         or "int16" or "int32" or "int64" or "uint64" or "float" or "double";
 
+    public bool IsText => Format == "string";
+
     public SpecControlKind Kind
     {
         get
@@ -126,6 +128,11 @@ public sealed class DeviceSpec
     /// <summary>音箱音量属性：speaker 服务的 volume，可读可写、0–100。</summary>
     public SpecPropertyDef? SpeakerVolume =>
         Properties.FirstOrDefault(p => p.Readable && p.Writable && p.IsNumeric && p.Name == "volume");
+
+    /// <summary>播放状态属性：play-control 服务的 playing-state（0 停止 / 1 播放中 / 2 暂停）。
+    /// 音箱的 MIoT 规格里只有这个状态枚举，没有任何「曲目文本」属性 —— 歌名拿不到，界面就只报状态。</summary>
+    public SpecPropertyDef? PlayingState =>
+        Properties.FirstOrDefault(p => p.Readable && p.IsNumeric && p.Name == "playing-state");
 
     public SpecActionDef? FindAction(params string[] names) =>
         Actions.FirstOrDefault(a => names.Contains(a.Name, StringComparer.Ordinal));

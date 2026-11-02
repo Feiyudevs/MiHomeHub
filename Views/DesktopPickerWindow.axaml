@@ -173,7 +173,8 @@
         <!-- 遮罩：窗口透明，这里只负责「点外面关掉」 -->
         <Border Name="Mask" Background="Transparent" PointerPressed="OnMaskPressed" />
 
-        <Border Classes="DialogCard" Width="840" MaxHeight="620"
+        <!-- 尺寸固定：切分类只换内容，卡片（和窗体）不能跟着内容多少忽高忽低 -->
+        <Border Classes="DialogCard" Width="840" Height="620"
                 HorizontalAlignment="Center" VerticalAlignment="Center">
             <Grid RowDefinitions="Auto,Auto,Auto,*">
 
@@ -183,7 +184,7 @@
                 <Panel Name="Header" Grid.Row="0" Background="Transparent"
                        Margin="28,20,22,0" PointerPressed="OnHeaderPressed">
                     <StackPanel>
-                        <TextBlock Text="添加设备" FontSize="19" FontWeight="Bold"
+                        <TextBlock Text="添加设备 / 场景" FontSize="19" FontWeight="Bold"
                                    Foreground="{DynamicResource TextBrush}" />
                         <!-- 副标题原本用 .Hint（Text3），在 #0E1118 上发灰读不清，提到次级亮 -->
                         <TextBlock Margin="0,5,0,0" Text="{Binding Subtitle}" FontSize="12"
@@ -198,11 +199,11 @@
                     </Button>
                 </Panel>
 
-                <!-- ===== 房间直达条：点哪个房间就滚到那个房间的分组 ===== -->
+                <!-- ===== 分组筛选条：点哪个就在下面只显示那一组 ===== -->
                 <ScrollViewer Grid.Row="1" Margin="28,14,22,0"
                               HorizontalScrollBarVisibility="Hidden"
                               VerticalScrollBarVisibility="Disabled">
-                    <ItemsControl Name="TabList" ItemsSource="{Binding Tabs}">
+                    <ItemsControl ItemsSource="{Binding Tabs}">
                         <ItemsControl.ItemsPanel>
                             <ItemsPanelTemplate>
                                 <StackPanel Orientation="Horizontal" Spacing="6" />
@@ -236,7 +237,7 @@
                                          Text="{Binding SearchText, Mode=TwoWay}" />
                                 <!-- 自己的水印：TextBox 自带的 Watermark 由主题模板上色，字重/颜色压不住，
                                      这里用一层不参与命中的 TextBlock 顶上去（Normal 字重 + 更淡的灰） -->
-                                <TextBlock Text="搜索设备名称或房间…" FontSize="13" FontWeight="Normal"
+                                <TextBlock Text="搜索设备、场景或房间…" FontSize="13" FontWeight="Normal"
                                            Margin="9,0,0,0"
                                            VerticalAlignment="Center"
                                            Foreground="{DynamicResource Text3Brush}"
@@ -266,7 +267,7 @@
                               VerticalScrollBarVisibility="Auto"
                               HorizontalScrollBarVisibility="Disabled">
                     <StackPanel Margin="0,0,16,0">
-                        <ItemsControl Name="GroupList" ItemsSource="{Binding Groups}">
+                        <ItemsControl ItemsSource="{Binding Groups}">
                             <ItemsControl.ItemTemplate>
                                 <DataTemplate x:DataType="vm:PickerGroup">
                                     <StackPanel Margin="0,0,0,12">
@@ -294,7 +295,7 @@
                                                             CommandParameter="{Binding}">
                                                         <Grid ColumnDefinitions="Auto,*">
                                                             <Panel Width="32" Height="32" VerticalAlignment="Center">
-                                                                <Border IsVisible="{Binding Device.Icon, Converter={x:Static ObjectConverters.IsNull}}">
+                                                                <Border IsVisible="{Binding HasGlyph}">
                                                                     <Path Classes="PickIc" Width="18" Height="18" Stretch="Uniform"
                                                                           StrokeThickness="1.6" StrokeLineCap="Round" StrokeJoin="Round"
                                                                           VerticalAlignment="Center" HorizontalAlignment="Center"
@@ -303,11 +304,16 @@
                                                                 <Image Classes="PickPhoto" Width="32" Height="32" Source="{Binding Device.Icon}"
                                                                        Stretch="Uniform"
                                                                        RenderOptions.BitmapInterpolationMode="MediumQuality"
-                                                                       IsVisible="{Binding Device.Icon, Converter={x:Static ObjectConverters.IsNotNull}}" />
+                                                                       IsVisible="{Binding HasPhoto}" />
+                                                                <!-- 场景用自带线性图标，与设备同一套描边色（选中时一起转纯白） -->
+                                                                <Path Classes="PickIc" Width="18" Height="18" Stretch="Uniform"
+                                                                      StrokeThickness="1.6" StrokeLineCap="Round" StrokeJoin="Round"
+                                                                      VerticalAlignment="Center" HorizontalAlignment="Center"
+                                                                      Data="{Binding Scene.Icon}" IsVisible="{Binding IsScene}" />
                                                             </Panel>
                                                             <StackPanel Grid.Column="1" Margin="10,0,4,0"
                                                                         VerticalAlignment="Center" Spacing="2">
-                                                                <TextBlock Classes="PickName" Text="{Binding Device.Name}" FontSize="12.5"
+                                                                <TextBlock Classes="PickName" Text="{Binding Name}" FontSize="12.5"
                                                                            FontWeight="SemiBold"
                                                                            TextTrimming="CharacterEllipsis" />
                                                                 <TextBlock Classes="PickRoom" Text="{Binding Category}" FontSize="10.5"
@@ -323,7 +329,7 @@
                             </ItemsControl.ItemTemplate>
                         </ItemsControl>
 
-                        <TextBlock Text="没有匹配的设备" FontSize="12" Margin="2,24,0,0"
+                        <TextBlock Text="{Binding EmptyText}" FontSize="12" Margin="2,24,0,0"
                                    Foreground="{DynamicResource Text2Brush}"
                                    IsVisible="{Binding IsEmptyResult}" />
                     </StackPanel>

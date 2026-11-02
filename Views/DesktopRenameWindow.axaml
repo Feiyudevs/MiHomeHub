@@ -1,0 +1,46 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="clr-namespace:MiHome.ViewModels"
+        x:Class="MiHome.Views.DesktopRenameWindow"
+        x:DataType="vm:DesktopZoneVm"
+        Title="重命名分区"
+        Width="180" Height="30"
+        SystemDecorations="None" CanResize="False"
+        ShowInTaskbar="False" Topmost="True"
+        WindowStartupLocation="Manual"
+        TransparencyLevelHint="Transparent"
+        Background="Transparent"
+        RequestedThemeVariant="Light">
+
+    <Window.Styles>
+        <!-- 输入框直接铺在外层卡片上：不留 Fluent 自己的底与描边，只保留光标与选区 -->
+        <Style Selector="TextBox.ZoneNameEdit">
+            <Setter Property="Height" Value="28" />
+            <Setter Property="FontSize" Value="12.5" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+            <Setter Property="Padding" Value="8,0" />
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="BorderThickness" Value="0" />
+            <Setter Property="Foreground" Value="{DynamicResource TextBrush}" />
+            <Setter Property="CaretBrush" Value="{DynamicResource TextBrush}" />
+            <Setter Property="SelectionBrush" Value="{DynamicResource AccentBrush}" />
+            <Setter Property="VerticalContentAlignment" Value="Center" />
+        </Style>
+        <Style Selector="TextBox.ZoneNameEdit /template/ Border#PART_BorderElement">
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="BorderThickness" Value="0" />
+        </Style>
+        <Style Selector="TextBox.ZoneNameEdit:pointerover /template/ Border#PART_BorderElement">
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="BorderThickness" Value="0" />
+        </Style>
+    </Window.Styles>
+
+    <Border Background="{DynamicResource DrawerBgBrush}"
+            BorderBrush="{DynamicResource LineBrush}"
+            BorderThickness="1"
+            CornerRadius="8"
+            BoxShadow="0 2 6 0 #140F172A, 0 12 28 0 #1F0F172A">
+        <TextBox Name="NameBox" Classes="ZoneNameEdit" MaxLength="24" Watermark="分区名称" />
+    </Border>
+</Window>

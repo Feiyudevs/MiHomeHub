@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Specialized;
 using System.ComponentModel;
+using System.Runtime.InteropServices;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Threading;
@@ -27,13 +28,20 @@ public partial class DesktopGroupWindow : Window
     /// <summary>宫格之外的固定开销（DIP）：标题栏 38 + 卡片描边 2 + 内容底部留白 6。</summary>
     private const double ChromeDip = 46;
 
-    private readonly DesktopGroupVm _vm;
+    private readonly DesktopZoneVm _vm;
+
+    /// <summary>设备分区才有「加设备就加宽一列」那套推算，媒体分区走不到。</summary>
+    private DesktopGroupVm? _group;
 
     private nint _hwnd;
     private DispatcherTimer? _guard;
     private int _guardTicks;
     private DispatcherTimer? _chromeTimer;
-    private bool _renameFocus;
+
+    // WndProc 子类：压掉一切非本意的 Z 序变化（Avalonia 写位置/尺寸的 SetWindowPos 不带 NOZORDER）
+    private DesktopNative.WndProcDelegate? _wndProcDelegate;
+    private nint _originalWndProc;
+    private nint _wndProcPtr;
 
     // 拖动 / 拉伸状态
     private bool _dragging;
@@ -42,48 +50,30 @@ public partial class DesktopGroupWindow : Window
     private (int X, int Y) _dragCursor;
     private double _resizeStartWidth;
 
-    public DesktopGroupWindow(DesktopGroupVm vm)
+    public DesktopGroupWindow(DesktopZoneVm vm)
     {
         InitializeComponent();
         _vm = vm;
+        _group = vm as DesktopGroupVm;
         DataContext = vm;
         Width = vm.Width;
         Root.Host = this;
 
         vm.PropertyChanged += OnVmPropertyChanged;
-        vm.Devices.CollectionChanged += OnDevicesChanged;
+        if (_group != null)
+        {
+            _group.Devices.CollectionChanged += OnDevicesChanged;
+            _group.Scenes.CollectionChanged += OnDevicesChanged;
+        }
         Closed += OnClosed;
     }
 
-    public DesktopGroupVm ViewModel => _vm;
+    public DesktopZoneVm ViewModel => _vm;
 
-    /// <summary>窗口句柄（内联重命名时用来判断「点窗外」）。</summary>
+    /// <summary>窗口句柄（贴桌面层级操作时使用）。</summary>
     public nint Handle => Hwnd;
 
     private nint Hwnd => _hwnd != nint.Zero ? _hwnd : TryGetPlatformHandle()?.Handle ?? nint.Zero;
-
-    /// <summary>
-    /// 内联重命名：临时去掉 NOACTIVATE 才能拿到键盘焦点（否则输入框点了也打不了字），
-    /// 提交后由 <see cref="EndRenameFocus"/> 收回。
-    /// </summary>
-    public void BeginRenameFocus()
-    {
-        var h = Hwnd;
-        if (h == nint.Zero) return;
-        _renameFocus = true;
-        DesktopEmbed.SetNoActivate(h, false);
-        DesktopNative.SetForegroundWindow(h);
-        try { Activate(); } catch { }
-    }
-
-    public void EndRenameFocus()
-    {
-        _renameFocus = false;
-        var h = Hwnd;
-        if (h == nint.Zero) return;
-        DesktopEmbed.SetNoActivate(h, true);
-        DesktopEmbed.PinBottom(h);
-    }
 
     /// <summary>先落到保存的位置再显示，避免在 (0,0) 闪一下。</summary>
     public override void Show()
@@ -105,9 +95,11 @@ public partial class DesktopGroupWindow : Window
         base.OnOpened(e);
         AttachDesktop();
 
-        // 「加设备」可能发生在窗口建好之前（主窗口加号 → 选已有分区，分区窗这时才新建），
-        // 等第一次布局跑完（几何可信）再补一次同样的加列判断；已经放得下就什么都不做。
-        Dispatcher.UIThread.Post(() => FitIntoDesktop(_vm.Devices.Count, _vm.Devices.Count), DispatcherPriority.Loaded);
+        if (_group != null)
+            Dispatcher.UIThread.Post(
+                () => FitIntoDesktop(_group.Devices.Count, _group.Scenes.Count,
+                                     _group.Devices.Count, _group.Scenes.Count),
+                DispatcherPriority.Loaded);
     }
 
     private void AttachDesktop()
@@ -124,6 +116,9 @@ public partial class DesktopGroupWindow : Window
             ApplyChrome();
             return;
         }
+
+        // 必须先装：之后每一次坐标/尺寸写入都不准动 Z 序
+        InstallWndProc();
 
         // 贴桌面期间全程 cloak：改样式/打磨砂都会闪，用户看不到中间态
         DesktopEmbed.SetCloaked(_hwnd, true);
@@ -152,7 +147,7 @@ public partial class DesktopGroupWindow : Window
         var h = Hwnd;
         if (h == nint.Zero) return;
 
-        if (!_renameFocus) DesktopEmbed.EnsureNoActivate(h);
+        DesktopEmbed.EnsureNoActivate(h);
         DesktopEmbed.StripNoRedirection(h);
 
         // 材质先打
@@ -189,41 +184,117 @@ public partial class DesktopGroupWindow : Window
                 _guard?.Stop();
                 return;
             }
+            EnsureWndProc();
             DesktopEmbed.EnsureNoActivate(h);
-            if (!_renameFocus && !_dragging && !_resizing) DesktopEmbed.PinBottom(h);
+            if (!_dragging && !_resizing) DesktopEmbed.PinBottom(h);
             if (++_guardTicks >= 24) _guard?.Stop();
         };
         _guard.Start();
     }
 
+    /// <summary>
+    /// 给分区窗装 WndProc 子类：
+    /// 1. WM_WINDOWPOSCHANGING 的 WINDOWPOS 补 SWP_NOZORDER | SWP_NOOWNERZORDER —— 坐标照改、层级不动。
+    ///    WS_EX_NOACTIVATE 只挡激活，挡不住 Avalonia 写位置/尺寸时那次 SetWindowPos 把窗口顶到
+    ///    非置顶层最上面（连带整条 Progman 桌面带，Zonex 卡片也会跟着盖住前台软件）。
+    ///    只补 SWP_NOZORDER 不够：owner=Progman 的窗口还会被系统按 owner 链连带重排，
+    ///    必须同时 SWP_NOOWNERZORDER 才能整组不动。
+    /// 2. WM_MOUSEACTIVATE 直接回 MA_NOACTIVATE —— 兜住 ExStyle 被合成重置的瞬间。
+    /// </summary>
+    private void InstallWndProc()
+    {
+        if (_hwnd == nint.Zero || _wndProcDelegate != null) return;
+
+        _wndProcDelegate = WndProc;
+        _wndProcPtr = Marshal.GetFunctionPointerForDelegate(_wndProcDelegate);
+        _originalWndProc = DesktopNative.GetWindowLongPtr(_hwnd, DesktopNative.GWL_WNDPROC);
+        DesktopNative.SetWindowLongPtr(_hwnd, DesktopNative.GWL_WNDPROC, _wndProcPtr);
+    }
+
+    /// <summary>Avalonia 若重装过 WndProc，原样接回去继续压 Z 序，避免链到自己无限递归。</summary>
+    private void EnsureWndProc()
+    {
+        if (_hwnd == nint.Zero || _wndProcDelegate == null) return;
+        var current = DesktopNative.GetWindowLongPtr(_hwnd, DesktopNative.GWL_WNDPROC);
+        if (current == _wndProcPtr || current == nint.Zero) return;
+        _originalWndProc = current;
+        DesktopNative.SetWindowLongPtr(_hwnd, DesktopNative.GWL_WNDPROC, _wndProcPtr);
+    }
+
+    private nint WndProc(nint hWnd, uint uMsg, nint wParam, nint lParam)
+    {
+        if (uMsg == DesktopNative.WM_MOUSEACTIVATE)
+            return new nint(DesktopNative.MA_NOACTIVATE);
+
+        if (uMsg == DesktopNative.WM_WINDOWPOSCHANGING && !DesktopEmbed.ZOrderChangeAllowed)
+        {
+            var wp = Marshal.PtrToStructure<DesktopNative.WINDOWPOS>(lParam);
+            var next = wp.flags | DesktopNative.SWP_NOZORDER | DesktopNative.SWP_NOOWNERZORDER;
+            if (next != wp.flags)
+            {
+                wp.flags = next;
+                Marshal.StructureToPtr(wp, lParam, false);
+            }
+        }
+
+        return _originalWndProc != nint.Zero
+            ? DesktopNative.CallWindowProcW(_originalWndProc, hWnd, uMsg, wParam, lParam)
+            : DesktopNative.DefWindowProcW(hWnd, uMsg, wParam, lParam);
+    }
+
+    private void RestoreWndProc()
+    {
+        if (_hwnd != nint.Zero && _originalWndProc != nint.Zero && _wndProcDelegate != null)
+        {
+            var current = DesktopNative.GetWindowLongPtr(_hwnd, DesktopNative.GWL_WNDPROC);
+            if (current == _wndProcPtr)
+                DesktopNative.SetWindowLongPtr(_hwnd, DesktopNative.GWL_WNDPROC, _originalWndProc);
+        }
+        _originalWndProc = nint.Zero;
+        _wndProcPtr = nint.Zero;
+        _wndProcDelegate = null;
+    }
+
     private void OnClosed(object? sender, EventArgs e)
     {
         _vm.PropertyChanged -= OnVmPropertyChanged;
-        _vm.Devices.CollectionChanged -= OnDevicesChanged;
+        if (_group != null)
+        {
+            _group.Devices.CollectionChanged -= OnDevicesChanged;
+            _group.Scenes.CollectionChanged -= OnDevicesChanged;
+        }
         _guard?.Stop();
         _chromeTimer?.Stop();
+        RestoreWndProc();
         if (_hwnd != nint.Zero) DesktopEmbed.ClearAcrylic(_hwnd);
     }
 
     private void OnDevicesChanged(object? sender, NotifyCollectionChangedEventArgs e)
     {
         if (e.Action != NotifyCollectionChangedAction.Add) return;
-        // 事件是在下一次布局前同步派发的：此时 Height 还是「加这台之前」的高度，
-        // 正好用来推算加完之后的底部会不会顶出桌面（删设备不收窄，尊重用户手拉的宽度）
+        // 事件是在下一次布局前同步派发的：此时 Height 还是「加这些之前」的高度，
+        // 正好用来推算加完之后的底部会不会顶出桌面（删内容不收窄，尊重用户手拉的宽度）
         var added = e.NewItems?.Count ?? 1;
-        FitIntoDesktop(_vm.Devices.Count, _vm.Devices.Count - added);
+        var devices = _group?.Devices.Count ?? 0;
+        var scenes = _group?.Scenes.Count ?? 0;
+        var sceneBatch = ReferenceEquals(sender, _group?.Scenes);
+        FitIntoDesktop(devices, scenes,
+            sceneBatch ? devices : devices - added,
+            sceneBatch ? scenes - added : scenes);
     }
 
     /// <summary>
-    /// 加设备时优先「加宽一列」而不是继续向下长：分区常摆在桌面下缘，
-    /// 往下多的那一行直接被桌沿（或任务栏）挡在屏幕外，用户勾完看不到新设备，只能自己拖宽。
+    /// 加内容时优先「加宽一列」而不是继续向下长：分区常摆在桌面下缘，
+    /// 往下多的那一行直接被桌沿（或任务栏）挡在屏幕外，用户勾完看不到新东西，只能自己拖宽。
     /// 列数由宫格宽度决定，所以这里是把窗口加宽到能多放一列，行数随之减下来。
     /// </summary>
-    /// <param name="newCount">加完之后的设备数。</param>
-    /// <param name="oldCount">当前窗口高度对应的设备数（同一批时即「只核对能不能放下」）。</param>
-    private void FitIntoDesktop(int newCount, int oldCount)
+    /// <param name="newDevices">加完之后的设备数。</param>
+    /// <param name="newScenes">加完之后的场景数；场景另起一面宫格，行数各自取整再相加。</param>
+    /// <param name="oldDevices">当前窗口高度对应的设备数（同一批时即「只核对能不能放下」）。</param>
+    /// <param name="oldScenes">当前窗口高度对应的场景数。</param>
+    private void FitIntoDesktop(int newDevices, int newScenes, int oldDevices, int oldScenes)
     {
-        if (newCount <= 0 || _vm.Collapsed) return;
+        if (newDevices + newScenes <= 0 || _vm.Collapsed) return;
 
         var grid = Root.DeviceGrid;
         var minItem = grid?.MinItemWidth ?? DesktopGroupView.CardMinWidth;
@@ -236,18 +307,18 @@ public partial class DesktopGroupWindow : Window
         var rowHeight = grid != null && grid.Children.Count > 0 && grid.Children[0].Bounds.Height > 1
             ? grid.Children[0].Bounds.Height
             : CardRowDip;
-        var oldRows = (int)Math.Ceiling(oldCount / (double)columns);
+        var oldRows = Rows(oldDevices, oldScenes, columns);
         var chrome = Math.Max(ChromeDip, Height - oldRows * rowHeight);
 
         var screen = Screens.ScreenFromPoint(Position) ?? Screens.Primary;
         var work = screen?.WorkingArea ?? new PixelRect(0, 0, 1920, 1080);
         var scale = RenderScaling <= 0 ? 1 : RenderScaling;
 
-        var rows = (int)Math.Ceiling(newCount / (double)columns);
+        var rows = Rows(newDevices, newScenes, columns);
         var width = Width;
         while (Position.Y + (chrome + rows * rowHeight) * scale > work.Bottom)
         {
-            var nextRows = (int)Math.Ceiling(newCount / (double)(columns + 1));
+            var nextRows = Rows(newDevices, newScenes, columns + 1);
             // 加一列却减不了行（例如只多出一台），加宽没有意义
             if (nextRows >= rows) break;
             var next = width + minItem + spacing;
@@ -262,15 +333,19 @@ public partial class DesktopGroupWindow : Window
         if (Math.Abs(width - Width) > 0.5) _vm.Width = Math.Round(width);
     }
 
+    /// <summary>设备与场景各占一面宫格：行数是两段分别取整再相加，不是合起来的总数除列数。</summary>
+    private static int Rows(int devices, int scenes, int columns)
+        => (int)Math.Ceiling(devices / (double)columns) + (int)Math.Ceiling(scenes / (double)columns);
+
     private void OnVmPropertyChanged(object? sender, PropertyChangedEventArgs e)
     {
         switch (e.PropertyName)
         {
-            case nameof(DesktopGroupVm.Width):
+            case nameof(DesktopZoneVm.Width):
                 if (Math.Abs(Width - _vm.Width) > 0.5) Width = _vm.Width;
                 ScheduleChrome();
                 break;
-            case nameof(DesktopGroupVm.Collapsed):
+            case nameof(DesktopZoneVm.Collapsed):
                 ScheduleChrome();
                 break;
         }

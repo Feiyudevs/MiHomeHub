@@ -408,8 +408,9 @@
             </Setter>
             <Setter Property="Template">
                 <ControlTemplate>
-                    <!-- Margin 用于给投影留出绘制空间：投影被控件边界裁切时才会出现硬边缺口 -->
-                    <Border Name="Card" MinHeight="74" CornerRadius="16" Padding="15,13" Margin="8">
+                    <!-- Margin 由样式提供（默认 8，给投影留绘制空间：投影被控件边界裁切时才会出现硬边缺口）；
+                         桌面分区内卡片不投影，局部样式把它收到 4，故此处不能再写本地值（本地值会压过样式 setter） -->
+                    <Border Name="Card" MinHeight="74" CornerRadius="16" Padding="15,13">
                         <ContentPresenter Content="{TemplateBinding Content}"
                                           HorizontalAlignment="Stretch" VerticalAlignment="Center"/>
                     </Border>
@@ -417,6 +418,7 @@
             </Setter>
         </Style>
         <Style Selector="Button.DevCard /template/ Border#Card">
+            <Setter Property="Margin" Value="8"/>
             <Setter Property="Background" Value="{DynamicResource CardBrush}"/>
             <!-- 用 BoxShadow 而非 Effect：Effect 会离屏渲染成与元素等大的图层，投影外扩部分被裁成硬边 -->
             <Setter Property="BoxShadow" Value="0 1 2 0 #050F172A, 0 4 14 0 #060F172A"/>
@@ -780,8 +782,8 @@
              点击行为由 Controls/MenuOpener 附加属性接管：打开与右键同一份菜单。
              菜单本体（外壳 + 菜单项主题）直接内联在 Templates.axaml 的设备卡模板里，
              不依赖样式匹配 —— 弹出层的样式应用时机不可控，本地值最稳。 -->
-        <!-- 「更多」：比电源键略小（26×26 正圆）、同轴对齐（都贴右列右边线 -6）；
-             默认隐藏 + 上浮 3px，卡片悬停时淡入下滑浮现 -->
+        <!-- 「更多」：比电源键略小（26×26 正圆）、右列内水平居中同轴；
+             无任何底色，只有三个点；默认隐藏 + 上浮 3px，卡片悬停时淡入下滑浮现 -->
         <Style Selector="Button.MoreBtn">
             <Setter Property="Width" Value="26"/>
             <Setter Property="Height" Value="26"/>
@@ -810,15 +812,13 @@
         <Style Selector="Button.MoreBtn:pointerover">
             <Setter Property="Foreground" Value="{DynamicResource TextBrush}"/>
         </Style>
-        <!-- 圆形背景：卡片悬停时浮现淡色圆底，悬停/按下自身时加深一层 -->
-        <Style Selector="Button.DevCard:pointerover Button.MoreBtn /template/ ContentPresenter#PART_ContentPresenter">
-            <Setter Property="Background" Value="{DynamicResource MenuHoverBrush}"/>
-        </Style>
+        <!-- 无背景版：任何状态（卡片悬停 / 自身 hover / 按下）都不铺底色，
+             Fluent Button 主题自带的 pointerover/pressed 灰底显式压回透明 -->
         <Style Selector="Button.MoreBtn:pointerover /template/ ContentPresenter#PART_ContentPresenter">
-            <Setter Property="Background" Value="{DynamicResource MenuPressBrush}"/>
+            <Setter Property="Background" Value="Transparent"/>
         </Style>
         <Style Selector="Button.MoreBtn:pressed /template/ ContentPresenter#PART_ContentPresenter">
-            <Setter Property="Background" Value="{DynamicResource MenuPressBrush}"/>
+            <Setter Property="Background" Value="Transparent"/>
         </Style>
 
         <!-- ======== 弹窗基类 DialogPopup：遮罩 + 居中卡片 + 标题栏 + 可滚动正文 ======== -->
@@ -872,5 +872,121 @@
                     </Grid>
                 </ControlTemplate>
             </Setter>
+        </Style>
+
+        <!-- ======== 滑杆（抽屉 / 桌面分区浮层共用） ======== -->
+        <!-- 抽屉滑杆：底轨 + 左圆角已填段 + 白圆钮。已填段只圆左端，避免与滑块之间出现缺口。
+             放在全局而不是主窗口样式里：桌面分区的音量浮层、外观窗都是独立 Window，
+             拿不到主窗口的局部样式，之前各写一份会漂出两种滑杆。 -->
+        <Style Selector="Slider.DrSlider">
+            <Setter Property="Height" Value="30" />
+            <Setter Property="Foreground" Value="{DynamicResource PrimaryBtnBrush}" />
+            <Setter Property="Background" Value="{DynamicResource TrackBrush}" />
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="Template">
+                <ControlTemplate>
+                    <Grid Background="Transparent" VerticalAlignment="Center" Height="30">
+                        <!-- 未填轨道：两端都圆 -->
+                        <Border Height="10" CornerRadius="5" VerticalAlignment="Center"
+                                HorizontalAlignment="Stretch"
+                                Background="{TemplateBinding Background}" />
+                        <Track Name="PART_Track"
+                               Minimum="{TemplateBinding Minimum}"
+                               Maximum="{TemplateBinding Maximum}"
+                               Value="{TemplateBinding Value, Mode=TwoWay}"
+                               IsDirectionReversed="False"
+                               Orientation="Horizontal"
+                               VerticalAlignment="Center" Height="10">
+                            <Track.DecreaseButton>
+                                <RepeatButton Name="PART_DecreaseButton"
+                                              Background="Transparent" BorderThickness="0" Focusable="False"
+                                              HorizontalAlignment="Stretch" VerticalAlignment="Stretch"
+                                              Padding="0" Margin="0">
+                                    <RepeatButton.Template>
+                                        <ControlTemplate>
+                                            <!-- 只圆左端；右端直角顶到滑块下，消除缺口 -->
+                                            <Border Height="10" CornerRadius="5,0,0,5"
+                                                    HorizontalAlignment="Stretch" VerticalAlignment="Center"
+                                                    Background="{Binding $parent[Slider].Foreground}" />
+                                        </ControlTemplate>
+                                    </RepeatButton.Template>
+                                </RepeatButton>
+                            </Track.DecreaseButton>
+                            <Track.Thumb>
+                                <Thumb Name="PART_Thumb" Width="18" Height="18" Focusable="True">
+                                    <Thumb.Template>
+                                        <ControlTemplate>
+                                            <Border Width="18" Height="18" CornerRadius="9"
+                                                    Background="{DynamicResource SliderThumbBackground}"
+                                                    BorderBrush="{DynamicResource LineBrush}" BorderThickness="1"
+                                                    BoxShadow="0 1 4 #28000000" />
+                                        </ControlTemplate>
+                                    </Thumb.Template>
+                                </Thumb>
+                            </Track.Thumb>
+                            <Track.IncreaseButton>
+                                <RepeatButton Name="PART_IncreaseButton"
+                                              Background="Transparent" BorderThickness="0" Focusable="False"
+                                              HorizontalAlignment="Stretch" VerticalAlignment="Stretch"
+                                              Padding="0" Margin="0">
+                                    <RepeatButton.Template>
+                                        <ControlTemplate>
+                                            <Border Background="Transparent" />
+                                        </ControlTemplate>
+                                    </RepeatButton.Template>
+                                </RepeatButton>
+                            </Track.IncreaseButton>
+                        </Track>
+                    </Grid>
+                </ControlTemplate>
+            </Setter>
+        </Style>
+        <!-- 再压一遍 Fluent 默认 pressed/hover，防止右侧槽位出现灰底 -->
+        <Style Selector="Slider.DrSlider /template/ RepeatButton#PART_IncreaseButton">
+            <Setter Property="Background" Value="Transparent" />
+        </Style>
+        <Style Selector="Slider.DrSlider /template/ RepeatButton#PART_IncreaseButton:pointerover">
+            <Setter Property="Background" Value="Transparent" />
+        </Style>
+        <Style Selector="Slider.DrSlider /template/ RepeatButton#PART_IncreaseButton:pressed">
+            <Setter Property="Background" Value="Transparent" />
+        </Style>
+
+        <!-- ======== 桌面分区图标按钮 ======== -->
+        <!-- 贴桌面的分区窗与它的浮层都是独立 Window，取不到视图内的局部样式，
+             所以标题栏/播放键那套 24×24 圆角图标按钮定义在这里 -->
+        <Style Selector="Button.DskIcon">
+            <Setter Property="Width" Value="24" />
+            <Setter Property="Height" Value="24" />
+            <Setter Property="Padding" Value="0" />
+            <Setter Property="CornerRadius" Value="7" />
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="BorderThickness" Value="0" />
+            <Setter Property="Focusable" Value="False" />
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="Opacity" Value="0.85" />
+            <Setter Property="Foreground" Value="{DynamicResource DskTextBrush}" />
+            <Setter Property="HorizontalContentAlignment" Value="Center" />
+            <Setter Property="VerticalContentAlignment" Value="Center" />
+            <Setter Property="Transitions">
+                <Transitions>
+                    <DoubleTransition Property="Opacity" Duration="0:0:0.12" />
+                </Transitions>
+            </Setter>
+        </Style>
+        <Style Selector="Button.DskIcon:pointerover">
+            <Setter Property="Opacity" Value="1" />
+        </Style>
+        <Style Selector="Button.DskIcon:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+            <Setter Property="Background" Value="#26FFFFFF" />
+        </Style>
+        <Style Selector="Button.DskIcon:pressed /template/ ContentPresenter#PART_ContentPresenter">
+            <Setter Property="Background" Value="#33FFFFFF" />
+        </Style>
+        <!-- 播放控制那一排：比普通图标大一号，仍然是同一套悬停/按下底色 -->
+        <Style Selector="Button.DskMedia">
+            <Setter Property="Width" Value="32" />
+            <Setter Property="Height" Value="32" />
+            <Setter Property="CornerRadius" Value="9" />
         </Style>
 </Styles>

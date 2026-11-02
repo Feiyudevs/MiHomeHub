@@ -4,6 +4,7 @@
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              
     xmlns:m="clr-namespace:MiHome.Models"
+    xmlns:controls="clr-namespace:MiHome.Controls"
              x:Class="MiHome.Controls.OptionPicker">
     <UserControl.Styles>
         <!-- ======== 触发器：圆角矩形 + 1px 细线，选中态只提亮底色，不描彩边 ======== -->
@@ -45,6 +46,10 @@
         </Style>
         <Style Selector="Button.PickBtn:pointerover /template/ Border#Hov, Button.PickBtn.open /template/ Border#Hov">
             <Setter Property="Opacity" Value="1" />
+        </Style>
+        <!-- 挂 .wide 的实例占满宿主给的整条宽度，默认只按内容宽右对齐 -->
+        <Style Selector="controls|OptionPicker.wide Button.PickBtn">
+            <Setter Property="HorizontalAlignment" Value="Stretch" />
         </Style>
         <!-- 箭头展开时翻转 180°，让「开/合」有交代 -->
         <Style Selector="Button.PickBtn Path#Chev">

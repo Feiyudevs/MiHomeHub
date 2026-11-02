@@ -27,8 +27,20 @@ public sealed class DesktopGroupModel
 
     public bool Collapsed { get; set; }
 
+    /// <summary>分区内容形态：device = 设备宫格，media = 音响播放。旧配置缺字段按设备分区处理。</summary>
+    public string Kind { get; set; } = ZoneDevice;
+
     /// <summary>分区里的设备 did，顺序即显示顺序。</summary>
     public List<string> Dids { get; set; } = new();
+
+    /// <summary>分区里的场景 scene_id，顺序即显示顺序。</summary>
+    public List<string> SceneIds { get; set; } = new();
+
+    [JsonIgnore]
+    public bool IsMedia => string.Equals(Kind, ZoneMedia, StringComparison.Ordinal);
+
+    public const string ZoneDevice = "device";
+    public const string ZoneMedia = "media";
 }
 
 /// <summary>桌面组件外观：背景色 / 背景透明度 / 毛玻璃。三项互相独立。</summary>
@@ -59,6 +71,9 @@ public sealed class DesktopLayout
     public DesktopAppearance Appearance { get; set; } = new();
 
     public List<DesktopGroupModel> Groups { get; set; } = new();
+
+    /// <summary>媒体分区被手动关闭过：为 true 时不再自动放回桌面，重新开启只走设置页开关。</summary>
+    public bool MediaHidden { get; set; }
 
     [JsonIgnore]
     public bool HasGroups => Groups.Count > 0;

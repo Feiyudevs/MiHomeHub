@@ -9,6 +9,7 @@ namespace MiHome.Services;
 internal static class DesktopNative
 {
     // ---- 窗口样式 ----
+    public const int GWL_WNDPROC = -4;
     public const int GWL_STYLE = -16;
     public const int GWL_EXSTYLE = -20;
     public const int GWL_HWNDPARENT = -8;
@@ -73,6 +74,25 @@ internal static class DesktopNative
 
     public const uint GW_HWNDPREV = 3;
 
+    // ---- 窗口消息（Z 序 / 激活） ----
+    public const uint WM_MOUSEACTIVATE = 0x0021;
+    public const uint WM_WINDOWPOSCHANGING = 0x0046;
+    public const int MA_NOACTIVATE = 3;
+
+    [StructLayout(LayoutKind.Sequential)]
+    public struct WINDOWPOS
+    {
+        public nint hwnd;
+        public nint hwndInsertAfter;
+        public int x;
+        public int y;
+        public int cx;
+        public int cy;
+        public uint flags;
+    }
+
+    public delegate nint WndProcDelegate(nint hWnd, uint uMsg, nint wParam, nint lParam);
+
     [StructLayout(LayoutKind.Sequential)]
     public struct RECT
     {
@@ -133,6 +153,12 @@ internal static class DesktopNative
     [return: MarshalAs(UnmanagedType.Bool)]
     public static extern bool SetWindowPos(nint hWnd, nint hWndInsertAfter, int x, int y, int cx, int cy, uint uFlags);
 
+    [DllImport("user32.dll", CharSet = CharSet.Unicode, SetLastError = true)]
+    public static extern nint CallWindowProcW(nint lpPrevWndFunc, nint hWnd, uint uMsg, nint wParam, nint lParam);
+
+    [DllImport("user32.dll", CharSet = CharSet.Unicode)]
+    public static extern nint DefWindowProcW(nint hWnd, uint uMsg, nint wParam, nint lParam);
+
     [DllImport("user32.dll")]
     [return: MarshalAs(UnmanagedType.Bool)]
     public static extern bool ShowWindow(nint hWnd, int nCmdShow);
@@ -163,18 +189,9 @@ internal static class DesktopNative
     [return: MarshalAs(UnmanagedType.Bool)]
     public static extern bool GetCursorPos(out POINT lpPoint);
 
-    /// <summary>鼠标左右键当前是否按下（贴桌面窗拿不到「点窗外」的事件，只能轮询）。</summary>
-    [DllImport("user32.dll")]
-    public static extern short GetAsyncKeyState(int vKey);
-
     /// <summary>系统双击间隔：名称区单击折叠要等这么久，才不会被双击改名抢掉。</summary>
     [DllImport("user32.dll")]
     public static extern uint GetDoubleClickTime();
-
-    /// <summary>改名期间临时把窗口拉到前台拿键盘焦点。</summary>
-    [DllImport("user32.dll")]
-    [return: MarshalAs(UnmanagedType.Bool)]
-    public static extern bool SetForegroundWindow(nint hWnd);
 
     [StructLayout(LayoutKind.Sequential)]
     public struct POINT

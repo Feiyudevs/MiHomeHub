@@ -1,0 +1,101 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:conv="clr-namespace:MiHome.Converters"
+             xmlns:ctl="clr-namespace:MiHome.Controls"
+             xmlns:vm="clr-namespace:MiHome.ViewModels"
+             x:Class="MiHome.Views.MusicPanelView"
+             x:DataType="vm:MainViewModel">
+    <Border x:Name="MusicPanel" Classes="MusicPanel" Width="344"
+            HorizontalAlignment="Left" VerticalAlignment="Top" Margin="12,2,0,0"
+            Opacity="0" IsVisible="False">
+        <Border.RenderTransform>
+            <TranslateTransform Y="0" />
+        </Border.RenderTransform>
+        <StackPanel Spacing="12">
+            <!-- 头部：音箱徽标 + 在线状态 + 下拉。名称只由下拉承载，这里不再重复一遍 -->
+            <Grid ColumnDefinitions="Auto,*,Auto">
+                <Border Width="34" Height="34" CornerRadius="11"
+                        Background="{DynamicResource AccentSoftBrush}"
+                        VerticalAlignment="Center">
+                    <Viewbox Width="18" Height="18"
+                             HorizontalAlignment="Center" VerticalAlignment="Center">
+                        <Panel Width="24" Height="24">
+                            <Path Stroke="{DynamicResource Accent2Brush}" StrokeThickness="1.7"
+                                  StrokeLineCap="Round" StrokeJoin="Round"
+                                  Data="{StaticResource GeoMusic}" />
+                        </Panel>
+                    </Viewbox>
+                </Border>
+                <StackPanel Grid.Column="1" Margin="10,0,8,0" Orientation="Horizontal" Spacing="6"
+                            VerticalAlignment="Center">
+                    <Ellipse Classes="StatusDot" Width="6" Height="6" VerticalAlignment="Center"
+                             Classes.is-on="{Binding MediaSpeaker.IsOnline}"
+                             Classes.is-warn="{Binding !MediaSpeaker.IsOnline}" />
+                    <TextBlock FontSize="11" VerticalAlignment="Center"
+                               Foreground="{DynamicResource Text3Brush}"
+                               Text="{Binding MediaSpeaker.IsOnline, Converter={x:Static conv:BoolTextConverter.Instance}, ConverterParameter='在线|离线'}" />
+                </StackPanel>
+                <ctl:OptionPicker Grid.Column="2" Classes="wide"
+                                  VerticalAlignment="Center" HorizontalAlignment="Stretch"
+                                  ToolTip.Tip="切换要控制的音箱"
+                                  Options="{Binding SpeakerOptions}"
+                                  SelectedValue="{Binding SelectedSpeakerValue, Mode=TwoWay}" />
+            </Grid>
+            <!-- 播放控制与音量同一行：三键整组贴左，音量贴右（这台音箱没有音量属性时音量组与分隔线一起消失） -->
+            <Grid ColumnDefinitions="Auto,*,Auto">
+                <!-- 主键是这块唯一的强色块，两侧键让位给它 -->
+                <StackPanel Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+                    <Button Classes="MusicStep" ToolTip.Tip="上一曲"
+                            Command="{Binding MediaPreviousCommand}">
+                        <Viewbox Width="15" Height="15">
+                            <Panel Width="24" Height="24">
+                                <Path Fill="{DynamicResource Text2Brush}" Data="{StaticResource GeoPrevTrack}" />
+                            </Panel>
+                        </Viewbox>
+                    </Button>
+                    <Button Classes="MusicPlay" ToolTip.Tip="播放 / 暂停"
+                            Command="{Binding MediaTogglePlayCommand}">
+                        <Viewbox Width="18" Height="18">
+                            <Panel Width="24" Height="24">
+                                <Path Fill="White" IsVisible="{Binding !MediaSpeaker.IsPlaying}"
+                                      Data="{StaticResource GeoPlay}" />
+                                <Path Fill="White" IsVisible="{Binding MediaSpeaker.IsPlaying}"
+                                      Data="{StaticResource GeoPauseIc}" />
+                            </Panel>
+                        </Viewbox>
+                    </Button>
+                    <Button Classes="MusicStep" ToolTip.Tip="下一曲"
+                            Command="{Binding MediaNextCommand}">
+                        <Viewbox Width="15" Height="15">
+                            <Panel Width="24" Height="24">
+                                <Path Fill="{DynamicResource Text2Brush}" Data="{StaticResource GeoNextTrack}" />
+                            </Panel>
+                        </Viewbox>
+                    </Button>
+                </StackPanel>
+                <Border Grid.Column="1" Width="1" Height="22" Margin="0,0,12,0"
+                        HorizontalAlignment="Right" VerticalAlignment="Center"
+                        Background="{DynamicResource LineBrush}"
+                        IsVisible="{Binding MediaHasVolume}" />
+                <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="9" VerticalAlignment="Center"
+                            IsVisible="{Binding MediaHasVolume}">
+                    <Viewbox Width="15" Height="15" VerticalAlignment="Center">
+                        <Panel Width="24" Height="24">
+                            <Path Stroke="{DynamicResource Text3Brush}" StrokeThickness="1.9"
+                                  StrokeLineCap="Round" StrokeJoin="Round"
+                                  Data="{StaticResource GeoVolume}" />
+                        </Panel>
+                    </Viewbox>
+                    <Slider x:Name="VolSlider" Width="104" Classes="DrSlider"
+                            Minimum="0" Maximum="100" TickFrequency="1" VerticalAlignment="Center"
+                            IsEnabled="{Binding MediaSpeaker.IsOnline}"
+                            Value="{Binding MediaSpeaker.SpeakerVolume, Mode=TwoWay}" />
+                    <TextBlock FontSize="11.5" FontWeight="SemiBold" MinWidth="32"
+                               TextAlignment="Right" VerticalAlignment="Center"
+                               Foreground="{DynamicResource Text2Brush}"
+                               Text="{Binding MediaSpeaker.SpeakerVolume, StringFormat='{}{0}%'}" />
+                </StackPanel>
+            </Grid>
+        </StackPanel>
+    </Border>
+</UserControl>

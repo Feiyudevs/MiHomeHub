@@ -1,18 +1,26 @@
 <Window 
     
+    
     xmlns="https://github.com/avaloniaui"
+    
     
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     
+    
     xmlns:vm="clr-namespace:MiHome.ViewModels"
+    
     
     xmlns:m="clr-namespace:MiHome.Models"
     
+    
     xmlns:conv="clr-namespace:MiHome.Converters"
+    
     
     xmlns:ctl="clr-namespace:MiHome.Controls"
     
+    
     xmlns:views="clr-namespace:MiHome.Views"
+    
     
     xmlns:svc="clr-namespace:MiHome.Services"
         x:Class="MiHome.Views.MainWindow"
@@ -110,20 +118,70 @@
                     </Button>
                 </StackPanel>
             </Border>
-            <!-- 小爱语音入口：弱化主色胶囊，紧贴「我的家庭」右侧，与家庭胶囊同高；仅检测到音箱时出现 -->
-            <!-- 浮层左沿与本按钮左沿对齐（打开时由 MainWindow 计算并传入） -->
-            <Button Grid.Column="2" x:Name="XiaoAiBtn" Classes="XiaoAiCapsule"
-                    Classes.open="{Binding IsVoiceOpen}" Margin="8,0,0,0"
-                    IsVisible="{Binding ShowVoiceFab}"
-                    Command="{Binding ToggleVoiceCommand}" ToolTip.Tip="小爱语音指令">
-                <StackPanel Orientation="Horizontal" Spacing="6" Margin="11,0" HorizontalAlignment="Center">
-                    <ctl:VoiceBars Width="14" Height="14" VerticalAlignment="Center"
-                                   BarBrush="{Binding $parent[Button].Foreground}"
-                                   IsActive="{Binding ShowVoiceFab}"
-                                   IsBusy="{Binding IsVoiceSending}" />
-                    <TextBlock Text="小爱同学" VerticalAlignment="Center" />
-                </StackPanel>
-            </Button>
+            <!-- 标题栏左侧两个音箱入口：弱化主色胶囊，紧贴「我的家庭」右侧，与家庭胶囊同高；仅检测到音箱时出现 -->
+            <!-- 浮层左沿与本胶囊左沿对齐（打开时由 MainWindow 计算并传入） -->
+            <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="8" Margin="8,0,0,0"
+                        VerticalAlignment="Center">
+                <Button x:Name="XiaoAiBtn" Classes="XiaoAiCapsule"
+                        Classes.open="{Binding IsVoiceOpen}"
+                        IsVisible="{Binding HasSpeaker}"
+                        Command="{Binding ToggleVoiceCommand}" ToolTip.Tip="小爱语音指令">
+                    <StackPanel Orientation="Horizontal" Spacing="6" Margin="11,0" HorizontalAlignment="Center">
+                        <ctl:VoiceBars Width="14" Height="14" VerticalAlignment="Center"
+                                       BarBrush="{Binding $parent[Button].Foreground}"
+                                       IsActive="{Binding HasSpeaker}"
+                                       IsBusy="{Binding IsVoiceSending}" />
+                        <TextBlock Text="小爱同学" VerticalAlignment="Center" />
+                    </StackPanel>
+                </Button>
+                <!-- 音乐：未播放时只是一个入口；正在播放时把名称就地换成上一曲/暂停/下一曲，就地可操作 -->
+                <Button x:Name="MusicBtn" Classes="MusicCapsule"
+                        Classes.open="{Binding IsMusicOpen}"
+                        IsVisible="{Binding HasSpeaker}"
+                        Command="{Binding ToggleMusicCommand}" ToolTip.Tip="音箱播放控制">
+                    <StackPanel Orientation="Horizontal" Spacing="4" Margin="9,0" HorizontalAlignment="Center">
+                        <Viewbox Width="15" Height="15" VerticalAlignment="Center">
+                            <Panel Width="24" Height="24">
+                                <Path Stroke="{Binding $parent[Button].Foreground}" StrokeThickness="1.8"
+                                      StrokeLineCap="Round" StrokeJoin="Round"
+                                      Data="{StaticResource GeoMusic}" />
+                            </Panel>
+                        </Viewbox>
+                        <TextBlock Text="音乐" VerticalAlignment="Center" Margin="2,0"
+                                   IsVisible="{Binding !MediaSpeaker.IsPlaying}" />
+                        <StackPanel Orientation="Horizontal" Spacing="1"
+                                    IsVisible="{Binding MediaSpeaker.IsPlaying}">
+                            <Button Classes="CapBtn" ToolTip.Tip="上一曲"
+                                    Command="{Binding MediaPreviousCommand}">
+                                <Viewbox Width="15" Height="15">
+                                    <Panel Width="24" Height="24">
+                                        <Path Fill="{Binding $parent[Button].Foreground}"
+                                              Data="{StaticResource GeoPrevTrack}" />
+                                    </Panel>
+                                </Viewbox>
+                            </Button>
+                            <Button Classes="CapBtn" ToolTip.Tip="暂停"
+                                    Command="{Binding MediaTogglePlayCommand}">
+                                <Viewbox Width="15" Height="15">
+                                    <Panel Width="24" Height="24">
+                                        <Path Fill="{Binding $parent[Button].Foreground}"
+                                              Data="{StaticResource GeoPauseIc}" />
+                                    </Panel>
+                                </Viewbox>
+                            </Button>
+                            <Button Classes="CapBtn" ToolTip.Tip="下一曲"
+                                    Command="{Binding MediaNextCommand}">
+                                <Viewbox Width="15" Height="15">
+                                    <Panel Width="24" Height="24">
+                                        <Path Fill="{Binding $parent[Button].Foreground}"
+                                              Data="{StaticResource GeoNextTrack}" />
+                                    </Panel>
+                                </Viewbox>
+                            </Button>
+                        </StackPanel>
+                    </StackPanel>
+                </Button>
+            </StackPanel>
             <!-- 搜索：圆形按钮本身就地展开成输入框，点击时宽度从 32 长到 252 -->
             <Border Grid.Column="3" x:Name="SearchBox" Classes="SearchBox" Margin="12,0,0,0"
                     Focusable="True" IsTabStop="False"
@@ -277,6 +335,8 @@
         <!-- ================= 小爱语音：标题栏右侧胶囊唤出的指令浮层（仅检测到音箱时出现） ================= -->
         <!-- 浮层右缘对齐标题栏胶囊右缘（右侧栏钮宽度固定，所以用右对齐 + 固定右边距） -->
         <views:VoicePanelView x:Name="VoicePanelView" Grid.Row="1" ZIndex="120" />
+        <!-- ================= 音乐：标题栏音乐胶囊唤出的播放控制浮层（仅检测到音箱时出现） ================= -->
+        <views:MusicPanelView x:Name="MusicPanelView" Grid.Row="1" ZIndex="120" />
         <!-- ================= 环境概览明细弹窗 ================= -->
         <views:EnvDetailDialogView Grid.Row="0" Grid.RowSpan="2" />
         <!-- ================= 登录弹窗（遮罩 + 居中卡片，跨满整个窗口与「设置」一致） ================= -->

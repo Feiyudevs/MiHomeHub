@@ -174,6 +174,19 @@
                                           IsChecked="{Binding DesktopWidgetsEnabled}" />
                         </Grid>
                         <Grid ColumnDefinitions="Auto,*,Auto">
+                            <Border Classes="SetIc" Background="{DynamicResource PurpleSoftBrush}">
+                                <Path Stroke="{DynamicResource PurpleBrush}" Data="{StaticResource GeoSpeaker}" />
+                            </Border>
+                            <StackPanel Grid.Column="1" Margin="12,0" VerticalAlignment="Center">
+                                <TextBlock Text="在桌面显示媒体分区" FontSize="13.5" FontWeight="SemiBold"
+                                           Foreground="{DynamicResource TextBrush}" />
+                                <TextBlock Text="控制的音箱与首页「音响播放」是同一台；关掉后不会自动放回"
+                                           Classes="Hint Sub" Margin="0,2,0,0" TextWrapping="Wrap" />
+                            </StackPanel>
+                            <ToggleButton Grid.Column="2" Classes="Switch" VerticalAlignment="Center"
+                                          IsChecked="{Binding DesktopMediaZone}" />
+                        </Grid>
+                        <Grid ColumnDefinitions="Auto,*,Auto">
                             <Border Classes="SetIc" Background="{DynamicResource AccentSoftBrush}">
                                 <Path Stroke="{DynamicResource Accent2Brush}" Data="{StaticResource GeoGear}" />
                             </Border>

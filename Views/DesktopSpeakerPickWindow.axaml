@@ -1,0 +1,69 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="clr-namespace:MiHome.ViewModels"
+        x:Class="MiHome.Views.DesktopSpeakerPickWindow"
+        x:DataType="vm:DesktopMediaVm"
+        Title="选择音箱"
+        Width="212" SizeToContent="Height"
+        SystemDecorations="None" CanResize="False"
+        ShowInTaskbar="False" Topmost="True"
+        WindowStartupLocation="Manual"
+        TransparencyLevelHint="Transparent"
+        Background="Transparent"
+        RequestedThemeVariant="Light">
+
+    <Window.Styles>
+        <!-- 一行一台音箱：整行可点，当前这台只用柔色底 + 主色文字区分，不加勾 -->
+        <Style Selector="Button.SPItem">
+            <Setter Property="Height" Value="30" />
+            <Setter Property="Padding" Value="8,0" />
+            <Setter Property="CornerRadius" Value="7" />
+            <Setter Property="HorizontalAlignment" Value="Stretch" />
+            <Setter Property="HorizontalContentAlignment" Value="Left" />
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="BorderThickness" Value="0" />
+            <Setter Property="Focusable" Value="False" />
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="FontSize" Value="12.5" />
+            <Setter Property="Foreground" Value="{DynamicResource DskText2Brush}" />
+            <Setter Property="Transitions">
+                <Transitions>
+                    <BrushTransition Property="Background" Duration="0:0:0.1" />
+                </Transitions>
+            </Setter>
+        </Style>
+        <Style Selector="Button.SPItem:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+            <Setter Property="Background" Value="{DynamicResource Surface5Brush}" />
+        </Style>
+        <Style Selector="Button.SPItem.current">
+            <Setter Property="Foreground" Value="{DynamicResource Accent2Brush}" />
+        </Style>
+        <Style Selector="Button.SPItem.current /template/ ContentPresenter#PART_ContentPresenter">
+            <Setter Property="Background" Value="{DynamicResource AccentSoftBrush}" />
+        </Style>
+    </Window.Styles>
+
+    <Border Background="{DynamicResource DrawerBgBrush}"
+            BorderBrush="{DynamicResource LineBrush}"
+            BorderThickness="1"
+            CornerRadius="12"
+            Padding="6"
+            BoxShadow="0 2 6 0 #140F172A, 0 12 28 0 #1F0F172A">
+        <StackPanel>
+            <TextBlock Text="选择控制的音箱" FontSize="10.5" FontWeight="SemiBold"
+                       Margin="8,3,8,5" Foreground="{DynamicResource DskText3Brush}" />
+            <ItemsControl ItemsSource="{Binding SpeakerPicks}">
+                <ItemsControl.ItemTemplate>
+                    <DataTemplate x:DataType="vm:SpeakerPickItem">
+                        <Button Classes="SPItem" Classes.current="{Binding IsCurrent}"
+                                Tag="{Binding Did}" Click="OnPick"
+                                ToolTip.Tip="{Binding Label}">
+                            <TextBlock Text="{Binding Label}" TextTrimming="CharacterEllipsis"
+                                       VerticalAlignment="Center" />
+                        </Button>
+                    </DataTemplate>
+                </ItemsControl.ItemTemplate>
+            </ItemsControl>
+        </StackPanel>
+    </Border>
+</Window>

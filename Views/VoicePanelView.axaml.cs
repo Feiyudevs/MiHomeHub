@@ -1,13 +1,7 @@
 using System;
-using System.Threading.Tasks;
 using Avalonia;
-using Avalonia.Animation;
-using Avalonia.Animation.Easings;
 using Avalonia.Controls;
 using Avalonia.Input;
-using Avalonia.Media;
-using Avalonia.Styling;
-using Avalonia.Threading;
 using MiHome.ViewModels;
 
 namespace MiHome.Views;
@@ -52,70 +46,7 @@ public partial class VoicePanelView : UserControl
     }
 
     /// <summary>
-    /// 浮层开合：打开时淡入并从标题栏下方轻落，关闭时反向收起后再隐藏，
-    /// 避免收起过程中残留的浮层挡住下面的点击。
+    /// 浮层开合：打开时淡入并从标题栏下方轻落，关闭时反向收起后再隐藏。
     /// </summary>
-    public void Animate(bool open)
-    {
-        var panel = VoicePanel;
-        if (panel.RenderTransform is not TranslateTransform tx) return;
-
-        var duration = TimeSpan.FromMilliseconds(open ? 240 : 160);
-        Easing ease = open ? new CubicEaseOut() : new CubicEaseIn();
-        var fromY = open ? -8d : tx.Y;
-        var toY = open ? 0d : -8d;
-        var fromOpacity = open ? 0d : panel.Opacity;
-        var toOpacity = open ? 1d : 0d;
-
-        panel.IsVisible = true;
-        tx.Y = fromY;
-
-        var slide = new Animation
-        {
-            Duration = duration,
-            Easing = ease,
-            FillMode = FillMode.Forward
-        };
-        slide.Children.Add(new KeyFrame
-        {
-            Cue = new Cue(0d),
-            Setters = { new Setter(TranslateTransform.YProperty, fromY) }
-        });
-        slide.Children.Add(new KeyFrame
-        {
-            Cue = new Cue(1d),
-            Setters = { new Setter(TranslateTransform.YProperty, toY) }
-        });
-
-        _ = FadeAnimation(fromOpacity, toOpacity, duration, ease).RunAsync(panel);
-        _ = slide.RunAsync(panel).ContinueWith(_ =>
-            Dispatcher.UIThread.Post(() =>
-            {
-                // 收起动画结束后若用户又打开了，就保持可见（以 VM 的当前状态为准）
-                if (!open && Vm?.IsVoiceOpen != true) panel.IsVisible = false;
-                tx.Y = 0;
-            }));
-    }
-
-    /// <summary>构造一个透明度关键帧动画（0% 起、100% 止，FillMode.Forward 保持终值）。</summary>
-    private static Animation FadeAnimation(double from, double to, TimeSpan duration, Easing ease)
-    {
-        var anim = new Animation
-        {
-            Duration = duration,
-            Easing = ease,
-            FillMode = FillMode.Forward
-        };
-        anim.Children.Add(new KeyFrame
-        {
-            Cue = new Cue(0d),
-            Setters = { new Setter(Visual.OpacityProperty, from) }
-        });
-        anim.Children.Add(new KeyFrame
-        {
-            Cue = new Cue(1d),
-            Setters = { new Setter(Visual.OpacityProperty, to) }
-        });
-        return anim;
-    }
+    public void Animate(bool open) => OverlayReveal.Run(VoicePanel, open, () => Vm?.IsVoiceOpen == true);
 }

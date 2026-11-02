@@ -17,9 +17,10 @@ namespace MiHome.Views;
 
 /// <summary>
 /// 分区卡片内容：标题栏（拖动 / 单击折叠 / 双击重命名）、动作区（折叠 · 添加设备 · 菜单）、设备宫格。
-/// 贴桌面窗永远不激活，所以这里所有交互都必须能只靠鼠标完成。
+/// 贴桌面窗永远不激活，所以这里所有交互都必须能只靠鼠标完成；重命名需要的键盘输入
+/// 交给独立浮层（<see cref="DesktopRenameWindow"/>），不动分区窗自身的激活状态。
 /// 折叠与重命名的行为对齐参考项目 Zonex：单击标题切换折叠（名称区延迟一个双击时间，给双击改名让路），
-/// 双击名称进入内联输入框，回车提交 / Esc 取消 / 失焦提交 / 点窗外提交。
+/// 双击名称弹出改名浮层，回车提交 / Esc 取消 / 失焦提交。
 /// </summary>
 public partial class DesktopGroupView : UserControl
 {
@@ -37,28 +38,27 @@ public partial class DesktopGroupView : UserControl
     private bool _pressOnName;
     private Point _pressPoint;
 
+    // 媒体分区没有标题栏，整张卡当拖动面（设备分区仍只认标题栏）
+    private bool _bodyPressed;
+    private bool _bodyMoved;
+    private Point _bodyPoint;
+
     private IDisposable? _clickTimer;
-    private IDisposable? _dismissArm;
-    private DispatcherTimer? _dismissTimer;
-    private bool _renaming;
-    private bool _renameEnding;
 
     public DesktopGroupWindow? Host { get; set; }
 
     /// <summary>
-    /// 设备宫格面板：宿主窗口要按它的实测列数/卡片行高推算「再加一台设备后窗口会长多高」，
-    /// 从而判断该向下加行还是向宽加列。空分区（宫格未参与布局）时为 null。
+    /// 宫格面板：宿主窗口要按它的实测列数/卡片行高推算「再加一项后窗口会长多高」，
+    /// 从而判断该向下加行还是向宽加列。设备宫格没内容（只有场景）时取场景宫格，两面卡的宽度与行高同档。
+    /// 全空（宫格未参与布局）时为 null。
     /// </summary>
     public AdaptiveGridPanel? DeviceGrid =>
-        this.GetVisualDescendants().OfType<AdaptiveGridPanel>().FirstOrDefault();
+        this.GetVisualDescendants().OfType<AdaptiveGridPanel>().FirstOrDefault(g => g.Children.Count > 0)
+        ?? this.GetVisualDescendants().OfType<AdaptiveGridPanel>().FirstOrDefault();
 
     public DesktopGroupView()
     {
         InitializeComponent();
-
-        // 卡片其它位置按下也要结束内联重命名：贴桌面窗是 NOACTIVATE，LostFocus 不可靠，
-        // 在隧道阶段统一兜住（编辑框自身的按下不算）。
-        AddHandler(PointerPressedEvent, OnRootPressedTunnel, RoutingStrategies.Tunnel);
     }
 
     /// <summary>被「加号」重复唤出时闪一下，让用户看清分区在哪。</summary>
@@ -77,18 +77,10 @@ public partial class DesktopGroupView : UserControl
     private void OnHeaderPressed(object? sender, PointerPressedEventArgs e)
     {
         if (!e.GetCurrentPoint(this).Properties.IsLeftButtonPressed) return;
-        if (DataContext is not DesktopGroupVm vm) return;
+        if (DataContext is not DesktopZoneVm vm) return;
 
-        // 内联重命名中：点在输入框外先提交，本次按下不再触发拖动/折叠
-        if (_renaming)
-        {
-            if (!IsRenameBox(e.Source))
-            {
-                CommitRename();
-                e.Handled = true;
-            }
-            return;
-        }
+        // 重命名浮层开着：这一下只用来让浮层失焦提交，不要再折叠 / 拖动
+        if (DesktopHost.IsRenaming(vm)) return;
 
         // 标题栏上的按钮（折叠 / ＋ / ⋯）各自处理，不进拖动
         if (IsOnHeaderButton(e.Source)) return;
@@ -157,11 +149,67 @@ public partial class DesktopGroupView : UserControl
         Host?.EndDrag();
     }
 
+    // ================= 卡面拖动（只给没有标题栏的媒体分区用） =================
+    // 媒体卡整张就是拖动面：按下落在按钮上时按钮自己吃掉事件，落到卡面空白/文字上才算拖动。
+    // 这里刻意不做「点击折叠 / 双击改名」—— 没有标题栏就没有这两个动作。
+
+    private void OnBodyPressed(object? sender, PointerPressedEventArgs e)
+    {
+        if (DataContext is not DesktopZoneVm { IsMedia: true }) return;
+        if (!e.GetCurrentPoint(this).Properties.IsLeftButtonPressed) return;
+        if (IsOnHeaderButton(e.Source)) return;
+
+        _bodyPressed = true;
+        _bodyMoved = false;
+        _bodyPoint = e.GetPosition(this);
+        e.Handled = true;
+    }
+
+    private void OnBodyMoved(object? sender, PointerEventArgs e)
+    {
+        if (!_bodyPressed) return;
+        if (!e.GetCurrentPoint(this).Properties.IsLeftButtonPressed)
+        {
+            _bodyPressed = false;
+            Host?.EndDrag();
+            return;
+        }
+
+        if (!_bodyMoved)
+        {
+            var p = e.GetPosition(this);
+            if (Math.Abs(p.X - _bodyPoint.X) < DragThreshold && Math.Abs(p.Y - _bodyPoint.Y) < DragThreshold)
+                return;
+            _bodyMoved = true;
+            Host?.BeginDrag();
+            if (sender is Control c) e.Pointer.Capture(c);
+        }
+
+        Host?.UpdateDrag();
+        e.Handled = true;
+    }
+
+    private void OnBodyReleased(object? sender, PointerReleasedEventArgs e)
+    {
+        var wasPressed = _bodyPressed;
+        _bodyPressed = false;
+        _bodyMoved = false;
+        e.Pointer.Capture(null);
+        if (wasPressed) Host?.EndDrag();
+    }
+
+    private void OnBodyCaptureLost(object? sender, PointerCaptureLostEventArgs e)
+    {
+        _bodyPressed = false;
+        _bodyMoved = false;
+        Host?.EndDrag();
+    }
+
     /// <summary>标题纯点击 → 展开/收起。名称区延迟一个双击时间（双击可取消），空白区立即。</summary>
     private void HandleTitlePureClick()
     {
-        if (_renaming) return;
-        if (DataContext is not DesktopGroupVm vm) return;
+        if (DataContext is not DesktopZoneVm vm) return;
+        if (DesktopHost.IsRenaming(vm)) return;
 
         if (_pressOnName) ScheduleToggle();
         else
@@ -175,10 +223,11 @@ public partial class DesktopGroupView : UserControl
         CancelPendingClick();
         var ms = DesktopNative.GetDoubleClickTime();
         if (ms == 0) ms = 500;
+        var target = DataContext as DesktopZoneVm;
         _clickTimer = DispatcherTimer.RunOnce(() =>
         {
             _clickTimer = null;
-            if (!_renaming && DataContext is DesktopGroupVm vm) vm.Collapsed = !vm.Collapsed;
+            if (target != null && !DesktopHost.IsRenaming(target)) target.Collapsed = !target.Collapsed;
         }, TimeSpan.FromMilliseconds(ms));
     }
 
@@ -190,13 +239,17 @@ public partial class DesktopGroupView : UserControl
 
     private void OnCollapseClick(object? sender, RoutedEventArgs e)
     {
-        // 正在重命名时：只提交改名，绝不再触发折叠（点折叠箭头也等同于在分区上点了一下）
-        if (_renaming) { CommitRename(); return; }
         CancelPendingClick();
-        if (DataContext is DesktopGroupVm vm)
+        if (DataContext is DesktopZoneVm vm)
         {
             vm.Collapsed = !vm.Collapsed;
         }
+    }
+
+    /// <summary>标题栏「＋」：把设备加进这个分区（媒体分区没有这个按钮，换音箱走卡片里那一行）。</summary>
+    private void OnAddDeviceClick(object? sender, RoutedEventArgs e)
+    {
+        if (DataContext is DesktopGroupVm g) g.AddDeviceCommand.Execute(null);
     }
 
     private static bool IsOnHeaderButton(object? source)
@@ -218,187 +271,34 @@ public partial class DesktopGroupView : UserControl
         return hit;
     }
 
-    /// <summary>按下点是否落在标题文字（或改名输入框）上。</summary>
-    private bool IsOnTitleText(object? source)
-    {
-        for (var v = source as Visual; v != null; v = v.GetVisualParent())
-        {
-            if (ReferenceEquals(v, TitleText) || ReferenceEquals(v, TitleEditBox)) return true;
-            if (ReferenceEquals(v, TitleNameHost)) return true;
-            if (v is DesktopGroupView) break;
-        }
-        return false;
-    }
+    // ================= 重命名 =================
 
-    private bool IsRenameBox(object? source)
-    {
-        for (var v = source as Visual; v != null; v = v.GetVisualParent())
-        {
-            if (ReferenceEquals(v, TitleEditBox)) return true;
-            if (v is DesktopGroupView) break;
-        }
-        return false;
-    }
-
-    // ================= 内联重命名 =================
-
+    /// <summary>
+    /// 标题双击 / 菜单「重命名」：在名称原来的位置弹一个独立输入浮层。
+    /// 分区窗绝不能为了拿键盘焦点激活自己 —— 它挂在 Progman 名下，激活会把整个桌面窗口集
+    /// （包括其它桌面组件的窗口）抬到普通软件之上。
+    /// </summary>
     public void BeginRename()
     {
-        if (_renaming || DataContext is not DesktopGroupVm vm) return;
-
-        _renaming = true;
-        _pressed = false;
-        Host?.EndDrag();
-        // 贴桌面窗是 NOACTIVATE，收不到键盘；改名期间临时放开，结束再收回
-        Host?.BeginRenameFocus();
-
-        TitleText.IsVisible = false;
-        TitleEditBox.Text = vm.Name;
-        TitleEditBox.IsVisible = true;
-
-        TitleEditBox.KeyDown -= OnRenameKeyDown;
-        TitleEditBox.KeyDown += OnRenameKeyDown;
-        TitleEditBox.LostFocus -= OnRenameLostFocus;
-        TitleEditBox.LostFocus += OnRenameLostFocus;
-
-        // 等一帧再聚焦：此时输入框刚参与布局，直接 Focus 会被吞掉
-        Dispatcher.UIThread.Post(() =>
-        {
-            if (!_renaming) return;
-            TitleEditBox.Focus();
-            TitleEditBox.SelectAll();
-        }, DispatcherPriority.Input);
-
-        StartDismissPoll();
+        if (DataContext is not DesktopZoneVm vm || vm.IsMedia) return;
+        CancelPendingClick();
+        if (TitleAnchor() is { } anchor) DesktopHost.OpenRename(vm, anchor);
     }
 
-    private void OnRenameKeyDown(object? sender, KeyEventArgs e)
+    /// <summary>名称文字当前的屏幕矩形（物理像素）：浮层据此盖在原位。</summary>
+    private PixelRect? TitleAnchor()
     {
-        if (!_renaming) return;
-        if (e.Key == Key.Enter)
-        {
-            CommitRename();
-            e.Handled = true;
-        }
-        else if (e.Key == Key.Escape)
-        {
-            CancelRename();
-            e.Handled = true;
-        }
-    }
+        if (!TitleText.IsVisible || TitleText.Bounds.Width < 1) return null;
 
-    private void OnRenameLostFocus(object? sender, RoutedEventArgs e)
-    {
-        if (!_renaming || _renameEnding) return;
-        Dispatcher.UIThread.Post(() => { if (_renaming) CommitRename(); }, DispatcherPriority.Background);
-    }
+        var topLeft = TitleText.PointToScreen(new Point(0, 0));
+        var bottomRight = TitleText.PointToScreen(
+            new Point(TitleText.Bounds.Width, TitleText.Bounds.Height));
 
-    private void CommitRename()
-    {
-        if (!_renaming || _renameEnding) return;
+        var w = bottomRight.X - topLeft.X;
+        var h = bottomRight.Y - topLeft.Y;
+        if (w < 1 || h < 1) return null;
 
-        string? applied = null;
-        var name = TitleEditBox.Text?.Trim() ?? "";
-        if (DataContext is DesktopGroupVm vm && name.Length > 0 && name != vm.Name)
-        {
-            vm.Name = name.Length > 24 ? name[..24] : name;
-            applied = vm.Name;
-        }
-
-        EndRenameUi();
-    }
-
-    private void CancelRename()
-    {
-        if (!_renaming || _renameEnding) return;
-        EndRenameUi();
-    }
-
-    private void EndRenameUi()
-    {
-        if (_renameEnding) return;
-        _renameEnding = true;
-        try
-        {
-            _renaming = false;
-            StopDismissPoll();
-
-            TitleEditBox.KeyDown -= OnRenameKeyDown;
-            TitleEditBox.LostFocus -= OnRenameLostFocus;
-            TitleEditBox.IsVisible = false;
-            TitleText.IsVisible = true;
-
-            Host?.EndRenameFocus();
-        }
-        finally
-        {
-            _renameEnding = false;
-        }
-    }
-
-    /// <summary>点分区窗外的空白：完成改名。窗口常不抢前台，只能靠轮询鼠标键 + 窗口矩形判断。</summary>
-    private void StartDismissPoll()
-    {
-        StopDismissPoll();
-        // 先躲开本次双击的第二次按下，免得刚进入编辑就被判成「点了窗外」
-        _dismissArm = DispatcherTimer.RunOnce(() =>
-        {
-            _dismissArm = null;
-            if (!_renaming) return;
-            // 40ms 一轮：GetAsyncKeyState 只反映「此刻是否按下」，太慢会把快手的短按漏掉
-            _dismissTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(40) };
-            _dismissTimer.Tick += (_, _) => PollDismiss();
-            _dismissTimer.Start();
-        }, TimeSpan.FromMilliseconds(180));
-    }
-
-    private void StopDismissPoll()
-    {
-        _dismissArm?.Dispose();
-        _dismissArm = null;
-        _dismissTimer?.Stop();
-        _dismissTimer = null;
-    }
-
-    private void PollDismiss()
-    {
-        if (!_renaming || _renameEnding) return;
-
-        var left = (DesktopNative.GetAsyncKeyState(0x01) & 0x8000) != 0;
-        var right = (DesktopNative.GetAsyncKeyState(0x02) & 0x8000) != 0;
-        if (!left && !right) return;
-
-        var h = Host?.Handle ?? nint.Zero;
-        if (h == nint.Zero) return;
-        if (!DesktopNative.GetCursorPos(out var pt) || !DesktopNative.GetWindowRect(h, out var rect)) return;
-
-        const int pad = 4;
-        var inside = pt.X >= rect.Left - pad && pt.X <= rect.Right + pad
-                     && pt.Y >= rect.Top - pad && pt.Y <= rect.Bottom + pad;
-        if (!inside) CommitRename();
-    }
-
-    private void OnRootPressedTunnel(object? sender, PointerPressedEventArgs e)
-    {
-        if (!_renaming || _renameEnding) return;
-        if (IsRenameBox(e.Source)) return;
-        // 标题栏上的按下必须交给 OnHeaderPressed：那边会「提交改名 + 本次不再折叠」。
-        // 如果这里先提交了，_renaming 变 false，冒泡到 OnHeaderPressed 时就当成普通点击，
-        // 松手后会再切一次折叠 —— 这正是「改名时点标题会触发收起」的原因。
-        if (IsInHeader(e.Source)) return;
-        if (IsOnHeaderButton(e.Source)) return;
-        CommitRename();
-    }
-
-    /// <summary>按下点是否落在标题栏里（含标题栏上的按钮）。</summary>
-    private bool IsInHeader(object? source)
-    {
-        for (var v = source as Visual; v != null; v = v.GetVisualParent())
-        {
-            if (ReferenceEquals(v, Header)) return true;
-            if (v is DesktopGroupView) break;
-        }
-        return false;
+        return new PixelRect(topLeft, new PixelSize(w, h));
     }
 
     // ================= 右缘宽度拉伸 =================
@@ -435,7 +335,7 @@ public partial class DesktopGroupView : UserControl
     /// </summary>
     private void OnMenuClick(object? sender, RoutedEventArgs e)
     {
-        if (DataContext is not DesktopGroupVm vm) return;
+        if (DataContext is not DesktopZoneVm vm) return;
         if (sender is not Control anchor) return;
 
         var topLeft = anchor.PointToScreen(new Point(0, 0));

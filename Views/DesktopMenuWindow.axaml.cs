@@ -26,9 +26,9 @@ public partial class DesktopMenuWindow : Window
         Deactivated += OnDeactivated;
     }
 
-    public DesktopGroupVm? Target { get; private set; }
+    public DesktopZoneVm? Target { get; private set; }
 
-    public void Bind(DesktopGroupVm vm, PixelRect anchor)
+    public void Bind(DesktopZoneVm vm, PixelRect anchor)
     {
         Target = vm;
         DataContext = vm;
@@ -55,53 +55,29 @@ public partial class DesktopMenuWindow : Window
         base.OnOpened(e);
         _openedAt = DateTime.UtcNow;
 
-        // SizeToContent=Height：不先跑一次布局，ClientSize 还是 0，算出来的高度就没有意义
-        UpdateLayout();
-
-        var scale = RenderScaling <= 0 ? 1 : RenderScaling;
-        var dipW = ClientSize.Width > 1 ? ClientSize.Width : Width;
-        var dipH = ClientSize.Height > 1 ? ClientSize.Height : Bounds.Height;
-        var w = (int)Math.Ceiling(Math.Max(1, dipW) * scale);
-        var h = (int)Math.Ceiling(Math.Max(1, dipH) * scale);
-
-        var screen = Screens.ScreenFromPoint(_anchor.TopLeft)
-                     ?? Screens.ScreenFromPoint(_anchor.BottomRight)
-                     ?? Screens.Primary;
-        var wa = screen?.WorkingArea ?? new PixelRect(0, 0, 1920, 1080);
-        const int gap = 4;
-        const int edge = 8;
-
-        // 垂直：默认下方，下方放不下再翻到按钮上方，两边都放不下就在工作区内夹住
-        var below = _anchor.Bottom + gap;
-        var above = _anchor.Y - h - gap;
-        int y;
-        if (below + h <= wa.Bottom - edge) y = below;
-        else if (above >= wa.Y + edge) y = above;
-        else y = Math.Clamp(below, wa.Y + edge, Math.Max(wa.Y + edge, wa.Bottom - h - edge));
-
-        // 水平：右缘对齐按钮右缘（菜单从按钮左侧展开），再夹进工作区
-        var x = _anchor.Right - w;
-        x = Math.Clamp(x, wa.X + edge, Math.Max(wa.X + edge, wa.Right - w - edge));
-
-        Position = new PixelPoint(x, y);
-        DesktopLog.Write($"[menu] anchor={_anchor} size={w}x{h} scale={scale:F2} wa={wa} → ({x},{y})");
+        // 落点规则（下方优先、放不下翻上方、右缘对齐按钮）与音量条、选音箱浮层完全一样，统一走 AnchorTo
+        PopupPlacement.AnchorTo(this, _anchor);
         Activate();
     }
 
     private void OnItemClick(object? sender, RoutedEventArgs e)
     {
-        if (DataContext is not DesktopGroupVm vm) return;
+        if (DataContext is not DesktopZoneVm vm) return;
         if (sender is not Button { Tag: string tag }) return;
 
         switch (tag)
         {
             case "add":
                 Close();
-                vm.AddDeviceCommand.Execute(null);
+                if (vm is DesktopGroupVm g) g.AddDeviceCommand.Execute(null);
                 break;
             case "rename":
                 Close();
                 vm.RenameCommand.Execute(null);
+                break;
+            case "addzone":
+                Close();
+                DesktopHost.CreateBlankGroup(vm);
                 break;
             case "appearance":
                 Close();
@@ -109,8 +85,9 @@ public partial class DesktopMenuWindow : Window
                 break;
             case "dissolve":
                 vm.DissolveCommand.Execute(null);
-                // 第一次点只是进入确认态（文案变了），菜单留着让用户再点一次
-                if (vm.DissolveLabel == "解散分区") Close();
+                // 第一次点只是进入确认态（文案变了），菜单留着让用户再点一次；
+                // 真正执行完（分区已收起 / 媒体分区已关闭）才关掉。
+                if (!vm.IsAwaitingDangerConfirm) Close();
                 break;
         }
     }

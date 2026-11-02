@@ -324,6 +324,7 @@ public partial class MainViewModel : ObservableObject
         DefaultSpeakerName = "";
         VoiceText = "";
         IsVoiceOpen = false;
+        IsMusicOpen = false;
         IsVoiceSending = false;
         VoiceHint = "";
         VoiceHintIsError = false;

@@ -316,80 +316,8 @@
         <Style Selector="Border.Mask">
             <Setter Property="Cursor" Value="Arrow" />
         </Style>
-        <!-- 抽屉滑杆：底轨 + 左圆角已填段 + 白圆钮。已填段只圆左端，避免与滑块之间出现缺口 -->
-        <Style Selector="Slider.DrSlider">
-            <Setter Property="Height" Value="30" />
-            <Setter Property="Foreground" Value="{DynamicResource PrimaryBtnBrush}" />
-            <Setter Property="Background" Value="{DynamicResource TrackBrush}" />
-            <Setter Property="Cursor" Value="Hand" />
-            <Setter Property="Template">
-                <ControlTemplate>
-                    <Grid Background="Transparent" VerticalAlignment="Center" Height="30">
-                        <!-- 未填轨道：两端都圆 -->
-                        <Border Height="10" CornerRadius="5" VerticalAlignment="Center"
-                                HorizontalAlignment="Stretch"
-                                Background="{TemplateBinding Background}" />
-                        <Track Name="PART_Track"
-                               Minimum="{TemplateBinding Minimum}"
-                               Maximum="{TemplateBinding Maximum}"
-                               Value="{TemplateBinding Value, Mode=TwoWay}"
-                               IsDirectionReversed="False"
-                               Orientation="Horizontal"
-                               VerticalAlignment="Center" Height="10">
-                            <Track.DecreaseButton>
-                                <RepeatButton Name="PART_DecreaseButton"
-                                              Background="Transparent" BorderThickness="0" Focusable="False"
-                                              HorizontalAlignment="Stretch" VerticalAlignment="Stretch"
-                                              Padding="0" Margin="0">
-                                    <RepeatButton.Template>
-                                        <ControlTemplate>
-                                            <!-- 只圆左端；右端直角顶到滑块下，消除缺口 -->
-                                            <Border Height="10" CornerRadius="5,0,0,5"
-                                                    HorizontalAlignment="Stretch" VerticalAlignment="Center"
-                                                    Background="{Binding $parent[Slider].Foreground}" />
-                                        </ControlTemplate>
-                                    </RepeatButton.Template>
-                                </RepeatButton>
-                            </Track.DecreaseButton>
-                            <Track.Thumb>
-                                <Thumb Name="PART_Thumb" Width="18" Height="18" Focusable="True">
-                                    <Thumb.Template>
-                                        <ControlTemplate>
-                                            <Border Width="18" Height="18" CornerRadius="9"
-                                                    Background="{DynamicResource SliderThumbBackground}"
-                                                    BorderBrush="{DynamicResource LineBrush}" BorderThickness="1"
-                                                    BoxShadow="0 1 4 #28000000" />
-                                        </ControlTemplate>
-                                    </Thumb.Template>
-                                </Thumb>
-                            </Track.Thumb>
-                            <Track.IncreaseButton>
-                                <RepeatButton Name="PART_IncreaseButton"
-                                              Background="Transparent" BorderThickness="0" Focusable="False"
-                                              HorizontalAlignment="Stretch" VerticalAlignment="Stretch"
-                                              Padding="0" Margin="0">
-                                    <RepeatButton.Template>
-                                        <ControlTemplate>
-                                            <Border Background="Transparent" />
-                                        </ControlTemplate>
-                                    </RepeatButton.Template>
-                                </RepeatButton>
-                            </Track.IncreaseButton>
-                        </Track>
-                    </Grid>
-                </ControlTemplate>
-            </Setter>
-        </Style>
-        <!-- 再压一遍 Fluent 默认 pressed/hover，防止右侧槽位出现灰底 -->
-        <Style Selector="Slider.DrSlider /template/ RepeatButton#PART_IncreaseButton">
-            <Setter Property="Background" Value="Transparent" />
-        </Style>
-        <Style Selector="Slider.DrSlider /template/ RepeatButton#PART_IncreaseButton:pointerover">
-            <Setter Property="Background" Value="Transparent" />
-        </Style>
-        <Style Selector="Slider.DrSlider /template/ RepeatButton#PART_IncreaseButton:pressed">
-            <Setter Property="Background" Value="Transparent" />
-        </Style>
+        <!-- 滑杆样式（Slider.DrSlider）已上移到 Themes/ControlStyles.axaml：
+             抽屉、外观窗、桌面分区的音量浮层都是不同 Window，共用一份才不会漂出两种滑杆。 -->
         <Style Selector="TextBlock.RbNum">
             <Setter Property="FontSize" Value="17" />
             <Setter Property="FontWeight" Value="Bold" />
@@ -542,6 +470,123 @@
         </Style>
         <Style Selector="TextBlock.VoiceHint.is-warn">
             <Setter Property="Foreground" Value="{DynamicResource AmberTextBrush}" />
+        </Style>
+        <!-- 音乐：标题栏播放控制入口，与小爱胶囊同规格（32 高、弱化主色底）；正在播放时把名称就地换成三个控制钮 -->
+        <Style Selector="Button.MusicCapsule">
+            <Setter Property="Height" Value="32" />
+            <Setter Property="CornerRadius" Value="16" />
+            <Setter Property="Background" Value="{DynamicResource AccentSoftBrush}" />
+            <Setter Property="BorderBrush" Value="{DynamicResource AccentSoftBrush}" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="Foreground" Value="{DynamicResource Accent2Brush}" />
+            <Setter Property="FontSize" Value="12" />
+            <Setter Property="FontWeight" Value="Medium" />
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="HorizontalContentAlignment" Value="Center" />
+        </Style>
+        <Style Selector="Button.MusicCapsule:pointerover">
+            <Setter Property="BorderBrush" Value="{DynamicResource Accent2Brush}" />
+        </Style>
+        <!-- 覆盖 Fluent 模板自带的灰色悬停/按下底色，否则胶囊会变灰 -->
+        <Style Selector="Button.MusicCapsule:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+            <Setter Property="Background" Value="{DynamicResource AccentSoftBrush}" />
+        </Style>
+        <Style Selector="Button.MusicCapsule:pressed /template/ ContentPresenter#PART_ContentPresenter">
+            <Setter Property="Background" Value="{DynamicResource AccentSoftBrush}" />
+        </Style>
+        <Style Selector="Button.MusicCapsule.open">
+            <Setter Property="BorderBrush" Value="{DynamicResource Accent2Brush}" />
+        </Style>
+        <!-- 胶囊内联控制钮：内层按钮自己吃掉按下事件，不会顺带开合浮层；
+             忙态不绑 IsEnabled（命令里已挡），否则每次下发瞬间整排键会禁用又放开，看着像闪白 -->
+        <Style Selector="Button.CapBtn">
+            <Setter Property="Width" Value="26" />
+            <Setter Property="Height" Value="26" />
+            <Setter Property="Padding" Value="0" />
+            <Setter Property="MinWidth" Value="0" />
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="BorderThickness" Value="0" />
+            <Setter Property="Foreground" Value="{DynamicResource Accent2Brush}" />
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="Focusable" Value="False" />
+            <Setter Property="Template">
+                <ControlTemplate>
+                    <Border Name="Bd" CornerRadius="13" Background="{TemplateBinding Background}">
+                        <ContentPresenter Content="{TemplateBinding Content}"
+                                          HorizontalAlignment="Center" VerticalAlignment="Center" />
+                    </Border>
+                </ControlTemplate>
+            </Setter>
+        </Style>
+        <Style Selector="Button.CapBtn:pointerover /template/ Border#Bd">
+            <Setter Property="Background" Value="{DynamicResource Surface5Brush}" />
+        </Style>
+        <Style Selector="Button.CapBtn:pressed /template/ Border#Bd">
+            <Setter Property="Background" Value="{DynamicResource Surface4Brush}" />
+        </Style>
+        <Style Selector="Border.MusicPanel">
+            <Setter Property="Background" Value="{DynamicResource CardBrush}" />
+            <Setter Property="CornerRadius" Value="18" />
+            <Setter Property="Padding" Value="16" />
+            <Setter Property="BorderBrush" Value="{DynamicResource LineBrush}" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="BoxShadow" Value="0 12 28 0 #2A0F172A" />
+        </Style>
+        <!-- 浮层里的播放键：主键是这块唯一的强色块，两侧键让位给它 -->
+        <Style Selector="Button.MusicPlay">
+            <Setter Property="Width" Value="36" />
+            <Setter Property="Height" Value="36" />
+            <Setter Property="Padding" Value="0" />
+            <Setter Property="MinWidth" Value="0" />
+            <Setter Property="CornerRadius" Value="18" />
+            <Setter Property="Background" Value="{DynamicResource PrimaryBtnBrush}" />
+            <Setter Property="BorderThickness" Value="0" />
+            <Setter Property="Foreground" Value="White" />
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="Focusable" Value="False" />
+            <Setter Property="Template">
+                <ControlTemplate>
+                    <Border Name="Bd" CornerRadius="18" Background="{TemplateBinding Background}">
+                        <ContentPresenter Content="{TemplateBinding Content}"
+                                          HorizontalAlignment="Center" VerticalAlignment="Center" />
+                    </Border>
+                </ControlTemplate>
+            </Setter>
+            <Setter Property="Transitions">
+                <Transitions>
+                    <DoubleTransition Property="Opacity" Duration="0:0:0.12" />
+                </Transitions>
+            </Setter>
+        </Style>
+        <Style Selector="Button.MusicPlay:pointerover">
+            <Setter Property="Opacity" Value="0.9" />
+        </Style>
+        <Style Selector="Button.MusicPlay:pressed">
+            <Setter Property="Opacity" Value="0.78" />
+        </Style>
+        <Style Selector="Button.MusicStep">
+            <Setter Property="Width" Value="32" />
+            <Setter Property="Height" Value="32" />
+            <Setter Property="Padding" Value="0" />
+            <Setter Property="MinWidth" Value="0" />
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="BorderThickness" Value="0" />
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="Focusable" Value="False" />
+            <Setter Property="Template">
+                <ControlTemplate>
+                    <Border Name="Bd" CornerRadius="11" Background="{TemplateBinding Background}">
+                        <ContentPresenter Content="{TemplateBinding Content}"
+                                          HorizontalAlignment="Center" VerticalAlignment="Center" />
+                    </Border>
+                </ControlTemplate>
+            </Setter>
+        </Style>
+        <Style Selector="Button.MusicStep:pointerover /template/ Border#Bd">
+            <Setter Property="Background" Value="{DynamicResource HoverBrush}" />
+        </Style>
+        <Style Selector="Button.MusicStep:pressed /template/ Border#Bd">
+            <Setter Property="Background" Value="{DynamicResource Surface5Brush}" />
         </Style>
         <!-- 环境明细弹窗：温湿度大读数 + 耗材进度条 -->
         <Style Selector="Border.EnvTile">

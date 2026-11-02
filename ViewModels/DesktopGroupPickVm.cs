@@ -47,6 +47,8 @@ public partial class DesktopGroupPickVm : ObservableObject
         Groups.Clear();
         foreach (var g in DesktopHost.Layout.Groups)
         {
+            // 媒体分区不接受设备，出现在这里只会误导
+            if (g.IsMedia) continue;
             Groups.Add(new GroupPickItem
             {
                 Id = g.Id,

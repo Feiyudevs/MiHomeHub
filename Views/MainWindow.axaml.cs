@@ -51,8 +51,8 @@ public partial class MainWindow : Window
         // 点击搜索胶囊以外的任意位置 → 收起搜索
         AddHandler(PointerPressedEvent, OnGlobalPointerPressed, RoutingStrategies.Tunnel);
 
-        // 点击小爱浮层与唤出胶囊以外的空白区域 → 收起小爱浮层
-        AddHandler(PointerPressedEvent, OnVoiceOutsidePressed, RoutingStrategies.Tunnel);
+        // 点击小爱/音乐浮层与唤出胶囊以外的空白区域 → 收起浮层
+        AddHandler(PointerPressedEvent, OnOverlayOutsidePressed, RoutingStrategies.Tunnel);
 
         // DataContext 在窗口构造后由 App 注入，这里订阅属性变化来驱动抽屉滑入/滑出动画
         DataContextChanged += OnDataContextChanged;
@@ -423,17 +423,20 @@ public partial class MainWindow : Window
     }
 
     /// <summary>
-    /// 点击浮层与唤出胶囊以外的空白区域收起小爱浮层。
+    /// 点击浮层与唤出胶囊以外的空白区域收起标题栏浮层（小爱 / 音乐）。
     /// 音箱下拉是独立 Popup（TopLevel 不是本窗口），在其中的选择不算“点外部”。
     /// </summary>
-    private void OnVoiceOutsidePressed(object? sender, PointerPressedEventArgs e)
+    private void OnOverlayOutsidePressed(object? sender, PointerPressedEventArgs e)
     {
-        if (Vm is not { IsVoiceOpen: true }) return;
+        if (Vm is not { } vm) return;
+        if (!vm.IsVoiceOpen && !vm.IsMusicOpen) return;
         if (e.Source is not Visual src) return;
         if (!e.GetCurrentPoint(this).Properties.IsLeftButtonPressed) return;
         if (TopLevel.GetTopLevel(src) != this) return;
         if (IsWithin(src, XiaoAiBtn) || IsWithin(src, VoicePanelView)) return;
-        Vm.IsVoiceOpen = false;
+        if (IsWithin(src, MusicBtn) || IsWithin(src, MusicPanelView)) return;
+        vm.IsVoiceOpen = false;
+        vm.IsMusicOpen = false;
     }
 
     private static bool IsWithin(Visual src, Visual? container)
@@ -529,6 +532,11 @@ public partial class MainWindow : Window
                     if (vm.IsVoiceOpen) AlignVoicePanel();
                     Dispatcher.UIThread.Post(() => VoicePanelView?.Animate(vm.IsVoiceOpen));
                 }
+                if (args.PropertyName == nameof(MainViewModel.IsMusicOpen))
+                {
+                    if (vm.IsMusicOpen) AlignMusicPanel();
+                    Dispatcher.UIThread.Post(() => MusicPanelView?.Animate(vm.IsMusicOpen));
+                }
             };
         }
     }
@@ -538,14 +546,25 @@ public partial class MainWindow : Window
     /// </summary>
     private void AlignVoicePanel()
     {
-        if (VoicePanelView == null || XiaoAiBtn == null) return;
-        var pt = XiaoAiBtn.TranslatePoint(new Point(0, 0), VoicePanelView);
-        if (pt is null) return;
+        if (CapsulePanelLeft(XiaoAiBtn, VoicePanelView) is double x) VoicePanelView.AlignToButton(x);
+    }
+
+    /// <summary>音乐浮层同上：两个浮层同宽同手感，共用一套夹取。</summary>
+    private void AlignMusicPanel()
+    {
+        if (CapsulePanelLeft(MusicBtn, MusicPanelView) is double x) MusicPanelView.AlignToButton(x);
+    }
+
+    private double? CapsulePanelLeft(Control? anchor, Control? panel)
+    {
+        if (anchor == null || panel == null) return null;
+        var pt = anchor.TranslatePoint(new Point(0, 0), panel);
+        if (pt is null) return null;
 
         const double panelWidth = 344;
         const double edge = 12;
         var maxLeft = Bounds.Width - edge - panelWidth;
-        VoicePanelView.AlignToButton(Math.Clamp(pt.Value.X, edge, Math.Max(edge, maxLeft)));
+        return Math.Clamp(pt.Value.X, edge, Math.Max(edge, maxLeft));
     }
 
     /// <summary>

@@ -1,0 +1,36 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:m="clr-namespace:MiHome.Models"
+        x:Class="MiHome.Views.DesktopVolumeWindow"
+        x:DataType="m:MijiaDevice"
+        Title="音量"
+        Width="238" SizeToContent="Height"
+        SystemDecorations="None" CanResize="False"
+        ShowInTaskbar="False" Topmost="True"
+        WindowStartupLocation="Manual"
+        TransparencyLevelHint="Transparent"
+        Background="Transparent"
+        RequestedThemeVariant="Light">
+
+    <Border Background="{DynamicResource DrawerBgBrush}"
+            BorderBrush="{DynamicResource LineBrush}"
+            BorderThickness="1"
+            CornerRadius="12"
+            Padding="13,10,13,8"
+            BoxShadow="0 2 6 0 #140F172A, 0 12 28 0 #1F0F172A">
+        <StackPanel Spacing="2">
+            <Grid ColumnDefinitions="*,Auto">
+                <TextBlock Text="{Binding Name}" FontSize="11.5" VerticalAlignment="Center"
+                           TextTrimming="CharacterEllipsis"
+                           Foreground="{DynamicResource DskText2Brush}" />
+                <!-- 数值用同样式上色，选中时只显示数字本身，不额外加边框 -->
+                <TextBlock Grid.Column="1" FontSize="12.5" FontWeight="SemiBold" VerticalAlignment="Center"
+                           Foreground="{DynamicResource Accent2Brush}"
+                           Text="{Binding SpeakerVolume, StringFormat='{}{0}%'}" />
+            </Grid>
+            <Slider Name="VolSlider" Classes="DrSlider" Minimum="0" Maximum="100" TickFrequency="1"
+                    Value="{Binding SpeakerVolume, Mode=TwoWay}"
+                    IsEnabled="{Binding IsOnline}" />
+        </StackPanel>
+    </Border>
+</Window>

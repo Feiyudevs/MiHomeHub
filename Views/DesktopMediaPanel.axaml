@@ -1,0 +1,215 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="clr-namespace:MiHome.ViewModels"
+             x:Class="MiHome.Views.DesktopMediaPanel"
+             x:DataType="vm:DesktopMediaVm"
+             ClipToBounds="False">
+
+    <UserControl.Styles>
+        <!-- 音箱那一行：整行可点（点它换音箱）。它本身就是卡里唯一的「实体」，
+             所以给一层 DskCard 底 + 极淡描边，悬停只提亮底色，不再加第二层边框 -->
+        <Style Selector="Button.DskPick">
+            <Setter Property="Padding" Value="0" />
+            <Setter Property="HorizontalAlignment" Value="Stretch" />
+            <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="Focusable" Value="False" />
+        </Style>
+        <Style Selector="Button.DskPick /template/ ContentPresenter#PART_ContentPresenter">
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="BorderThickness" Value="0" />
+            <Setter Property="CornerRadius" Value="12" />
+        </Style>
+        <Style Selector="Button.DskPick:pointerover /template/ Border#Pk">
+            <Setter Property="Background" Value="#2EFFFFFF" />
+        </Style>
+        <Style Selector="Button.DskPick:pressed /template/ Border#Pk">
+            <Setter Property="Background" Value="#3AFFFFFF" />
+        </Style>
+
+        <!-- 主播放键：40 圆 + 主题色实底，是这块卡唯一的强色块，其余键都让位给它 -->
+        <Style Selector="Button.DskPlay">
+            <Setter Property="Width" Value="40" />
+            <Setter Property="Height" Value="40" />
+            <Setter Property="Padding" Value="0" />
+            <Setter Property="CornerRadius" Value="20" />
+            <Setter Property="Background" Value="{DynamicResource PowerOnBrush}" />
+            <Setter Property="BorderThickness" Value="0" />
+            <Setter Property="Focusable" Value="False" />
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="Foreground" Value="#FFFFFF" />
+            <Setter Property="HorizontalContentAlignment" Value="Center" />
+            <Setter Property="VerticalContentAlignment" Value="Center" />
+            <Setter Property="Transitions">
+                <Transitions>
+                    <DoubleTransition Property="Opacity" Duration="0:0:0.12" />
+                </Transitions>
+            </Setter>
+        </Style>
+        <Style Selector="Button.DskPlay:pointerover">
+            <Setter Property="Opacity" Value="0.9" />
+        </Style>
+        <Style Selector="Button.DskPlay:pressed">
+            <Setter Property="Opacity" Value="0.78" />
+        </Style>
+
+        <!-- 音量：胶囊按钮（图标 + 百分比），点开滑条浮层 -->
+        <Style Selector="Button.DskVol">
+            <Setter Property="Height" Value="28" />
+            <Setter Property="Padding" Value="9,0,10,0" />
+            <Setter Property="CornerRadius" Value="14" />
+            <Setter Property="Background" Value="{DynamicResource DskCardBrush}" />
+            <Setter Property="BorderThickness" Value="0" />
+            <Setter Property="Focusable" Value="False" />
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="Opacity" Value="0.9" />
+            <Setter Property="Foreground" Value="{DynamicResource DskText2Brush}" />
+            <Setter Property="Transitions">
+                <Transitions>
+                    <DoubleTransition Property="Opacity" Duration="0:0:0.12" />
+                </Transitions>
+            </Setter>
+        </Style>
+        <Style Selector="Button.DskVol:pointerover">
+            <Setter Property="Opacity" Value="1" />
+        </Style>
+        <Style Selector="Button.DskVol:pressed">
+            <Setter Property="Opacity" Value="0.75" />
+        </Style>
+    </UserControl.Styles>
+
+    <Panel>
+        <StackPanel Spacing="10">
+            <!-- 没有可控制的音箱（家里没音箱 / 还没选上） -->
+            <TextBlock Text="{Binding EmptyHint}" FontSize="11.5"
+                       Margin="2,4,2,6" TextAlignment="Center" TextWrapping="Wrap"
+                       Foreground="{DynamicResource DskText3Brush}"
+                       IsVisible="{Binding IsEmpty}" />
+
+            <StackPanel Spacing="10" IsVisible="{Binding ShowControls}">
+                <!-- ===== 音响：这台分区控制的音箱（点整行换一个），副标题带真实播放状态 ===== -->
+                <Button Classes="DskPick" Click="OnSpeakerClick" ToolTip.Tip="更换控制的音箱">
+                    <Border Name="Pk" CornerRadius="12" Padding="9,8"
+                            Background="{DynamicResource DskCardBrush}"
+                            BorderBrush="{DynamicResource LineBrush}" BorderThickness="1">
+                        <Grid ColumnDefinitions="Auto,*,Auto">
+                            <Border Width="34" Height="34" CornerRadius="11" VerticalAlignment="Center"
+                                    Background="#33FFFFFF">
+                                <Viewbox Width="18" Height="18" Stretch="Uniform"
+                                         HorizontalAlignment="Center" VerticalAlignment="Center">
+                                    <Panel Width="24" Height="24">
+                                        <Path StrokeThickness="1.7" StrokeLineCap="Round" StrokeJoin="Round"
+                                              Stroke="{DynamicResource Accent2Brush}"
+                                              Data="{StaticResource GeoSpeaker}" />
+                                    </Panel>
+                                </Viewbox>
+                            </Border>
+                            <StackPanel Grid.Column="1" VerticalAlignment="Center" Spacing="2.5"
+                                        Margin="10,0,6,0">
+                                <TextBlock Text="{Binding SpeakerName}" FontSize="13" FontWeight="SemiBold"
+                                           TextTrimming="CharacterEllipsis"
+                                           Foreground="{DynamicResource DskTextBrush}" />
+                                <TextBlock Text="{Binding SpeakerMeta}" FontSize="11"
+                                           TextTrimming="CharacterEllipsis"
+                                           Foreground="{DynamicResource DskText3Brush}" />
+                            </StackPanel>
+                            <!-- 下拉箭头：这一行是「换音箱」的入口，箭头让它看起来可点 -->
+                            <Viewbox Grid.Column="2" Width="13" Height="13" Stretch="Uniform"
+                                     VerticalAlignment="Center">
+                                <Panel Width="24" Height="24">
+                                    <Path StrokeThickness="1.7" StrokeLineCap="Round" StrokeJoin="Round"
+                                          Stroke="{DynamicResource DskText2Brush}"
+                                          Data="{StaticResource GeoChevron}" />
+                                </Panel>
+                            </Viewbox>
+                        </Grid>
+                    </Border>
+                </Button>
+
+                <!-- ===== 播放控制 + 音量入口 =====
+                     三个键都不绑 IsEnabled：忙态由命令里的 d.IsBusy 自己挡，
+                     绑上去会让整排键在每次下发瞬间被禁用又放开，看起来就是一排闪白。
+                     音量贴左、⋯ 贴右，播放控制整组横跨三列做真居中（不随两侧宽度偏移）。 -->
+                <Grid ColumnDefinitions="Auto,*,Auto">
+                    <!-- 音量：点击弹一个滑条浮层（贴桌面窗不能用 Popup，浮层是独立小窗） -->
+                    <Button Classes="DskVol" VerticalAlignment="Center"
+                            Click="OnVolumeClick" ToolTip.Tip="音量">
+                        <StackPanel Orientation="Horizontal" Spacing="5" VerticalAlignment="Center">
+                            <Viewbox Width="14" Height="14" Stretch="Uniform" VerticalAlignment="Center">
+                                <Panel Width="24" Height="24">
+                                    <Path StrokeThickness="1.9" StrokeLineCap="Round" StrokeJoin="Round"
+                                          Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}"
+                                          Data="{StaticResource GeoVolume}" />
+                                </Panel>
+                            </Viewbox>
+                            <TextBlock Text="{Binding VolumeBadgeText}" FontSize="11.5" FontWeight="SemiBold"
+                                       VerticalAlignment="Center"
+                                       Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" />
+                        </StackPanel>
+                    </Button>
+
+                    <StackPanel Grid.ColumnSpan="3" Orientation="Horizontal" Spacing="6"
+                                HorizontalAlignment="Center" VerticalAlignment="Center">
+                        <Button Classes="DskIcon DskMedia" Command="{Binding PreviousCommand}"
+                                VerticalAlignment="Center" ToolTip.Tip="上一曲">
+                            <Viewbox Width="17" Height="17" Stretch="Uniform"
+                                     HorizontalAlignment="Center" VerticalAlignment="Center">
+                                <Panel Width="24" Height="24">
+                                    <Path Fill="{DynamicResource DskText2Brush}" Data="{StaticResource GeoPrevTrack}" />
+                                </Panel>
+                            </Viewbox>
+                        </Button>
+                        <Button Classes="DskPlay" VerticalAlignment="Center"
+                                Command="{Binding TogglePlayCommand}" ToolTip.Tip="播放 / 暂停">
+                            <Panel Width="24" Height="24">
+                                <Path Fill="#FFFFFF" IsVisible="{Binding !IsPlaying}" Data="{StaticResource GeoPlay}" />
+                                <Path Fill="#FFFFFF" IsVisible="{Binding IsPlaying}" Data="{StaticResource GeoPauseIc}" />
+                            </Panel>
+                        </Button>
+                        <Button Classes="DskIcon DskMedia" VerticalAlignment="Center"
+                                Command="{Binding NextCommand}" ToolTip.Tip="下一曲">
+                            <Viewbox Width="17" Height="17" Stretch="Uniform"
+                                     HorizontalAlignment="Center" VerticalAlignment="Center">
+                                <Panel Width="24" Height="24">
+                                    <Path Fill="{DynamicResource DskText2Brush}" Data="{StaticResource GeoNextTrack}" />
+                                </Panel>
+                            </Viewbox>
+                        </Button>
+                    </StackPanel>
+
+                    <!-- 分区菜单：媒体卡没有标题栏，⋯ 落在控制行最右（外观设置 / 关闭媒体分区） -->
+                    <Button Grid.Column="2" Classes="DskIcon" Width="26" Height="26"
+                            VerticalAlignment="Center" HorizontalAlignment="Right"
+                            Click="OnMoreClick" ToolTip.Tip="分区菜单">
+                        <StackPanel Orientation="Horizontal" Spacing="2.4"
+                                    HorizontalAlignment="Center" VerticalAlignment="Center">
+                            <Ellipse Width="2.4" Height="2.4"
+                                     Fill="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" />
+                            <Ellipse Width="2.4" Height="2.4"
+                                     Fill="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" />
+                            <Ellipse Width="2.4" Height="2.4"
+                                     Fill="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" />
+                        </StackPanel>
+                    </Button>
+                </Grid>
+            </StackPanel>
+        </StackPanel>
+
+        <!-- 没有可控制的音箱时控制行整排消失，分区菜单就落回卡片右上角，
+             否则这块没有标题栏的分区关不掉。 -->
+        <Button Classes="DskIcon" Width="26" Height="26" Margin="0,10,8,0"
+                HorizontalAlignment="Right" VerticalAlignment="Top"
+                IsVisible="{Binding !ShowControls}"
+                Click="OnMoreClick" ToolTip.Tip="分区菜单">
+            <StackPanel Orientation="Horizontal" Spacing="2.4"
+                        HorizontalAlignment="Center" VerticalAlignment="Center">
+                <Ellipse Width="2.4" Height="2.4"
+                         Fill="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" />
+                <Ellipse Width="2.4" Height="2.4"
+                         Fill="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" />
+                <Ellipse Width="2.4" Height="2.4"
+                         Fill="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" />
+            </StackPanel>
+        </Button>
+    </Panel>
+</UserControl>

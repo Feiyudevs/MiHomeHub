@@ -29,6 +29,7 @@ public partial class MainViewModel : ObservableObject
     [ObservableProperty] private string _defaultSpeakerName = "";
     [ObservableProperty] private string _voiceText = "";
     [ObservableProperty] private bool _isVoiceOpen;
+    [ObservableProperty] private bool _isMusicOpen;
     [ObservableProperty] private bool _isVoiceSending;
     /// <summary>浮层内的执行结果提示：成功/失败原因，不再只写隐藏日志。</summary>
     [ObservableProperty] private string _voiceHint = "";
@@ -40,14 +41,23 @@ public partial class MainViewModel : ObservableObject
     /// <summary>重建音箱下拉时置位，避免程序性改动触发偏好落盘。</summary>
     private bool _suppressSpeakerSelect;
 
-    /// <summary>右下角悬浮球：有音箱且抽屉没开时才出现，避免压住抽屉内容。</summary>
-    public bool ShowVoiceFab => HasSpeaker && !IsDrawerOpen;
-
-    partial void OnHasSpeakerChanged(bool value) => OnPropertyChanged(nameof(ShowVoiceFab));
-
     partial void OnIsDrawerOpenChanged(bool value)
     {
-        OnPropertyChanged(nameof(ShowVoiceFab));
+        if (value)
+        {
+            IsVoiceOpen = false;
+            IsMusicOpen = false;
+        }
+    }
+
+    // 标题栏两个胶囊浮层同宽同位，互斥展开，避免叠在一起
+    partial void OnIsVoiceOpenChanged(bool value)
+    {
+        if (value) IsMusicOpen = false;
+    }
+
+    partial void OnIsMusicOpenChanged(bool value)
+    {
         if (value) IsVoiceOpen = false;
     }
 
@@ -90,7 +100,11 @@ public partial class MainViewModel : ObservableObject
         }
 
         UpdateDefaultSpeakerName();
-        if (!HasSpeaker) IsVoiceOpen = false;
+        if (!HasSpeaker)
+        {
+            IsVoiceOpen = false;
+            IsMusicOpen = false;
+        }
     }
 
     private void UpdateDefaultSpeakerName()
@@ -98,10 +112,14 @@ public partial class MainViewModel : ObservableObject
         var d = DefaultSpeaker;
         DefaultSpeakerName = d?.Name ?? (HasSpeaker ? "未选择音箱" : "");
         OnPropertyChanged(nameof(MediaSpeaker));
+        OnPropertyChanged(nameof(MediaHasVolume));
     }
 
     [RelayCommand]
     private void ToggleVoice() => IsVoiceOpen = !IsVoiceOpen;
+
+    [RelayCommand]
+    private void ToggleMusic() => IsMusicOpen = !IsMusicOpen;
 
     /// <summary>把输入框里的话交给默认音箱的 execute-text-directive 动作。</summary>
     [RelayCommand]
@@ -179,6 +197,7 @@ public partial class MainViewModel : ObservableObject
             var sent = await RunSpeakerPowerAsync(d, play);
             if (!sent) return;
             d.IsPlaying = play;
+            d.PlayingState = play ? 1 : 2;   // 先按指令猜一态，下一拍 playing-state 回读会纠正
             Log($"{d.Name} → {(play ? "播放" : "暂停")}");
         }
         else
@@ -193,10 +212,13 @@ public partial class MainViewModel : ObservableObject
     [RelayCommand(AllowConcurrentExecutions = true)]
     private Task NextTrackAsync() => RunTrackStepAsync(true);
 
-    // ===== 首页「音响播放」媒体区：控制所选音箱（DefaultSpeaker），与音箱下拉同源 =====
+    // ===== 标题栏「音乐」浮层：控制所选音箱（DefaultSpeaker），与音箱下拉同源 =====
 
     /// <summary>媒体区当前控制的音箱：跟随音箱下拉选择。</summary>
     public MijiaDevice? MediaSpeaker => DefaultSpeaker;
+
+    /// <summary>这台音箱有没有可拖的音量属性；没有就整行藏掉，不给一条拖不动的滑条。</summary>
+    public bool MediaHasVolume => MediaSpeaker is { SpeakerVolumeSiid: > 0 };
 
     [RelayCommand(AllowConcurrentExecutions = true)]
     private async Task MediaTogglePlayAsync()
@@ -208,6 +230,7 @@ public partial class MainViewModel : ObservableObject
             var sent = await RunSpeakerPowerAsync(d, play);
             if (!sent) return;
             d.IsPlaying = play;
+            d.PlayingState = play ? 1 : 2;   // 先按指令猜一态，下一拍 playing-state 回读会纠正
             Log($"{d.Name} → {(play ? "播放" : "暂停")}");
         }
         else Log($"{d.Name} 不支持播放控制");
@@ -313,8 +336,9 @@ public partial class MainViewModel : ObservableObject
         }
     }
 
-    /// <summary>音量滑杆停 600ms 再提交；期间把设备放进抑制窗口，避免轮询把滑杆拽回去。</summary>
-    private void ScheduleSpeakerVolumeCommit(MijiaDevice device)
+    /// <summary>音量滑杆停 600ms 再提交；期间把设备放进抑制窗口，避免轮询把滑杆拽回去。
+    /// 抽屉与桌面媒体分区的音量浮层共用这一条节流。</summary>
+    public void ScheduleSpeakerVolumeCommit(MijiaDevice device)
     {
         if (!device.IsSpeaker || device.SpeakerVolumeSiid <= 0) return;
         _speakerVolumeTimer?.Dispose();

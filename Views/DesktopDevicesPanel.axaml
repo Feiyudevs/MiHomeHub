@@ -1,0 +1,179 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:m="clr-namespace:MiHome.Models"
+             xmlns:vm="clr-namespace:MiHome.ViewModels"
+             xmlns:ctl="clr-namespace:MiHome.Controls"
+             x:Class="MiHome.Views.DesktopDevicesPanel"
+             x:DataType="vm:DesktopGroupVm"
+             ClipToBounds="False">
+
+    <UserControl.Styles>
+        <!-- 分区里的设备卡：开/关同一种半透明底（不再出现「渐变紫」第二种背景），
+             也不投影 —— 贴桌面窗本身就是一块玻璃，卡片再叠阴影会显脏。
+             主窗口列表里的同一张卡不受影响（那是应用级样式，这里的局部样式优先级更高） -->
+        <Style Selector="Button.DevCard /template/ Border#Card">
+            <Setter Property="Background" Value="{DynamicResource DskCardBrush}" />
+            <Setter Property="BoxShadow" Value="0 0 0 0 #00000000" />
+            <!-- 卡片外距收到 4：分区本身是玻璃，再留全局那 8 的投影留白会显得空洞 -->
+            <Setter Property="Margin" Value="4" />
+        </Style>
+        <Style Selector="Button.DevCard.on /template/ Border#Card">
+            <Setter Property="Background" Value="{DynamicResource DskCardBrush}" />
+            <Setter Property="BoxShadow" Value="0 0 0 0 #00000000" />
+        </Style>
+
+        <!-- 卡面是半透明的（透出墙纸），主窗口那套灰压上去读不清：
+             名称用近纯白，房间 / 路数 / 计数用提亮后的次级色（DskText2Brush） -->
+        <Style Selector="Button.DevCard TextBlock.DevName">
+            <Setter Property="Foreground" Value="{DynamicResource DskTextBrush}" />
+        </Style>
+        <Style Selector="Button.DevCard TextBlock.DevMeta">
+            <Setter Property="Foreground" Value="{DynamicResource DskText2Brush}" />
+        </Style>
+        <Style Selector="Button.DevCard TextBlock.DevBadgeText">
+            <Setter Property="Foreground" Value="{DynamicResource DskText2Brush}" />
+        </Style>
+        <!-- 路数角标底色也提亮一档，否则深色角标上的亮字看起来像被糊住 -->
+        <Style Selector="Button.DevCard Border.DevBadge">
+            <Setter Property="Background" Value="#1FFFFFFF" />
+        </Style>
+
+        <!-- 电源键：底色同样半透明，实心深色在磨砂玻璃上会像一块黑板 -->
+        <Style Selector="ToggleButton.Power /template/ Border#Disc">
+            <Setter Property="Background" Value="{DynamicResource DskSwitchBrush}" />
+        </Style>
+        <Style Selector="ToggleButton.Power:checked /template/ Border#Disc">
+            <Setter Property="Background" Value="{DynamicResource PowerOnBrush}" />
+        </Style>
+        <!-- 悬停时电源键下滑给「更多」让位：全局那份滑 16px，在分区这种整块玻璃上显得掉得太低
+             （卡片内容高 48、键 32，滑 16 后下沿几乎贴到卡片边）。
+             这里收到 10px —— 键顶 18px 仍压在「更多」下沿（17px）之下，不重叠，但整体上提 6px。 -->
+        <Style Selector="Button.DevCard:pointerover ToggleButton.Power">
+            <Setter Property="RenderTransform" Value="translate(0px,10px)" />
+        </Style>
+    </UserControl.Styles>
+
+    <UserControl.Resources>
+        <!-- ======== 分区弹层统一浅色系 ======== -->
+        <!-- 这里把右键菜单的六个配色键就地覆盖成浅色值：
+             ContextMenu 是 Popup 承载的，但逻辑父级挂在触发它的设备卡上，
+             DynamicResource 会沿逻辑树回溯到这个面板 —— 于是只有「分区里」的菜单变浅，
+             主窗口列表里那张同一份模板的菜单继续走应用主题（深色），互不影响。
+             覆盖用平铺值而非主题字典：分区弹层要求恒浅色，不随应用深浅主题漂移。 -->
+        <SolidColorBrush x:Key="MenuBgBrush" Color="#FFFFFF" />
+        <SolidColorBrush x:Key="MenuLineBrush" Color="#140F172A" />
+        <SolidColorBrush x:Key="MenuHoverBrush" Color="#0F0F172A" />
+        <SolidColorBrush x:Key="MenuPressBrush" Color="#1A0F172A" />
+        <SolidColorBrush x:Key="MenuTextBrush" Color="#4B5563" />
+        <SolidColorBrush x:Key="MenuIconBrush" Color="#6E7789" />
+
+        <!-- 分区里的场景卡：与设备卡同一套玻璃底、同一档高度，点整卡直接执行。
+             外壳（圆角 + 细描边 + 内距）照设备卡右键菜单那份本地 Template，弹层样式应用时机不可控，本地值最稳 -->
+        <DataTemplate x:Key="ZoneSceneCard" x:DataType="m:SceneCardItem">
+            <Button Classes="DevCard"
+                    Command="{Binding $parent[Window].((vm:DesktopGroupVm)DataContext).RunSceneCommand}"
+                    CommandParameter="{Binding}">
+                <Button.ContextMenu>
+                    <ContextMenu Padding="4" MinWidth="0" FontSize="11.5">
+                        <ContextMenu.Template>
+                            <ControlTemplate>
+                                <Border CornerRadius="12"
+                                        Background="{DynamicResource MenuBgBrush}"
+                                        BorderBrush="{DynamicResource MenuLineBrush}"
+                                        BorderThickness="1"
+                                        Padding="{TemplateBinding Padding}">
+                                    <ItemsPresenter Name="PART_ItemsPresenter" />
+                                </Border>
+                            </ControlTemplate>
+                        </ContextMenu.Template>
+                        <MenuItem Theme="{StaticResource CardMenuItem}" Header="从分区移除"
+                                  Command="{Binding $parent[Window].((vm:DesktopGroupVm)DataContext).RemoveSceneFromZoneCommand}"
+                                  CommandParameter="{Binding}">
+                            <MenuItem.Icon>
+                                <Viewbox Width="12" Height="12" Stretch="Uniform"
+                                         HorizontalAlignment="Center" VerticalAlignment="Center">
+                                    <Panel Width="24" Height="24">
+                                        <Path StrokeThickness="1.92" StrokeLineCap="Round" StrokeJoin="Round"
+                                              Stroke="{DynamicResource MenuIconBrush}"
+                                              Data="M5,12 H19" />
+                                    </Panel>
+                                </Viewbox>
+                            </MenuItem.Icon>
+                        </MenuItem>
+                    </ContextMenu>
+                </Button.ContextMenu>
+                <Grid ColumnDefinitions="Auto,*,Auto">
+                    <Panel Grid.Column="0" Width="48" Height="48" VerticalAlignment="Center">
+                        <!-- 场景图标不跟首页那套浅色底：分区底是玻璃，色块压上去会糊，改为一档半透明白底 + 场景自己的图标色 -->
+                        <Border Width="42" Height="42" CornerRadius="12" VerticalAlignment="Center"
+                                HorizontalAlignment="Center" Background="{DynamicResource DskSwitchBrush}">
+                            <Path Width="20" Height="20" Stretch="Uniform" Stroke="{Binding IconFgBrush}"
+                                  StrokeThickness="1.7" StrokeLineCap="Round" StrokeJoin="Round"
+                                  Data="{Binding Icon}" />
+                        </Border>
+                    </Panel>
+                    <StackPanel Grid.Column="1" VerticalAlignment="Center" Margin="12,0,10,0" Spacing="3">
+                        <TextBlock Classes="DevName" Text="{Binding Name}" FontSize="13.5"
+                                   FontWeight="SemiBold" TextTrimming="CharacterEllipsis" />
+                        <TextBlock Classes="DevMeta" Text="场景" FontSize="11.5"
+                                   IsVisible="{Binding !IsRunning}" />
+                        <TextBlock Text="运行中" FontSize="11.5" FontWeight="SemiBold"
+                                   Foreground="{DynamicResource GreenBrush}"
+                                   IsVisible="{Binding IsRunning}" />
+                    </StackPanel>
+                    <Border Grid.Column="2" Width="30" Height="30" CornerRadius="15" VerticalAlignment="Center"
+                            Background="{DynamicResource DskSwitchBrush}">
+                        <Path Width="12" Height="12" Stretch="Uniform"
+                              HorizontalAlignment="Center" VerticalAlignment="Center"
+                              Fill="{DynamicResource DskTextBrush}" Data="{StaticResource GeoPlay}" />
+                    </Border>
+                </Grid>
+            </Button>
+        </DataTemplate>
+    </UserControl.Resources>
+
+    <StackPanel>
+        <!-- 设备宫格：直接复用主窗口列表那张设备卡（图标 | 名称·房间 | 开关），
+             点卡片走宿主契约弹控制窗，开关也直接下发 -->
+        <ItemsControl ItemsSource="{Binding Devices}"
+                      ItemTemplate="{StaticResource DeviceCardTemplate}"
+                      IsVisible="{Binding HasDevices}">
+            <ItemsControl.ItemsPanel>
+                <ItemsPanelTemplate>
+                    <!-- MinItemWidth 与 DesktopGroupView.CardMinWidth 同步改（宿主窗口按它推算加宽一列需要多宽） -->
+                    <ctl:AdaptiveGridPanel MinItemWidth="240" Spacing="0" />
+                </ItemsPanelTemplate>
+            </ItemsControl.ItemsPanel>
+        </ItemsControl>
+        <!-- 场景宫格排在设备之后，卡片宽度与设备卡同档，两块拼起来仍是一整面 -->
+        <ItemsControl ItemsSource="{Binding Scenes}"
+                      ItemTemplate="{StaticResource ZoneSceneCard}"
+                      IsVisible="{Binding HasScenes}">
+            <ItemsControl.ItemsPanel>
+                <ItemsPanelTemplate>
+                    <ctl:AdaptiveGridPanel MinItemWidth="240" Spacing="0" />
+                </ItemsPanelTemplate>
+            </ItemsControl.ItemsPanel>
+        </ItemsControl>
+        <!-- 空状态：把「添加设备」按钮直接放在提示文字上方，比标题栏中钮更直观；仅设备分区（本面板）出现 -->
+        <StackPanel IsVisible="{Binding IsEmpty}" Spacing="9" Margin="2,8,2,16"
+                    HorizontalAlignment="Center">
+            <Button Classes="BtnPrimary" Command="{Binding AddDeviceCommand}" HorizontalAlignment="Center"
+                    ToolTip.Tip="添加设备 / 场景">
+                <StackPanel Orientation="Horizontal" Spacing="4" VerticalAlignment="Center">
+                    <Viewbox Width="13" Height="13" Stretch="Uniform" VerticalAlignment="Center">
+                        <Panel Width="24" Height="24">
+                            <Path StrokeThickness="2.4" StrokeLineCap="Round" StrokeJoin="Round"
+                                  Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}"
+                                  Data="{StaticResource GeoPlus}" />
+                        </Panel>
+                    </Viewbox>
+                    <TextBlock Text="添加设备或场景" VerticalAlignment="Center" />
+                </StackPanel>
+            </Button>
+            <TextBlock Text="{Binding EmptyHint}" FontSize="11.5"
+                       TextAlignment="Center" TextWrapping="Wrap"
+                       Foreground="{DynamicResource DskText3Brush}" />
+        </StackPanel>
+    </StackPanel>
+</UserControl>

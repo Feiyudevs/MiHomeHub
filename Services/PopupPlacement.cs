@@ -20,6 +20,49 @@ internal static class PopupPlacement
     /// <summary>距屏幕工作区边缘的最小留白（DIP）。</summary>
     private const int EdgeDip = 8;
 
+    /// <summary>锚定浮层（分区菜单 / 音量条 / 选音箱）与触发按钮之间的缝隙（DIP）。</summary>
+    private const int AnchorGapDip = 4;
+
+    /// <summary>
+    /// 把浮层贴到触发按钮的矩形下方：下方放不下才翻到上方，水平默认右缘对齐按钮右缘（菜单从按钮左侧展开）。
+    /// 贴桌面的分区窗是 HWND_BOTTOM + NOACTIVATE，Avalonia 的 Flyout / Popup 会被压到普通窗口之下，
+    /// 所以菜单、音量条、选音箱都只能各开一个独立小窗，落点统一走这里。
+    /// </summary>
+    public static void AnchorTo(Window win, PixelRect anchor, bool rightAligned = true)
+    {
+        // SizeToContent 的窗口在布局跑完前 ClientSize 还是 0，算出来的高度没有意义
+        win.UpdateLayout();
+
+        var scale = win.RenderScaling <= 0 ? 1 : win.RenderScaling;
+        var dipW = win.ClientSize.Width > 1 ? win.ClientSize.Width : win.Width;
+        var dipH = win.ClientSize.Height > 1 ? win.ClientSize.Height : win.Bounds.Height;
+        var w = (int)Math.Ceiling(Math.Max(1, dipW) * scale);
+        var h = (int)Math.Ceiling(Math.Max(1, dipH) * scale);
+
+        var screens = ScreensOf(win);
+        var screen = screens?.ScreenFromPoint(anchor.TopLeft)
+                     ?? screens?.ScreenFromPoint(anchor.BottomRight)
+                     ?? screens?.Primary;
+        var wa = screen?.WorkingArea ?? new PixelRect(0, 0, 1920, 1080);
+        var gap = (int)Math.Round(AnchorGapDip * scale);
+        var edge = (int)Math.Round(EdgeDip * scale);
+
+        // 垂直：默认下方，下方放不下翻到上方，两边都放不下就夹在工作区里
+        var below = anchor.Bottom + gap;
+        var above = anchor.Y - h - gap;
+        int y;
+        if (below + h <= wa.Bottom - edge) y = below;
+        else if (above >= wa.Y + edge) y = above;
+        else y = Math.Clamp(below, wa.Y + edge, Math.Max(wa.Y + edge, wa.Bottom - h - edge));
+
+        // 水平：右缘对齐（音量条与菜单都是靠左展开的窄条），再夹进工作区
+        var x = rightAligned ? anchor.Right - w : anchor.X;
+        x = Math.Clamp(x, wa.X + edge, Math.Max(wa.X + edge, wa.Right - w - edge));
+
+        win.Position = new PixelPoint(x, y);
+        DesktopLog.Write($"[popup] {win.GetType().Name} anchor={anchor} size={w}x{h} scale={scale:F2} wa={wa} → ({x},{y})");
+    }
+
     /// <summary>
     /// 在「当前屏幕」工作区居中弹出。<paramref name="widthDip"/>/<paramref name="heightDip"/> 传窗口真实尺寸
     /// （Show 之前拿不到 Bounds，用 XAML 里声明的常量最稳）。

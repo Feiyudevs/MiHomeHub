@@ -8,10 +8,12 @@
     xmlns:m="clr-namespace:MiHome.Models">
         <conv:DeviceStatusConverter x:Key="DevStatus" />
         <conv:IntEqualsConverter x:Key="IntEq" />
-        <!-- 音箱媒体控制图标：上一曲 / 下一曲 / 暂停，用实心几何避免小尺寸下线条糊成一团 -->
-        <PathGeometry x:Key="GeoPrevTrack">M7,6 H8.2 V18 H7 Z M18,6 L9.6,12 L18,18 Z</PathGeometry>
+        <!-- 音箱媒体控制图标：上一曲 / 下一曲 / 暂停，用实心几何避免小尺寸下线条糊成一团。
+             三个几何的包围盒都以 24 网格中心 12 对称（暂停原本落在 9–18，中心偏到 13.5，
+             放在圆形主键上就明显偏右），几何一偏，外面套 Viewbox 也救不回来 -->
+        <PathGeometry x:Key="GeoPrevTrack">M6.5,6 H7.7 V18 H6.5 Z M17.5,6 L9.1,12 L17.5,18 Z</PathGeometry>
         <PathGeometry x:Key="GeoNextTrack">M16.8,6 H18 V18 H16.8 Z M6,6 L14.4,12 L6,18 Z</PathGeometry>
-        <PathGeometry x:Key="GeoPauseIc">M9,5.5 H12.2 V18.5 H9 Z M14.8,5.5 H18 V18.5 H14.8 Z</PathGeometry>
+        <PathGeometry x:Key="GeoPauseIc">M8.8,6 H11.2 V18 H8.8 Z M12.8,6 H15.2 V18 H12.8 Z</PathGeometry>
         <!-- 发送图标：纸飞机，走描边画法，浮层里的发送按钮用 -->
         <PathGeometry x:Key="GeoSend">M22,2 L11,13 M22,2 L15,22 L11,13 L2,9 Z</PathGeometry>
         <!-- 空调模式/风速动态按钮：按设备规格的 value-list 生成，选中态由设备当前值驱动 -->

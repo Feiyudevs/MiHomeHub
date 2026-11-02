@@ -14,6 +14,20 @@ namespace MiHome.Services;
 /// </summary>
 internal static class DesktopEmbed
 {
+    // 分区窗自身 WndProc 会把所有 WM_WINDOWPOSCHANGING 的 Z 序改动压掉，
+    // 只有本库主动压底（Attach/PinBottom）期间放行 —— SetWindowPos 是同步调用，WndProc 同线程，计数足够。
+    [ThreadStatic] private static int _zOrderAllowDepth;
+
+    public static bool ZOrderChangeAllowed => _zOrderAllowDepth > 0;
+
+    private static IDisposable AllowZOrderChange() => new ZOrderScope();
+
+    private sealed class ZOrderScope : IDisposable
+    {
+        public ZOrderScope() => _zOrderAllowDepth++;
+        public void Dispose() => _zOrderAllowDepth--;
+    }
+
     /// <summary>把窗口贴到桌面层；返回是否成功拿到 Progman。</summary>
     public static bool Attach(nint hwnd)
     {
@@ -38,9 +52,11 @@ internal static class DesktopEmbed
             if (progman != nint.Zero)
                 DesktopNative.SetWindowLongPtr(hwnd, DesktopNative.GWL_HWNDPARENT, progman);
 
-            DesktopNative.SetWindowPos(hwnd, DesktopNative.HWND_BOTTOM, 0, 0, 0, 0,
-                DesktopNative.SWP_NOSIZE | DesktopNative.SWP_NOMOVE | DesktopNative.SWP_NOACTIVATE
-                | DesktopNative.SWP_SHOWWINDOW | DesktopNative.SWP_NOSENDCHANGING);
+            using (AllowZOrderChange())
+                DesktopNative.SetWindowPos(hwnd, DesktopNative.HWND_BOTTOM, 0, 0, 0, 0,
+                    DesktopNative.SWP_NOSIZE | DesktopNative.SWP_NOMOVE | DesktopNative.SWP_NOACTIVATE
+                    | DesktopNative.SWP_SHOWWINDOW | DesktopNative.SWP_NOSENDCHANGING
+                    | DesktopNative.SWP_NOOWNERZORDER);
 
             // 圆角由 RGN 承担：先把 Avalonia 合成会反复加回的 NOREDIRECTIONBITMAP 清掉
             StripNoRedirection(hwnd);
@@ -57,8 +73,10 @@ internal static class DesktopEmbed
     public static void PinBottom(nint hwnd)
     {
         if (hwnd == nint.Zero) return;
-        DesktopNative.SetWindowPos(hwnd, DesktopNative.HWND_BOTTOM, 0, 0, 0, 0,
-            DesktopNative.SWP_NOSIZE | DesktopNative.SWP_NOMOVE | DesktopNative.SWP_NOACTIVATE);
+        using (AllowZOrderChange())
+            DesktopNative.SetWindowPos(hwnd, DesktopNative.HWND_BOTTOM, 0, 0, 0, 0,
+                DesktopNative.SWP_NOSIZE | DesktopNative.SWP_NOMOVE | DesktopNative.SWP_NOACTIVATE
+                | DesktopNative.SWP_NOOWNERZORDER);
     }
 
     /// <summary>确保 WS_EX_NOACTIVATE 在位（Avalonia 合成时会重置 ExStyle）。</summary>
@@ -67,22 +85,6 @@ internal static class DesktopEmbed
         if (hwnd == nint.Zero) return;
         var ex = (uint)DesktopNative.GetWindowLongPtr(hwnd, DesktopNative.GWL_EXSTYLE);
         var next = ex | DesktopNative.WS_EX_NOACTIVATE | DesktopNative.WS_EX_TOOLWINDOW;
-        next &= ~DesktopNative.WS_EX_APPWINDOW;
-        if (next != ex)
-            DesktopNative.SetWindowLongPtr(hwnd, DesktopNative.GWL_EXSTYLE, (nint)next);
-    }
-
-    /// <summary>
-    /// 内联重命名期间临时放开/收回「不激活」：NOACTIVATE 的窗口拿不到键盘焦点，
-    /// 改名必须先能激活；提交后立刻收回，否则点一下分区会把整个桌面窗口集抬到前台。
-    /// </summary>
-    public static void SetNoActivate(nint hwnd, bool on)
-    {
-        if (hwnd == nint.Zero) return;
-        var ex = (uint)DesktopNative.GetWindowLongPtr(hwnd, DesktopNative.GWL_EXSTYLE);
-        var next = on
-            ? ex | DesktopNative.WS_EX_NOACTIVATE | DesktopNative.WS_EX_TOOLWINDOW
-            : ex & ~DesktopNative.WS_EX_NOACTIVATE;
         next &= ~DesktopNative.WS_EX_APPWINDOW;
         if (next != ex)
             DesktopNative.SetWindowLongPtr(hwnd, DesktopNative.GWL_EXSTYLE, (nint)next);

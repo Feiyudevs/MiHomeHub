@@ -162,35 +162,76 @@ public partial class MainViewModel : ObservableObject
     public ObservableCollection<DeviceGroup> HomeGroups { get; } = new();
     public ObservableCollection<SceneCardItem> SceneItems { get; } = new();
 
+    /// <summary>
+    /// 开屏这一轮同步是否仍在进行。<see cref="IsLoading"/> 只覆盖设备+场景+首拍开关状态，
+    /// 温湿度/耗材要等后台规格解析完再读一次，所以等待期用这个标志兜住，否则那段只有空白没有骨架。
+    /// </summary>
+    public bool IsInitialSync { get; private set; }
+
+    /// <summary>开屏/切家庭这一轮开始：骨架等待期开启（含后台规格解析）。</summary>
+    private void BeginInitialSync()
+    {
+        if (IsInitialSync) return;
+        IsInitialSync = true;
+        RaiseSyncState();
+    }
+
+    /// <summary>开屏同步收尾：置位后通知所有骨架派生态（只有 UI 线程会调用）。</summary>
+    private void FinishInitialSync()
+    {
+        if (!IsInitialSync) return;
+        IsInitialSync = false;
+        RaiseSyncState();
+    }
+
+    private void RaiseSyncState()
+    {
+        OnPropertyChanged(nameof(SyncPending));
+        OnPropertyChanged(nameof(ShowSkeleton));
+        OnPropertyChanged(nameof(ShowSceneSkeleton));
+        OnPropertyChanged(nameof(ShowQuickScenes));
+        OnPropertyChanged(nameof(ShowEnvSkeleton));
+        OnPropertyChanged(nameof(ShowEmptyHint));
+        OnPropertyChanged(nameof(ShowHomeEmpty));
+        OnPropertyChanged(nameof(ShowSceneEmpty));
+    }
+
+    /// <summary>开屏同步仍在等待数据（含后台的规格解析与温湿度/耗材读数）。</summary>
+    public bool SyncPending => IsLoading || IsInitialSync;
+
     /// <summary>首次拉取期间的骨架格数量，只用来给 ItemsControl 供位。</summary>
-    public IReadOnlyList<string> SkeletonSlots { get; } = new string[10];
+    /// <remarks>槽位必须是非 null 项：Avalonia 的 ItemsControl 对 null 项不套 DataTemplate，骨架会整片空白。</remarks>
+    public IReadOnlyList<string> SkeletonSlots { get; } =
+        Enumerable.Range(0, 10).Select(i => i.ToString()).ToArray();
 
     /// <summary>概览统计卡的骨架槽位：真实统计卡固定四张（在线/开启/房间/场景），占位数量与之一致。</summary>
-    public IReadOnlyList<string> StatSkeletonSlots { get; } = new string[4];
+    public IReadOnlyList<string> StatSkeletonSlots { get; } =
+        Enumerable.Range(0, 4).Select(i => i.ToString()).ToArray();
 
     /// <summary>环境胶囊的骨架槽位：温度/湿度/耗材三枚。</summary>
-    public IReadOnlyList<string> EnvSkeletonSlots { get; } = new string[3];
+    public IReadOnlyList<string> EnvSkeletonSlots { get; } =
+        Enumerable.Range(0, 3).Select(i => i.ToString()).ToArray();
 
     /// <summary>列表还空着时铺骨架；已有设备只是刷新状态，不动内容。</summary>
-    public bool ShowSkeleton => IsLoading && TotalCount == 0;
+    public bool ShowSkeleton => SyncPending && TotalCount == 0;
 
     /// <summary>还在首拉且环境读数没到货时铺胶囊占位；读数到了立刻换真胶囊。</summary>
-    public bool ShowEnvSkeleton => IsLoading && !ShowEnvOverview;
+    public bool ShowEnvSkeleton => SyncPending && !ShowEnvOverview;
 
     /// <summary>场景首次拉取期间铺骨架；已有场景只是刷新时不动内容。</summary>
-    public bool ShowSceneSkeleton => IsLoading && !HasScenes;
+    public bool ShowSceneSkeleton => SyncPending && !HasScenes;
 
     /// <summary>首页快捷场景区是否出现：有场景，或场景还在首次拉取中。</summary>
     public bool ShowQuickScenes => HasScenes || ShowSceneSkeleton;
 
     /// <summary>空房间提示要等加载结束再判定，否则骨架期间就冒出来。</summary>
-    public bool ShowEmptyHint => !IsLoading && !HasDevices;
+    public bool ShowEmptyHint => !SyncPending && !HasDevices;
 
     /// <summary>首页空态：加载结束、既没有设备也没有场景时，整块换成空提示。</summary>
-    public bool ShowHomeEmpty => !IsLoading && TotalCount == 0 && !HasScenes;
+    public bool ShowHomeEmpty => !SyncPending && TotalCount == 0 && !HasScenes;
 
     /// <summary>场景页空态：加载结束后仍没有场景。</summary>
-    public bool ShowSceneEmpty => !IsLoading && !HasScenes;
+    public bool ShowSceneEmpty => !SyncPending && !HasScenes;
 
     /// <summary>设置里的两个下拉选项：Value 直接对上 IsDark / IconGlass。</summary>
     public IReadOnlyList<OptionItem> ThemeOptions { get; } =
@@ -337,6 +378,7 @@ public partial class MainViewModel : ObservableObject
 
     partial void OnIsLoadingChanged(bool value)
     {
+        OnPropertyChanged(nameof(SyncPending));
         OnPropertyChanged(nameof(ShowSkeleton));
         OnPropertyChanged(nameof(ShowEmptyHint));
         OnPropertyChanged(nameof(ShowHomeEmpty));
@@ -378,6 +420,7 @@ public partial class MainViewModel : ObservableObject
         // 先铺上次缓存的设备，联网成功后整表替换，避免开屏干等
         ApplyCachedDevices();
         // 没有缓存时 TotalCount 仍为 0，这里提前置加载态，让概览/设备骨架在刷 token 的等待期就出现
+        BeginInitialSync();
         IsLoading = true;
         if (refreshToken)
         {
@@ -461,6 +504,8 @@ public partial class MainViewModel : ObservableObject
             Log($"拉取设备失败：{ex.Message}");
             // 断网/接口失败时若还没铺上屏，再兜一次缓存
             if (!HasDevices) ApplyCachedDevices();
+            // 这轮拿不到数据，后台读数链不会启动，骨架要在这里收尾，不能让它一直转
+            FinishInitialSync();
         }
         finally
         {
@@ -511,6 +556,7 @@ public partial class MainViewModel : ObservableObject
     private async Task LoadDevicesForSelectedHomeAsync()
     {
         if (_client == null || SelectedHome == null) return;
+        BeginInitialSync();
         IsLoading = true;
         try
         {
@@ -521,7 +567,11 @@ public partial class MainViewModel : ObservableObject
                 var homes = await _client.GetHomesAsync(forceRefresh: true);
                 await Dispatcher.UIThread.InvokeAsync(() => SyncHomeOptions(homes.ToList()));
                 home = _client.FindHome(SelectedHome.Id);
-                if (home == null) return;
+                if (home == null)
+                {
+                    FinishInitialSync();
+                    return;
+                }
             }
 
             Log($"切换到家庭「{home.Name}」，正在拉取设备…");
@@ -551,6 +601,8 @@ public partial class MainViewModel : ObservableObject
         catch (Exception ex)
         {
             Log($"切换家庭失败：{ex.Message}");
+            // 拉不到设备就没有后台读数链，骨架要在这里收尾
+            FinishInitialSync();
         }
         finally
         {
@@ -590,6 +642,11 @@ public partial class MainViewModel : ObservableObject
         catch (Exception ex)
         {
             Log($"解析设备规格失败：{ex.Message}");
+        }
+        finally
+        {
+            // 温湿度/耗材这一拍才算真正收尾；切家庭换了代时由新一轮自己收尾
+            if (generation == _loadGeneration) Dispatcher.UIThread.Post(FinishInitialSync);
         }
     }
 
@@ -767,11 +824,13 @@ public partial class MainViewModel : ObservableObject
                     if (d.SpeakerVolume != vol) d.SpeakerVolume = vol;
                 }
 
-                // 播放状态回读：1 播放中、0 停止、2 暂停
+                // 播放状态回读：1 播放中、0 停止、2 暂停（规格里只有这个枚举，没有曲目文本属性）
                 if (d.IsSpeaker && d.PlayingStateSiid > 0 &&
                     map.TryGetValue((d.TargetDid, d.PlayingStateSiid, d.PlayingStatePiid), out var ps) && ps != null)
                 {
-                    var playing = ToInt(ps) == 1;
+                    var state = ToInt(ps);
+                    if (d.PlayingState != state) d.PlayingState = state;
+                    var playing = state == 1;
                     if (d.IsPlaying != playing) d.IsPlaying = playing;
                 }
 
@@ -1215,6 +1274,7 @@ public partial class MainViewModel : ObservableObject
         IsSettingsOpen = false;
         IsEnvDetailOpen = false;
         IsVoiceOpen = false;
+        IsMusicOpen = false;
         IsLogOpen = false;
     }
 

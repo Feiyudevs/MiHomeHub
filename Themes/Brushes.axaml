@@ -184,6 +184,10 @@
                     <SolidColorBrush x:Key="MenuLineBrush" Color="#1AFFFFFF"/>
                     <SolidColorBrush x:Key="MenuHoverBrush" Color="#1FFFFFFF"/>
                     <SolidColorBrush x:Key="MenuPressBrush" Color="#2EFFFFFF"/>
+                    <!-- 菜单项文字/图标：单独开键而不复用 TextBrush / NavActiveTextBrush，
+                         桌面分区才能在自己面板的 Resources 里就地覆盖成浅色，不波及主窗口列表 -->
+                    <SolidColorBrush x:Key="MenuTextBrush" Color="#EEF1F6"/>
+                    <SolidColorBrush x:Key="MenuIconBrush" Color="#9BA4B5"/>
                 </ResourceDictionary>
                 <ResourceDictionary x:Key="Light">
                     <SolidColorBrush x:Key="BgBrush" Color="#E6EAF1"/>
@@ -316,6 +320,8 @@
                     <SolidColorBrush x:Key="MenuLineBrush" Color="#140F172A"/>
                     <SolidColorBrush x:Key="MenuHoverBrush" Color="#0F0F172A"/>
                     <SolidColorBrush x:Key="MenuPressBrush" Color="#1A0F172A"/>
+                    <SolidColorBrush x:Key="MenuTextBrush" Color="#0F172A"/>
+                    <SolidColorBrush x:Key="MenuIconBrush" Color="#6E7789"/>
                 </ResourceDictionary>
             </ResourceDictionary.ThemeDictionaries>
 </ResourceDictionary>
