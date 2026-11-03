@@ -16,6 +16,7 @@
         Topmost="False"
         SizeToContent="Height"
         WindowStartupLocation="Manual"
-        RequestedThemeVariant="Dark">
+        RequestedThemeVariant="Dark"
+        RenderOptions.TextRenderingMode="Antialias">
     <views:DesktopGroupView x:Name="Root" />
 </Window>

@@ -21,6 +21,9 @@ public abstract partial class DesktopZoneVm : ObservableObject
     [ObservableProperty] private string _name = "新分区";
     [ObservableProperty] private bool _collapsed;
 
+    /// <summary>重命名浮层是否正盖在名称上：为真时隐藏分区窗自己的名称文字，避免半透明浮层透出双重名称。</summary>
+    [ObservableProperty] private bool _isRenaming;
+
     /// <summary>
     /// 内容区是否参与布局：折叠时先让 <see cref="ContentOpacity"/> 淡出（80ms），
     /// 淡完再收掉 —— 直接隐藏会让窗口高度先跳变，看起来像闪了一下。
@@ -50,6 +53,11 @@ public abstract partial class DesktopZoneVm : ObservableObject
 
     /// <summary>这块分区是不是媒体（音响播放）分区。</summary>
     public bool IsMedia => Model.IsMedia;
+
+    /// <summary>改名浮层覆盖的这块标题区（名称文字 + 设备数徽标）透明度：浮层盖上来时置 0（保留占位不回流），半透明浮层就不会透出双重名称。</summary>
+    public double TitleOpacity => IsRenaming ? 0 : 1;
+
+    partial void OnIsRenamingChanged(bool value) => OnPropertyChanged(nameof(TitleOpacity));
 
     /// <summary>标题栏右侧的计数徽标：媒体分区没有「几台设备」可数，不显示。</summary>
     public virtual bool ShowCount => false;

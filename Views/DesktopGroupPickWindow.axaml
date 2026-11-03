@@ -12,7 +12,8 @@
         Topmost="True"
         WindowStartupLocation="Manual"
         TransparencyLevelHint="Transparent"
-        Background="Transparent">
+        Background="Transparent"
+        RenderOptions.TextRenderingMode="Antialias">
 
     <Window.Styles>
         <!-- 分区行：整行可点的卡。与添加设备弹窗的 PickCard 同一套视觉（底色画在 ContentPresenter 上，

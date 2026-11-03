@@ -83,7 +83,7 @@
                 <TextBlock Classes="Hint" Text="播放状态以音箱实际响应为准" />
             </StackPanel>
         </Border>
-        <!-- 耗材：滤芯 / 刷头余量，低于 20% 标琥珀色 -->
+        <!-- 耗材：滤芯 / 刷头 / 电量，低于 20% 标琥珀色 -->
         <Border Classes="DrCard" IsVisible="{Binding DrawerDevice.HasConsumables}">
             <StackPanel Spacing="8">
                 <TextBlock Text="耗材" FontSize="14" FontWeight="SemiBold"

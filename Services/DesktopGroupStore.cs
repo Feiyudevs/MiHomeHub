@@ -26,7 +26,9 @@ public static class DesktopGroupStore
             if (!File.Exists(FilePath)) return new DesktopLayout();
             var text = File.ReadAllText(FilePath);
             if (string.IsNullOrWhiteSpace(text)) return new DesktopLayout();
-            return JsonSerializer.Deserialize<DesktopLayout>(text, Options) ?? new DesktopLayout();
+            var layout = JsonSerializer.Deserialize<DesktopLayout>(text, Options) ?? new DesktopLayout();
+            MigrateDensity(layout);
+            return layout;
         }
         catch
         {
@@ -34,6 +36,48 @@ public static class DesktopGroupStore
             return new DesktopLayout();
         }
     }
+
+    /// <summary>
+    /// 浓度语义迁移。只在 <see cref="DesktopLayout.AppearanceVersion"/> 落后时跑一次，
+    /// 否则用户手动拉的浓度每次启动都会被改写。
+    /// <para>
+    /// v0 → v1：滑杆 38%~82%、默认 46% → 20%~72%、默认 34%（等效遮罩从约 0.6 降到 0.33，
+    /// 壁纸明暗才透得出来）。
+    /// v1 → v2：下限 20% → 0%（文字已有灰度抗锯齿兜底，允许纯磨砂无底色）；
+    /// 贴着旧下限的值直接放到新下限，其余不动。
+    /// </para>
+    /// </summary>
+    private static void MigrateDensity(DesktopLayout layout)
+    {
+        var look = layout.Appearance;
+
+        // v0：Opacity 是乘在玻璃系数上的百分比（默认 10% → 实际 alpha 4.6%），
+        // 那种值没有参考意义，一律抬到默认档。
+        if (layout.AppearanceVersion < 1)
+        {
+            if (look.Opacity < 0.30)
+            {
+                look.Opacity = DesktopPalette.DefaultDensity;
+                layout.AppearanceVersion = CurrentAppearanceVersion;
+                return;
+            }
+
+            // v0 后期档位（贴着 38% / 46%）跟着新默认走。
+            if (Math.Abs(look.Opacity - 0.38) < 0.005 || Math.Abs(look.Opacity - 0.46) < 0.005)
+                look.Opacity = DesktopPalette.DefaultDensity;
+        }
+
+        if (layout.AppearanceVersion >= CurrentAppearanceVersion) return;
+
+        // v1 → v2：贴着旧下限（20%）说明用户拉到最低还想更透，直接放到新下限 0。
+        if (layout.AppearanceVersion < 2 && Math.Abs(look.Opacity - 0.20) < 0.005)
+            look.Opacity = DesktopPalette.MinDensity;
+
+        layout.AppearanceVersion = CurrentAppearanceVersion;
+    }
+
+    /// <summary>当前外观迁移版本，语义变档时 +1（见 <see cref="MigrateDensity"/>）。</summary>
+    private const int CurrentAppearanceVersion = 2;
 
     public static void Save(DesktopLayout layout)
     {

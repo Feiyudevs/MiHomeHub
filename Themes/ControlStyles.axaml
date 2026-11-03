@@ -410,11 +410,29 @@
                 <ControlTemplate>
                     <!-- Margin 由样式提供（默认 8，给投影留绘制空间：投影被控件边界裁切时才会出现硬边缺口）；
                          桌面分区内卡片不投影，局部样式把它收到 4，故此处不能再写本地值（本地值会压过样式 setter） -->
-                    <Border Name="Card" MinHeight="74" CornerRadius="16" Padding="15,13">
-                        <ContentPresenter Content="{TemplateBinding Content}"
-                                          HorizontalAlignment="Stretch" VerticalAlignment="Center"/>
-                    </Border>
+                    <Panel>
+                        <Border Name="Card" MinHeight="74" CornerRadius="16" Padding="15,13">
+                            <ContentPresenter Content="{TemplateBinding Content}"
+                                              HorizontalAlignment="Stretch" VerticalAlignment="Center"/>
+                        </Border>
+                        <!-- 拖拽排序辅助框：盖在卡面上的覆盖层，不参与布局（悬停点亮时不会推动兄弟卡片）。
+                             Opacity 与 Margin 都只由样式给（同上，本地值压不过样式）；默认全暗，只有分区那侧点亮。 -->
+                        <Rectangle Name="DragHint" IsHitTestVisible="False"
+                                   StrokeThickness="1.4" StrokeDashArray="3.5,2.5"
+                                   RadiusX="16" RadiusY="16"
+                                   Stroke="{DynamicResource AccentBrush}"/>
+                    </Panel>
                 </ControlTemplate>
+            </Setter>
+        </Style>
+        <Style Selector="Button.DevCard /template/ Rectangle#DragHint">
+            <!-- 外距与 Border#Card 同档（全局 8 / 分区 4），改那边要同步这边 -->
+            <Setter Property="Margin" Value="8"/>
+            <Setter Property="Opacity" Value="0"/>
+            <Setter Property="Transitions">
+                <Transitions>
+                    <DoubleTransition Property="Opacity" Duration="0:0:0.12"/>
+                </Transitions>
             </Setter>
         </Style>
         <Style Selector="Button.DevCard /template/ Border#Card">
@@ -988,5 +1006,45 @@
             <Setter Property="Width" Value="32" />
             <Setter Property="Height" Value="32" />
             <Setter Property="CornerRadius" Value="9" />
+        </Style>
+        <!-- ======== 房间标注底板 ========
+             下拉触发器、浮层列表、桌面分区共用这一个类：底色走主题感知的 Surface5，
+             文字色仍由各处自定（桌面玻璃上要更亮一档的 DskText3） -->
+        <Style Selector="Border.RoomTag">
+            <Setter Property="Background" Value="{DynamicResource Surface5Brush}" />
+            <Setter Property="CornerRadius" Value="5" />
+            <Setter Property="Padding" Value="5,1.5" />
+            <Setter Property="VerticalAlignment" Value="Center" />
+        </Style>
+        <!-- ======== 右键菜单入场 ========
+             与托盘菜单、下拉浮层同一套动效语言（0.94 起、8px 落位、0.22s）。只动缩放与透明度，
+             不做位移：ContextMenu 的弹出窗按内容尺寸开，位移会把边缘切掉。
+             一次性动画，播完回到基础值（= 末帧），不会常驻渲染循环。
+             ⚠ 不能对 RenderTransform 直接写关键帧：Avalonia 11 的动画器注册表没有 ITransform 条目，
+             菜单一打开就抛 "No animator registered for the property RenderTransform"（官方 issue #8640），
+             且 Animation.Animators 在 11.x 已内化、无法手动补注册。
+             正确姿势与 Path.Spinner 同款：RenderTransform 固定挂一个 ScaleTransform，
+             关键帧只写 ScaleTransform.ScaleX / ScaleY（double + Transform 归属，走 TransformAnimator 路由）。 -->
+        <Style Selector="ContextMenu">
+            <Setter Property="RenderTransformOrigin" Value="50%, 0%" />
+            <Setter Property="RenderTransform">
+                <Setter.Value>
+                    <ScaleTransform ScaleX="1" ScaleY="1" />
+                </Setter.Value>
+            </Setter>
+            <Style.Animations>
+                <Animation Duration="0:0:0.22" Easing="CubicEaseOut">
+                    <KeyFrame Cue="0%">
+                        <Setter Property="Opacity" Value="0" />
+                        <Setter Property="ScaleTransform.ScaleX" Value="0.94" />
+                        <Setter Property="ScaleTransform.ScaleY" Value="0.94" />
+                    </KeyFrame>
+                    <KeyFrame Cue="100%">
+                        <Setter Property="Opacity" Value="1" />
+                        <Setter Property="ScaleTransform.ScaleX" Value="1" />
+                        <Setter Property="ScaleTransform.ScaleY" Value="1" />
+                    </KeyFrame>
+                </Animation>
+            </Style.Animations>
         </Style>
 </Styles>

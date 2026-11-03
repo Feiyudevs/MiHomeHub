@@ -12,7 +12,8 @@
         Topmost="True"
         WindowStartupLocation="Manual"
         TransparencyLevelHint="Transparent"
-        Background="Transparent">
+        Background="Transparent"
+        RenderOptions.TextRenderingMode="Antialias">
 
     <ctl:DialogPopup CardWidth="404" CardMaxHeight="240"
                      CanDrag="True"

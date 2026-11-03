@@ -9,7 +9,8 @@
         Topmost="True"
         WindowStartupLocation="Manual"
         TransparencyLevelHint="Transparent"
-        Background="Transparent">
+        Background="Transparent"
+        RenderOptions.TextRenderingMode="Antialias">
 
     <Window.Resources>
         <PathGeometry x:Key="GeoEye">M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z M12 9a3 3 0 1 0 0 6 3 3 0 0 0 0-6z</PathGeometry>
@@ -37,10 +38,10 @@
             </Setter>
         </Style>
         <Style Selector="Button.TrayItem:pointerover /template/ Border#Bd">
-            <Setter Property="Background" Value="{DynamicResource Surface5Brush}" />
+            <Setter Property="Background" Value="{DynamicResource SelBgHoverBrush}" />
         </Style>
         <Style Selector="Button.TrayItem:pressed /template/ Border#Bd">
-            <Setter Property="Background" Value="{DynamicResource Surface4Brush}" />
+            <Setter Property="Background" Value="{DynamicResource SelBgPressBrush}" />
         </Style>
         <Style Selector="Button.Danger:pointerover /template/ Border#Bd">
             <Setter Property="Background" Value="#FEE2E2" />
@@ -59,6 +60,13 @@
             <Setter Property="Foreground" Value="{DynamicResource Text2Brush}" />
             <Setter Property="FontSize" Value="13.5" />
             <Setter Property="VerticalAlignment" Value="Center" />
+        </Style>
+        <!-- 悬停底是实心紫：图标和文字一起翻白。危险项自己的红色规则写在后面，同优先级按顺序取后者。 -->
+        <Style Selector="Button.TrayItem:pointerover Path">
+            <Setter Property="Stroke" Value="{DynamicResource SelTextBrush}" />
+        </Style>
+        <Style Selector="Button.TrayItem:pointerover TextBlock">
+            <Setter Property="Foreground" Value="{DynamicResource SelTextBrush}" />
         </Style>
         <Style Selector="Button.TrayItem.Danger:pointerover Path">
             <Setter Property="Stroke" Value="#EF4444" />

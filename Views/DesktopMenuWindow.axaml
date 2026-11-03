@@ -10,6 +10,7 @@
         WindowStartupLocation="Manual"
         TransparencyLevelHint="Transparent"
         Background="Transparent"
+        RenderOptions.TextRenderingMode="Antialias"
         RequestedThemeVariant="Light">
 
     <Window.Styles>
@@ -25,27 +26,17 @@
             <Setter Property="Focusable" Value="False" />
             <Setter Property="Cursor" Value="Hand" />
             <Setter Property="FontSize" Value="11.5" />
-            <Setter Property="Foreground" Value="{DynamicResource TextBrush}" />
             <Setter Property="Transitions">
                 <Transitions>
                     <BrushTransition Property="Background" Duration="0:0:0.1" />
                 </Transitions>
             </Setter>
         </Style>
-        <Style Selector="Button.MItem:pointerover /template/ ContentPresenter#PART_ContentPresenter">
-            <Setter Property="Background" Value="{DynamicResource Surface5Brush}" />
-        </Style>
-        <Style Selector="Button.MItem:pressed /template/ ContentPresenter#PART_ContentPresenter">
-            <Setter Property="Background" Value="{DynamicResource Surface4Brush}" />
-        </Style>
-        <Style Selector="Button.MItem.danger">
-            <Setter Property="Foreground" Value="#D92D20" />
-        </Style>
-        <Style Selector="Button.MItem.danger:pointerover /template/ ContentPresenter#PART_ContentPresenter">
-            <Setter Property="Background" Value="#1FD92D20" />
-        </Style>
-        <Style Selector="Button.MItem.danger:pressed /template/ ContentPresenter#PART_ContentPresenter">
-            <Setter Property="Background" Value="#2AD92D20" />
+        <!-- 文字与图标的颜色必须逐条写在行内的控件上：Avalonia 的 Control.Foreground 不会沿可视树
+             继承到内容里的 TextBlock，挂在按钮上只影响按钮自己画的字符串内容，行内标签会退回黑色。
+             顺序固定为「基础档 → 悬停档 → 危险项」，同优先级取后者，所以后面的能盖住前面。 -->
+        <Style Selector="Button.MItem TextBlock">
+            <Setter Property="Foreground" Value="{DynamicResource TextBrush}" />
         </Style>
         <Style Selector="Button.MItem Path.MIc">
             <Setter Property="Stroke" Value="{DynamicResource Text2Brush}" />
@@ -53,12 +44,58 @@
             <Setter Property="StrokeLineCap" Value="Round" />
             <Setter Property="StrokeJoin" Value="Round" />
         </Style>
+        <Style Selector="Button.MItem:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+            <Setter Property="Background" Value="{DynamicResource SelBgHoverBrush}" />
+        </Style>
+        <Style Selector="Button.MItem:pressed /template/ ContentPresenter#PART_ContentPresenter">
+            <Setter Property="Background" Value="{DynamicResource SelBgPressBrush}" />
+        </Style>
+        <!-- 悬停底是实心紫：整行文字与图标一起翻白 -->
+        <Style Selector="Button.MItem:pointerover TextBlock">
+            <Setter Property="Foreground" Value="{DynamicResource SelTextBrush}" />
+        </Style>
+        <Style Selector="Button.MItem:pointerover Path.MIc">
+            <Setter Property="Stroke" Value="{DynamicResource SelTextBrush}" />
+        </Style>
+        <Style Selector="Button.MItem.danger TextBlock">
+            <Setter Property="Foreground" Value="#D92D20" />
+        </Style>
         <Style Selector="Button.MItem.danger Path.MIc">
             <Setter Property="Stroke" Value="#D92D20" />
         </Style>
+        <Style Selector="Button.MItem.danger:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+            <Setter Property="Background" Value="#1FD92D20" />
+        </Style>
+        <Style Selector="Button.MItem.danger:pressed /template/ ContentPresenter#PART_ContentPresenter">
+            <Setter Property="Background" Value="#2AD92D20" />
+        </Style>
+        <Style Selector="Button.MItem.danger:pointerover TextBlock">
+            <Setter Property="Foreground" Value="#B42318" />
+        </Style>
+        <Style Selector="Button.MItem.danger:pointerover Path.MIc">
+            <Setter Property="Stroke" Value="#B42318" />
+        </Style>
+        <!-- 入场：从触发按钮那一侧（上缘）放大 10px 落位。起点位移向下，缩放后仍在窗内，
+             不会被窗口边界裁掉；开关由代码在首帧后加 .open 触发 -->
+        <Style Selector="Border.PopupCard">
+            <Setter Property="Opacity" Value="0" />
+            <Setter Property="RenderTransformOrigin" Value="50%, 0%" />
+            <Setter Property="RenderTransform" Value="scale(0.94) translate(0px,8px)" />
+            <Setter Property="Transitions">
+                <Transitions>
+                    <DoubleTransition Property="Opacity" Duration="0:0:0.14" Easing="CubicEaseOut" />
+                    <TransformOperationsTransition Property="RenderTransform" Duration="0:0:0.22" Easing="CubicEaseOut" />
+                </Transitions>
+            </Setter>
+        </Style>
+        <Style Selector="Border.PopupCard.open">
+            <Setter Property="Opacity" Value="1" />
+            <Setter Property="RenderTransform" Value="scale(1) translate(0px,0px)" />
+        </Style>
     </Window.Styles>
 
-    <Border Background="{DynamicResource DrawerBgBrush}"
+    <Border x:Name="Card" Classes="PopupCard"
+            Background="{DynamicResource DrawerBgBrush}"
             BorderBrush="{DynamicResource LineBrush}"
             BorderThickness="1"
             CornerRadius="12"
@@ -105,6 +142,11 @@
                                VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
                 </Grid>
             </Button>
+            <!-- 拖拽排序没有把手，光靠卡片悬停的虚线框容易被忽略：在这块分区的菜单里补一句说明。
+                 单独一条分隔线隔开，免得读成「解散分区」的注解 -->
+            <Border Height="1" Background="{DynamicResource LineBrush}" Margin="8,4" IsVisible="{Binding !IsMedia}" />
+            <TextBlock Text="拖拽卡片可排序" FontSize="11" Margin="8,0,8,2"
+                       Foreground="{DynamicResource Text3Brush}" IsVisible="{Binding !IsMedia}" />
         </StackPanel>
     </Border>
 </Window>

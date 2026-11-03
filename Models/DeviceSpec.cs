@@ -121,9 +121,15 @@ public sealed class DeviceSpec
     public SpecPropertyDef? FindProp(string name) =>
         Properties.FirstOrDefault(x => x.Readable && x.Name == name);
 
-    /// <summary>耗材余量（滤芯/刷头 life-level，0–100 百分比）；按属性短名识别，读不到值的是空集合。</summary>
+    /// <summary>
+    /// 耗材余量：滤芯/刷头 life-level 与电量 battery-level（0–100 百分比）。
+    /// battery 只在量程不超过 100 时才算百分比，避免把毫伏读数当成余量。
+    /// </summary>
     public IEnumerable<SpecPropertyDef> ConsumableProps =>
-        Properties.Where(p => p.Readable && p.IsNumeric && p.Name.Contains("life-level", StringComparison.Ordinal));
+        Properties.Where(p => p.Readable && p.IsNumeric &&
+            (p.Name.Contains("life-level", StringComparison.Ordinal) ||
+             p.Name == "battery-level" ||
+             (p.Name == "battery" && (!p.HasRange || p.Max <= 100))));
 
     /// <summary>音箱音量属性：speaker 服务的 volume，可读可写、0–100。</summary>
     public SpecPropertyDef? SpeakerVolume =>

@@ -12,8 +12,9 @@
     xmlns:views="clr-namespace:MiHome.Views"
              x:Class="MiHome.Views.HomeView">
     <StackPanel x:DataType="vm:MainViewModel">
-        <!-- Hero：透明底；左侧问候+概览按钮，右侧统计卡+环境概览 -->
-        <Grid ColumnDefinitions="*,Auto" Margin="28,26">
+        <!-- Hero：透明底；左侧问候+概览按钮，右侧统计卡+环境概览。
+             左列 Auto、右列 *：统计卡整行占宽更大，反过来写会把问候语挤到裁字，右侧也就没有换行的余量 -->
+        <Grid ColumnDefinitions="Auto,*" Margin="28,26">
             <StackPanel VerticalAlignment="Top" Spacing="0">
                 <StackPanel Orientation="Horizontal" Spacing="0">
                     <TextBlock Text="{Binding Greet}" FontSize="24" FontWeight="Bold"
@@ -73,104 +74,172 @@
                         </ItemsPanelTemplate>
                     </ItemsControl.ItemsPanel>
                 </ItemsControl>
-                <!-- 环境概览：温湿度聚合 + 耗材提醒，明细进弹窗；统计卡下方，底部右对齐 -->
+                <!-- 环境概览：温湿度聚合 + 耗材提醒，三枚胶囊都可点开明细；统计卡下方，底部右对齐 -->
                 <WrapPanel Margin="0,0,0,0" IsVisible="{Binding ShowEnvOverview}" HorizontalAlignment="Right">
-                    <Border Classes="EnvPill" Margin="0,0,8,6">
+                    <Button Classes="EnvPill" Margin="0,0,8,6" ToolTip.Tip="点击查看明细"
+                        Command="{Binding OpenEnvDetailCommand}">
                         <StackPanel Orientation="Horizontal" Spacing="6">
                             <TextBlock Classes="EnvLab" Text="温度" />
                             <TextBlock Classes="EnvVal" Text="{Binding EnvTemperatureText}" />
                         </StackPanel>
-                    </Border>
-                    <Border Classes="EnvPill" Margin="0,0,8,6">
+                    </Button>
+                    <Button Classes="EnvPill" Margin="0,0,8,6" ToolTip.Tip="点击查看明细"
+                        Command="{Binding OpenEnvDetailCommand}">
                         <StackPanel Orientation="Horizontal" Spacing="6">
                             <TextBlock Classes="EnvLab" Text="湿度" />
                             <TextBlock Classes="EnvVal" Text="{Binding EnvHumidityText}" />
                         </StackPanel>
-                    </Border>
-                    <Border Classes="EnvPill" Margin="0,0,8,6"
-                        Classes.is-warn="{Binding HasConsumableWarning}">
+                    </Button>
+                    <Button Classes="EnvPill" Margin="0,0,0,6" ToolTip.Tip="点击查看明细"
+                        Classes.is-warn="{Binding HasConsumableWarning}"
+                        Command="{Binding OpenEnvDetailCommand}">
                         <TextBlock Classes="EnvVal" Classes.is-warn="{Binding HasConsumableWarning}"
                                Text="{Binding ConsumablePillText}" />
-                    </Border>
-                    <Button Classes="BtnGhost" Margin="0,0,0,6" Height="28" Padding="12,0"
-                        FontSize="12" VerticalAlignment="Center"
-                        Content="明细"
-                        Command="{Binding OpenEnvDetailCommand}" />
+                    </Button>
                 </WrapPanel>
                 <!-- 首拉期间统计数字还是 0，先铺四张同尺寸骨架卡，设备一到整行换真卡 -->
                 <ItemsControl ItemsSource="{Binding StatSkeletonSlots}"
                           ItemTemplate="{StaticResource StatSkeletonTemplate}"
-                          IsVisible="{Binding ShowSkeleton}" HorizontalAlignment="Right">
+                          IsVisible="{Binding ShowSkeleton}" HorizontalAlignment="Right"
+                          Margin="0,0,-10,-10">
                     <ItemsControl.ItemsPanel>
                         <ItemsPanelTemplate>
-                            <StackPanel Orientation="Horizontal" Spacing="10" />
+                            <WrapPanel />
                         </ItemsPanelTemplate>
                     </ItemsControl.ItemsPanel>
                 </ItemsControl>
-                <StackPanel Orientation="Horizontal" Spacing="10" HorizontalAlignment="Right"
-                            IsVisible="{Binding !ShowSkeleton}">
-                    <Border CornerRadius="16" Padding="16,13" MinWidth="96"
-                            Background="{DynamicResource CardBrush}"
-                            BoxShadow="0 1 2 0 #050F172A, 0 5 16 0 #080F172A">
-                        <StackPanel Spacing="6">
-                            <StackPanel Orientation="Horizontal" Spacing="6">
-                                <Ellipse Width="5" Height="5" VerticalAlignment="Center"
-                                         Fill="{DynamicResource StatGreenBrush}" />
-                                <TextBlock Text="在线设备" FontSize="11"
-                                           Foreground="{DynamicResource Text3Brush}" />
+                <WrapPanel HorizontalAlignment="Right" Margin="0,0,-10,-10"
+                           IsVisible="{Binding !ShowSkeleton}">
+                    <!-- 四张统计卡都可点：在线→离线设备弹窗、灯光/窗帘/空调→对应全屋弹窗。
+                         卡片图标套 Viewbox 按 24 网格缩放：Path 单用 Stretch 会贴框左上角，还把描边一起放大。
+                         用 WrapPanel + 负外边距：窗口窄时整行折成两排，右边缘仍对齐（-10 抵掉末项的 10 右边距）。 -->
+                    <Button Classes="StatCard" Margin="0,0,10,10" Command="{Binding OpenOfflineListCommand}"
+                            ToolTip.Tip="点击查看离线设备">
+                        <Panel>
+                            <StackPanel Spacing="6">
+                                <StackPanel Orientation="Horizontal" Spacing="6">
+                                    <Viewbox Classes="StatIc">
+                                        <Panel Width="24" Height="24">
+                                            <Path Classes="StatIc" Stroke="{DynamicResource StatGreenBrush}"
+                                                  Data="{StaticResource GeoWifi}" />
+                                        </Panel>
+                                    </Viewbox>
+                                    <TextBlock Text="在线设备" FontSize="11" VerticalAlignment="Center"
+                                               Foreground="{DynamicResource Text3Brush}" />
+                                </StackPanel>
+                                <Grid ColumnDefinitions="Auto,*">
+                                    <StackPanel Orientation="Horizontal" Spacing="4" VerticalAlignment="Bottom">
+                                        <TextBlock Text="{Binding OnlineCount}" FontSize="21" FontWeight="SemiBold"
+                                                   Foreground="{DynamicResource StatGreenBrush}" />
+                                        <TextBlock Text="{Binding TotalText}" FontSize="11.5" FontWeight="SemiBold"
+                                                   Foreground="{DynamicResource Text3Brush}" VerticalAlignment="Bottom"
+                                                   Margin="0,0,0,3" />
+                                    </StackPanel>
+                                    <!-- 离线数量写全称摆在数字同一行；0 台走中性灰，真有掉线才转琥珀提醒 -->
+                                    <TextBlock Grid.Column="1" Classes="OfflineTag" Classes.is-warn="{Binding HasOffline}"
+                                               Text="{Binding OfflineText}" HorizontalAlignment="Right"
+                                               VerticalAlignment="Bottom" Margin="0,0,0,3" />
+                                </Grid>
                             </StackPanel>
-                            <StackPanel Orientation="Horizontal" Spacing="4" VerticalAlignment="Bottom">
-                                <TextBlock Text="{Binding OnlineCount}" FontSize="21" FontWeight="SemiBold"
-                                          Foreground="{DynamicResource StatGreenBrush}" />
-                                <TextBlock Text="{Binding TotalText}" FontSize="11.5" FontWeight="SemiBold"
-                                          Foreground="{DynamicResource Text3Brush}" VerticalAlignment="Bottom"
-                                          Margin="0,0,0,3" />
+                            <Viewbox Classes="StatGo">
+                                <Panel Width="24" Height="24">
+                                    <Path Classes="StatGoIc" Stroke="{DynamicResource StatGreenBrush}"
+                                          Data="{StaticResource GeoArrow}" />
+                                </Panel>
+                            </Viewbox>
+                        </Panel>
+                    </Button>
+                    <Button Classes="StatCard" Margin="0,0,10,10" Command="{Binding OpenLightListCommand}"
+                            ToolTip.Tip="点击查看全屋灯光">
+                        <Panel>
+                            <StackPanel Spacing="6">
+                                <StackPanel Orientation="Horizontal" Spacing="6">
+                                    <Viewbox Classes="StatIc">
+                                        <Panel Width="24" Height="24">
+                                            <Path Classes="StatIc" Stroke="{DynamicResource StatPurpleBrush}"
+                                                  Data="{StaticResource GeoLight}" />
+                                        </Panel>
+                                    </Viewbox>
+                                    <TextBlock Text="灯光" FontSize="11" VerticalAlignment="Center"
+                                               Foreground="{DynamicResource Text3Brush}" />
+                                </StackPanel>
+                                <StackPanel Orientation="Horizontal" Spacing="4" VerticalAlignment="Bottom">
+                                    <TextBlock Text="{Binding LightOnCount}" FontSize="21" FontWeight="SemiBold"
+                                               Foreground="{DynamicResource StatPurpleBrush}" />
+                                    <TextBlock Text="{Binding LightTotalText}" FontSize="11.5" FontWeight="SemiBold"
+                                               Foreground="{DynamicResource Text3Brush}" VerticalAlignment="Bottom"
+                                               Margin="0,0,0,3" />
+                                </StackPanel>
                             </StackPanel>
-                        </StackPanel>
-                    </Border>
-                    <Border CornerRadius="16" Padding="16,13" MinWidth="96"
-                            Background="{DynamicResource CardBrush}"
-                            BoxShadow="0 1 2 0 #050F172A, 0 5 16 0 #080F172A">
-                        <StackPanel Spacing="6">
-                            <StackPanel Orientation="Horizontal" Spacing="6">
-                                <Ellipse Width="5" Height="5" VerticalAlignment="Center"
-                                         Fill="{DynamicResource StatPurpleBrush}" />
-                                <TextBlock Text="已开启" FontSize="11"
-                                           Foreground="{DynamicResource Text3Brush}" />
+                            <Viewbox Classes="StatGo">
+                                <Panel Width="24" Height="24">
+                                    <Path Classes="StatGoIc" Stroke="{DynamicResource StatPurpleBrush}"
+                                          Data="{StaticResource GeoArrow}" />
+                                </Panel>
+                            </Viewbox>
+                        </Panel>
+                    </Button>
+                    <Button Classes="StatCard" Margin="0,0,10,10" Command="{Binding OpenCurtainListCommand}"
+                            ToolTip.Tip="点击查看全屋窗帘">
+                        <Panel>
+                            <StackPanel Spacing="6">
+                                <StackPanel Orientation="Horizontal" Spacing="6">
+                                    <Viewbox Classes="StatIc">
+                                        <Panel Width="24" Height="24">
+                                            <Path Classes="StatIc" Stroke="{DynamicResource StatTealBrush}"
+                                                  Data="{StaticResource GeoCurtain}" />
+                                        </Panel>
+                                    </Viewbox>
+                                    <TextBlock Text="窗帘" FontSize="11" VerticalAlignment="Center"
+                                               Foreground="{DynamicResource Text3Brush}" />
+                                </StackPanel>
+                                <StackPanel Orientation="Horizontal" Spacing="4" VerticalAlignment="Bottom">
+                                    <TextBlock Text="{Binding CurtainOnCount}" FontSize="21" FontWeight="SemiBold"
+                                               Foreground="{DynamicResource StatTealBrush}" />
+                                    <TextBlock Text="{Binding CurtainTotalText}" FontSize="11.5" FontWeight="SemiBold"
+                                               Foreground="{DynamicResource Text3Brush}" VerticalAlignment="Bottom"
+                                               Margin="0,0,0,3" />
+                                </StackPanel>
                             </StackPanel>
-                            <TextBlock Text="{Binding OnCount}" FontSize="21" FontWeight="SemiBold"
-                                       Foreground="{DynamicResource StatPurpleBrush}" />
-                        </StackPanel>
-                    </Border>
-                    <Border CornerRadius="16" Padding="16,13" MinWidth="96"
-                            Background="{DynamicResource CardBrush}"
-                            BoxShadow="0 1 2 0 #050F172A, 0 5 16 0 #080F172A">
-                        <StackPanel Spacing="6">
-                            <StackPanel Orientation="Horizontal" Spacing="6">
-                                <Ellipse Width="5" Height="5" VerticalAlignment="Center"
-                                         Fill="{DynamicResource StatBlueBrush}" />
-                                <TextBlock Text="房间" FontSize="11"
-                                           Foreground="{DynamicResource Text3Brush}" />
+                            <Viewbox Classes="StatGo">
+                                <Panel Width="24" Height="24">
+                                    <Path Classes="StatGoIc" Stroke="{DynamicResource StatTealBrush}"
+                                          Data="{StaticResource GeoArrow}" />
+                                </Panel>
+                            </Viewbox>
+                        </Panel>
+                    </Button>
+                    <Button Classes="StatCard" Margin="0,0,10,10" Command="{Binding OpenAcListCommand}"
+                            ToolTip.Tip="点击查看全屋空调">
+                        <Panel>
+                            <StackPanel Spacing="6">
+                                <StackPanel Orientation="Horizontal" Spacing="6">
+                                    <Viewbox Classes="StatIc">
+                                        <Panel Width="24" Height="24">
+                                            <Path Classes="StatIc" Stroke="{DynamicResource StatCyanBrush}"
+                                                  Data="{StaticResource GeoAirCon}" />
+                                        </Panel>
+                                    </Viewbox>
+                                    <TextBlock Text="空调" FontSize="11" VerticalAlignment="Center"
+                                               Foreground="{DynamicResource Text3Brush}" />
+                                </StackPanel>
+                                <StackPanel Orientation="Horizontal" Spacing="4" VerticalAlignment="Bottom">
+                                    <TextBlock Text="{Binding AcOnCount}" FontSize="21" FontWeight="SemiBold"
+                                               Foreground="{DynamicResource StatCyanBrush}" />
+                                    <TextBlock Text="{Binding AcTotalText}" FontSize="11.5" FontWeight="SemiBold"
+                                               Foreground="{DynamicResource Text3Brush}" VerticalAlignment="Bottom"
+                                               Margin="0,0,0,3" />
+                                </StackPanel>
                             </StackPanel>
-                            <TextBlock Text="{Binding RoomCount}" FontSize="21" FontWeight="SemiBold"
-                                       Foreground="{DynamicResource StatBlueBrush}" />
-                        </StackPanel>
-                    </Border>
-                    <Border CornerRadius="16" Padding="16,13" MinWidth="96"
-                            Background="{DynamicResource CardBrush}"
-                            BoxShadow="0 1 2 0 #050F172A, 0 5 16 0 #080F172A">
-                        <StackPanel Spacing="6">
-                            <StackPanel Orientation="Horizontal" Spacing="6">
-                                <Ellipse Width="5" Height="5" VerticalAlignment="Center"
-                                         Fill="{DynamicResource StatPinkBrush}" />
-                                <TextBlock Text="场景" FontSize="11"
-                                           Foreground="{DynamicResource Text3Brush}" />
-                            </StackPanel>
-                            <TextBlock Text="{Binding SceneCount}" FontSize="21" FontWeight="SemiBold"
-                                       Foreground="{DynamicResource StatPinkBrush}" />
-                        </StackPanel>
-                    </Border>
-                </StackPanel>
+                            <Viewbox Classes="StatGo">
+                                <Panel Width="24" Height="24">
+                                    <Path Classes="StatGoIc" Stroke="{DynamicResource StatCyanBrush}"
+                                          Data="{StaticResource GeoArrow}" />
+                                </Panel>
+                            </Viewbox>
+                        </Panel>
+                    </Button>
+                </WrapPanel>
             </StackPanel>
         </Grid>
         <!-- 快捷场景：标题行右侧「更多」进场景页；没有场景时整条不出现 -->

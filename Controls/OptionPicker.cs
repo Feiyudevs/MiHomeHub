@@ -93,17 +93,25 @@ public partial class OptionPicker : UserControl
     private void SyncSelection()
     {
         string? current = null;
+        string? meta = null;
         if (Options is IEnumerable items)
         {
             foreach (var raw in items)
             {
                 if (raw is not IPickOption option) continue;
                 option.IsSelected = Equals(option.Value, SelectedValue);
-                if (option.IsSelected) current = option.Label;
+                if (option.IsSelected)
+                {
+                    current = option.Label;
+                    meta = option.Meta;
+                }
             }
         }
 
         Cur.Text = current ?? "选择";
+        // 触发器上的房间标注跟着选中项走，没有就不留空底板
+        PreTxt.Text = meta ?? "";
+        Pre.IsVisible = !string.IsNullOrEmpty(meta);
     }
 
     private void OnItemClick(object? sender, RoutedEventArgs args)

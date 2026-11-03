@@ -106,12 +106,22 @@
                             </Border>
                             <StackPanel Grid.Column="1" VerticalAlignment="Center" Spacing="2.5"
                                         Margin="10,0,6,0">
-                                <TextBlock Text="{Binding SpeakerName}" FontSize="13" FontWeight="SemiBold"
-                                           TextTrimming="CharacterEllipsis"
-                                           Foreground="{DynamicResource DskTextBrush}" />
+                                <!-- 房间标在名称左边（与各处音箱下拉同一规则），未分配房间时整块不占位。
+                                     文字用 DskText2：半透明玻璃卡面上 DskText3 偏闷，提亮一档才读得清 -->
+                                <Grid ColumnDefinitions="Auto,*">
+                                    <Border Classes="RoomTag" Margin="0,0,6,0"
+                                            IsVisible="{Binding SpeakerRoom, Converter={x:Static StringConverters.IsNotNullOrEmpty}}">
+                                        <TextBlock Text="{Binding SpeakerRoom}" FontSize="10.5"
+                                                   Foreground="{DynamicResource DskText2Brush}" />
+                                    </Border>
+                                    <TextBlock Grid.Column="1" Text="{Binding SpeakerName}" FontSize="13"
+                                               FontWeight="SemiBold" TextTrimming="CharacterEllipsis"
+                                               VerticalAlignment="Center"
+                                               Foreground="{DynamicResource DskTextBrush}" />
+                                </Grid>
                                 <TextBlock Text="{Binding SpeakerMeta}" FontSize="11"
                                            TextTrimming="CharacterEllipsis"
-                                           Foreground="{DynamicResource DskText3Brush}" />
+                                           Foreground="{DynamicResource DskText2Brush}" />
                             </StackPanel>
                             <!-- 下拉箭头：这一行是「换音箱」的入口，箭头让它看起来可点 -->
                             <Viewbox Grid.Column="2" Width="13" Height="13" Stretch="Uniform"

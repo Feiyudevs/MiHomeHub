@@ -19,6 +19,11 @@
         <Style Selector="StackPanel.ZoneBody.media">
             <Setter Property="Margin" Value="12" />
         </Style>
+        <!-- 这里刻意不给 TextBlock 加轮廓阴影（试过，已撤）：Avalonia 的 DropShadowEffect
+             对 12.5px 小字相当于每笔画外糊一圈 9px 灰雾，在中等亮度的磨砂底上会整片发脏。
+             DeskBox 也开了文字阴影，但它的背景是 60~145 的暗底，黑影落在上面本来就看不见；
+             它读得清靠的是背景暗，不是阴影。本程序的对比度由 CardBrush 的浓度负责，
+             不在文字上加任何第二层。 -->
     </UserControl.Styles>
 
     <UserControl.DataTemplates>
@@ -61,11 +66,13 @@
                             <Grid Name="TitleNameHost" VerticalAlignment="Center" MaxWidth="150">
                                 <TextBlock Name="TitleText" Text="{Binding Name}" FontSize="12.5"
                                            FontWeight="SemiBold" VerticalAlignment="Center"
+                                           Opacity="{Binding TitleOpacity}"
                                            MaxWidth="150" TextTrimming="CharacterEllipsis"
                                            Foreground="{DynamicResource DskTextBrush}" />
                             </Grid>
                             <Border CornerRadius="999" Height="16" Padding="6,0" VerticalAlignment="Center"
-                                    Background="#1FFFFFFF" IsVisible="{Binding ShowCount}">
+                                    Background="#1FFFFFFF" IsVisible="{Binding ShowCount}"
+                                    Opacity="{Binding TitleOpacity}">
                                 <TextBlock Text="{Binding CountText}" FontSize="10" FontWeight="SemiBold"
                                            VerticalAlignment="Center"
                                            Foreground="{DynamicResource DskText2Brush}" />

@@ -15,11 +15,14 @@ namespace MiHome.Views;
 /// </summary>
 public partial class DesktopRenameWindow : Window
 {
-    /// <summary>浮层相对名称左边多出来的留白（DIP）：输入框内距 8，让文字落在原位。</summary>
-    private const double PadDip = 8;
+    /// <summary>
+    /// 浮层相对名称左边多出来的留白（DIP），同时是输入框的左内距：
+    /// 两者相等时文字正好落回原名位置，而卡片左侧只留出一条窄缝、不再压住标题栏的竖条。
+    /// </summary>
+    private const double PadDip = 4;
 
-    /// <summary>浮层高度与名称行高之差的一半（DIP）：垂直居中盖住原名称。</summary>
-    private const double CenterDip = 7;
+    /// <summary>浮层紧凑高度（DIP）：CJK 名称文字墨迹约 14，配 LineHeight 15 后贴字面即可。</summary>
+    private const double BoxHeightDip = 18;
 
     private PixelRect _anchor;
     private DateTime _openedAt;
@@ -50,18 +53,64 @@ public partial class DesktopRenameWindow : Window
         base.OnOpened(e);
         _openedAt = DateTime.UtcNow;
 
-        // Show 之后才知道真实缩放：宽度按名称实际宽度给，短名字也不至于只剩一条缝
+        // Show 之后才知道真实缩放：宽度按名称实际宽度给，高度固定紧凑、以文字中心对齐
         var scale = RenderScaling > 0 ? RenderScaling : 1;
-        Width = Math.Clamp(_anchor.Width / scale + PadDip * 2, 120, 240);
+        Width = Math.Clamp(_anchor.Width / scale + PadDip * 2, 72, 240);
+        Height = BoxHeightDip;
+
+        var anchorCenterY = _anchor.Y + _anchor.Height / 2.0;
         Position = new PixelPoint(
             _anchor.X - (int)Math.Round(PadDip * scale),
-            _anchor.Y - (int)Math.Round(CenterDip * scale));
+            (int)Math.Round(anchorCenterY - BoxHeightDip * scale / 2.0));
 
         Dispatcher.UIThread.Post(() =>
         {
             NameBox.Focus();
             NameBox.SelectAll();
         }, DispatcherPriority.Input);
+
+        // 布局真正跑完后，用卡片实测到的屏幕位置做一次校正
+        Dispatcher.UIThread.Post(LogGeometry, DispatcherPriority.Loaded);
+    }
+
+    /// <summary>
+    /// 校正浮层位置：按常量估的偏移在「客户区被 Fluent 模板撑高」时会偏，
+    /// 所以直接量出卡片当前真正落在哪，再整体挪到名称的垂直中心上。
+    /// </summary>
+    private void CorrectOntoAnchor()
+    {
+        if (_closing) return;
+
+        var scale = RenderScaling > 0 ? RenderScaling : 1;
+        var cardOnScreen = Card.PointToScreen(new Point(0, 0));
+        var cardH = (int)Math.Round(Card.Bounds.Height * scale);
+        var target = new PixelPoint(
+            _anchor.X - (int)Math.Round(PadDip * scale),
+            _anchor.Y + _anchor.Height / 2 - cardH / 2);
+
+        Position = new PixelPoint(
+            Position.X + target.X - cardOnScreen.X,
+            Position.Y + target.Y - cardOnScreen.Y);
+    }
+
+    private void LogGeometry()
+    {
+        CorrectOntoAnchor();
+
+        try
+        {
+            var scale = RenderScaling > 0 ? RenderScaling : 1;
+            var cardOnScreen = Card.PointToScreen(new Point(0, 0));
+            var line = $"anchor=({_anchor.X},{_anchor.Y},{_anchor.Width},{_anchor.Height}) " +
+                       $"pos=({Position.X},{Position.Y}) winBounds=({Bounds.X},{Bounds.Y},{Bounds.Width},{Bounds.Height}) " +
+                       $"win.Height={Height} cardH={Card.Bounds.Height} cardOnScreen=({cardOnScreen.X},{cardOnScreen.Y}) " +
+                       $"boxH={NameBox.Bounds.Height} scale={scale}\n";
+            System.IO.File.AppendAllText(@"I:\AICode\MiHomeWin\rename_dbg.txt", line);
+        }
+        catch (Exception ex)
+        {
+            System.IO.File.AppendAllText(@"I:\AICode\MiHomeWin\rename_dbg.txt", "ERR " + ex + "\n");
+        }
     }
 
     protected override void OnKeyDown(KeyEventArgs e)

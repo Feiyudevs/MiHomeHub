@@ -12,7 +12,8 @@
         Topmost="True"
         WindowStartupLocation="Manual"
         TransparencyLevelHint="Transparent"
-        Background="Transparent">
+        Background="Transparent"
+        RenderOptions.TextRenderingMode="Antialias">
 
     <Window.Styles>
         <!-- 设备卡片：一整块有底色的卡（之前是 Transparent，只有一圈描边，看着像表格行）。

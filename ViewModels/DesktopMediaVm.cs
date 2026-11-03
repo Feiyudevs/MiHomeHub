@@ -42,10 +42,13 @@ public partial class DesktopMediaVm : DesktopZoneVm
 
     public string SpeakerName => _speaker?.Name ?? "未选择音箱";
 
-    /// <summary>副标题：房间 + 真实播放状态。规格里取不到歌名，所以这一行只报状态，不假装是曲目。</summary>
-    public string SpeakerMeta => _speaker is { } d
-        ? $"{RoomPart(d)} · {StateWord(d)}"
-        : "先到首页选一台音箱";
+    /// <summary>名称左边的房间标注，与各处音箱下拉同源；没归到房间就不显示。</summary>
+    public string? SpeakerRoom => _speaker is { } d && !string.IsNullOrWhiteSpace(d.RoomName) && d.RoomName != "未分配房间"
+        ? d.RoomName
+        : null;
+
+    /// <summary>副标题只报真实播放状态：房间已经标在名称左边，不再重复一遍。规格里取不到歌名，所以不假装是曲目。</summary>
+    public string SpeakerMeta => _speaker is { } d ? StateWord(d) : "先到首页选一台音箱";
 
     private static string StateWord(MijiaDevice d) => d switch
     {
@@ -55,9 +58,6 @@ public partial class DesktopMediaVm : DesktopZoneVm
         { IsPlaying: true } => "播放中",
         _ => "未在播放"
     };
-
-    private static string RoomPart(MijiaDevice d)
-        => string.IsNullOrWhiteSpace(d.RoomName) || d.RoomName == "未分配房间" ? "未分配房间" : d.RoomName;
 
     public bool IsPlaying => _speaker?.IsPlaying ?? false;
 
@@ -112,6 +112,7 @@ public partial class DesktopMediaVm : DesktopZoneVm
             case nameof(MijiaDevice.Name):
             case nameof(MijiaDevice.RoomName):
                 OnPropertyChanged(nameof(SpeakerName));
+                OnPropertyChanged(nameof(SpeakerRoom));
                 OnPropertyChanged(nameof(SpeakerMeta));
                 break;
         }
@@ -122,7 +123,7 @@ public partial class DesktopMediaVm : DesktopZoneVm
         foreach (var name in new[]
                  {
                      nameof(Speaker), nameof(ShowControls), nameof(IsEmpty),
-                     nameof(SpeakerName), nameof(SpeakerMeta), nameof(IsPlaying),
+                     nameof(SpeakerName), nameof(SpeakerRoom), nameof(SpeakerMeta), nameof(IsPlaying),
                      nameof(VolumePercent), nameof(VolumeBadgeText)
                  })
         {
@@ -162,6 +163,7 @@ public partial class DesktopMediaVm : DesktopZoneVm
             SpeakerPicks.Add(new SpeakerPickItem
             {
                 Label = o.Label,
+                Meta = o.Meta,
                 Did = did,
                 IsCurrent = did.Length > 0 && did == current
             });
@@ -192,6 +194,9 @@ public partial class DesktopMediaVm : DesktopZoneVm
 public sealed class SpeakerPickItem
 {
     public required string Label { get; init; }
+
+    /// <summary>房间标注，与首页/设置的下拉同源；未分配房间时为 null，不占位。</summary>
+    public string? Meta { get; init; }
 
     public required string Did { get; init; }
 

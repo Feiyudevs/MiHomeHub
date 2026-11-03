@@ -479,8 +479,10 @@ public static class DesktopHost
 
         var win = new DesktopRenameWindow();
         _rename = win;
+        vm.IsRenaming = true;
         win.Closed += (_, _) =>
         {
+            vm.IsRenaming = false;
             if (ReferenceEquals(_rename, win)) _rename = null;
         };
         win.Bind(vm, anchor);

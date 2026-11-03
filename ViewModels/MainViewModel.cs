@@ -81,10 +81,43 @@ public partial class MainViewModel : ObservableObject
     private bool _revertingAutoStart;
     [ObservableProperty] private int _totalCount;
     [ObservableProperty] private int _onlineCount;
-    [ObservableProperty] private int _onCount;
+    [ObservableProperty] private int _lightOnCount;
+    [ObservableProperty] private string _lightTotalText = "";
+    [ObservableProperty] private int _curtainOnCount;
+    [ObservableProperty] private string _curtainTotalText = "";
+    [ObservableProperty] private int _acOnCount;
+    [ObservableProperty] private string _acTotalText = "";
     [ObservableProperty] private int _offlineCount;
-    [ObservableProperty] private int _sceneCount;
+    [ObservableProperty] private bool _hasOffline;
+
+    /// <summary>
+    /// 统计卡弹窗的口径：设备类型卡各自列本类型设备，在线卡列掉线设备。
+    /// 四张类型卡共用同一个弹窗视图，只有标题、量词和过滤条件不同。
+    /// </summary>
+    public enum StatListKind
+    {
+        Lights,
+        Curtains,
+        Ac,
+        Offline,
+    }
+
+    private StatListKind _statListKind = StatListKind.Lights;
+
+    /// <summary>统计卡弹窗当前列出的设备（按 <see cref="_statListKind"/> 过滤，弹窗开着时随轮询同步）。</summary>
+    public ObservableCollection<MijiaDevice> StatDevices { get; } = new();
+
+    [ObservableProperty] private bool _hasStatDevices;
+    [ObservableProperty] private bool _isStatListOpen;
+    [ObservableProperty] private string _statListTitle = "";
+
+    /// <summary>清单为空时置 null：DialogPopup 的副标题按非 null 判定显示，空串会留一条空白行。</summary>
+    [ObservableProperty] private string? _statListSubtitle;
+
+    /// <summary>清单为空时的正文提示（空列表只剩一行副标题会像没加载出来）。</summary>
+    [ObservableProperty] private string _statListEmptyText = "";
     [ObservableProperty] private int _roomCount;
+    [ObservableProperty] private int _sceneCount;
     [ObservableProperty] private bool _hasDevices;
     [ObservableProperty] private bool _hasScenes;
     [ObservableProperty] private string _totalText = "";
@@ -204,7 +237,7 @@ public partial class MainViewModel : ObservableObject
     public IReadOnlyList<string> SkeletonSlots { get; } =
         Enumerable.Range(0, 10).Select(i => i.ToString()).ToArray();
 
-    /// <summary>概览统计卡的骨架槽位：真实统计卡固定四张（在线/开启/房间/场景），占位数量与之一致。</summary>
+    /// <summary>概览统计卡的骨架槽位：真实统计卡固定四张（在线/灯光/窗帘/空调），占位数量与之一致。</summary>
     public IReadOnlyList<string> StatSkeletonSlots { get; } =
         Enumerable.Range(0, 4).Select(i => i.ToString()).ToArray();
 
@@ -341,11 +374,6 @@ public partial class MainViewModel : ObservableObject
             ApplyFilter();
             RebuildHomeGroups();
         }, TimeSpan.FromMilliseconds(250));
-    }
-
-    partial void OnDrawerDeviceChanged(MijiaDevice? value)
-    {
-        if (value != null) IsDrawerOpen = true;
     }
 
     partial void OnSelectedHomeChanged(HomeOption? value)
@@ -972,7 +1000,9 @@ public partial class MainViewModel : ObservableObject
         // 又都落在大对象堆上——GC 默认既不压缩 LOH，也不会马上把提交内存还给系统，进程就停在
         // 加载峰值不动。这里收一次，顺带强制压缩 LOH，把虚高的常驻内存压回真实用量。
         GCSettings.LargeObjectHeapCompactionMode = GCLargeObjectHeapCompactionMode.CompactOnce;
-        GC.Collect(GC.MaxGeneration, GCCollectionMode.Aggressive, blocking: false);
+        // Aggressive 模式在 .NET 中强制要求 blocking:true，否则会抛 ArgumentException；
+        // 该调用在丢弃的 Task 内，异常一旦冒出就成了未观察异常，最终在 finalizer 线程 rethrow 拖崩进程。
+        GC.Collect(GC.MaxGeneration, GCCollectionMode.Aggressive, blocking: true);
     }
 
     private async Task LoadScenesAsync()
@@ -1140,16 +1170,81 @@ public partial class MainViewModel : ObservableObject
     {
         TotalCount = _allDevices.Count;
         OnlineCount = _allDevices.Count(d => d.IsOnline);
-        OnCount = _allDevices.Count(d => d.IsOnline && d.IsOn);
         OfflineCount = TotalCount - OnlineCount;
-        SceneCount = SceneItems.Count;
         HasScenes = SceneItems.Count > 0;
         TotalText = $"/ {TotalCount}";
         OfflineText = $"离线 {OfflineCount}";
+        HasOffline = OfflineCount > 0;
+        // 三张类型卡：数字是「在线且开」，斜杠后是该类型总数，与弹窗清单同一口径
+        var lights = _allDevices.Where(d => d.IconKey == "light").ToList();
+        var curtains = _allDevices.Where(d => d.IconKey == "curtain").ToList();
+        var acs = _allDevices.Where(d => d.IconKey == "ac").ToList();
+        LightOnCount = lights.Count(d => d.IsOnline && d.IsOn);
+        CurtainOnCount = curtains.Count(d => d.IsOnline && d.IsOn);
+        AcOnCount = acs.Count(d => d.IsOnline && d.IsOn);
+        LightTotalText = $"/ {lights.Count}";
+        CurtainTotalText = $"/ {curtains.Count}";
+        AcTotalText = $"/ {acs.Count}";
+        RefreshStatList();
         UpdateBanner();
         // 桌面分区按 did 从这里取实例：列表换代后让它们重绑一次（同实例时内部直接跳过）
         RaiseDevicesReloaded();
     }
+
+    /// <summary>
+    /// 同步统计卡弹窗的清单（弹窗开着时轮询与开关动作都会走到这里，设备状态变了列表跟着变）。
+    /// 同实例同顺序时不重建：Clear+Add 会让每张卡重新绑定并重排文字，
+    /// 而重排在字体缓存里只增不减，每轮刷新整批重建会把内存一直顶上去。
+    /// </summary>
+    private void RefreshStatList()
+    {
+        var kind = _statListKind;
+        var list = kind switch
+        {
+            StatListKind.Lights => OnFirst("light", _allDevices),
+            StatListKind.Curtains => OnFirst("curtain", _allDevices),
+            StatListKind.Ac => OnFirst("ac", _allDevices),
+            _ => OrderDevices(_allDevices.Where(d => !d.IsOnline)).ToList(),
+        };
+        if (!SameSequence(StatDevices, list))
+        {
+            StatDevices.Clear();
+            foreach (var d in list) StatDevices.Add(d);
+        }
+
+        HasStatDevices = list.Count > 0;
+        StatListTitle = kind switch
+        {
+            StatListKind.Lights => "全屋灯光",
+            StatListKind.Curtains => "全屋窗帘",
+            StatListKind.Ac => "全屋空调",
+            _ => "离线设备",
+        };
+        // 量词与动词按类型走：写死一个会出现「3 台窗帘」「开窗帘的电源键」
+        var unit = kind switch { StatListKind.Lights => "盏", StatListKind.Curtains => "副", _ => "台" };
+        var verb = kind switch { StatListKind.Lights => "开关灯", StatListKind.Curtains => "开合", StatListKind.Ac => "开关", _ => "控制" };
+        StatListSubtitle = HasStatDevices
+            ? kind == StatListKind.Offline
+                ? $"共 {list.Count} 台 · 云端失联，指令下发不会生效"
+                : $"共 {list.Count} {unit} · 开着的排在上面，点卡片看详情，点电源键{verb}"
+            : null;
+        StatListEmptyText = kind switch
+        {
+            StatListKind.Lights => "家里还没有识别到灯",
+            StatListKind.Curtains => "家里还没有识别到窗帘",
+            StatListKind.Ac => "家里还没有识别到空调",
+            _ => "所有设备都在线，暂无离线设备",
+        };
+    }
+
+    /// <summary>
+    /// 取某个设备图标 key 对应的设备清单：开着的排在上边（与统计卡数字同一口径：在线且开），
+    /// OrderBy 稳定，两组内部都保持原来的拼音序。
+    /// </summary>
+    private static List<MijiaDevice> OnFirst(string iconKey, IEnumerable<MijiaDevice> src) =>
+        OrderDevices(src.Where(d => d.IconKey == iconKey))
+            .OrderBy(d => d.IsOnline && d.IsOn ? 0 : 1)
+            .ToList();
 
     private void UpdateBanner()
     {
@@ -1247,6 +1342,33 @@ public partial class MainViewModel : ObservableObject
     [RelayCommand]
     private void CloseEnvDetail() => IsEnvDetailOpen = false;
 
+    /// <summary>「灯光」卡：弹窗列全屋灯（含关着的，便于直接开灯）。</summary>
+    [RelayCommand]
+    private void OpenLightList() => OpenStatList(StatListKind.Lights);
+
+    /// <summary>「窗帘」卡：同一个弹窗，换成全屋窗帘。</summary>
+    [RelayCommand]
+    private void OpenCurtainList() => OpenStatList(StatListKind.Curtains);
+
+    /// <summary>「空调」卡：同一个弹窗，换成全屋空调。</summary>
+    [RelayCommand]
+    private void OpenAcList() => OpenStatList(StatListKind.Ac);
+
+    /// <summary>「在线设备」卡：弹窗列离线设备。</summary>
+    [RelayCommand]
+    private void OpenOfflineList() => OpenStatList(StatListKind.Offline);
+
+    private void OpenStatList(StatListKind kind)
+    {
+        _statListKind = kind;
+        // 口径先落一次，卡片与弹窗同一时刻打开时不闪旧数据
+        RefreshStatList();
+        IsStatListOpen = true;
+    }
+
+    [RelayCommand]
+    private void CloseStatList() => IsStatListOpen = false;
+
     [RelayCommand]
     private void PickRoom(RoomChip? chip)
     {
@@ -1273,6 +1395,7 @@ public partial class MainViewModel : ObservableObject
         IsLoginOpen = false;
         IsSettingsOpen = false;
         IsEnvDetailOpen = false;
+        IsStatListOpen = false;
         IsVoiceOpen = false;
         IsMusicOpen = false;
         IsLogOpen = false;

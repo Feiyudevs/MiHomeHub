@@ -73,6 +73,8 @@ public partial class DesktopGroupVm : DesktopZoneVm, IDeviceCardHost
         OnPropertyChanged(nameof(IsEmpty));
         OnPropertyChanged(nameof(HasDevices));
         OnPropertyChanged(nameof(HasScenes));
+        OnPropertyChanged(nameof(CanReorderDevices));
+        OnPropertyChanged(nameof(CanReorderScenes));
     }
 
     /// <summary>按模型里的 did / scene_id 顺序重建列表；实例已在列表里则复用原实例（不重绑卡片）。</summary>
@@ -163,6 +165,72 @@ public partial class DesktopGroupVm : DesktopZoneVm, IDeviceCardHost
     }
 
     public bool ContainsScene(string sceneId) => Model.SceneIds.Contains(sceneId);
+
+    /// <summary>一面宫格要有两张以上卡才谈得上排序：只有一张时不亮拖拽辅助样式（亮了也拖不动，是骗人）。</summary>
+    public bool CanReorderDevices => Devices.Count > 1;
+
+    public bool CanReorderScenes => Scenes.Count > 1;
+
+    /// <summary>
+    /// 拖拽排序进行中：换顺序是先摘一张再插回原位，宿主窗口的「加内容自动加宽」
+    /// 不能把这次 Insert 当成真的新增（条目数没变）。
+    /// </summary>
+    public bool IsReordering { get; private set; }
+
+    /// <summary>拖拽排序落点：换显示顺序并把顺序写回模型。</summary>
+    public void MoveDevice(int from, int to)
+    {
+        if (!Reorder(Devices, from, to)) return;
+        Model.Dids = RemergeOrder(Model.Dids, Devices.Select(d => d.Did));
+        DesktopHost.Save();
+    }
+
+    public void MoveScene(int from, int to)
+    {
+        if (!Reorder(Scenes, from, to)) return;
+        Model.SceneIds = RemergeOrder(Model.SceneIds, Scenes.Select(s => s.Scene.SceneId));
+        DesktopHost.Save();
+    }
+
+    /// <summary>
+    /// 顺序回写：宫格里的 id 按新的显示顺序排回去，模型中解析不出实例的那些 id
+    /// （切家庭后设备还没重新加载）不在宫格上，留在原槽位，免得一次拖拽把它们抹掉。
+    /// </summary>
+    private static List<string> RemergeOrder(List<string> model, IEnumerable<string> shown)
+    {
+        var order = shown.ToList();
+        if (model.Count == order.Count) return order;
+
+        var onGrid = order.ToHashSet(StringComparer.Ordinal);
+        var next = new List<string>(model.Count);
+        var i = 0;
+        foreach (var id in model)
+            next.Add(onGrid.Contains(id) ? order[i++] : id);
+        return next;
+    }
+
+    /// <summary>先摘再插，不用 ObservableCollection.Move：ItemsControl 对 Move 通知的容器回收并不可以靠。</summary>
+    private bool Reorder<T>(ObservableCollection<T> items, int from, int to)
+    {
+        IsReordering = true;
+        try
+        {
+            return Move(items, from, to);
+        }
+        finally
+        {
+            IsReordering = false;
+        }
+    }
+
+    private static bool Move<T>(ObservableCollection<T> items, int from, int to)
+    {
+        if (from == to || from < 0 || to < 0 || from >= items.Count || to >= items.Count) return false;
+        var item = items[from];
+        items.RemoveAt(from);
+        items.Insert(to, item);
+        return true;
+    }
 
     [RelayCommand]
     private void AddDevice() => DesktopHost.OpenPicker(this);

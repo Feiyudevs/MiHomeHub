@@ -177,6 +177,7 @@ public sealed partial class SpecOptionVm : ObservableObject, IPickOption
 
     public string Label => Def.Label;
     public int Value => Def.Value;
+    public string? Meta => null;
 
     // IPickOption 要求 object；保持对外仍是 int，避免既有调用点被装箱语义带偏
     object IPickOption.Value => Value;

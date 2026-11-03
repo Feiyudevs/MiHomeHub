@@ -14,9 +14,16 @@ namespace MiHome.ViewModels;
 /// </summary>
 public partial class DesktopAppearanceVm : ObservableObject
 {
-    /// <summary>背景透明度的滑杆范围与默认值（百分比）。</summary>
+    /// <summary>
+    /// 背景浓度的滑杆范围与默认值（百分比）。值直接就是卡片底色的 alpha，
+    /// 屏幕上的最终浓度还要叠一层 DWM 磨砂染色（DesktopPalette.TintOpacity，随浓度联动）。
+    /// 0% = 完全无底色、纯磨砂；72% 已接近实心。
+    /// </summary>
     public const double MinOpacityPercent = 0;
-    public const double DefaultOpacityPercent = 10;
+    public const double MaxOpacityPercent = 72;
+
+    /// <summary>默认浓度：DeskBox 那一档（= DesktopPalette.DefaultDensity）。</summary>
+    public const double DefaultOpacityPercent = 34;
 
     /// <summary>
     /// 分区底色预设：直接照抄 Zonex（SettingsWindow.FenceColorPresetList）。

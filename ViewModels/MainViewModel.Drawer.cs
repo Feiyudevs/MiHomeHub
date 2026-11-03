@@ -325,8 +325,10 @@ public partial class MainViewModel : ObservableObject
 
         // 按 siid 分组：多路面板的规格里会有多个同名服务（Light 1/2/3、Curtain 1/2），
         // 按描述分组会把它们并成一张卡，出现多行同名的滑杆。
+        // 耗材卡（滤芯/电量）已经单独列出，高级设置里不再重复铺这些只读行
+        var consumableKeys = spec.ConsumableProps.Select(c => (c.Siid, c.Piid)).ToHashSet();
         var groups = spec.Properties
-            .Where(p => ShouldShowProp(device, p))
+            .Where(p => !consumableKeys.Contains((p.Siid, p.Piid)) && ShouldShowProp(device, p))
             .GroupBy(p => p.Siid)
             .ToList();
         var descCounts = groups

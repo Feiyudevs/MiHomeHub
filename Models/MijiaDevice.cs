@@ -93,7 +93,7 @@ public partial class MijiaDevice : ObservableObject
     /// <summary>最近一次读到的相对湿度（%，已按 0.1 单位缩回）。</summary>
     [JsonIgnore] public double? Humidity { get; set; }
 
-    // ===== 耗材（滤芯/刷头 life-level 百分比） =====
+    // ===== 耗材（滤芯/刷头 life-level、电量 battery-level 百分比） =====
 
     /// <summary>规格里的耗材余量项；随规格解析重建，卡片与抽屉按需展示。</summary>
     [JsonIgnore] public List<ConsumableState> Consumables { get; } = new();
@@ -391,17 +391,18 @@ public partial class MijiaDevice : ObservableObject
     private void ApplyConsumables(DeviceSpec spec)
     {
         Consumables.Clear();
-        // 同一型号的规格里常见「空调服务」和「滤网服务」都带 filter-life-level，同名耗材只保留一项
-        var seen = new HashSet<string>(StringComparer.Ordinal);
+        // 同名耗材是两条真实余量（门锁的干电池与摄像头锂电、扫地机的主副刷），全部列出，重名按出现顺序加序号
+        var labels = new Dictionary<string, int>(StringComparer.Ordinal);
         foreach (var p in spec.ConsumableProps)
         {
             var desc = string.IsNullOrWhiteSpace(p.Desc) ? p.Name : p.Desc;
-            if (!seen.Add(desc)) continue;
+            var seq = (labels.TryGetValue(desc, out var n) ? n : 0) + 1;
+            labels[desc] = seq;
             Consumables.Add(new ConsumableState
             {
                 Siid = p.Siid,
                 Piid = p.Piid,
-                Desc = desc
+                Desc = seq > 1 ? $"{desc} {seq}" : desc
             });
         }
         RefreshConsumableFlags();
@@ -455,7 +456,7 @@ public partial class MijiaDevice : ObservableObject
     }
 }
 
-/// <summary>一个耗材余量项（滤芯/刷头 life-level）：Percent 为 0–100，未知时 -1。</summary>
+/// <summary>一个耗材余量项（滤芯/刷头/电量）：Percent 为 0–100，未知时 -1。</summary>
 public sealed partial class ConsumableState : ObservableObject
 {
     public int Siid { get; init; }

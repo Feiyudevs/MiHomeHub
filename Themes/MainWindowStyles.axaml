@@ -58,9 +58,9 @@
             <Setter Property="Cursor" Value="Hand" />
             <Setter Property="Background" Value="Transparent" />
             <Setter Property="BorderThickness" Value="0" />
-            <!-- 撑满胶囊内高（32 − 2×1px 边框），悬停底色才不会上下悬空 -->
+            <!-- 撑满胶囊内高（32 − 2×1px 边框），悬停底色才不会上下悬空；左右留 14 让家庭名不贴胶囊边 -->
             <Setter Property="Height" Value="30" />
-            <Setter Property="Padding" Value="10,0" />
+            <Setter Property="Padding" Value="14,0" />
             <Setter Property="HorizontalContentAlignment" Value="Center" />
             <Setter Property="VerticalContentAlignment" Value="Center" />
             <Setter Property="Template">
@@ -344,14 +344,133 @@
             <Setter Property="HorizontalAlignment" Value="Center" />
             <Setter Property="VerticalAlignment" Value="Center" />
         </Style>
-        <!-- 环境概览胶囊：默认浅底，耗材不足时转琥珀色 -->
-        <Style Selector="Border.EnvPill">
-            <Setter Property="CornerRadius" Value="11" />
+        <!-- 环境概览胶囊：默认浅底、可点开明细，悬停/按下逐档加深；耗材不足时转琥珀色 -->
+        <Style Selector="Button.EnvPill">
             <Setter Property="Padding" Value="10,5" />
             <Setter Property="Background" Value="{DynamicResource SurfaceBrush}" />
+            <Setter Property="BorderThickness" Value="0" />
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="Focusable" Value="False" />
+            <Setter Property="VerticalAlignment" Value="Center" />
+            <Setter Property="Template">
+                <ControlTemplate>
+                    <Border Name="Bd" CornerRadius="11"
+                            Background="{TemplateBinding Background}"
+                            Padding="{TemplateBinding Padding}">
+                        <Border.Transitions>
+                            <Transitions>
+                                <BrushTransition Property="Background" Duration="0:0:0.14" />
+                            </Transitions>
+                        </Border.Transitions>
+                        <ContentPresenter Content="{TemplateBinding Content}"
+                                          HorizontalAlignment="Center" VerticalAlignment="Center" />
+                    </Border>
+                </ControlTemplate>
+            </Setter>
         </Style>
-        <Style Selector="Border.EnvPill.is-warn">
+        <Style Selector="Button.EnvPill:pointerover /template/ Border#Bd">
+            <Setter Property="Background" Value="{DynamicResource Surface4Brush}" />
+        </Style>
+        <Style Selector="Button.EnvPill:pressed /template/ Border#Bd">
+            <Setter Property="Background" Value="{DynamicResource Surface5Brush}" />
+        </Style>
+        <Style Selector="Button.EnvPill.is-warn">
             <Setter Property="Background" Value="{DynamicResource AmberSoftBrush}" />
+        </Style>
+        <Style Selector="Button.EnvPill.is-warn:pointerover /template/ Border#Bd">
+            <Setter Property="Background" Value="{DynamicResource AmberSoft2Brush}" />
+        </Style>
+        <Style Selector="Button.EnvPill.is-warn:pressed /template/ Border#Bd">
+            <Setter Property="Background" Value="{DynamicResource AmberSoft2Brush}" />
+        </Style>
+        <!-- 「已开启」统计卡：可点开全量开启设备弹窗。静息外观与其余三张统计卡逐值一致
+             （圆角 16 / 内距 16,13 / 最小宽 96 / CardBrush / 同两档投影），差别只在悬停反馈。
+             MinWidth、内距都写在模板内的 Border 上：Button 自身的 MinWidth 会算上默认内距，宽度对不齐其余卡片。 -->
+        <Style Selector="Button.StatCard">
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="Focusable" Value="False" />
+            <Setter Property="VerticalAlignment" Value="Stretch" />
+            <Setter Property="RenderTransform" Value="translate(0px,0px)" />
+            <Setter Property="Transitions">
+                <Transitions>
+                    <TransformOperationsTransition Property="RenderTransform" Duration="0:0:0.18">
+                        <TransformOperationsTransition.Easing>
+                            <ani:CubicEaseOut />
+                        </TransformOperationsTransition.Easing>
+                    </TransformOperationsTransition>
+                </Transitions>
+            </Setter>
+            <Setter Property="Template">
+                <ControlTemplate>
+                    <Border Name="Card" CornerRadius="16" Padding="16,13" MinWidth="96"
+                            Background="{DynamicResource CardBrush}"
+                            BoxShadow="0 1 2 0 #050F172A, 0 5 16 0 #080F172A">
+                        <!-- 内容拉伸到卡片内距宽：右上角箭头才有确定的右边界可贴 -->
+                        <ContentPresenter Content="{TemplateBinding Content}"
+                                          HorizontalAlignment="Stretch" VerticalAlignment="Center" />
+                    </Border>
+                </ControlTemplate>
+            </Setter>
+        </Style>
+        <!-- 悬停：抬起 2px + 投影加深一档 + 右上角箭头浮现；按下回落到 1px 并微缩，给出即时点击反馈 -->
+        <Style Selector="Button.StatCard /template/ Border#Card">
+            <Setter Property="Transitions">
+                <Transitions>
+                    <BoxShadowsTransition Property="BoxShadow" Duration="0:0:0.18" />
+                </Transitions>
+            </Setter>
+        </Style>
+        <Style Selector="Button.StatCard:pointerover /template/ Border#Card">
+            <Setter Property="BoxShadow" Value="0 3 8 0 #0D0F172A, 0 10 24 0 #140F172A" />
+        </Style>
+        <Style Selector="Button.StatCard:pointerover">
+            <Setter Property="RenderTransform" Value="translate(0px,-2px)" />
+        </Style>
+        <Style Selector="Button.StatCard:pressed">
+            <Setter Property="RenderTransform" Value="translate(0px,-1px) scale(0.99)" />
+        </Style>
+        <Style Selector="Viewbox.StatGo">
+            <Setter Property="Width" Value="11" />
+            <Setter Property="Height" Value="11" />
+            <!-- 负 margin 把箭头悬浮到卡片内距区：不占内容布局槽，也就不会把卡片撑宽、破坏四张卡对齐 -->
+            <Setter Property="Margin" Value="0,-6,-9,0" />
+            <Setter Property="HorizontalAlignment" Value="Right" />
+            <Setter Property="VerticalAlignment" Value="Top" />
+            <Setter Property="Opacity" Value="0" />
+            <Setter Property="IsHitTestVisible" Value="False" />
+            <Setter Property="Transitions">
+                <Transitions>
+                    <DoubleTransition Property="Opacity" Duration="0:0:0.16" />
+                </Transitions>
+            </Setter>
+        </Style>
+        <Style Selector="Button.StatCard:pointerover Viewbox.StatGo">
+            <Setter Property="Opacity" Value="1" />
+        </Style>
+        <!-- 卡片图标：几何按 24 网格画好交给 Viewbox 缩放（11/24 的缩比下描边要回补，1.9 落屏约 1.5px） -->
+        <Style Selector="Viewbox.StatIc">
+            <Setter Property="Width" Value="13" />
+            <Setter Property="Height" Value="13" />
+            <Setter Property="VerticalAlignment" Value="Center" />
+        </Style>
+        <Style Selector="Path.StatIc">
+            <Setter Property="StrokeThickness" Value="1.9" />
+            <Setter Property="StrokeLineCap" Value="Round" />
+            <Setter Property="StrokeJoin" Value="Round" />
+        </Style>
+        <Style Selector="Path.StatGoIc">
+            <Setter Property="StrokeThickness" Value="2.6" />
+            <Setter Property="StrokeLineCap" Value="Round" />
+            <Setter Property="StrokeJoin" Value="Round" />
+        </Style>
+        <!-- 离线数量：颜色只走样式，元素上写本地 Foreground 会压过 is-warn 覆盖 -->
+        <Style Selector="TextBlock.OfflineTag">
+            <Setter Property="FontSize" Value="10.5" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+            <Setter Property="Foreground" Value="{DynamicResource Text3Brush}" />
+        </Style>
+        <Style Selector="TextBlock.OfflineTag.is-warn">
+            <Setter Property="Foreground" Value="{DynamicResource AmberTextBrush}" />
         </Style>
         <Style Selector="TextBlock.EnvLab">
             <Setter Property="FontSize" Value="10.5" />
@@ -377,29 +496,49 @@
             <Setter Property="Foreground" Value="{DynamicResource AmberTextBrush}" />
             <Setter Property="FontWeight" Value="SemiBold" />
         </Style>
-        <!-- 小爱语音：标题栏「弱化主色胶囊」入口（淡主色底 + 主色字）+ 指令浮层，与家庭胶囊同高 32 -->
-        <Style Selector="Button.XiaoAiCapsule">
+        <!-- 小爱语音 / 音乐：标题栏两个音箱入口，共用一套中性玻璃胶囊（底同搜索圆钮，描边走 Line → LineStrong → 主色三档）；
+             主色只留给图标与「悬停 / 展开」态，不再整块铺紫，与家庭胶囊同高 32 -->
+        <Style Selector="Button.XiaoAiCapsule, Button.MusicCapsule">
             <Setter Property="Height" Value="32" />
             <Setter Property="CornerRadius" Value="16" />
-            <Setter Property="Background" Value="{DynamicResource AccentSoftBrush}" />
-            <Setter Property="BorderBrush" Value="{DynamicResource AccentSoftBrush}" />
+            <Setter Property="Background" Value="{DynamicResource SearchBgBrush}" />
+            <Setter Property="BorderBrush" Value="{DynamicResource LineBrush}" />
             <Setter Property="BorderThickness" Value="1" />
-            <Setter Property="Foreground" Value="{DynamicResource Accent2Brush}" />
+            <Setter Property="Foreground" Value="{DynamicResource Text2Brush}" />
             <Setter Property="FontSize" Value="12" />
             <Setter Property="FontWeight" Value="Medium" />
             <Setter Property="Cursor" Value="Hand" />
             <Setter Property="HorizontalContentAlignment" Value="Center" />
         </Style>
-        <!-- 悬停只加一道主色细环，底色不变，保持“弱化”观感 -->
-        <Style Selector="Button.XiaoAiCapsule:pointerover">
+        <!-- 接管模板内层：补 0.16s 变色过渡，同时吃掉 Fluent 自带的硬切灰底 -->
+        <Style Selector="Button.XiaoAiCapsule /template/ ContentPresenter#PART_ContentPresenter, Button.MusicCapsule /template/ ContentPresenter#PART_ContentPresenter">
+            <Setter Property="Transitions">
+                <Transitions>
+                    <BrushTransition Property="Background" Duration="0:0:0.16" />
+                    <BrushTransition Property="Foreground" Duration="0:0:0.16" />
+                </Transitions>
+            </Setter>
+        </Style>
+        <!-- 正在播放：文字走主色 + 描边提亮一档，比「展开」的主色环轻一档（放在悬停/展开之前，让位给它们） -->
+        <Style Selector="Button.MusicCapsule.playing">
+            <Setter Property="Foreground" Value="{DynamicResource Accent2Brush}" />
+            <Setter Property="BorderBrush" Value="{DynamicResource LineStrongBrush}" />
+        </Style>
+        <!-- 悬停：文字并同图标走主色、描边再亮一档，底色只换成通用悬停灰，不加深紫色 -->
+        <Style Selector="Button.XiaoAiCapsule:pointerover, Button.MusicCapsule:pointerover">
+            <Setter Property="Foreground" Value="{DynamicResource Accent2Brush}" />
+            <Setter Property="BorderBrush" Value="{DynamicResource LineStrongBrush}" />
+        </Style>
+        <Style Selector="Button.XiaoAiCapsule:pointerover /template/ ContentPresenter#PART_ContentPresenter, Button.MusicCapsule:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+            <Setter Property="Background" Value="{DynamicResource HoverBrush}" />
+        </Style>
+        <Style Selector="Button.XiaoAiCapsule:pressed /template/ ContentPresenter#PART_ContentPresenter, Button.MusicCapsule:pressed /template/ ContentPresenter#PART_ContentPresenter">
+            <Setter Property="Background" Value="{DynamicResource HoverBrush}" />
+        </Style>
+        <!-- 展开：只加一道主色细环表示「浮层归我」，底色仍是中性 -->
+        <Style Selector="Button.XiaoAiCapsule.open, Button.MusicCapsule.open">
+            <Setter Property="Foreground" Value="{DynamicResource Accent2Brush}" />
             <Setter Property="BorderBrush" Value="{DynamicResource Accent2Brush}" />
-        </Style>
-        <!-- 覆盖 Fluent 模板自带的灰色悬停/按下底色，否则胶囊会变灰 -->
-        <Style Selector="Button.XiaoAiCapsule:pointerover /template/ ContentPresenter#PART_ContentPresenter">
-            <Setter Property="Background" Value="{DynamicResource AccentSoftBrush}" />
-        </Style>
-        <Style Selector="Button.XiaoAiCapsule:pressed /template/ ContentPresenter#PART_ContentPresenter">
-            <Setter Property="Background" Value="{DynamicResource AccentSoftBrush}" />
         </Style>
         <!-- 发送中：纸飞机图标呼吸闪烁，只在 IsVoiceSending 时挂动画 -->
         <Style Selector="Path.SendIcon">
@@ -471,32 +610,7 @@
         <Style Selector="TextBlock.VoiceHint.is-warn">
             <Setter Property="Foreground" Value="{DynamicResource AmberTextBrush}" />
         </Style>
-        <!-- 音乐：标题栏播放控制入口，与小爱胶囊同规格（32 高、弱化主色底）；正在播放时把名称就地换成三个控制钮 -->
-        <Style Selector="Button.MusicCapsule">
-            <Setter Property="Height" Value="32" />
-            <Setter Property="CornerRadius" Value="16" />
-            <Setter Property="Background" Value="{DynamicResource AccentSoftBrush}" />
-            <Setter Property="BorderBrush" Value="{DynamicResource AccentSoftBrush}" />
-            <Setter Property="BorderThickness" Value="1" />
-            <Setter Property="Foreground" Value="{DynamicResource Accent2Brush}" />
-            <Setter Property="FontSize" Value="12" />
-            <Setter Property="FontWeight" Value="Medium" />
-            <Setter Property="Cursor" Value="Hand" />
-            <Setter Property="HorizontalContentAlignment" Value="Center" />
-        </Style>
-        <Style Selector="Button.MusicCapsule:pointerover">
-            <Setter Property="BorderBrush" Value="{DynamicResource Accent2Brush}" />
-        </Style>
-        <!-- 覆盖 Fluent 模板自带的灰色悬停/按下底色，否则胶囊会变灰 -->
-        <Style Selector="Button.MusicCapsule:pointerover /template/ ContentPresenter#PART_ContentPresenter">
-            <Setter Property="Background" Value="{DynamicResource AccentSoftBrush}" />
-        </Style>
-        <Style Selector="Button.MusicCapsule:pressed /template/ ContentPresenter#PART_ContentPresenter">
-            <Setter Property="Background" Value="{DynamicResource AccentSoftBrush}" />
-        </Style>
-        <Style Selector="Button.MusicCapsule.open">
-            <Setter Property="BorderBrush" Value="{DynamicResource Accent2Brush}" />
-        </Style>
+        <!-- 音乐：胶囊规格与状态全部复用上面的共用样式；正在播放时名称就地换成三个控制钮 -->
         <!-- 胶囊内联控制钮：内层按钮自己吃掉按下事件，不会顺带开合浮层；
              忙态不绑 IsEnabled（命令里已挡），否则每次下发瞬间整排键会禁用又放开，看着像闪白 -->
         <Style Selector="Button.CapBtn">

@@ -21,6 +21,15 @@
             <Setter Property="Background" Value="{DynamicResource DskCardBrush}" />
             <Setter Property="BoxShadow" Value="0 0 0 0 #00000000" />
         </Style>
+        <!-- 悬停 / 按下不做位移：分区卡贴在桌面上，卡片整体上浮 3px 会让整块面板跟着抖
+             （全局那份 DevCard 的 -3px / 0.99 缩放是主窗口列表的效果，这里覆盖成持平）。
+             内部电源键下滑给「更多」让位保持不变，那是内容重排、不是卡片移动。 -->
+        <Style Selector="Button.DevCard:pointerover">
+            <Setter Property="RenderTransform" Value="translate(0px,0px)" />
+        </Style>
+        <Style Selector="Button.DevCard:pressed">
+            <Setter Property="RenderTransform" Value="translate(0px,0px)" />
+        </Style>
 
         <!-- 卡面是半透明的（透出墙纸），主窗口那套灰压上去读不清：
              名称用近纯白，房间 / 路数 / 计数用提亮后的次级色（DskText2Brush） -->
@@ -38,6 +47,21 @@
             <Setter Property="Background" Value="#1FFFFFFF" />
         </Style>
 
+        <!-- 卡片「更多」（三个点）：全局那档是 Text3Brush（深色主题 #646C7E），
+             压在半透明玻璃卡面上几乎看不见 —— 分区里改用提亮后的次级色 DskText2Brush，
+             自身悬停再上一档到近纯白。与 DevName / DevMeta 同一条思路。 -->
+        <Style Selector="Button.DevCard Button.MoreBtn">
+            <Setter Property="Foreground" Value="{DynamicResource DskText2Brush}" />
+        </Style>
+        <Style Selector="Button.DevCard Button.MoreBtn:pointerover">
+            <Setter Property="Foreground" Value="{DynamicResource DskTextBrush}" />
+        </Style>
+        <!-- 悬停加一层极淡的圆形底：三个点只有 3px，贴玻璃时纯靠亮色仍偏飘，
+             给一点底色才能确认「点到了它」；保持极淡，不做按钮感 -->
+        <Style Selector="Button.DevCard Button.MoreBtn:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+            <Setter Property="Background" Value="{DynamicResource DskSwitchBrush}" />
+        </Style>
+
         <!-- 电源键：底色同样半透明，实心深色在磨砂玻璃上会像一块黑板 -->
         <Style Selector="ToggleButton.Power /template/ Border#Disc">
             <Setter Property="Background" Value="{DynamicResource DskSwitchBrush}" />
@@ -45,27 +69,77 @@
         <Style Selector="ToggleButton.Power:checked /template/ Border#Disc">
             <Setter Property="Background" Value="{DynamicResource PowerOnBrush}" />
         </Style>
+        <!-- 未开启的电源图标提亮一档：全局用的是 Text2Brush（#99A1B3），压在半透明玻璃圆底上偏暗；
+             提到 DskText2Brush（#C9D1DF），与 DevMeta 次级文字同档 —— 不用近纯白，避免和开启态抢视觉。
+             本地样式会压过全局 :checked 的白色，所以 checked 那条要就地恢复 White -->
+        <Style Selector="ToggleButton.Power">
+            <Setter Property="Foreground" Value="{DynamicResource DskText2Brush}" />
+        </Style>
+        <Style Selector="ToggleButton.Power:checked">
+            <Setter Property="Foreground" Value="White" />
+        </Style>
         <!-- 悬停时电源键下滑给「更多」让位：全局那份滑 16px，在分区这种整块玻璃上显得掉得太低
              （卡片内容高 48、键 32，滑 16 后下沿几乎贴到卡片边）。
              这里收到 10px —— 键顶 18px 仍压在「更多」下沿（17px）之下，不重叠，但整体上提 6px。 -->
         <Style Selector="Button.DevCard:pointerover ToggleButton.Power">
             <Setter Property="RenderTransform" Value="translate(0px,10px)" />
         </Style>
+
+        <!-- ======== 卡片拖拽排序的交互辅助 ======== -->
+        <!-- 只有宫格里超过一张卡才亮（ItemsControl 上的 reorder 类由视图模型给）：
+             单卡没什么可排，亮着虚线框反而是骗人。辅助框是覆盖层，悬停点亮不推动兄弟卡片。 -->
+        <Style Selector="Button.DevCard /template/ Rectangle#DragHint">
+            <Setter Property="Margin" Value="4" />
+        </Style>
+        <Style Selector="ItemsControl.reorder Button.DevCard">
+            <Setter Property="Cursor" Value="SizeAll" />
+        </Style>
+        <Style Selector="ItemsControl.reorder Button.DevCard:pointerover /template/ Rectangle#DragHint">
+            <Setter Property="Opacity" Value="1" />
+        </Style>
+        <!-- 拖起来的那张：淡成虚影、取消悬停上浮，虚线框一直亮着；落到哪一格由宫格上的竖线指示 -->
+        <Style Selector="ItemsControl ContentPresenter.dragging Button.DevCard">
+            <Setter Property="Opacity" Value="0.4" />
+            <Setter Property="RenderTransform" Value="translate(0px,0px)" />
+            <Setter Property="Cursor" Value="SizeAll" />
+        </Style>
+        <Style Selector="ItemsControl ContentPresenter.dragging Button.DevCard /template/ Rectangle#DragHint">
+            <Setter Property="Opacity" Value="1" />
+        </Style>
+        <!-- 落位提示两层：半透明框罩住即将被替换的那张卡，落点线说明插在框的哪一边。
+             框在 Canvas 里排在线的下面，线压在框沿上才不会被半透明底染灰 -->
+        <Style Selector="Rectangle.DropFrame">
+            <Setter Property="RadiusX" Value="16" />
+            <Setter Property="RadiusY" Value="16" />
+            <Setter Property="IsVisible" Value="False" />
+            <Setter Property="Fill" Value="#2E7C5CFC" />
+            <Setter Property="Stroke" Value="#A67C5CFC" />
+            <Setter Property="StrokeThickness" Value="1.4" />
+        </Style>
+        <!-- 落点线：直角、无圆角。方向由宫格自行决定（单列画横线落在两行之间，
+             多列画竖线落在两列之间），代码里改 Width/Height 来切方向 -->
+        <Style Selector="Rectangle.DropBar">
+            <Setter Property="Width" Value="3" />
+            <Setter Property="IsVisible" Value="False" />
+            <Setter Property="Fill" Value="{DynamicResource AccentBrush}" />
+        </Style>
     </UserControl.Styles>
 
     <UserControl.Resources>
         <!-- ======== 分区弹层统一浅色系 ======== -->
-        <!-- 这里把右键菜单的六个配色键就地覆盖成浅色值：
+        <!-- 这里把右键菜单的四个配色键 + 选中底色键就地覆盖成浅色值：
              ContextMenu 是 Popup 承载的，但逻辑父级挂在触发它的设备卡上，
              DynamicResource 会沿逻辑树回溯到这个面板 —— 于是只有「分区里」的菜单变浅，
              主窗口列表里那张同一份模板的菜单继续走应用主题（深色），互不影响。
-             覆盖用平铺值而非主题字典：分区弹层要求恒浅色，不随应用深浅主题漂移。 -->
+             覆盖用平铺值而非主题字典：分区弹层要求恒浅色，不随应用深浅主题漂移。
+             菜单底色走全局 SelBg* 键（见 Brushes.axaml），这里同样覆盖成浅主题那一档。 -->
         <SolidColorBrush x:Key="MenuBgBrush" Color="#FFFFFF" />
         <SolidColorBrush x:Key="MenuLineBrush" Color="#140F172A" />
-        <SolidColorBrush x:Key="MenuHoverBrush" Color="#0F0F172A" />
-        <SolidColorBrush x:Key="MenuPressBrush" Color="#1A0F172A" />
+        <SolidColorBrush x:Key="SelBgBrush" Color="#7C5CFC" />
+        <SolidColorBrush x:Key="SelBgHoverBrush" Color="#9C8BFF" />
+        <SolidColorBrush x:Key="SelBgPressBrush" Color="#6A4BEA" />
+        <SolidColorBrush x:Key="SelTextBrush" Color="#FFFFFF" />
         <SolidColorBrush x:Key="MenuTextBrush" Color="#4B5563" />
-        <SolidColorBrush x:Key="MenuIconBrush" Color="#6E7789" />
 
         <!-- 分区里的场景卡：与设备卡同一套玻璃底、同一档高度，点整卡直接执行。
              外壳（圆角 + 细描边 + 内距）照设备卡右键菜单那份本地 Template，弹层样式应用时机不可控，本地值最稳 -->
@@ -94,7 +168,7 @@
                                          HorizontalAlignment="Center" VerticalAlignment="Center">
                                     <Panel Width="24" Height="24">
                                         <Path StrokeThickness="1.92" StrokeLineCap="Round" StrokeJoin="Round"
-                                              Stroke="{DynamicResource MenuIconBrush}"
+                                              Stroke="{Binding $parent[MenuItem].Foreground}"
                                               Data="M5,12 H19" />
                                     </Panel>
                                 </Viewbox>
@@ -134,27 +208,44 @@
 
     <StackPanel>
         <!-- 设备宫格：直接复用主窗口列表那张设备卡（图标 | 名称·房间 | 开关），
-             点卡片走宿主契约弹控制窗，开关也直接下发 -->
-        <ItemsControl ItemsSource="{Binding Devices}"
-                      ItemTemplate="{StaticResource DeviceCardTemplate}"
-                      IsVisible="{Binding HasDevices}">
-            <ItemsControl.ItemsPanel>
-                <ItemsPanelTemplate>
-                    <!-- MinItemWidth 与 DesktopGroupView.CardMinWidth 同步改（宿主窗口按它推算加宽一列需要多宽） -->
-                    <ctl:AdaptiveGridPanel MinItemWidth="240" Spacing="0" />
-                </ItemsPanelTemplate>
-            </ItemsControl.ItemsPanel>
-        </ItemsControl>
+             点卡片走宿主契约弹控制窗，开关也直接下发。
+             外面这层 Grid 只为叠一条落点竖线：Canvas 不吃命中，拖动逻辑本身在代码里挂到 ItemsControl 上 -->
+        <Grid>
+            <ItemsControl Name="DeviceItems"
+                          Classes.reorder="{Binding CanReorderDevices}"
+                          ItemsSource="{Binding Devices}"
+                          ItemTemplate="{StaticResource DeviceCardTemplate}"
+                          IsVisible="{Binding HasDevices}">
+                <ItemsControl.ItemsPanel>
+                    <ItemsPanelTemplate>
+                        <!-- MinItemWidth 与 DesktopGroupView.CardMinWidth 同步改（宿主窗口按它推算加宽一列需要多宽） -->
+                        <ctl:AdaptiveGridPanel MinItemWidth="240" Spacing="0" />
+                    </ItemsPanelTemplate>
+                </ItemsControl.ItemsPanel>
+            </ItemsControl>
+            <Canvas IsHitTestVisible="False">
+                <Rectangle Name="DeviceDropFrame" Classes="DropFrame" />
+                <Rectangle Name="DeviceDropBar" Classes="DropBar" />
+            </Canvas>
+        </Grid>
         <!-- 场景宫格排在设备之后，卡片宽度与设备卡同档，两块拼起来仍是一整面 -->
-        <ItemsControl ItemsSource="{Binding Scenes}"
-                      ItemTemplate="{StaticResource ZoneSceneCard}"
-                      IsVisible="{Binding HasScenes}">
-            <ItemsControl.ItemsPanel>
-                <ItemsPanelTemplate>
-                    <ctl:AdaptiveGridPanel MinItemWidth="240" Spacing="0" />
-                </ItemsPanelTemplate>
-            </ItemsControl.ItemsPanel>
-        </ItemsControl>
+        <Grid>
+            <ItemsControl Name="SceneItems"
+                          Classes.reorder="{Binding CanReorderScenes}"
+                          ItemsSource="{Binding Scenes}"
+                          ItemTemplate="{StaticResource ZoneSceneCard}"
+                          IsVisible="{Binding HasScenes}">
+                <ItemsControl.ItemsPanel>
+                    <ItemsPanelTemplate>
+                        <ctl:AdaptiveGridPanel MinItemWidth="240" Spacing="0" />
+                    </ItemsPanelTemplate>
+                </ItemsControl.ItemsPanel>
+            </ItemsControl>
+            <Canvas IsHitTestVisible="False">
+                <Rectangle Name="SceneDropFrame" Classes="DropFrame" />
+                <Rectangle Name="SceneDropBar" Classes="DropBar" />
+            </Canvas>
+        </Grid>
         <!-- 空状态：把「添加设备」按钮直接放在提示文字上方，比标题栏中钮更直观；仅设备分区（本面板）出现 -->
         <StackPanel IsVisible="{Binding IsEmpty}" Spacing="9" Margin="2,8,2,16"
                     HorizontalAlignment="Center">

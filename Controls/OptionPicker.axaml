@@ -96,9 +96,9 @@
             <Setter Property="Height" Value="32" />
             <Setter Property="Padding" Value="10,0" />
             <Setter Property="Margin" Value="0,1" />
-            <!-- 淡入起点：与 HoverBrush 同色、透明位为 0。既保证整行（含空白处）可命中，
-                 又能让 BrushTransition 从透明平滑淡到 HoverBrush -->
-            <Setter Property="Background" Value="{DynamicResource PlayHoverFromBrush}" />
+            <!-- 淡入起点：与 SelBgHoverBrush 同色、透明位为 0。既保证整行（含空白处）可命中，
+                 又能让 BrushTransition 从透明平滑淡到悬停柔色底 -->
+            <Setter Property="Background" Value="{DynamicResource SelBgFromBrush}" />
             <Setter Property="BorderThickness" Value="0" />
             <Setter Property="Cursor" Value="Hand" />
             <Setter Property="Focusable" Value="False" />
@@ -115,35 +115,67 @@
                             </Transitions>
                         </Border.Transitions>
                         <ContentPresenter Content="{TemplateBinding Content}"
-                                          HorizontalAlignment="Left" VerticalAlignment="Center" />
+                                          HorizontalAlignment="Stretch" VerticalAlignment="Center" />
                     </Border>
                 </ControlTemplate>
             </Setter>
         </Style>
+        <!-- 行内标签与房间胶囊的颜色写在控件上，不挂按钮：Control.Foreground 不会沿可视树继承进
+             内容里的 TextBlock，挂按钮只会让名称退回黑色。下面的顺序固定为
+             「基础档 → 悬停档 → 选中档」，同优先级取后者，后面的状态才能盖住前面的基础色。 -->
+        <Style Selector="TextBlock.Lbl">
+            <Setter Property="Foreground" Value="{DynamicResource Text2Brush}" />
+            <Setter Property="VerticalAlignment" Value="Center" />
+        </Style>
+        <!-- 行尾的房间等补充信息：比主文字更弱一档，选中行也不提色，避免和名称抢焦点 -->
+        <Style Selector="TextBlock.Meta">
+            <Setter Property="FontSize" Value="10.5" />
+            <Setter Property="Foreground" Value="{DynamicResource Text3Brush}" />
+            <Setter Property="VerticalAlignment" Value="Center" />
+        </Style>
+        <!-- 触发器上的同一份补充信息挪到名称左边：先认房间、再认设备 -->
+        <Style Selector="TextBlock.Pre">
+            <Setter Property="FontSize" Value="10.5" />
+            <Setter Property="Foreground" Value="{DynamicResource Text3Brush}" />
+            <Setter Property="VerticalAlignment" Value="Center" />
+        </Style>
         <Style Selector="Button.PickItem:pointerover /template/ Border#Bd">
-            <Setter Property="Background" Value="{DynamicResource HoverBrush}" />
+            <Setter Property="Background" Value="{DynamicResource SelBgHoverBrush}" />
         </Style>
-        <!-- 选中：柔色底 + 同色文字，不打勾 -->
+        <!-- 悬停底也是实心紫（只是弱一档）：整行文字跟着翻白 -->
+        <Style Selector="Button.PickItem:pointerover TextBlock">
+            <Setter Property="Foreground" Value="{DynamicResource SelTextBrush}" />
+        </Style>
+        <!-- 选中：品牌主色实心底 + 互补白字（名称和行尾房间胶囊一起翻白），不打勾 -->
         <Style Selector="Button.PickItem.is-on /template/ Border#Bd">
-            <Setter Property="Background" Value="{DynamicResource AccentSoftBrush}" />
+            <Setter Property="Background" Value="{DynamicResource SelBgBrush}" />
         </Style>
+        <Style Selector="Button.PickItem.is-on TextBlock">
+            <Setter Property="Foreground" Value="{DynamicResource SelTextBrush}" />
+        </Style>
+        <!-- 悬停已选中的那一项：保持选中底，不能被更淡的悬停档盖过去 -->
         <Style Selector="Button.PickItem.is-on:pointerover /template/ Border#Bd">
-            <Setter Property="Background" Value="{DynamicResource AccentSoftBrush}" />
+            <Setter Property="Background" Value="{DynamicResource SelBgBrush}" />
         </Style>
-        <Style Selector="Button.PickItem.is-on ContentPresenter TextBlock">
-            <Setter Property="Foreground" Value="{DynamicResource AccentBrush}" />
+        <Style Selector="Button.PickItem.is-on:pressed /template/ Border#Bd">
+            <Setter Property="Background" Value="{DynamicResource SelBgPressBrush}" />
+        </Style>
+        <Style Selector="Button.PickItem.is-on TextBlock.Lbl">
             <Setter Property="FontWeight" Value="SemiBold" />
         </Style>
     </UserControl.Styles>
     <Grid>
         <Button Name="Trigger" Classes="PickBtn">
-            <Grid ColumnDefinitions="*,Auto">
-                <TextBlock Name="Cur" Grid.Column="0" Text="选择" FontSize="12.5" FontWeight="Medium"
+            <Grid ColumnDefinitions="Auto,*,Auto">
+                <Border Name="Pre" Grid.Column="0" Classes="RoomTag" Margin="0,0,6,0" IsVisible="False">
+                    <TextBlock Name="PreTxt" Classes="Pre" />
+                </Border>
+                <TextBlock Name="Cur" Grid.Column="1" Text="选择" FontSize="12.5" FontWeight="Medium"
                            Foreground="{DynamicResource TextBrush}" VerticalAlignment="Center"
                            TextTrimming="CharacterEllipsis" />
                 <!-- Fill 而非 Uniform：几何包围盒 12:6 与视口 9:4.5 等比，形状必铺满视口、
                      中心即控件中心；Uniform 缩放后的内容不落在视口垂直中心，箭头会整体偏上 -->
-                <Path Name="Chev" Grid.Column="1" Width="9" Height="4.5" Stretch="Fill"
+                <Path Name="Chev" Grid.Column="2" Width="9" Height="4.5" Stretch="Fill"
                       Margin="10,0,0,0" VerticalAlignment="Center" RenderTransformOrigin="50%, 50%"
                       Stroke="{DynamicResource Text3Brush}" StrokeThickness="1.2"
                       StrokeLineCap="Round" StrokeJoin="Round" Data="M6 9 L12 15 L18 9" />
@@ -163,9 +195,14 @@
                         <ItemsControl.ItemTemplate>
                             <DataTemplate x:DataType="m:IPickOption">
                                 <Button Classes="PickItem" Classes.is-on="{Binding IsSelected}" Tag="{Binding}">
-                                    <TextBlock Text="{Binding Label}" FontSize="12.5"
-                                               Foreground="{DynamicResource Text2Brush}"
-                                               TextTrimming="CharacterEllipsis" />
+                                    <Grid ColumnDefinitions="*,Auto">
+                                        <TextBlock Classes="Lbl" Text="{Binding Label}" FontSize="12.5"
+                                                   TextTrimming="CharacterEllipsis" />
+                                        <Border Classes="RoomTag" Grid.Column="1" Margin="8,0,0,0"
+                                                IsVisible="{Binding Meta, Converter={x:Static StringConverters.IsNotNullOrEmpty}}">
+                                            <TextBlock Classes="Meta" Text="{Binding Meta}" />
+                                        </Border>
+                                    </Grid>
                                 </Button>
                             </DataTemplate>
                         </ItemsControl.ItemTemplate>

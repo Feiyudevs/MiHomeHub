@@ -12,7 +12,8 @@
         Topmost="True"
         WindowStartupLocation="Manual"
         TransparencyLevelHint="Transparent"
-        Background="Transparent">
+        Background="Transparent"
+        RenderOptions.TextRenderingMode="Antialias">
 
     <Window.Styles>
         <!-- 预设色块：按钮本身完全透明，色点与选中环都是内层 Border。
@@ -93,19 +94,19 @@
                 </StackPanel>
             </Border>
 
-            <!-- 背景透明度 -->
+            <!-- 背景浓度 -->
             <Border Classes="Card">
                 <StackPanel Spacing="10">
                     <Grid ColumnDefinitions="*,Auto">
-                        <TextBlock Text="背景透明度" FontSize="13.5" FontWeight="SemiBold"
+                        <TextBlock Text="背景浓度" FontSize="13.5" FontWeight="SemiBold"
                                    Foreground="{DynamicResource TextBrush}" />
                         <TextBlock Grid.Column="1" Text="{Binding OpacityText}" FontSize="12.5" FontWeight="SemiBold"
                                    Foreground="{DynamicResource Accent2Brush}" VerticalAlignment="Center" />
                     </Grid>
                     <Slider Classes="DrSlider" Minimum="{x:Static vm:DesktopAppearanceVm.MinOpacityPercent}"
-                            Maximum="100" TickFrequency="1"
+                            Maximum="{x:Static vm:DesktopAppearanceVm.MaxOpacityPercent}" TickFrequency="1"
                             Value="{Binding OpacityPercent, Mode=TwoWay}" />
-                    <TextBlock Classes="Hint" Text="调低更透，能看清墙纸；调高更沉，文字对比更强" />
+                    <TextBlock Classes="Hint" Text="数值是底色自身的不透明度，磨砂染色随之联动：0% 纯磨砂无底色（文字靠抗锯齿保持清晰）、72% 最沉。模糊只让墙纸不干扰，压住文字的始终是这层底色" />
                 </StackPanel>
             </Border>
 

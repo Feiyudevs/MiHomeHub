@@ -2,6 +2,7 @@ using System;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Interactivity;
+using Avalonia.Threading;
 using MiHome.Services;
 using MiHome.ViewModels;
 
@@ -44,6 +45,9 @@ public partial class DesktopSpeakerPickWindow : Window
 
         PopupPlacement.AnchorTo(this, _anchor, rightAligned: false);
         Activate();
+
+        // 首帧先画在「收起」状态，等渲染循环跑起来再加 .open，过渡才有起点
+        Dispatcher.UIThread.Post(() => Card.Classes.Add("open"), DispatcherPriority.Render);
     }
 
     private void OnPick(object? sender, RoutedEventArgs e)

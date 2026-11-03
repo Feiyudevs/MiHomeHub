@@ -84,12 +84,15 @@ public sealed partial class HomeOption : ObservableObject
     [ObservableProperty] private bool _isSelected;
 }
 
-/// <summary>下拉项的最小契约：OptionPicker 只认这三样，规格下拉项（SpecOptionVm）也能直接当选项用。</summary>
+/// <summary>下拉项的最小契约：OptionPicker 只认这几样，规格下拉项（SpecOptionVm）也能直接当选项用。</summary>
 public interface IPickOption
 {
     string Label { get; }
     object Value { get; }
     bool IsSelected { get; set; }
+
+    /// <summary>行尾的弱色补充文字（如音箱所在房间），没有就不占位。</summary>
+    string? Meta { get; }
 }
 
 /// <summary>自绘下拉项：Value 是与调用方状态直接比对的任意值（bool、字符串…）。</summary>
@@ -97,6 +100,9 @@ public sealed partial class OptionItem : ObservableObject, IPickOption
 {
     public required string Label { get; init; }
     public required object Value { get; init; }
+
+    /// <summary>见 <see cref="IPickOption.Meta"/>：同名的设备靠它区分。</summary>
+    public string? Meta { get; init; }
 
     /// <summary>当前选中项，由 OptionPicker 统一维护，驱动浮层的柔色底。</summary>
     [ObservableProperty] private bool _isSelected;

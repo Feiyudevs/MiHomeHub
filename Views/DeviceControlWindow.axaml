@@ -13,7 +13,8 @@
         Topmost="True"
         WindowStartupLocation="Manual"
         TransparencyLevelHint="Transparent"
-        Background="Transparent">
+        Background="Transparent"
+        RenderOptions.TextRenderingMode="Antialias">
 
     <Window.Styles>
         <!-- 分区弹窗与主窗口抽屉共用同一套详情控件样式（DrCard / SegTrack / SegBtn / SegMini …），

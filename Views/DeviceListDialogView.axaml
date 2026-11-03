@@ -1,0 +1,27 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="clr-namespace:MiHome.ViewModels"
+             xmlns:ctl="clr-namespace:MiHome.Controls"
+             x:Class="MiHome.Views.DeviceListDialogView"
+             x:DataType="vm:MainViewModel">
+    <!-- 统计卡共用的设备清单弹窗（灯光卡 = 全屋灯，在线卡 = 离线设备）。
+         正文复用主窗口那张设备卡，动作仍由 MainViewModel(IDeviceCardHost) 接：点卡开抽屉、点电源键下发开关。 -->
+    <ctl:DialogPopup CardWidth="620" CardMaxHeight="660"
+                     Title="{Binding StatListTitle}" Subtitle="{Binding StatListSubtitle}"
+                     IsOpen="{Binding IsStatListOpen}"
+                     CloseCommand="{Binding CloseStatListCommand}">
+        <Grid>
+            <ItemsControl ItemsSource="{Binding StatDevices}" ItemTemplate="{StaticResource DeviceCardTemplate}"
+                          IsVisible="{Binding HasStatDevices}">
+                <ItemsControl.ItemsPanel>
+                    <ItemsPanelTemplate>
+                        <ctl:AdaptiveGridPanel MinItemWidth="240" Spacing="0" />
+                    </ItemsPanelTemplate>
+                </ItemsControl.ItemsPanel>
+            </ItemsControl>
+            <TextBlock Classes="Hint" Text="{Binding StatListEmptyText}" TextWrapping="Wrap"
+                       HorizontalAlignment="Center" VerticalAlignment="Top"
+                       IsVisible="{Binding !HasStatDevices}" />
+        </Grid>
+    </ctl:DialogPopup>
+</UserControl>

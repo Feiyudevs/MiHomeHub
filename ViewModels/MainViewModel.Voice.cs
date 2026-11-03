@@ -85,7 +85,7 @@ public partial class MainViewModel : ObservableObject
         {
             SpeakerOptions.Clear();
             foreach (var s in speakers)
-                SpeakerOptions.Add(new OptionItem { Label = s.Name, Value = s.Did });
+                SpeakerOptions.Add(new OptionItem { Label = s.Name, Value = s.Did, Meta = SpeakerRoom(s) });
 
             var pick = SpeakerOptions.FirstOrDefault(o => Equals(o.Value, wanted))
                        ?? SpeakerOptions.FirstOrDefault();
@@ -106,6 +106,12 @@ public partial class MainViewModel : ObservableObject
             IsMusicOpen = false;
         }
     }
+
+    /// <summary>音箱下拉里的房间标注：没归到房间就不显示，别占一列写「未分配房间」。</summary>
+    private static string? SpeakerRoom(MijiaDevice speaker)
+        => string.IsNullOrWhiteSpace(speaker.RoomName) || speaker.RoomName == "未分配房间"
+            ? null
+            : speaker.RoomName;
 
     private void UpdateDefaultSpeakerName()
     {

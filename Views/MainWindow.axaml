@@ -118,7 +118,7 @@
                     </Button>
                 </StackPanel>
             </Border>
-            <!-- 标题栏左侧两个音箱入口：弱化主色胶囊，紧贴「我的家庭」右侧，与家庭胶囊同高；仅检测到音箱时出现 -->
+            <!-- 标题栏左侧两个音箱入口：中性玻璃胶囊（与搜索圆钮同族），紧贴「我的家庭」右侧、同高 32；仅检测到音箱时出现 -->
             <!-- 浮层左沿与本胶囊左沿对齐（打开时由 MainWindow 计算并传入） -->
             <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="8" Margin="8,0,0,0"
                         VerticalAlignment="Center">
@@ -127,8 +127,9 @@
                         IsVisible="{Binding HasSpeaker}"
                         Command="{Binding ToggleVoiceCommand}" ToolTip.Tip="小爱语音指令">
                     <StackPanel Orientation="Horizontal" Spacing="6" Margin="11,0" HorizontalAlignment="Center">
+                        <!-- 图标常驻主色，文字按悬停/展开态才上色：入口保留一点识别度，又不整块铺紫 -->
                         <ctl:VoiceBars Width="14" Height="14" VerticalAlignment="Center"
-                                       BarBrush="{Binding $parent[Button].Foreground}"
+                                       BarBrush="{DynamicResource Accent2Brush}"
                                        IsActive="{Binding HasSpeaker}"
                                        IsBusy="{Binding IsVoiceSending}" />
                         <TextBlock Text="小爱同学" VerticalAlignment="Center" />
@@ -137,12 +138,13 @@
                 <!-- 音乐：未播放时只是一个入口；正在播放时把名称就地换成上一曲/暂停/下一曲，就地可操作 -->
                 <Button x:Name="MusicBtn" Classes="MusicCapsule"
                         Classes.open="{Binding IsMusicOpen}"
+                        Classes.playing="{Binding MediaSpeaker.IsPlaying}"
                         IsVisible="{Binding HasSpeaker}"
                         Command="{Binding ToggleMusicCommand}" ToolTip.Tip="音箱播放控制">
                     <StackPanel Orientation="Horizontal" Spacing="4" Margin="9,0" HorizontalAlignment="Center">
                         <Viewbox Width="15" Height="15" VerticalAlignment="Center">
                             <Panel Width="24" Height="24">
-                                <Path Stroke="{Binding $parent[Button].Foreground}" StrokeThickness="1.8"
+                                <Path Stroke="{DynamicResource Accent2Brush}" StrokeThickness="1.8"
                                       StrokeLineCap="Round" StrokeJoin="Round"
                                       Data="{StaticResource GeoMusic}" />
                             </Panel>
@@ -325,6 +327,10 @@
                     <!-- 浅色遮罩层：叠在主遮罩之上，颜色更淡，随抽屉开关淡入淡出 -->
                     <Border x:Name="DeviceMaskLight" ZIndex="91" Classes="Mask" Background="{DynamicResource MaskLightBrush}"
                             Opacity="0" IsVisible="False" PointerReleased="OnMaskClick" />
+                    <!-- ================= 统计卡设备清单弹窗（灯光卡 / 在线卡共用） =================
+                         挂在内容面板内层、遮罩之下：抽屉是根层 ZIndex=100，从弹窗里点卡片时抽屉会正常浮在弹窗之上，
+                         弹窗遮罩只盖内容面板，与抽屉的遮罩范围保持一致。 -->
+                    <views:DeviceListDialogView />
                 </Grid>
             </Border>
         </Grid>

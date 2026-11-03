@@ -75,6 +75,13 @@ public sealed class DesktopLayout
     /// <summary>媒体分区被手动关闭过：为 true 时不再自动放回桌面，重新开启只走设置页开关。</summary>
     public bool MediaHidden { get; set; }
 
+    /// <summary>
+    /// 外观迁移版本。滑杆语义每次变档（下限/上限重映射）都要 +1：
+    /// 迁移只跑一次，否则用户手动选的浓度会在下次启动时被反复改写。
+    /// 0 = 没有该字段的老数据。
+    /// </summary>
+    public int AppearanceVersion { get; set; }
+
     [JsonIgnore]
     public bool HasGroups => Groups.Count > 0;
 }

@@ -4,46 +4,86 @@
         x:Class="MiHome.Views.DesktopSpeakerPickWindow"
         x:DataType="vm:DesktopMediaVm"
         Title="选择音箱"
-        Width="212" SizeToContent="Height"
+        Width="240" SizeToContent="Height"
         SystemDecorations="None" CanResize="False"
         ShowInTaskbar="False" Topmost="True"
         WindowStartupLocation="Manual"
         TransparencyLevelHint="Transparent"
         Background="Transparent"
+        RenderOptions.TextRenderingMode="Antialias"
         RequestedThemeVariant="Light">
 
     <Window.Styles>
-        <!-- 一行一台音箱：整行可点，当前这台只用柔色底 + 主色文字区分，不加勾 -->
+        <!-- 一行一台音箱：整行可点，当前这台只用品牌主色的柔色底 + 同色文字区分，不加勾 -->
         <Style Selector="Button.SPItem">
             <Setter Property="Height" Value="30" />
             <Setter Property="Padding" Value="8,0" />
             <Setter Property="CornerRadius" Value="7" />
             <Setter Property="HorizontalAlignment" Value="Stretch" />
-            <Setter Property="HorizontalContentAlignment" Value="Left" />
+            <Setter Property="HorizontalContentAlignment" Value="Stretch" />
             <Setter Property="Background" Value="Transparent" />
             <Setter Property="BorderThickness" Value="0" />
             <Setter Property="Focusable" Value="False" />
             <Setter Property="Cursor" Value="Hand" />
             <Setter Property="FontSize" Value="12.5" />
-            <Setter Property="Foreground" Value="{DynamicResource DskText2Brush}" />
             <Setter Property="Transitions">
                 <Transitions>
                     <BrushTransition Property="Background" Duration="0:0:0.1" />
                 </Transitions>
             </Setter>
         </Style>
-        <Style Selector="Button.SPItem:pointerover /template/ ContentPresenter#PART_ContentPresenter">
-            <Setter Property="Background" Value="{DynamicResource Surface5Brush}" />
+        <!-- 名称与房间胶囊的颜色写在行内控件上，不挂按钮：Control.Foreground 不会继承进内容里的
+             TextBlock，挂按钮只会让标签退回黑色。下面固定「基础档 → 悬停/当前档」的顺序，同优先级取后者。 -->
+        <Style Selector="Button.SPItem TextBlock">
+            <Setter Property="Foreground" Value="{DynamicResource DskText2Brush}" />
         </Style>
-        <Style Selector="Button.SPItem.current">
-            <Setter Property="Foreground" Value="{DynamicResource Accent2Brush}" />
+        <!-- 房间标注：整行只用来认设备，弱一档 -->
+        <Style Selector="TextBlock.Room">
+            <Setter Property="FontSize" Value="10.5" />
+            <Setter Property="Foreground" Value="{DynamicResource DskText3Brush}" />
+            <Setter Property="VerticalAlignment" Value="Center" />
+        </Style>
+        <Style Selector="Button.SPItem:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+            <Setter Property="Background" Value="{DynamicResource SelBgHoverBrush}" />
         </Style>
         <Style Selector="Button.SPItem.current /template/ ContentPresenter#PART_ContentPresenter">
-            <Setter Property="Background" Value="{DynamicResource AccentSoftBrush}" />
+            <Setter Property="Background" Value="{DynamicResource SelBgBrush}" />
+        </Style>
+        <!-- 悬停底是实心紫：整行文字（含房间胶囊）一起翻白 -->
+        <Style Selector="Button.SPItem:pointerover TextBlock">
+            <Setter Property="Foreground" Value="{DynamicResource SelTextBrush}" />
+        </Style>
+        <Style Selector="Button.SPItem.current TextBlock">
+            <Setter Property="Foreground" Value="{DynamicResource SelTextBrush}" />
+        </Style>
+        <!-- 悬停已选中的那台：保持选中底，不能被更淡的悬停档盖过去 -->
+        <Style Selector="Button.SPItem.current:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+            <Setter Property="Background" Value="{DynamicResource SelBgBrush}" />
+        </Style>
+        <Style Selector="Button.SPItem.current:pressed /template/ ContentPresenter#PART_ContentPresenter">
+            <Setter Property="Background" Value="{DynamicResource SelBgPressBrush}" />
+        </Style>
+        <!-- 入场：从触发按钮那一侧（上缘）放大 10px 落位。起点位移向下，缩放后仍在窗内，
+             不会被窗口边界裁掉；开关由代码在首帧后加 .open 触发 -->
+        <Style Selector="Border.PopupCard">
+            <Setter Property="Opacity" Value="0" />
+            <Setter Property="RenderTransformOrigin" Value="50%, 0%" />
+            <Setter Property="RenderTransform" Value="scale(0.94) translate(0px,8px)" />
+            <Setter Property="Transitions">
+                <Transitions>
+                    <DoubleTransition Property="Opacity" Duration="0:0:0.14" Easing="CubicEaseOut" />
+                    <TransformOperationsTransition Property="RenderTransform" Duration="0:0:0.22" Easing="CubicEaseOut" />
+                </Transitions>
+            </Setter>
+        </Style>
+        <Style Selector="Border.PopupCard.open">
+            <Setter Property="Opacity" Value="1" />
+            <Setter Property="RenderTransform" Value="scale(1) translate(0px,0px)" />
         </Style>
     </Window.Styles>
 
-    <Border Background="{DynamicResource DrawerBgBrush}"
+    <Border x:Name="Card" Classes="PopupCard"
+            Background="{DynamicResource DrawerBgBrush}"
             BorderBrush="{DynamicResource LineBrush}"
             BorderThickness="1"
             CornerRadius="12"
@@ -53,13 +93,24 @@
             <TextBlock Text="选择控制的音箱" FontSize="10.5" FontWeight="SemiBold"
                        Margin="8,3,8,5" Foreground="{DynamicResource DskText3Brush}" />
             <ItemsControl ItemsSource="{Binding SpeakerPicks}">
+                <!-- 实心紫底之间必须留出缝，否则相邻两行会连成一整块紫 -->
+                <ItemsControl.ItemsPanel>
+                    <ItemsPanelTemplate>
+                        <StackPanel Spacing="2" />
+                    </ItemsPanelTemplate>
+                </ItemsControl.ItemsPanel>
                 <ItemsControl.ItemTemplate>
                     <DataTemplate x:DataType="vm:SpeakerPickItem">
                         <Button Classes="SPItem" Classes.current="{Binding IsCurrent}"
-                                Tag="{Binding Did}" Click="OnPick"
-                                ToolTip.Tip="{Binding Label}">
-                            <TextBlock Text="{Binding Label}" TextTrimming="CharacterEllipsis"
-                                       VerticalAlignment="Center" />
+                                Tag="{Binding Did}" Click="OnPick">
+                            <Grid ColumnDefinitions="*,Auto">
+                                <TextBlock Text="{Binding Label}" TextTrimming="CharacterEllipsis"
+                                           VerticalAlignment="Center" />
+                                <Border Classes="RoomTag" Grid.Column="1" Margin="8,0,0,0"
+                                        IsVisible="{Binding Meta, Converter={x:Static StringConverters.IsNotNullOrEmpty}}">
+                                    <TextBlock Classes="Room" Text="{Binding Meta}" />
+                                </Border>
+                            </Grid>
                         </Button>
                     </DataTemplate>
                 </ItemsControl.ItemTemplate>

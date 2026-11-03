@@ -153,7 +153,7 @@ public partial class DesktopGroupWindow : Window
         // 材质先打
         var look = DesktopHost.Look;
         if (look.Glass)
-            DesktopEmbed.ApplyAcrylic(h, DesktopPalette.BaseColor(look), DesktopPalette.TintOpacity(look));
+            DesktopEmbed.ApplyAcrylic(h, DesktopPalette.TintColor(look), DesktopPalette.TintOpacity(look));
         else
             DesktopEmbed.ClearAcrylic(h);
 
@@ -272,6 +272,8 @@ public partial class DesktopGroupWindow : Window
     private void OnDevicesChanged(object? sender, NotifyCollectionChangedEventArgs e)
     {
         if (e.Action != NotifyCollectionChangedAction.Add) return;
+        // 拖拽排序是「摘一张再插回」：条目数没变，不能按新增内容去放宽窗口
+        if (_group?.IsReordering == true) return;
         // 事件是在下一次布局前同步派发的：此时 Height 还是「加这些之前」的高度，
         // 正好用来推算加完之后的底部会不会顶出桌面（删内容不收窄，尊重用户手拉的宽度）
         var added = e.NewItems?.Count ?? 1;

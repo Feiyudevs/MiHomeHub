@@ -10,6 +10,7 @@
         WindowStartupLocation="Manual"
         TransparencyLevelHint="Transparent"
         Background="Transparent"
+        RenderOptions.TextRenderingMode="Antialias"
         RequestedThemeVariant="Light">
 
     <Border Background="{DynamicResource DrawerBgBrush}"
