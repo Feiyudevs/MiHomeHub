@@ -28,8 +28,16 @@ public class DialogPopup : ContentControl
     public static readonly StyledProperty<double> CardWidthProperty =
         AvaloniaProperty.Register<DialogPopup, double>(nameof(CardWidth), 760);
 
+    /// <summary>卡片固定高度（双击 0/NaN 则按内容自适应，受 CardMaxHeight 限制）。设置页用固定值避免切 Tab 时尺寸跳动。</summary>
+    public static readonly StyledProperty<double> CardHeightProperty =
+        AvaloniaProperty.Register<DialogPopup, double>(nameof(CardHeight), double.NaN);
+
     public static readonly StyledProperty<double> CardMaxHeightProperty =
         AvaloniaProperty.Register<DialogPopup, double>(nameof(CardMaxHeight), 640);
+
+    /// <summary>正文滚动区外边距（左,上,右,下）。默认 28,18,6,26；设置页等想让内容贴底时把下边距设 0。</summary>
+    public static readonly StyledProperty<Thickness> ContentMarginProperty =
+        AvaloniaProperty.Register<DialogPopup, Thickness>(nameof(ContentMargin), new Thickness(28, 18, 6, 26));
 
     public static readonly StyledProperty<ICommand?> CloseCommandProperty =
         AvaloniaProperty.Register<DialogPopup, ICommand?>(nameof(CloseCommand));
@@ -62,10 +70,22 @@ public class DialogPopup : ContentControl
         set => SetValue(CardWidthProperty, value);
     }
 
+    public double CardHeight
+    {
+        get => GetValue(CardHeightProperty);
+        set => SetValue(CardHeightProperty, value);
+    }
+
     public double CardMaxHeight
     {
         get => GetValue(CardMaxHeightProperty);
         set => SetValue(CardMaxHeightProperty, value);
+    }
+
+    public Thickness ContentMargin
+    {
+        get => GetValue(ContentMarginProperty);
+        set => SetValue(ContentMarginProperty, value);
     }
 
     public ICommand? CloseCommand

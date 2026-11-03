@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.ComponentModel;
+using System.Diagnostics;
 using System.Globalization;
 using System.IO;
 using System.Linq;
@@ -76,6 +77,9 @@ public partial class MainViewModel : ObservableObject
     [ObservableProperty] private bool _iconGlass = IconStyleStore.Glass;
     [ObservableProperty] private bool _autoStart = StartupRegistration.IsEnabled();
     [ObservableProperty] private bool _closeToTray = AppSettingsStore.CloseToTray;
+
+    /// <summary>设置弹窗当前 Tab：0 通用 / 1 桌面组件 / 2 账户 / 3 关于。</summary>
+    [ObservableProperty] private int _settingsTab;
 
     /// <summary>写注册表失败回滚开关时置位，避免回滚本身又触发一次写入。</summary>
     private bool _revertingAutoStart;
@@ -1433,6 +1437,27 @@ public partial class MainViewModel : ObservableObject
 
     /// <summary>日志只保留最近约 80 行，避免常驻托盘时 LogText 无限膨胀拖慢绑定。</summary>
     private const int MaxLogLines = 80;
+
+    /// <summary>关于页「官网」按钮占位链接，替换为真实地址即可生效。</summary>
+    public string OfficialSiteUrl { get; } = "https://example.com";
+
+    /// <summary>关于页「开源仓库」按钮占位链接，替换为真实地址即可生效。</summary>
+    public string RepoUrl { get; } = "https://github.com/";
+
+    /// <summary>用系统默认浏览器打开外链（官网 / 开源仓库等）。</summary>
+    [RelayCommand]
+    private void OpenUrl(string? url)
+    {
+        if (string.IsNullOrWhiteSpace(url)) return;
+        try
+        {
+            Process.Start(new ProcessStartInfo(url) { UseShellExecute = true });
+        }
+        catch (Exception ex)
+        {
+            Log($"打开链接失败：{url} - {ex.Message}");
+        }
+    }
 
     private void Log(string msg)
     {

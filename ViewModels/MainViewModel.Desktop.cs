@@ -67,10 +67,18 @@ public partial class MainViewModel : IDeviceCardHost
         }
     }
 
-    /// <summary>设置弹窗每次打开都按当前配置刷一次媒体分区开关的显示状态。</summary>
+    /// <summary>分区外观编辑器（背景色 / 浓度 / 毛玻璃），设置页内联复用同一份 VM。</summary>
+    public DesktopAppearanceVm DesktopAppearance { get; } = new();
+
+    /// <summary>设置弹窗每次打开都按当前配置刷一次媒体分区开关的显示状态，并回到第一个 Tab。</summary>
     partial void OnIsSettingsOpenChanged(bool value)
     {
-        if (value) OnPropertyChanged(nameof(DesktopMediaZone));
+        if (value)
+        {
+            SettingsTab = 0;
+            OnPropertyChanged(nameof(DesktopMediaZone));
+            DesktopAppearance.Reload();
+        }
     }
 
     /// <summary>点分区里的设备卡片：复用抽屉那套设备详情（规格面板 + 属性回填），只是换到弹窗里展示。</summary>
@@ -94,14 +102,6 @@ public partial class MainViewModel : IDeviceCardHost
     {
         if (device == null) return;
         DesktopHost.OpenGroupPicker(device);
-    }
-
-    /// <summary>设置页里的桌面组件外观入口。</summary>
-    [RelayCommand]
-    private void OpenDesktopAppearance()
-    {
-        IsSettingsOpen = false;
-        DesktopHost.OpenAppearance();
     }
 
     /// <summary>设备列表换代后触发一次（由 UpdateStats 统一出口调用）。</summary>

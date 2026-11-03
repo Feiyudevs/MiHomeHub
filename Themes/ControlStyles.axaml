@@ -52,6 +52,10 @@
             <Setter Property="Padding" Value="18"/>
             <Setter Property="BoxShadow" Value="0 1 2 0 #050F172A, 0 5 16 0 #080F172A"/>
         </Style>
+        <!-- 设置页内卡片：比全局再淡一档，整体更收敛 -->
+        <Style Selector="StackPanel.SetArea Border.Card">
+            <Setter Property="Background" Value="{DynamicResource CardSoftBrush}"/>
+        </Style>
         <!-- 滑动条滑块：白圆点加轻投影，浮在加高的轨道上 -->
         <Style Selector="Slider /template/ Thumb /template/ Border">
             <Setter Property="BoxShadow" Value="0 1 4 #59000000"/>
@@ -859,6 +863,7 @@
                         <Border Classes="Mask" Background="{DynamicResource MaskBrush}"/>
                         <Border Classes="DialogCard" HorizontalAlignment="Center" VerticalAlignment="Center"
                                 Width="{TemplateBinding CardWidth}"
+                                Height="{TemplateBinding CardHeight}"
                                 MaxHeight="{TemplateBinding CardMaxHeight}">
                             <Grid RowDefinitions="Auto,*">
                                 <Panel Name="DialogHeader" Background="Transparent" Margin="28,20,22,0">
@@ -879,7 +884,7 @@
                                 </Panel>
                                 <!-- 右外距缩到 6：把滚动条推到卡片内侧边缘，不再压在卡片上；
                                      正文右侧补 16 内距，正文可用宽度与卡片位置都和原来完全一致 -->
-                                <ScrollViewer Grid.Row="1" Margin="28,18,6,26"
+                                <ScrollViewer Grid.Row="1" Margin="{TemplateBinding ContentMargin}"
                                               ClipToBounds="True"
                                               VerticalScrollBarVisibility="Auto"
                                               HorizontalScrollBarVisibility="Disabled">
@@ -890,6 +895,67 @@
                     </Grid>
                 </ControlTemplate>
             </Setter>
+        </Style>
+
+        <!-- ======== 设置页顶部 Tab 导航（分段胶囊） ======== -->
+        <!-- 容器：极淡底 + 细描边，弱化默认态；内部按钮选中后浮起为强调色 -->
+        <Style Selector="Border.TabBar">
+            <Setter Property="Background" Value="{DynamicResource SurfaceBrush}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource LineBrush}"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="CornerRadius" Value="12"/>
+            <Setter Property="Padding" Value="4"/>
+            <Setter Property="HorizontalAlignment" Value="Left"/>
+        </Style>
+        <Style Selector="Button.Tab">
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="Foreground" Value="{DynamicResource Text2Brush}"/>
+            <Setter Property="Padding" Value="16,8"/>
+            <Setter Property="CornerRadius" Value="9"/>
+            <Setter Property="FontSize" Value="13"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="Template">
+                <ControlTemplate>
+                    <Border Name="Bd" CornerRadius="9" Background="{TemplateBinding Background}"
+                            Padding="{TemplateBinding Padding}">
+                        <ContentPresenter Content="{TemplateBinding Content}" HorizontalAlignment="Center"
+                                          VerticalAlignment="Center"/>
+                    </Border>
+                </ControlTemplate>
+            </Setter>
+        </Style>
+        <Style Selector="Button.Tab:pointerover">
+            <Setter Property="Foreground" Value="{DynamicResource TextBrush}"/>
+        </Style>
+        <Style Selector="Button.Tab.on">
+            <Setter Property="Foreground" Value="White"/>
+            <Setter Property="Background" Value="{DynamicResource PrimaryBtnBrush}"/>
+        </Style>
+        <Style Selector="Button.Tab.on:pointerover">
+            <Setter Property="Foreground" Value="White"/>
+        </Style>
+
+        <!-- 预设色块：按钮本体透明，色点与选中环都是内层 Border（避开 Fluent 模板的边框冲突） -->
+        <Style Selector="Button.Swatch">
+            <Setter Property="Width" Value="26"/>
+            <Setter Property="Height" Value="26"/>
+            <Setter Property="Padding" Value="0"/>
+            <Setter Property="CornerRadius" Value="13"/>
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="Focusable" Value="False"/>
+            <Setter Property="Cursor" Value="Hand"/>
+        </Style>
+        <Style Selector="Button.Swatch /template/ ContentPresenter#PART_ContentPresenter">
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="CornerRadius" Value="13"/>
+            <Setter Property="Padding" Value="0"/>
+        </Style>
+        <Style Selector="Button.Swatch:pointerover">
+            <Setter Property="Opacity" Value="0.9"/>
         </Style>
 
         <!-- ======== 滑杆（抽屉 / 桌面分区浮层共用） ======== -->

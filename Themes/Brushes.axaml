@@ -48,6 +48,8 @@
                     <SolidColorBrush x:Key="PanelBrush" Color="#0E1118"/>
                     <SolidColorBrush x:Key="CardBrush" Color="#1A1F2C"/>
                     <SolidColorBrush x:Key="Card2Brush" Color="#222838"/>
+                    <!-- 设置页内卡片：比全局 CardBrush 再淡一档，降低存在感 -->
+                    <SolidColorBrush x:Key="CardSoftBrush" Color="#161A24"/>
                     <!-- 搜索框底：CardBrush 50% 透明，比卡片更轻 -->
                     <SolidColorBrush x:Key="SearchBgBrush" Color="#801A1F2C"/>
                     <!-- 搜索框边框：LineBrush 一半透明度 -->
@@ -209,6 +211,8 @@
                     <SolidColorBrush x:Key="PanelBrush" Color="#F7F9FC"/>
                     <SolidColorBrush x:Key="CardBrush" Color="#FFFFFF"/>
                     <SolidColorBrush x:Key="Card2Brush" Color="#F0F3F8"/>
+                    <!-- 设置页内卡片：比全局 CardBrush 再淡一档，降低存在感 -->
+                    <SolidColorBrush x:Key="CardSoftBrush" Color="#F6F8FC"/>
                     <!-- 搜索框底：Card2Brush 50% 透明，比面板更轻 -->
                     <SolidColorBrush x:Key="SearchBgBrush" Color="#80F0F3F8"/>
                     <!-- 搜索框边框：LineBrush 一半透明度 -->
