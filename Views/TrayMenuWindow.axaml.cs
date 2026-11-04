@@ -10,6 +10,7 @@ using Avalonia.Media;
 using Avalonia.Platform;
 using Avalonia.Threading;
 using MiHome.Services;
+using MiHome.ViewModels;
 
 namespace MiHome.Views;
 
@@ -21,6 +22,11 @@ public partial class TrayMenuWindow : Window
 {
     private const double ShadowMargin = 20;
 
+    // 有音箱时多出的媒体块高度（下拉 32 + 间距 + 三键 34 + 上下留白 + 分隔线）
+    private const double MediaBlockHeight = 94;
+    private const double BaseHeight = 232;
+
+    private readonly MainViewModel _vm;
     private readonly ScaleTransform _scale = new(1, 1);
     private readonly TranslateTransform _slide = new();
 
@@ -32,9 +38,11 @@ public partial class TrayMenuWindow : Window
     public event Action? RestartRequested;
     public event Action? ExitRequested;
 
-    public TrayMenuWindow()
+    public TrayMenuWindow(MainViewModel vm)
     {
         InitializeComponent();
+        _vm = vm;
+        DataContext = vm;
 
         Card.RenderTransform = new TransformGroup { Children = { _scale, _slide } };
         Card.RenderTransformOrigin = new RelativePoint(1, 1, RelativeUnit.Relative);
@@ -76,6 +84,8 @@ public partial class TrayMenuWindow : Window
     private void Open(Screen? screen, PixelPoint anchor)
     {
         if (screen is null) return;
+        // 媒体块跟着有没有音箱出现/收起，高度要在定位前定下来
+        Height = _vm.HasSpeaker ? BaseHeight + MediaBlockHeight : BaseHeight;
         RefreshThemeEntry();
         PlaceNear(screen, anchor);
         Show();
@@ -107,6 +117,8 @@ public partial class TrayMenuWindow : Window
     private void Dismiss()
     {
         if (!IsVisible) return;
+        // 窗口 Hide 不会带走 Popup：下拉开着时先把它一起收起，否则会留在桌面上
+        SpeakerPicker.CloseDropDown();
         Hide();
         _hiddenAt = Environment.TickCount64;
     }

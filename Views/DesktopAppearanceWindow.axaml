@@ -5,7 +5,7 @@
         x:Class="MiHome.Views.DesktopAppearanceWindow"
         x:DataType="vm:DesktopAppearanceVm"
         Title="桌面组件外观"
-        Width="520" Height="570"
+        Width="588" Height="636"
         SystemDecorations="None"
         CanResize="False"
         ShowInTaskbar="False"

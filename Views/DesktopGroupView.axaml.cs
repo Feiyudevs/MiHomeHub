@@ -16,7 +16,7 @@ using MiHome.ViewModels;
 namespace MiHome.Views;
 
 /// <summary>
-/// 分区卡片内容：标题栏（拖动 / 单击折叠 / 双击重命名）、动作区（折叠 · 添加设备 · 菜单）、设备宫格。
+/// 分区卡片内容：标题栏（拖动 / 单击折叠 / 双击重命名）、动作区（置顶 · 折叠 · 添加设备 · 菜单）、设备宫格。
 /// 贴桌面窗永远不激活，所以这里所有交互都必须能只靠鼠标完成；重命名需要的键盘输入
 /// 交给独立浮层（<see cref="DesktopRenameWindow"/>），不动分区窗自身的激活状态。
 /// 折叠与重命名的行为对齐参考项目 Zonex：单击标题切换折叠（名称区延迟一个双击时间，给双击改名让路），
@@ -250,6 +250,13 @@ public partial class DesktopGroupView : UserControl
     private void OnAddDeviceClick(object? sender, RoutedEventArgs e)
     {
         if (DataContext is DesktopGroupVm g) g.AddDeviceCommand.Execute(null);
+    }
+
+    /// <summary>标题栏图钉：这块分区浮到所有窗口之上 / 放回桌面层（层级切换在宿主窗口里做）。</summary>
+    private void OnPinClick(object? sender, RoutedEventArgs e)
+    {
+        CancelPendingClick();
+        if (DataContext is DesktopZoneVm vm) vm.IsTopmost = !vm.IsTopmost;
     }
 
     private static bool IsOnHeaderButton(object? source)

@@ -232,7 +232,7 @@ public partial class DesktopPickerVm : ObservableObject
     }
 }
 
-/// <summary>弹窗里的一条设备或场景：点整卡即切换「是否已加入分区」，选中态由卡面主色表达。</summary>
+/// <summary>弹窗里的一条设备或场景：点整卡即切换「是否已加入分区」，选中态由卡面主色描边与名称色表达。</summary>
 public partial class PickerItem : ObservableObject
 {
     public MijiaDevice? Device { get; init; }

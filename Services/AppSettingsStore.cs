@@ -16,6 +16,9 @@ public static class AppSettingsStore
     /// <summary>true = 点关闭收进托盘继续运行；false = 直接退出。</summary>
     public static bool CloseToTray { get; private set; } = true;
 
+    /// <summary>false = 启动后直接静默驻留托盘，不弹主界面。</summary>
+    public static bool ShowMainWindowOnStartup { get; private set; }
+
     /// <summary>小爱语音指令默认下发的音箱 did；空串表示还没选过。</summary>
     public static string DefaultSpeakerDid { get; private set; } = "";
 
@@ -30,6 +33,8 @@ public static class AppSettingsStore
                 AutoStart = a.ValueKind != JsonValueKind.False;
             if (root.TryGetProperty("closeToTray", out var c))
                 CloseToTray = c.ValueKind != JsonValueKind.False;
+            if (root.TryGetProperty("showMainWindowOnStartup", out var w))
+                ShowMainWindowOnStartup = w.ValueKind == JsonValueKind.True;
             if (root.TryGetProperty("defaultSpeakerDid", out var s) && s.ValueKind == JsonValueKind.String)
                 DefaultSpeakerDid = s.GetString() ?? "";
         }
@@ -51,6 +56,12 @@ public static class AppSettingsStore
         Save();
     }
 
+    public static void SetShowMainWindowOnStartup(bool on)
+    {
+        ShowMainWindowOnStartup = on;
+        Save();
+    }
+
     public static void SetDefaultSpeakerDid(string did)
     {
         DefaultSpeakerDid = did;
@@ -63,6 +74,7 @@ public static class AppSettingsStore
         {
             autoStart = AutoStart,
             closeToTray = CloseToTray,
+            showMainWindowOnStartup = ShowMainWindowOnStartup,
             defaultSpeakerDid = DefaultSpeakerDid
         });
         // 写盘出 UI 线程；进程被强杀时可能丢最后一次偏好，可接受

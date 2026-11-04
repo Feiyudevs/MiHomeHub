@@ -21,6 +21,9 @@ public abstract partial class DesktopZoneVm : ObservableObject
     [ObservableProperty] private string _name = "新分区";
     [ObservableProperty] private bool _collapsed;
 
+    /// <summary>标题栏图钉：true 时这块分区脱离桌面层、浮在所有窗口之上。</summary>
+    [ObservableProperty] private bool _isTopmost;
+
     /// <summary>重命名浮层是否正盖在名称上：为真时隐藏分区窗自己的名称文字，避免半透明浮层透出双重名称。</summary>
     [ObservableProperty] private bool _isRenaming;
 
@@ -46,6 +49,7 @@ public abstract partial class DesktopZoneVm : ObservableObject
         Model = model;
         _name = model.Name;
         _collapsed = model.Collapsed;
+        _isTopmost = model.Topmost;
         _contentVisible = !model.Collapsed;
         _width = Math.Clamp(model.Width, DesktopGroupModel.MinWidth, DesktopGroupModel.MaxWidth);
         _dissolveLabel = DangerText;
@@ -117,6 +121,12 @@ public abstract partial class DesktopZoneVm : ObservableObject
     partial void OnWidthChanged(double value)
     {
         Model.Width = value;
+        DesktopHost.Save();
+    }
+
+    partial void OnIsTopmostChanged(bool value)
+    {
+        Model.Topmost = value;
         DesktopHost.Save();
     }
 

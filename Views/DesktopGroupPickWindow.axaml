@@ -5,7 +5,7 @@
         x:Class="MiHome.Views.DesktopGroupPickWindow"
         x:DataType="vm:DesktopGroupPickVm"
         Title="添加到桌面组件"
-        Width="452" Height="560"
+        Width="520" Height="616"
         SystemDecorations="None"
         CanResize="False"
         ShowInTaskbar="False"

@@ -5,7 +5,7 @@
         x:Class="MiHome.Views.DesktopPickerWindow"
         x:DataType="vm:DesktopPickerVm"
         Title="添加设备"
-        Width="900" Height="680"
+        Width="956" Height="736"
         SystemDecorations="None"
         CanResize="False"
         ShowInTaskbar="False"
@@ -17,7 +17,8 @@
 
     <Window.Styles>
         <!-- 设备卡片：一整块有底色的卡（之前是 Transparent，只有一圈描边，看着像表格行）。
-             选中态不再画勾选圈，直接把卡面切成主色 —— 一眼就能看出哪些已加进分区。
+             选中态不铺主色 —— 一个分区动辄十几台，整屏实心紫卡太压眼；
+             改成「极淡紫底 + 1px 淡紫描边 + 主色名称」，靠字色认出已选。
              底色一律画在 ContentPresenter 上（Fluent 的悬停态也是改这里，画在 Button.Background 上会被压掉） -->
         <Style Selector="Button.PickCard">
             <Setter Property="Width" Value="244" />
@@ -43,15 +44,16 @@
             <Setter Property="BorderBrush" Value="{DynamicResource LineBrush}" />
         </Style>
         <Style Selector="Button.PickCard.in /template/ ContentPresenter#PART_ContentPresenter">
-            <Setter Property="Background" Value="{DynamicResource PickCardOnBrush}" />
-            <Setter Property="BorderBrush" Value="{DynamicResource PickCardOnBrush}" />
+            <Setter Property="Background" Value="{DynamicResource PickCardOnFillBrush}" />
+            <Setter Property="BorderBrush" Value="{DynamicResource PickCardOnLineBrush}" />
         </Style>
         <Style Selector="Button.PickCard.in:pointerover /template/ ContentPresenter#PART_ContentPresenter">
-            <Setter Property="Background" Value="{DynamicResource PickCardOnBrush}" />
-            <Setter Property="BorderBrush" Value="{DynamicResource PickCardOnBrush}" />
+            <Setter Property="Background" Value="{DynamicResource PickCardOnFillHoverBrush}" />
+            <Setter Property="BorderBrush" Value="{DynamicResource PickCardOnLineBrush}" />
         </Style>
 
-        <!-- 卡内文字/图标：选中时统一提成纯白，压在紫底上才清楚。
+        <!-- 卡内文字/图标：选中时提到主色，和描边同一套。
+             副标题（设备类别）保持次级灰，全卡都染主色反而更乱；
              不能用元素上的本地 Foreground/Stroke（本地值压过样式），所以这里走类选择器 -->
         <Style Selector="TextBlock.PickName">
             <Setter Property="Foreground" Value="{DynamicResource TextBrush}" />
@@ -60,16 +62,13 @@
             <Setter Property="Foreground" Value="{DynamicResource Text2Brush}" />
         </Style>
         <Style Selector="Button.PickCard.in TextBlock.PickName">
-            <Setter Property="Foreground" Value="#FFFFFFFF" />
-        </Style>
-        <Style Selector="Button.PickCard.in TextBlock.PickRoom">
-            <Setter Property="Foreground" Value="#E4E8FF" />
+            <Setter Property="Foreground" Value="{DynamicResource PickCardOnTextBrush}" />
         </Style>
         <Style Selector="Path.PickIc">
             <Setter Property="Stroke" Value="{DynamicResource Text2Brush}" />
         </Style>
         <Style Selector="Button.PickCard.in Path.PickIc">
-            <Setter Property="Stroke" Value="#FFFFFFFF" />
+            <Setter Property="Stroke" Value="{DynamicResource PickCardOnTextBrush}" />
         </Style>
         <Style Selector="Image.PickPhoto">
             <Setter Property="Opacity" Value="0.9" />
@@ -113,7 +112,7 @@
             <Setter Property="BorderBrush" Value="{DynamicResource AccentBrush}" />
         </Style>
 
-        <!-- 房间直达条：一枚胶囊一个房间，选中铺主色（和已选设备卡同一套色，视觉上有呼应） -->
+        <!-- 房间直达条：一枚胶囊一个房间。这里是单选、只有一枚，选中仍铺实心主色 -->
         <Style Selector="Button.RoomTab">
             <Setter Property="Height" Value="28" />
             <Setter Property="Padding" Value="13,0" />
@@ -171,13 +170,14 @@
     </Window.Styles>
 
     <Panel>
-        <!-- 遮罩：窗口透明，这里只负责「点外面关掉」 -->
+        <!-- 遮罩：窗口透明，这里只负责「点外面关掉」；窗体比卡片四周各多 58，那圈透明带是留给卡片投影的 -->
         <Border Name="Mask" Background="Transparent" PointerPressed="OnMaskPressed" />
 
         <!-- 尺寸固定：切分类只换内容，卡片（和窗体）不能跟着内容多少忽高忽低 -->
         <Border Classes="DialogCard" Width="840" Height="620"
                 HorizontalAlignment="Center" VerticalAlignment="Center">
-            <Grid RowDefinitions="Auto,Auto,Auto,*">
+            <!-- 裁切挂在这层：DialogCard 上的投影不能带 ClipToBounds，否则被卡片自己边界裁光 -->
+            <Grid RowDefinitions="Auto,Auto,Auto,*" ClipToBounds="True">
 
                 <!-- ===== 标题栏（可拖动）+ 关闭 =====
                      边距与关闭按钮刻意对齐弹窗基类 DialogPopup（Margin 28,20,22,0 + Button.ThemeBtn），
@@ -306,7 +306,7 @@
                                                                        Stretch="Uniform"
                                                                        RenderOptions.BitmapInterpolationMode="MediumQuality"
                                                                        IsVisible="{Binding HasPhoto}" />
-                                                                <!-- 场景用自带线性图标，与设备同一套描边色（选中时一起转纯白） -->
+                                                                <!-- 场景用自带线性图标，与设备同一套描边色（选中时一起转主色） -->
                                                                 <Path Classes="PickIc" Width="18" Height="18" Stretch="Uniform"
                                                                       StrokeThickness="1.6" StrokeLineCap="Round" StrokeJoin="Round"
                                                                       VerticalAlignment="Center" HorizontalAlignment="Center"

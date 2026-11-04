@@ -81,6 +81,19 @@
 
                         <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="2"
                                     VerticalAlignment="Center" HorizontalAlignment="Right">
+                            <!-- 置顶图钉：摘掉 Progman 从属、浮到所有窗口之上；再点一次放回桌面层。
+                                 选中态只换图标颜色（同一族状态控件的做法），不加底色、不加勾 -->
+                            <Button Classes="DskIcon" Classes.pin="{Binding IsTopmost}"
+                                    Click="OnPinClick" ToolTip.Tip="置顶 / 放回桌面">
+                                <Viewbox Width="15" Height="15" Stretch="Uniform"
+                                         HorizontalAlignment="Center" VerticalAlignment="Center">
+                                    <Panel Width="24" Height="24">
+                                        <Path StrokeThickness="1.92" StrokeLineCap="Round" StrokeJoin="Round"
+                                              Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}"
+                                              Data="{StaticResource GeoPin}" />
+                                    </Panel>
+                                </Viewbox>
+                            </Button>
                             <!-- 折叠 / 展开：chevron 旋转 90ms，与内容淡出同步。
                                  图标一律走「Viewbox 缩放的 24 网格 Panel」——Path 单独用 Stretch 时是按几何包围盒
                                  对齐的，非正方几何（chevron 是 12×6）在框里会偏；套一层 24 网格才真正居中。

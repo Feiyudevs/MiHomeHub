@@ -32,7 +32,17 @@ public partial class DesktopMediaVm : DesktopZoneVm
 
     public override string EmptyHint => "家里没有可控制的小爱音箱";
 
-    public override bool IsEmpty => Speaker == null;
+    /// <summary>
+    /// 首拉还没结束、音箱还没认出来：这段是「还没数据」，不是「家里没音箱」。
+    /// 设备一到（或确认拉完了）就转 false，骨架只占这一小段。
+    /// </summary>
+    public bool IsLoading => _speaker == null && Main.SyncPending;
+
+    /// <summary>空态要等加载收尾才判定，否则骨架期间就把「家里没有音箱」顶上去。</summary>
+    public override bool IsEmpty => !IsLoading && Speaker == null;
+
+    /// <summary>右上角兜底的分区菜单按钮：只在真正空态出现。加载期菜单在骨架的控制行里，两处不能同时挂。</summary>
+    public bool ShowCornerMenu => !ShowControls && !IsLoading;
 
     // ===== 绑定面：全部从当前音箱派生，音箱换了整组重算 =====
 
@@ -91,6 +101,13 @@ public partial class DesktopMediaVm : DesktopZoneVm
         {
             LoadDevices();
         }
+        else if (e.PropertyName == nameof(MainViewModel.SyncPending))
+        {
+            // 加载收尾时音箱可能仍是 null（家里确实没有），此时要从骨架切到空提示
+            OnPropertyChanged(nameof(IsLoading));
+            OnPropertyChanged(nameof(IsEmpty));
+            OnPropertyChanged(nameof(ShowCornerMenu));
+        }
     }
 
     private void OnSpeakerChanged(object? sender, PropertyChangedEventArgs e)
@@ -122,7 +139,8 @@ public partial class DesktopMediaVm : DesktopZoneVm
     {
         foreach (var name in new[]
                  {
-                     nameof(Speaker), nameof(ShowControls), nameof(IsEmpty),
+                     nameof(Speaker), nameof(ShowControls), nameof(IsLoading), nameof(IsEmpty),
+                     nameof(ShowCornerMenu),
                      nameof(SpeakerName), nameof(SpeakerRoom), nameof(SpeakerMeta), nameof(IsPlaying),
                      nameof(VolumePercent), nameof(VolumeBadgeText)
                  })

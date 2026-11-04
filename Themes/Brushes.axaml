@@ -78,6 +78,8 @@
                     <SolidColorBrush x:Key="AccentBrush" Color="#7884ecff"/>
                     <SolidColorBrush x:Key="Accent2Brush" Color="#a69bdfff"/>
                     <Color x:Key="Accent2Color">#9bdfff</Color>
+                    <!-- 分区标题栏图钉的开启态：品牌紫提亮一档，压得住卡片底色 -->
+                    <SolidColorBrush x:Key="PinBrush" Color="#8B7CFF"/>
                     <SolidColorBrush x:Key="AccentSoftBrush" Color="#247C5CFC"/>
                     <!-- 菜单 / 下拉的选中底：全应用统一走品牌主色 #7C5CFC 的实心档（与电源键开启态同色相）。
                          选中 = 提亮一档的实心紫 + 互补白字；悬停是同色相压暗一档的预览，按压再亮一档。 -->
@@ -154,11 +156,17 @@
                         <GradientStop Color="#1A1F2C" Offset="1"/>
                     </LinearGradientBrush>
                     <!-- 添加设备（选择器）里的设备卡：只在弹窗底 #0E1118 上淡淡浮起一层，
-                         做成「可点的卡」但不抢镜（选中态才用实心主色） -->
+                         做成「可点的卡」但不抢镜 -->
                     <SolidColorBrush x:Key="PickCardBrush" Color="#12161F"/>
                     <SolidColorBrush x:Key="PickCardHoverBrush" Color="#1B212D"/>
-                    <!-- 已选中：直接铺品牌主色（不能用 AccentBrush，它带 47% 透明且偏青，白字压上去糊） -->
+                    <!-- 房间直达条的选中胶囊仍用实心主色（单选、只有一枚，不会铺满屏） -->
                     <SolidColorBrush x:Key="PickCardOnBrush" Color="#6A55D8"/>
+                    <!-- 已选中的设备卡：整片铺主色在多选场景下会一屏紫底，压眼。
+                         改成淡紫底 + 主色描边 + 主色文字，选中靠描边和字色认 -->
+                    <SolidColorBrush x:Key="PickCardOnFillBrush" Color="#171526"/>
+                    <SolidColorBrush x:Key="PickCardOnFillHoverBrush" Color="#1D1A30"/>
+                    <SolidColorBrush x:Key="PickCardOnLineBrush" Color="#544A8C"/>
+                    <SolidColorBrush x:Key="PickCardOnTextBrush" Color="#C7BFFF"/>
                     <!-- 桌面分区里的设备卡：开/关只用这一种半透明底，让窗口磨砂透上来
                          （主窗口列表里的 DevCard 用 CardBrush / DevOnBrush，不受影响）
                          6% 白：卡与卡的差别交给图标和文字，底只作「可点」提示。
@@ -239,6 +247,7 @@
                     <SolidColorBrush x:Key="AccentBrush" Color="#8E83F0"/>
                     <SolidColorBrush x:Key="Accent2Brush" Color="#7E76E0"/>
                     <Color x:Key="Accent2Color">#7E76E0</Color>
+                    <SolidColorBrush x:Key="PinBrush" Color="#7C5CFC"/>
                     <SolidColorBrush x:Key="AccentSoftBrush" Color="#1F6D5BE3"/>
                     <!-- 菜单 / 下拉的选中底：浅底上直接用取色到的实心紫 #7C5CFC，悬停亮一档、按压深一档 -->
                     <SolidColorBrush x:Key="SelBgBrush" Color="#7C5CFC"/>
@@ -315,7 +324,13 @@
                     <!-- 添加设备（选择器）里的设备卡：浅色下用纯白卡 + 悬停淡灰 -->
                     <SolidColorBrush x:Key="PickCardBrush" Color="#FFFFFF"/>
                     <SolidColorBrush x:Key="PickCardHoverBrush" Color="#EDF1F8"/>
+                    <!-- 房间直达条的选中胶囊仍用实心主色（单选、只有一枚，不会铺满屏） -->
                     <SolidColorBrush x:Key="PickCardOnBrush" Color="#6F5AE6"/>
+                    <!-- 已选中的设备卡：淡紫底 + 主色描边 + 主色文字，不整片铺主色 -->
+                    <SolidColorBrush x:Key="PickCardOnFillBrush" Color="#F7F5FE"/>
+                    <SolidColorBrush x:Key="PickCardOnFillHoverBrush" Color="#EFEAFB"/>
+                    <SolidColorBrush x:Key="PickCardOnLineBrush" Color="#CFC4F2"/>
+                    <SolidColorBrush x:Key="PickCardOnTextBrush" Color="#6D5BE3"/>
                     <!-- 桌面分区里的设备卡：开/关同一种半透明白底 -->
                     <SolidColorBrush x:Key="DskCardBrush" Color="#B8FFFFFF"/>
                     <SolidColorBrush x:Key="DskSwitchBrush" Color="#B3E7EBF3"/>

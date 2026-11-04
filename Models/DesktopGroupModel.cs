@@ -27,6 +27,9 @@ public sealed class DesktopGroupModel
 
     public bool Collapsed { get; set; }
 
+    /// <summary>置顶：脱离桌面层（不再跟随 Win+D），作为普通置顶窗浮在所有软件之上。</summary>
+    public bool Topmost { get; set; }
+
     /// <summary>分区内容形态：device = 设备宫格，media = 音响播放。旧配置缺字段按设备分区处理。</summary>
     public string Kind { get; set; } = ZoneDevice;
 

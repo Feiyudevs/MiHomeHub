@@ -1,6 +1,9 @@
 <Window xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:ctl="clr-namespace:MiHome.Controls"
+        xmlns:vm="clr-namespace:MiHome.ViewModels"
         x:Class="MiHome.Views.TrayMenuWindow"
+        x:DataType="vm:MainViewModel"
         Title="米家 · 控制中心"
         Width="272" Height="232"
         SystemDecorations="None"
@@ -74,6 +77,51 @@
         <Style Selector="Button.TrayItem.Danger:pointerover TextBlock">
             <Setter Property="Foreground" Value="#EF4444" />
         </Style>
+        <!-- 媒体三键：两侧键中性无色底、悬停同菜单项翻白；主键是实心主色圆钮 -->
+        <Style Selector="Button.TrayMedia, Button.TrayPlay">
+            <Setter Property="Width" Value="34" />
+            <Setter Property="Height" Value="34" />
+            <Setter Property="Padding" Value="0" />
+            <Setter Property="MinWidth" Value="0" />
+            <Setter Property="BorderThickness" Value="0" />
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="Focusable" Value="False" />
+            <Setter Property="Template">
+                <ControlTemplate>
+                    <Border Name="Bd" CornerRadius="{TemplateBinding CornerRadius}"
+                            Background="{TemplateBinding Background}">
+                        <ContentPresenter Content="{TemplateBinding Content}"
+                                          HorizontalAlignment="Center" VerticalAlignment="Center" />
+                    </Border>
+                </ControlTemplate>
+            </Setter>
+        </Style>
+        <Style Selector="Button.TrayMedia">
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="CornerRadius" Value="11" />
+        </Style>
+        <Style Selector="Button.TrayPlay">
+            <Setter Property="Background" Value="{DynamicResource PrimaryBtnBrush}" />
+            <Setter Property="CornerRadius" Value="17" />
+        </Style>
+        <Style Selector="Button.TrayMedia Path">
+            <Setter Property="Fill" Value="{DynamicResource Text2Brush}" />
+        </Style>
+        <Style Selector="Button.TrayMedia:pointerover /template/ Border#Bd">
+            <Setter Property="Background" Value="{DynamicResource SelBgHoverBrush}" />
+        </Style>
+        <Style Selector="Button.TrayMedia:pressed /template/ Border#Bd">
+            <Setter Property="Background" Value="{DynamicResource SelBgPressBrush}" />
+        </Style>
+        <Style Selector="Button.TrayMedia:pointerover Path">
+            <Setter Property="Fill" Value="{DynamicResource SelTextBrush}" />
+        </Style>
+        <Style Selector="Button.TrayPlay:pointerover">
+            <Setter Property="Opacity" Value="0.9" />
+        </Style>
+        <Style Selector="Button.TrayPlay:pressed">
+            <Setter Property="Opacity" Value="0.78" />
+        </Style>
     </Window.Styles>
 
     <!-- 外边距留给阴影，改动前先确认阴影扩散不会顶到窗口边缘 -->
@@ -83,6 +131,46 @@
                 BorderBrush="{DynamicResource LineBrush}" BorderThickness="1"
                 BoxShadow="0 8 20 0 #59000000">
             <StackPanel Margin="7" Spacing="1">
+                <!-- 媒体控制：当前音箱下拉 + 上一曲/播放暂停/下一曲；家里没有音箱时整块连同分隔线一起收掉 -->
+                <StackPanel Spacing="6" Margin="1,2,1,6" IsVisible="{Binding HasSpeaker}">
+                    <ctl:OptionPicker x:Name="SpeakerPicker" Classes="wide"
+                                      ToolTip.Tip="切换要控制的音箱"
+                                      Options="{Binding SpeakerOptions}"
+                                      SelectedValue="{Binding SelectedSpeakerValue, Mode=TwoWay}" />
+                    <StackPanel Orientation="Horizontal" Spacing="10" HorizontalAlignment="Center">
+                        <Button Classes="TrayMedia" ToolTip.Tip="上一曲"
+                                Command="{Binding MediaPreviousCommand}">
+                            <Viewbox Width="15" Height="15">
+                                <Panel Width="24" Height="24">
+                                    <Path Data="{StaticResource GeoPrevTrack}" />
+                                </Panel>
+                            </Viewbox>
+                        </Button>
+                        <Button Classes="TrayPlay" ToolTip.Tip="播放 / 暂停"
+                                Command="{Binding MediaTogglePlayCommand}">
+                            <Viewbox Width="17" Height="17">
+                                <Panel Width="24" Height="24">
+                                    <Path Fill="White" IsVisible="{Binding !MediaSpeaker.IsPlaying}"
+                                          Data="{StaticResource GeoPlay}" />
+                                    <Path Fill="White" IsVisible="{Binding MediaSpeaker.IsPlaying}"
+                                          Data="{StaticResource GeoPauseIc}" />
+                                </Panel>
+                            </Viewbox>
+                        </Button>
+                        <Button Classes="TrayMedia" ToolTip.Tip="下一曲"
+                                Command="{Binding MediaNextCommand}">
+                            <Viewbox Width="15" Height="15">
+                                <Panel Width="24" Height="24">
+                                    <Path Data="{StaticResource GeoNextTrack}" />
+                                </Panel>
+                            </Viewbox>
+                        </Button>
+                    </StackPanel>
+                </StackPanel>
+
+                <Rectangle Height="1" Margin="10,5" Fill="{DynamicResource LineBrush}"
+                           IsVisible="{Binding HasSpeaker}" />
+
                 <Button Classes="TrayItem" Click="OnShowMainClick">
                     <Grid ColumnDefinitions="20,*">
                         <Border Width="20" Height="40" Grid.Column="0">

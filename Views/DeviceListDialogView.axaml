@@ -10,6 +10,21 @@
                      Title="{Binding StatListTitle}" Subtitle="{Binding StatListSubtitle}"
                      IsOpen="{Binding IsStatListOpen}"
                      CloseCommand="{Binding CloseStatListCommand}">
+        <!-- 类型卡的全关：挨着关闭钮放，批量下发只打清单里「在线且开」的那几台 -->
+        <ctl:DialogPopup.HeaderActions>
+            <Button Classes="HeaderAct" Command="{Binding CloseAllStatDevicesCommand}"
+                    IsVisible="{Binding CanCloseAllStatDevices}"
+                    ToolTip.Tip="{Binding CloseAllStatTip}">
+                <StackPanel Orientation="Horizontal" Spacing="6">
+                    <Path Width="13" Height="13" Stretch="Uniform" StrokeThickness="1.4"
+                          StrokeLineCap="Round" StrokeJoin="Round" VerticalAlignment="Center"
+                          Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}"
+                          Data="{StaticResource GeoPower}"/>
+                    <TextBlock Text="全关" VerticalAlignment="Center"
+                               Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}"/>
+                </StackPanel>
+            </Button>
+        </ctl:DialogPopup.HeaderActions>
         <Grid>
             <ItemsControl ItemsSource="{Binding StatDevices}" ItemTemplate="{StaticResource DeviceCardTemplate}"
                           IsVisible="{Binding HasStatDevices}">

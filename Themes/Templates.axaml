@@ -215,10 +215,11 @@
                             </StackPanel>
                         </StackPanel>
                         <!-- 右列：默认电源键垂直居中；卡片悬停时「一分为二」——
-                             电源键滑到右下（样式 translate 0→12px），「更多」在上方淡入下滑浮现（负 margin 贴右上角）；
+                             电源键滑到右下（样式 translate 0→10px），「更多」在上方淡入下滑浮现（负 margin 贴右上角）；
                              多路设备的「N 路」角标与电源键互斥（同一时刻只显示一个），贴右下。 -->
                         <Grid Grid.Column="2" MinWidth="32">
-                            <ToggleButton Classes="Power" HorizontalAlignment="Center" VerticalAlignment="Center"
+                            <ToggleButton Classes="Power" Classes.curtain="{Binding IsCurtain}"
+                                          HorizontalAlignment="Center" VerticalAlignment="Center"
                                           Margin="0"
                                           IsVisible="{Binding ShowCardSwitch}"
                                           IsChecked="{Binding IsOn}" IsEnabled="{Binding !IsBusy}"

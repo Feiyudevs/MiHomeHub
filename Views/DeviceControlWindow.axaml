@@ -6,7 +6,7 @@
         x:Class="MiHome.Views.DeviceControlWindow"
         x:DataType="vm:MainViewModel"
         Title="设备控制"
-        Width="500" Height="780"
+        Width="572" Height="832"
         SystemDecorations="None"
         CanResize="False"
         ShowInTaskbar="False"

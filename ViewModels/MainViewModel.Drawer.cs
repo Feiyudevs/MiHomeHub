@@ -172,6 +172,26 @@ public partial class MainViewModel : ObservableObject
     }
 
     /// <summary>
+    /// 关掉一台设备：走卡片电源键、抽屉逐路那两条命令同一条下发路径，不另写一份协议细节。
+    /// 多路设备（卡面只有「N 路」角标、没有整机开关）逐路关，其余按整机开关关。
+    /// </summary>
+    private async Task TurnOffDeviceAsync(MijiaDevice device)
+    {
+        if (device.Channels.Count > 1)
+        {
+            foreach (var channel in device.Channels.Where(c => c.IsOn).ToList())
+            {
+                channel.IsOn = false;
+                await ToggleChannelAsync(channel);
+            }
+            return;
+        }
+
+        device.IsOn = false;
+        await ToggleDeviceAsync(device);
+    }
+
+    /// <summary>
     /// 抽屉打开时订阅当前设备的亮度/色温变化（滑动防抖后提交），并异步回填设备可控属性。
     /// 用同一实例反复打开也会重新订阅，避免 ObservableProperty 相同值不触发而漏刷新。
     /// </summary>

@@ -37,6 +37,8 @@ public partial class DesktopGroupWindow : Window
     private DispatcherTimer? _guard;
     private int _guardTicks;
     private DispatcherTimer? _chromeTimer;
+    private DispatcherTimer? _settleTimer;
+    private int _settlePasses;
 
     // WndProc 子类：压掉一切非本意的 Z 序变化（Avalonia 写位置/尺寸的 SetWindowPos 不带 NOZORDER）
     private DesktopNative.WndProcDelegate? _wndProcDelegate;
@@ -135,7 +137,14 @@ public partial class DesktopGroupWindow : Window
 
         DesktopEmbed.PinBottom(_hwnd);
         DesktopEmbed.ForcePresent(_hwnd);
+        // 上次退出前钉住的分区：开机直接回到置顶态
+        if (_vm.IsTopmost)
+        {
+            Topmost = true;
+            DesktopEmbed.PinTop(_hwnd);
+        }
         StartGuard();
+        StartMaterialSettle();
     }
 
     private static readonly bool DebugMode =
@@ -170,7 +179,45 @@ public partial class DesktopGroupWindow : Window
             DesktopEmbed.RoundCorners(h, 0);        // DWM 收角成功：Region 归零，避免双弧
     }
 
-    /// <summary>Avalonia 合成会反复重置 ExStyle，NOACTIVATE 掉了就会点一下把整个桌面窗口集抬到前台。</summary>
+    /// <summary>
+    /// 重取一次磨砂材质：窗口级 ACCENT 的模糊是 DWM 按「窗口被 invalidate」取样的快照，
+    /// 开机那段时序里第一次取样时桌面还没合成完，材质就停在系统 fallback 的实心灰底上，
+    /// 之后壁纸画好了它也不会自己重取 —— 用户点一下能恢复，走的正是同一条重绘路径。
+    /// 重打 ACCENT + 1px 尺寸抖动 = 强制 DWM 重新取样。
+    /// </summary>
+    private void RefreshMaterial(string reason)
+    {
+        var h = Hwnd;
+        if (h == nint.Zero || !IsVisible || _dragging || _resizing) return;
+        DesktopEmbed.ClearAcrylic(h);
+        ApplyChrome();
+        DesktopEmbed.ForcePresent(h);
+        DesktopLog.Write($"[chrome] 重打磨砂 reason={reason} hwnd={h}");
+    }
+
+    /// <summary>挂上桌面后再补打两轮：开机启动时 DWM 的首次取样往往还是空的。</summary>
+    private void StartMaterialSettle()
+    {
+        _settleTimer?.Stop();
+        _settlePasses = 0;
+        _settleTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(2) };
+        _settleTimer.Tick += (_, _) =>
+        {
+            if (++_settlePasses > 2)
+            {
+                _settleTimer?.Stop();
+                _settleTimer = null;
+                return;
+            }
+            RefreshMaterial($"settle{_settlePasses}");
+        };
+        _settleTimer.Start();
+    }
+
+    /// <summary>
+    /// 开机/切层后补打一小段时间：Avalonia 合成会反复重置 ExStyle，
+    /// NOACTIVATE 掉了点一下就把整个桌面窗口集抬到前台，TOPMOST 掉了置顶的分区又会被盖住。
+    /// </summary>
     private void StartGuard()
     {
         _guard?.Stop();
@@ -186,8 +233,23 @@ public partial class DesktopGroupWindow : Window
             }
             EnsureWndProc();
             DesktopEmbed.EnsureNoActivate(h);
-            if (!_dragging && !_resizing) DesktopEmbed.PinBottom(h);
-            if (++_guardTicks >= 24) _guard?.Stop();
+            if (!_dragging && !_resizing)
+            {
+                if (_vm.IsTopmost) DesktopEmbed.EnsureTopmost(h);
+                else DesktopEmbed.PinBottom(h);
+            }
+
+            if (++_guardTicks < 24) return;
+
+            // 桌面态补打 1.4s 就够了；置顶态不能停表 —— Avalonia 随时可能重写 ExStyle，
+            // 停表后置顶位一旦被覆盖就再没人补，分区会悄无声息掉回普通窗口后面。降频继续守着。
+            if (!_vm.IsTopmost)
+            {
+                _guard?.Stop();
+                return;
+            }
+            if (_guardTicks == 24 && _guard != null)
+                _guard.Interval = TimeSpan.FromMilliseconds(500);
         };
         _guard.Start();
     }
@@ -226,15 +288,44 @@ public partial class DesktopGroupWindow : Window
         if (uMsg == DesktopNative.WM_MOUSEACTIVATE)
             return new nint(DesktopNative.MA_NOACTIVATE);
 
+        // 桌面重合成（透明效果开关 / 分辨率或壁纸变化 / explorer 起停）会把窗口材质打回
+        // 系统 fallback 的实心灰底，这几条广播就是「该重取磨砂了」的信号
+        if (uMsg == DesktopNative.WM_DWMCOMPOSITIONCHANGED
+            || uMsg == DesktopNative.WM_DISPLAYCHANGE
+            || uMsg == DesktopEmbed.ShellReadyMessage)
+            Dispatcher.UIThread.Post(() => RefreshMaterial($"msg:0x{uMsg:X}"));
+
+        // 置顶态：Avalonia 的样式缓存里没有 WS_EX_TOPMOST（它写 ExStyle 是整份覆盖），
+        // 它写位置时又按普通窗口把整窗排回下面。这里每次位置写入都把插入位置改写回 topmost 带
+        // （系统会顺带补回 WS_EX_TOPMOST）—— 样式被谁覆盖都无所谓，下一次写位置自己就回顶层。
+        // 桌面态相反：补 SWP_NOZORDER | SWP_NOOWNERZORDER，坐标照改、层级不动。
         if (uMsg == DesktopNative.WM_WINDOWPOSCHANGING && !DesktopEmbed.ZOrderChangeAllowed)
         {
             var wp = Marshal.PtrToStructure<DesktopNative.WINDOWPOS>(lParam);
-            var next = wp.flags | DesktopNative.SWP_NOZORDER | DesktopNative.SWP_NOOWNERZORDER;
-            if (next != wp.flags)
+            var changed = false;
+            if (_vm.IsTopmost)
             {
-                wp.flags = next;
-                Marshal.StructureToPtr(wp, lParam, false);
+                if (wp.hwndInsertAfter != DesktopNative.HWND_TOPMOST)
+                {
+                    wp.hwndInsertAfter = DesktopNative.HWND_TOPMOST;
+                    changed = true;
+                }
+                if ((wp.flags & DesktopNative.SWP_NOZORDER) != 0)
+                {
+                    wp.flags &= ~DesktopNative.SWP_NOZORDER;
+                    changed = true;
+                }
             }
+            else
+            {
+                var flags = wp.flags | DesktopNative.SWP_NOZORDER | DesktopNative.SWP_NOOWNERZORDER;
+                if (flags != wp.flags)
+                {
+                    wp.flags = flags;
+                    changed = true;
+                }
+            }
+            if (changed) Marshal.StructureToPtr(wp, lParam, false);
         }
 
         return _originalWndProc != nint.Zero
@@ -265,6 +356,7 @@ public partial class DesktopGroupWindow : Window
         }
         _guard?.Stop();
         _chromeTimer?.Stop();
+        _settleTimer?.Stop();
         RestoreWndProc();
         if (_hwnd != nint.Zero) DesktopEmbed.ClearAcrylic(_hwnd);
     }
@@ -350,7 +442,43 @@ public partial class DesktopGroupWindow : Window
             case nameof(DesktopZoneVm.Collapsed):
                 ScheduleChrome();
                 break;
+            case nameof(DesktopZoneVm.IsTopmost):
+                ApplyTopmost(_vm.IsTopmost);
+                break;
         }
+    }
+
+    /// <summary>
+    /// 标题栏图钉：在「贴桌面」和「浮在所有窗口之上」之间切换。
+    /// 置顶要摘掉 Progman 从属，取消置顶要重新挂回去并压底 —— 两条路径都会改窗口样式，
+    /// 所以全程 cloak，跟开机贴桌面同一套做法。
+    /// </summary>
+    private void ApplyTopmost(bool on)
+    {
+        var h = Hwnd;
+        if (h == nint.Zero) return;
+
+        DesktopEmbed.SetCloaked(h, true);
+        try
+        {
+            // Avalonia 自己那份 Topmost 也要跟着改：它写位置时按这个值决定 SetWindowPos 的插入位置，
+            // 只改原生样式会让两边状态打架
+            Topmost = on;
+            if (on) DesktopEmbed.PinTop(h);
+            else
+            {
+                DesktopEmbed.Attach(h);
+                ApplyChrome();
+                DesktopEmbed.PinBottom(h);
+            }
+        }
+        finally
+        {
+            DesktopEmbed.SetCloaked(h, false);
+        }
+
+        DesktopEmbed.ForcePresent(h);
+        StartGuard();
     }
 
     protected override void OnSizeChanged(SizeChangedEventArgs e)

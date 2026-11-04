@@ -76,6 +76,7 @@ public partial class MainViewModel : ObservableObject
     [ObservableProperty] private bool _isDark = !ThemeStore.IsLight;
     [ObservableProperty] private bool _iconGlass = IconStyleStore.Glass;
     [ObservableProperty] private bool _autoStart = StartupRegistration.IsEnabled();
+    [ObservableProperty] private bool _showMainWindowOnStartup = AppSettingsStore.ShowMainWindowOnStartup;
     [ObservableProperty] private bool _closeToTray = AppSettingsStore.CloseToTray;
 
     /// <summary>设置弹窗当前 Tab：0 通用 / 1 桌面组件 / 2 账户 / 3 关于。</summary>
@@ -120,6 +121,12 @@ public partial class MainViewModel : ObservableObject
 
     /// <summary>清单为空时的正文提示（空列表只剩一行副标题会像没加载出来）。</summary>
     [ObservableProperty] private string _statListEmptyText = "";
+
+    /// <summary>弹窗标题栏「全关」是否可点：只在类型卡且有开着的在线设备时出现（离线卡没有可下发的指令）。</summary>
+    [ObservableProperty] private bool _canCloseAllStatDevices;
+
+    /// <summary>「全关」悬停提示：把量词和动词按类型说清楚，窗帘那栏写「合上」而不是「关掉」。</summary>
+    [ObservableProperty] private string _closeAllStatTip = "";
     [ObservableProperty] private int _roomCount;
     [ObservableProperty] private int _sceneCount;
     [ObservableProperty] private bool _hasDevices;
@@ -360,6 +367,12 @@ public partial class MainViewModel : ObservableObject
         AutoStart = !value;
         _revertingAutoStart = false;
         Log("开机启动设置失败：当前用户注册表不可写");
+    }
+
+    partial void OnShowMainWindowOnStartupChanged(bool value)
+    {
+        AppSettingsStore.SetShowMainWindowOnStartup(value);
+        Log(value ? "下次启动后显示主界面" : "下次启动后静默驻留托盘");
     }
 
     partial void OnCloseToTrayChanged(bool value)
@@ -1239,6 +1252,17 @@ public partial class MainViewModel : ObservableObject
             StatListKind.Ac => "家里还没有识别到空调",
             _ => "所有设备都在线，暂无离线设备",
         };
+
+        // 「全关」按开着的在线设备计数：一台都不开着时按钮收起，点完立刻消失就是「都关了」的反馈
+        var onCount = list.Count(d => d.IsOnline && d.IsOn);
+        CanCloseAllStatDevices = kind != StatListKind.Offline && onCount > 0;
+        CloseAllStatTip = kind switch
+        {
+            StatListKind.Lights => $"把开着的 {onCount} 盏灯全部关掉",
+            StatListKind.Curtains => $"把开着的 {onCount} 副窗帘全部合上",
+            StatListKind.Ac => $"把开着的 {onCount} 台空调全部关掉",
+            _ => "",
+        };
     }
 
     /// <summary>
@@ -1372,6 +1396,18 @@ public partial class MainViewModel : ObservableObject
 
     [RelayCommand]
     private void CloseStatList() => IsStatListOpen = false;
+
+    /// <summary>
+    /// 标题栏「全关」：把清单里开着的在线设备逐台关掉。先取快照，因为每台下发完都会重排清单
+    /// （开着的排上面，弹窗开着时跟着轮询同步）；串行下发，别把批量请求一次砸给云端。
+    /// </summary>
+    [RelayCommand]
+    private async Task CloseAllStatDevices()
+    {
+        var targets = StatDevices.Where(d => d.IsOnline && d.IsOn).ToList();
+        foreach (var device in targets)
+            await TurnOffDeviceAsync(device);
+    }
 
     [RelayCommand]
     private void PickRoom(RoomChip? chip)

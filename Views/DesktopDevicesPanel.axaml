@@ -78,12 +78,8 @@
         <Style Selector="ToggleButton.Power:checked">
             <Setter Property="Foreground" Value="White" />
         </Style>
-        <!-- 悬停时电源键下滑给「更多」让位：全局那份滑 16px，在分区这种整块玻璃上显得掉得太低
-             （卡片内容高 48、键 32，滑 16 后下沿几乎贴到卡片边）。
-             这里收到 10px —— 键顶 18px 仍压在「更多」下沿（17px）之下，不重叠，但整体上提 6px。 -->
-        <Style Selector="Button.DevCard:pointerover ToggleButton.Power">
-            <Setter Property="RenderTransform" Value="translate(0px,10px)" />
-        </Style>
+        <!-- 悬停时电源键下滑给「更多」让位：走全局那份 translate 10px（主窗口与分区同一档），
+             这里不再重复覆盖 -->
 
         <!-- ======== 卡片拖拽排序的交互辅助 ======== -->
         <!-- 只有宫格里超过一张卡才亮（ItemsControl 上的 reorder 类由视图模型给）：

@@ -104,8 +104,8 @@ public partial class App : Application
             // 升级/换目录后 Run 键里可能还是旧 exe 路径
             StartupRegistration.Sync();
 
-            // 开机自启（Run 键带 --startup）：窗口只用来先创建句柄，托盘就绪后立刻收起
-            var silent = desktop.Args?.Contains("--startup", StringComparer.OrdinalIgnoreCase) == true;
+            // 静默启动：窗口只用来先创建句柄，托盘就绪后立刻收起
+            var silent = !AppSettingsStore.ShowMainWindowOnStartup;
             var window = new MainWindow
             {
                 DataContext = new MainViewModel()
@@ -139,7 +139,7 @@ public partial class App : Application
 
     private void SetupTray(MainWindow main, IClassicDesktopStyleApplicationLifetime desktop, bool silent)
     {
-        _trayMenu = new TrayMenuWindow();
+        _trayMenu = new TrayMenuWindow((MainViewModel)main.DataContext!);
         _trayMenu.ShowMainRequested += () => ShowMainWindow(main);
         _trayMenu.ToggleThemeRequested += () => ToggleTheme(main);
         _trayMenu.RestartRequested += () => RestartApplication(main);
@@ -200,7 +200,7 @@ public partial class App : Application
         Application.Current!.RequestedThemeVariant = ThemeStore.CurrentVariant;
     }
 
-    // 重新拉起一个实例后再退出当前进程；不带 --startup，重启后主界面正常显示
+    // 重新拉起一个实例后再退出当前进程；重启后是否弹主界面看「启动后显示主界面」
     private static void RestartApplication(MainWindow main)
     {
         if (Environment.ProcessPath is { } exe)

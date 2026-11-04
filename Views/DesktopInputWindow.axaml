@@ -5,7 +5,7 @@
         x:Class="MiHome.Views.DesktopInputWindow"
         x:DataType="vm:DesktopInputVm"
         Title="重命名"
-        Width="452" Height="300"
+        Width="520" Height="356"
         SystemDecorations="None"
         CanResize="False"
         ShowInTaskbar="False"

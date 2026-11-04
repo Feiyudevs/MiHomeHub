@@ -79,6 +79,10 @@ internal static class DesktopNative
     public const uint WM_WINDOWPOSCHANGING = 0x0046;
     public const int MA_NOACTIVATE = 3;
 
+    // ---- 窗口消息（桌面重合成，广播到所有顶层窗口） ----
+    public const uint WM_DISPLAYCHANGE = 0x007E;
+    public const uint WM_DWMCOMPOSITIONCHANGED = 0x031E;
+
     [StructLayout(LayoutKind.Sequential)]
     public struct WINDOWPOS
     {
@@ -184,6 +188,10 @@ internal static class DesktopNative
     [DllImport("user32.dll")]
     [return: MarshalAs(UnmanagedType.Bool)]
     public static extern bool InvalidateRect(nint hWnd, nint lpRect, [MarshalAs(UnmanagedType.Bool)] bool bErase);
+
+    /// <summary>注册「跨进程同名同 ID」的消息（TaskbarCreated 这类 shell 广播）。</summary>
+    [DllImport("user32.dll", CharSet = CharSet.Unicode)]
+    public static extern uint RegisterWindowMessageW(string lpString);
 
     [DllImport("user32.dll")]
     [return: MarshalAs(UnmanagedType.Bool)]

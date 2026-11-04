@@ -42,6 +42,10 @@ public class DialogPopup : ContentControl
     public static readonly StyledProperty<ICommand?> CloseCommandProperty =
         AvaloniaProperty.Register<DialogPopup, ICommand?>(nameof(CloseCommand));
 
+    /// <summary>标题栏右上角、关闭钮左边的动作区（放一两个动作钮）。整块靠右排，为空时不影响关闭钮的位置。</summary>
+    public static readonly StyledProperty<object?> HeaderActionsProperty =
+        AvaloniaProperty.Register<DialogPopup, object?>(nameof(HeaderActions));
+
     /// <summary>标题栏是否可拖动宿主窗口（弹窗宿主是自绘无边框窗时用）。</summary>
     public static readonly StyledProperty<bool> CanDragProperty =
         AvaloniaProperty.Register<DialogPopup, bool>(nameof(CanDrag));
@@ -92,6 +96,12 @@ public class DialogPopup : ContentControl
     {
         get => GetValue(CloseCommandProperty);
         set => SetValue(CloseCommandProperty, value);
+    }
+
+    public object? HeaderActions
+    {
+        get => GetValue(HeaderActionsProperty);
+        set => SetValue(HeaderActionsProperty, value);
     }
 
     public bool CanDrag

@@ -121,6 +121,9 @@ public partial class OptionPicker : UserControl
         Pop.IsOpen = false;
     }
 
+    /// <summary>宿主窗口收起时（如托盘菜单）跟着关掉浮层，Popup 不会随窗口 Hide 一起消失。</summary>
+    public void CloseDropDown() => Pop.IsOpen = false;
+
     /// <summary>浮层打开期间挂到所在窗口上的滚轮拦截宿主。</summary>
     private TopLevel? _wheelHost;
 

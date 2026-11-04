@@ -18,6 +18,9 @@ internal static class DesktopEmbed
     // 只有本库主动压底（Attach/PinBottom）期间放行 —— SetWindowPos 是同步调用，WndProc 同线程，计数足够。
     [ThreadStatic] private static int _zOrderAllowDepth;
 
+    /// <summary>explorer 起停时广播给所有顶层窗口的「桌面就绪」消息（开机启动正是撞在这段时序里）。</summary>
+    public static readonly uint ShellReadyMessage = DesktopNative.RegisterWindowMessageW("TaskbarCreated");
+
     public static bool ZOrderChangeAllowed => _zOrderAllowDepth > 0;
 
     private static IDisposable AllowZOrderChange() => new ZOrderScope();
@@ -88,6 +91,44 @@ internal static class DesktopEmbed
         next &= ~DesktopNative.WS_EX_APPWINDOW;
         if (next != ex)
             DesktopNative.SetWindowLongPtr(hwnd, DesktopNative.GWL_EXSTYLE, (nint)next);
+    }
+
+    /// <summary>
+    /// 置顶（标题栏图钉）：先摘掉 Progman 从属 —— owner 链会把窗口钉在桌面层，
+    /// 带着 WS_EX_TOPMOST 也抬不到普通软件之上；摘掉后再进 topmost 带。
+    /// NOACTIVATE / TOOLWINDOW 保留：图钉只改层级，不抢焦点、不进 Alt+Tab。
+    /// </summary>
+    public static void PinTop(nint hwnd)
+    {
+        if (hwnd == nint.Zero || !DesktopNative.IsWindow(hwnd)) return;
+
+        DesktopNative.SetWindowLongPtr(hwnd, DesktopNative.GWL_HWNDPARENT, nint.Zero);
+
+        var ex = (uint)DesktopNative.GetWindowLongPtr(hwnd, DesktopNative.GWL_EXSTYLE);
+        DesktopNative.SetWindowLongPtr(hwnd, DesktopNative.GWL_EXSTYLE,
+            (nint)(ex | DesktopNative.WS_EX_TOPMOST | DesktopNative.WS_EX_NOACTIVATE
+                       | DesktopNative.WS_EX_TOOLWINDOW));
+
+        // 改过 owner 必须再走一次 SetWindowPos，层级链才会真正重挂
+        using (AllowZOrderChange())
+            DesktopNative.SetWindowPos(hwnd, DesktopNative.HWND_TOPMOST, 0, 0, 0, 0,
+                DesktopNative.SWP_NOSIZE | DesktopNative.SWP_NOMOVE | DesktopNative.SWP_NOACTIVATE
+                | DesktopNative.SWP_FRAMECHANGED | DesktopNative.SWP_NOSENDCHANGING);
+    }
+
+    /// <summary>补回 WS_EX_TOPMOST（Avalonia 合成会重置 ExStyle，掉一次就被普通窗口盖住）。</summary>
+    public static void EnsureTopmost(nint hwnd)
+    {
+        if (hwnd == nint.Zero || !DesktopNative.IsWindow(hwnd)) return;
+        var ex = (uint)DesktopNative.GetWindowLongPtr(hwnd, DesktopNative.GWL_EXSTYLE);
+        if ((ex & DesktopNative.WS_EX_TOPMOST) != 0) return;
+        DesktopNative.SetWindowLongPtr(hwnd, DesktopNative.GWL_EXSTYLE,
+            (nint)(ex | DesktopNative.WS_EX_TOPMOST | DesktopNative.WS_EX_NOACTIVATE
+                       | DesktopNative.WS_EX_TOOLWINDOW));
+        using (AllowZOrderChange())
+            DesktopNative.SetWindowPos(hwnd, DesktopNative.HWND_TOPMOST, 0, 0, 0, 0,
+                DesktopNative.SWP_NOSIZE | DesktopNative.SWP_NOMOVE | DesktopNative.SWP_NOACTIVATE
+                | DesktopNative.SWP_NOSENDCHANGING);
     }
 
     public static void StripNoRedirection(nint hwnd)

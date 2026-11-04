@@ -20,9 +20,7 @@ public static class StartupRegistration
     private const int ErrorSuccess = 0;
     private const int ErrorFileNotFound = 2;
 
-    /// <summary>启动命令带 --startup，主窗口据此在开机自启时静默收到托盘。</summary>
-    private static string? Command =>
-        Environment.ProcessPath is { } exe ? $"\"{exe}\" --startup" : null;
+    private static string? Command => Environment.ProcessPath is { } exe ? $"\"{exe}\"" : null;
 
     public static bool IsEnabled() =>
         Command is { } cmd && string.Equals(Read(), cmd, StringComparison.OrdinalIgnoreCase);

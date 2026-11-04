@@ -66,33 +66,41 @@
                     <StackPanel Spacing="20">
                         <TextBlock Text="启动与窗口" FontSize="14.5" FontWeight="SemiBold"
                                    Foreground="{DynamicResource TextBrush}" />
-                        <Grid ColumnDefinitions="*,1,*">
-                            <Grid Grid.Column="0" ColumnDefinitions="Auto,*,Auto" Margin="0,0,18,0">
-                                <Border Classes="SetIc" Background="{DynamicResource GreenSoftBrush}">
-                                    <Path Stroke="{DynamicResource GreenBrush}" Data="{StaticResource GeoPower}" />
-                                </Border>
-                                <StackPanel Grid.Column="1" Margin="12,0" VerticalAlignment="Center">
-                                    <TextBlock Text="开机启动" FontSize="13.5" FontWeight="SemiBold"
-                                               Foreground="{DynamicResource TextBrush}" />
-                                    <TextBlock Text="登录 Windows 后静默驻留托盘" Classes="Hint Sub" Margin="0,2,0,0" />
-                                </StackPanel>
-                                <ToggleButton Grid.Column="2" Classes="Switch" VerticalAlignment="Center"
-                                              IsChecked="{Binding AutoStart}" />
-                            </Grid>
-                            <Border Grid.Column="1" Width="1" Margin="0,2"
-                                    Background="{DynamicResource LineBrush}" VerticalAlignment="Stretch" />
-                            <Grid Grid.Column="2" ColumnDefinitions="Auto,*,Auto" Margin="18,0,0,0">
-                                <Border Classes="SetIc" Background="{DynamicResource PurpleSoftBrush}">
-                                    <Path Stroke="{DynamicResource PurpleBrush}" Data="{StaticResource GeoTray}" />
-                                </Border>
-                                <StackPanel Grid.Column="1" Margin="12,0" VerticalAlignment="Center">
-                                    <TextBlock Text="关闭后进托盘" FontSize="13.5" FontWeight="SemiBold"
-                                               Foreground="{DynamicResource TextBrush}" />
-                                    <TextBlock Text="关掉这项后点关闭直接退出应用" Classes="Hint Sub" Margin="0,2,0,0" />
-                                </StackPanel>
-                                <ToggleButton Grid.Column="2" Classes="Switch" VerticalAlignment="Center"
-                                              IsChecked="{Binding CloseToTray}" />
-                            </Grid>
+                        <Grid ColumnDefinitions="Auto,*,Auto">
+                            <Border Classes="SetIc" Background="{DynamicResource GreenSoftBrush}">
+                                <Path Stroke="{DynamicResource GreenBrush}" Data="{StaticResource GeoPower}" />
+                            </Border>
+                            <StackPanel Grid.Column="1" Margin="12,0" VerticalAlignment="Center">
+                                <TextBlock Text="开机启动" FontSize="13.5" FontWeight="SemiBold"
+                                           Foreground="{DynamicResource TextBrush}" />
+                                <TextBlock Text="登录 Windows 后自动启动应用" Classes="Hint Sub" Margin="0,2,0,0" />
+                            </StackPanel>
+                            <ToggleButton Grid.Column="2" Classes="Switch" VerticalAlignment="Center"
+                                          IsChecked="{Binding AutoStart}" />
+                        </Grid>
+                        <Grid ColumnDefinitions="Auto,*,Auto">
+                            <Border Classes="SetIc" Background="{DynamicResource BlueSoftBrush}">
+                                <Path Stroke="{DynamicResource BlueBrush}" Data="{StaticResource GeoMax}" />
+                            </Border>
+                            <StackPanel Grid.Column="1" Margin="12,0" VerticalAlignment="Center">
+                                <TextBlock Text="启动后显示主界面" FontSize="13.5" FontWeight="SemiBold"
+                                           Foreground="{DynamicResource TextBrush}" />
+                                <TextBlock Text="关掉后启动直接收进托盘，需要时点托盘图标打开" Classes="Hint Sub" Margin="0,2,0,0" />
+                            </StackPanel>
+                            <ToggleButton Grid.Column="2" Classes="Switch" VerticalAlignment="Center"
+                                          IsChecked="{Binding ShowMainWindowOnStartup}" />
+                        </Grid>
+                        <Grid ColumnDefinitions="Auto,*,Auto">
+                            <Border Classes="SetIc" Background="{DynamicResource PurpleSoftBrush}">
+                                <Path Stroke="{DynamicResource PurpleBrush}" Data="{StaticResource GeoTray}" />
+                            </Border>
+                            <StackPanel Grid.Column="1" Margin="12,0" VerticalAlignment="Center">
+                                <TextBlock Text="关闭后进托盘" FontSize="13.5" FontWeight="SemiBold"
+                                           Foreground="{DynamicResource TextBrush}" />
+                                <TextBlock Text="关掉这项后点关闭直接退出应用" Classes="Hint Sub" Margin="0,2,0,0" />
+                            </StackPanel>
+                            <ToggleButton Grid.Column="2" Classes="Switch" VerticalAlignment="Center"
+                                          IsChecked="{Binding CloseToTray}" />
                         </Grid>
                     </StackPanel>
                 </Border>

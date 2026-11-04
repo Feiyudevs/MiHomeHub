@@ -254,15 +254,61 @@
                 <ControlTemplate>
                     <!-- Disc 不设对齐（默认 Stretch 铺满按钮）；设 Center 会收缩到图标大小 -->
                     <Border Name="Disc" CornerRadius="16" Background="{TemplateBinding Background}">
-                        <!-- 电源符号：上竖线 + 开口圆弧，描边绘制保证小尺寸不糊 -->
-                        <Path Width="13" Height="13" Stretch="Uniform"
-                              HorizontalAlignment="Center" VerticalAlignment="Center"
-                              Stroke="{TemplateBinding Foreground}" StrokeThickness="1.7"
-                              StrokeLineCap="Round" StrokeJoin="Round"
-                              Data="M18.36,6.64 A9,9 0 1 1 6.64,6.64 M12,2 V12"/>
+                        <Panel HorizontalAlignment="Center" VerticalAlignment="Center">
+                            <!-- 电源符号：上竖线 + 开口圆弧，描边绘制保证小尺寸不糊 -->
+                            <Path Name="PowerIcon" Width="13" Height="13" Stretch="Uniform"
+                                  HorizontalAlignment="Center" VerticalAlignment="Center"
+                                  Stroke="{TemplateBinding Foreground}" StrokeThickness="1.7"
+                                  StrokeLineCap="Round" StrokeJoin="Round"
+                                  Data="M18.36,6.64 A9,9 0 1 1 6.64,6.64 M12,2 V12"/>
+                            <!-- 窗帘：图标直接用布帘的开合状态表达开关 —— 关=两片合拢在中间，
+                                 开=收向两侧；按 24 网格画好交给 Viewbox 居中缩放
+                                 （Path 单独用 Stretch 会贴左上角，宽扁图形会看起来偏高） -->
+                            <Viewbox Name="CurtainIcons" Width="17" Height="17" Stretch="Uniform"
+                                     HorizontalAlignment="Center" VerticalAlignment="Center">
+                                <Panel Width="24" Height="24">
+                                    <!-- 杆单独一条、比布帘粗一档：与布帘同宽时同线宽会被读成「书本」 -->
+                                    <Path Name="CurtainRod"
+                                          Stroke="{TemplateBinding Foreground}"
+                                          StrokeThickness="2.8" StrokeLineCap="Round"
+                                          Data="M3.6,4 H20.4"/>
+                                    <Path Name="CurtainClosed"
+                                          Stroke="{TemplateBinding Foreground}"
+                                          StrokeThickness="1.7" StrokeLineCap="Round" StrokeJoin="Round"
+                                          Data="M3.6,4 V16 Q3.6,19 6.6,19 H17.4 Q20.4,19 20.4,16 V4 M12,4 V19"/>
+                                    <Path Name="CurtainOpen"
+                                          Stroke="{TemplateBinding Foreground}"
+                                          StrokeThickness="1.7" StrokeLineCap="Round" StrokeJoin="Round"
+                                          Data="M3.6,4 V16 Q3.6,19 6.6,19 H9 V4 M20.4,4 V16 Q20.4,19 17.4,19 H15 V4"/>
+                                </Panel>
+                            </Viewbox>
+                        </Panel>
                     </Border>
                 </ControlTemplate>
             </Setter>
+        </Style>
+        <!-- 普通设备显示电源符号；窗帘卡片（.curtain）换成布帘图标，
+             且布帘形态直接跟随开关状态：关=合拢，开=收向两侧 -->
+        <Style Selector="ToggleButton.Power /template/ Path#CurtainClosed">
+            <Setter Property="IsVisible" Value="True"/>
+        </Style>
+        <Style Selector="ToggleButton.Power /template/ Path#CurtainOpen">
+            <Setter Property="IsVisible" Value="False"/>
+        </Style>
+        <Style Selector="ToggleButton.Power /template/ Viewbox#CurtainIcons">
+            <Setter Property="IsVisible" Value="False"/>
+        </Style>
+        <Style Selector="ToggleButton.Power.curtain /template/ Path#PowerIcon">
+            <Setter Property="IsVisible" Value="False"/>
+        </Style>
+        <Style Selector="ToggleButton.Power.curtain /template/ Viewbox#CurtainIcons">
+            <Setter Property="IsVisible" Value="True"/>
+        </Style>
+        <Style Selector="ToggleButton.Power.curtain:checked /template/ Path#CurtainClosed">
+            <Setter Property="IsVisible" Value="False"/>
+        </Style>
+        <Style Selector="ToggleButton.Power.curtain:checked /template/ Path#CurtainOpen">
+            <Setter Property="IsVisible" Value="True"/>
         </Style>
         <Style Selector="ToggleButton.Power /template/ Border#Disc">
             <Setter Property="Transitions">
@@ -279,11 +325,11 @@
                 </Transitions>
             </Setter>
         </Style>
-        <!-- 卡片悬停时右列「一分为二」：电源键从垂直居中滑到右下角（16px：32+32 两枚按钮
-             在 48px 内容高里排下，上「更多」-9 起、下电源键 24 起，留 1px 不重叠），
-             给上方浮现的「更多」让位 -->
+        <!-- 卡片悬停时右列「一分为二」：电源键从垂直居中滑到右下角（10px：卡片内容高 48、键 32，
+             居中时键顶 8px，滑 10 后键顶 18px 正好压在「更多」下沿 17px 之下不重叠，下沿只超出内容区
+             2px、离卡片底边还有 11px；再往下滑就贴到卡边上），给上方浮现的「更多」让位 -->
         <Style Selector="Button.DevCard:pointerover ToggleButton.Power">
-            <Setter Property="RenderTransform" Value="translate(0px,16px)"/>
+            <Setter Property="RenderTransform" Value="translate(0px,10px)"/>
         </Style>
         <Style Selector="ToggleButton.Power:pointerover /template/ Border#Disc">
             <Setter Property="Opacity" Value="0.85"/>
@@ -850,9 +896,10 @@
             <Setter Property="BorderBrush" Value="{DynamicResource LineBrush}"/>
             <Setter Property="BorderThickness" Value="1"/>
             <Setter Property="CornerRadius" Value="24"/>
-            <!-- 正文再长也只在卡片内滚：不裁切时超出一行的内容会画到卡片圆角外面 -->
-            <Setter Property="ClipToBounds" Value="True"/>
-            <Setter Property="BoxShadow" Value="0 24 48 0 #3311182B"/>
+            <!-- 投影这里不能开 ClipToBounds：Avalonia 的 BoxShadow 画在控件自己的绘制上下文里，
+                 开了就被自己的边界裁光。裁切下移到卡片内层的 Grid（它铺满卡片内容区，效果等价）。
+                 模糊 40 + 下偏 16 → 左右需 40、上 24、下 56 留白，独立弹窗窗体按四周 58 留边 -->
+            <Setter Property="BoxShadow" Value="0 16 40 0 #3311182B"/>
         </Style>
         <Style Selector="ctl|DialogPopup">
             <Setter Property="IsVisible" Value="{Binding IsOpen, RelativeSource={RelativeSource Self}}"/>
@@ -865,7 +912,9 @@
                                 Width="{TemplateBinding CardWidth}"
                                 Height="{TemplateBinding CardHeight}"
                                 MaxHeight="{TemplateBinding CardMaxHeight}">
-                            <Grid RowDefinitions="Auto,*">
+                            <!-- 正文再长也只在卡片内滚：这层裁切接管原 DialogCard 上的 ClipToBounds，
+                                 超出一行的内容不会再画到卡片圆角外面，同时不挡卡片的投影 -->
+                            <Grid RowDefinitions="Auto,*" ClipToBounds="True">
                                 <Panel Name="DialogHeader" Background="Transparent" Margin="28,20,22,0">
                                     <StackPanel>
                                         <TextBlock Text="{TemplateBinding Title}" FontSize="19" FontWeight="Bold"
@@ -873,14 +922,19 @@
                                         <TextBlock Classes="Hint" Margin="0,5,0,0" Text="{TemplateBinding Subtitle}"
                                                    IsVisible="{Binding Subtitle, RelativeSource={RelativeSource TemplatedParent}, Converter={x:Static ObjectConverters.IsNotNull}}"/>
                                     </StackPanel>
-                                    <Button Classes="ThemeBtn" HorizontalAlignment="Right" VerticalAlignment="Top"
-                                            Cursor="Hand"
-                                            Command="{TemplateBinding CloseCommand}" ToolTip.Tip="关闭">
-                                        <Path Width="11" Height="11" Stretch="Uniform" StrokeThickness="0.8"
-                                              StrokeLineCap="Round"
-                                              Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}"
-                                              Data="{StaticResource GeoClose}"/>
-                                    </Button>
+                                    <!-- 动作区 + 关闭钮同一行靠右：整块靠右对齐，所以有没有动作钮，关闭钮都钉在原位 -->
+                                    <StackPanel Orientation="Horizontal" Spacing="6"
+                                                HorizontalAlignment="Right" VerticalAlignment="Top">
+                                        <ContentControl Content="{TemplateBinding HeaderActions}"
+                                                        IsTabStop="False" VerticalAlignment="Top"/>
+                                        <Button Classes="ThemeBtn" Cursor="Hand"
+                                                Command="{TemplateBinding CloseCommand}" ToolTip.Tip="关闭">
+                                            <Path Width="11" Height="11" Stretch="Uniform" StrokeThickness="0.8"
+                                                  StrokeLineCap="Round"
+                                                  Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}"
+                                                  Data="{StaticResource GeoClose}"/>
+                                        </Button>
+                                    </StackPanel>
                                 </Panel>
                                 <!-- 右外距缩到 6：把滚动条推到卡片内侧边缘，不再压在卡片上；
                                      正文右侧补 16 内距，正文可用宽度与卡片位置都和原来完全一致 -->
@@ -895,6 +949,31 @@
                     </Grid>
                 </ControlTemplate>
             </Setter>
+        </Style>
+
+        <!-- 弹窗标题栏动作钮：与右上角关闭钮同宽同悬停底，宽度随文字走 -->
+        <Style Selector="Button.HeaderAct">
+            <Setter Property="Height" Value="36"/>
+            <Setter Property="Padding" Value="10,0"/>
+            <Setter Property="Foreground" Value="{DynamicResource Text2Brush}"/>
+            <Setter Property="FontSize" Value="13"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="Template">
+                <ControlTemplate>
+                    <Border Name="Bd" CornerRadius="8" Background="Transparent"
+                            Padding="{TemplateBinding Padding}">
+                        <ContentPresenter Content="{TemplateBinding Content}"
+                                          HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                    </Border>
+                </ControlTemplate>
+            </Setter>
+        </Style>
+        <Style Selector="Button.HeaderAct:pointerover /template/ Border#Bd">
+            <Setter Property="Background" Value="{DynamicResource SurfaceBrush}"/>
+        </Style>
+        <Style Selector="Button.HeaderAct:pointerover">
+            <Setter Property="Foreground" Value="{DynamicResource TextBrush}"/>
         </Style>
 
         <!-- ======== 设置页顶部 Tab 导航（分段胶囊） ======== -->
@@ -1066,6 +1145,10 @@
         </Style>
         <Style Selector="Button.DskIcon:pressed /template/ ContentPresenter#PART_ContentPresenter">
             <Setter Property="Background" Value="#33FFFFFF" />
+        </Style>
+        <!-- 图钉的开启态：图标换成品牌紫（PinBrush），不加底色、不加勾 —— 和分区里其它状态控件同一档表现 -->
+        <Style Selector="Button.DskIcon.pin">
+            <Setter Property="Foreground" Value="{DynamicResource PinBrush}" />
         </Style>
         <!-- 播放控制那一排：比普通图标大一号，仍然是同一套悬停/按下底色 -->
         <Style Selector="Button.DskMedia">
