@@ -1,52 +1,24 @@
 using Avalonia;
-using Avalonia.Animation.Easings;
 using Avalonia.Controls;
 using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Controls.Primitives;
 using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.Markup.Xaml;
-using Avalonia.Threading;
+using Avalonia.Media;
 using Avalonia.VisualTree;
 using MiHome.Services;
 using MiHome.ViewModels;
 using MiHome.Views;
 using System.Diagnostics;
-using System.Runtime.CompilerServices;
 
 namespace MiHome;
 
 public partial class App : Application
 {
-    // 一格滚轮的行进距离与动画时长：距离大一点、动画短一点，滚起来更跟手
-    private const double WheelStep = 220;
-    private const int WheelDurationMs = 110;
-    private static readonly ConditionalWeakTable<ScrollViewer, WheelScroll> WheelScrolls = new();
-
     public override void Initialize() => AvaloniaXamlLoader.Load(this);
 
-    /// 滚轮改为缓动动画滚动；拖拽滑块、键盘滚动仍走原生逻辑
-    private static void OnPointerWheel(object? sender, PointerWheelEventArgs args)
-    {
-        if (args.Handled || args.Delta.Y == 0) return;
-        var source = args.Source as Visual;
-        var sv = source as ScrollViewer
-                 ?? source?.GetVisualAncestors().OfType<ScrollViewer>().FirstOrDefault();
-        if (sv is null) return;
-
-        var max = Math.Max(0, sv.Extent.Height - sv.Viewport.Height);
-        var from = sv.Offset;
-        var to = Math.Clamp(from.Y - args.Delta.Y * WheelStep, 0, max);
-        if (Math.Abs(to - from.Y) < 0.5) return;
-
-        if (!WheelScrolls.TryGetValue(sv, out var scroll))
-            WheelScrolls.Add(sv, scroll = new WheelScroll(sv));
-
-        scroll.Start(from.Y, to);
-        args.Handled = true;
-    }
-
-    /// 拖滑块期间把滚动条钉成可见：指针拖出窗口会让 Window:pointerover 失效，把手会中途淡掉。
+    /// 拖滑块期间把滚动条钉成可见：指针拖出窗口会让 Window:pointerover 失效，把手会中途消失。
     /// 处理挂的是窗口，sender 是窗口本身，得沿 args.Source（真正被拖的 Thumb）往上找 ScrollBar
     private static void OnThumbDragStarted(object? sender, VectorEventArgs args) => KeepVisibleWhile(args.Source, true);
     private static void OnThumbDragCompleted(object? sender, VectorEventArgs args) => KeepVisibleWhile(args.Source, false);
@@ -59,42 +31,6 @@ public partial class App : Application
         else bar.ClearValue(Visual.OpacityProperty);
     }
 
-    private sealed class WheelScroll
-    {
-        private static readonly Easing Ease = new CubicEaseOut();
-        private readonly ScrollViewer sv;
-        private readonly DispatcherTimer timer = new() { Interval = TimeSpan.FromMilliseconds(8) };
-        private double from, to, x;
-        private long startMs;
-
-        public WheelScroll(ScrollViewer sv)
-        {
-            this.sv = sv;
-            timer.Tick += (_, _) => Tick();
-        }
-
-        public void Start(double fromY, double toY)
-        {
-            from = fromY;
-            to = toY;
-            x = sv.Offset.X;
-            startMs = Environment.TickCount64;
-            timer.Start();
-        }
-
-        private void Tick()
-        {
-            var t = (Environment.TickCount64 - startMs) / (double)WheelDurationMs;
-            if (t >= 1)
-            {
-                sv.Offset = new Vector(x, to);
-                timer.Stop();
-                return;
-            }
-
-            sv.Offset = new Vector(x, from + (to - from) * Ease.Ease(t));
-        }
-    }
 
     public override void OnFrameworkInitializationCompleted()
     {
@@ -120,16 +56,26 @@ public partial class App : Application
             // 桌面组件：读上次的分区布局，开着的分区直接贴回桌面（主窗口收起进托盘也照样显示）
             Services.DesktopHost.Initialize((MainViewModel)window.DataContext);
             if (window.DataContext is MainViewModel mainVm) mainVm.DesktopWidgetsEnabled = Services.DesktopHost.Enabled;
-            // 普通启动完成（JIT、主题、字体加载稳定）后延迟回收一次，收回启动期临时对象
-            if (!silent)
-                window.Opened += (_, _) => Services.MemoryTrimmer.TrimDelayed(3000);
-            desktop.MainWindow.AddHandler(InputElement.PointerWheelChangedEvent, OnPointerWheel,
-                RoutingStrategies.Tunnel, handledEventsToo: true);
+            // 窗口打开后立即回收启动期临时对象和原生渲染资源，降低基础常驻内存
+            window.Opened += (_, _) => Services.MemoryTrimmer.TrimForce();
             desktop.MainWindow.AddHandler(Thumb.DragStartedEvent, OnThumbDragStarted,
                 RoutingStrategies.Bubble, handledEventsToo: true);
             desktop.MainWindow.AddHandler(Thumb.DragCompletedEvent, OnThumbDragCompleted,
                 RoutingStrategies.Bubble, handledEventsToo: true);
             SetupTray(window, desktop, silent);
+
+            // 预热默认字体：强制创建并缓存 GlyphTypeface，避免运行时每排版一次就新建一份
+            // 导致 gen2 老生代累积大量字体对象（实测可达 100 MB+）
+            try
+            {
+                var defaultFont = Resources["DefaultFontFamily"] as FontFamily;
+                if (defaultFont is not null)
+                    _ = new Typeface(defaultFont);
+            }
+            catch
+            {
+                // 字体预热失败不影响启动
+            }
         }
         base.OnFrameworkInitializationCompleted();
     }

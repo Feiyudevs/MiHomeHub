@@ -211,6 +211,21 @@
                         ToolTip.Tip="测试：关闭所有阴影/光晕并强制回收内存（再点恢复）">
                     <TextBlock Text="特效" FontSize="11" FontWeight="SemiBold" />
                 </Button>
+                <!-- 调试：加载虚拟设备卡片，定位内存是否在 UI 渲染层（仅 DEBUG） -->
+                <Button x:Name="TestDevicesBadge" Classes="ThemeBtn" Margin="0,0,6,0" Click="OnTestLoad100Click"
+                        ToolTip.Tip="测试：加载 100 个虚拟设备卡片（仅 DEBUG）">
+                    <TextBlock Text="测100" FontSize="11" FontWeight="SemiBold"
+                               Foreground="{DynamicResource Accent2Brush}" />
+                </Button>
+                <Button x:Name="TestDevicesBadge200" Classes="ThemeBtn" Margin="0,0,6,0" Click="OnTestLoad200Click"
+                        ToolTip.Tip="测试：加载 200 个虚拟设备卡片（仅 DEBUG）">
+                    <TextBlock Text="测200" FontSize="11" FontWeight="SemiBold"
+                               Foreground="{DynamicResource Accent2Brush}" />
+                </Button>
+                <Button x:Name="TestDevicesClearBadge" Classes="ThemeBtn" Margin="0,0,6,0" Click="OnTestClearClick"
+                        ToolTip.Tip="测试：清空虚拟设备（仅 DEBUG）">
+                    <TextBlock Text="清空" FontSize="11" FontWeight="SemiBold" />
+                </Button>
                 <Button Classes="ThemeBtn" Margin="0,0,6,0" Command="{Binding OpenLogCommand}" ToolTip.Tip="操作日志">
                     <Path Width="15" Height="15" Stretch="Uniform"
                           Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}"

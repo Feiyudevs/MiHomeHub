@@ -13,7 +13,7 @@
              于是每排版一次就新建一份字型对象 + 整张 Name 表且释放不掉（实测可涨到 1GB 量级）。
              这里只写单一字体，字形自足（中英文都覆盖），命中缓存后不再产生新对象。 -->
         <Style Selector="Window">
-            <Setter Property="FontFamily" Value="Microsoft YaHei UI"/>
+            <Setter Property="FontFamily" Value="{StaticResource DefaultFontFamily}"/>
             <Setter Property="Background" Value="{DynamicResource BgBrush}"/>
         </Style>
         <Style Selector="TextBlock.Hint">
@@ -796,15 +796,6 @@
         <!-- ======== 滚动条：默认隐藏，悬停浮现圆角胶囊 ======== -->
         <Style Selector="ScrollBar">
             <Setter Property="Opacity" Value="0"/>
-            <Setter Property="Transitions">
-                <Transitions>
-                    <DoubleTransition Property="Opacity" Duration="0:0:0.25">
-                        <DoubleTransition.Easing>
-                            <ani:CubicEaseOut/>
-                        </DoubleTransition.Easing>
-                    </DoubleTransition>
-                </Transitions>
-            </Setter>
         </Style>
         <Style Selector="Window:pointerover ScrollBar">
             <Setter Property="Opacity" Value="1"/>
@@ -834,17 +825,6 @@
         </Style>
         <!-- 静止色用模板本地值（ScrollBarThumbFill），悬停/拖动色走主题的
              ScrollBarThumbFillPointerOver/Pressed，已在主题字典里按明暗配好 -->
-        <Style Selector="ScrollBar /template/ Thumb /template/ Border#Pill">
-            <Setter Property="Transitions">
-                <Transitions>
-                    <BrushTransition Property="Background" Duration="0:0:0.18">
-                        <BrushTransition.Easing>
-                            <ani:CubicEaseOut/>
-                        </BrushTransition.Easing>
-                    </BrushTransition>
-                </Transitions>
-            </Setter>
-        </Style>
         <!-- ======== 设备卡「更多」按钮 ======== -->
         <!-- 平时完全隐形且不参与命中，整卡悬停才浮现（透明度过渡）；
              点击行为由 Controls/MenuOpener 附加属性接管：打开与右键同一份菜单。

@@ -51,6 +51,8 @@ public partial class DesktopGroupWindow : Window
     private PixelPoint _dragOrigin;
     private (int X, int Y) _dragCursor;
     private double _resizeStartWidth;
+    private int _resizeStartX;
+    private bool _resizeFromLeft;
 
     public DesktopGroupWindow(DesktopZoneVm vm)
     {
@@ -84,18 +86,77 @@ public partial class DesktopGroupWindow : Window
         base.Show();
     }
 
+    /// <summary>当前只是家屏缺席时的临时落位（模型坐标没动，等那块屏回来还要落回原位）。</summary>
+    public bool IsExiled { get; private set; }
+
+    /// <summary>
+    /// 家屏在 → 用模型里的坐标；家屏被关掉/拔掉 → 按它在家屏里的相对位置等比搬到还在用的屏。
+    /// 模型坐标只在用户拖动、拉伸之后才改写，所以临时落点不会顶掉原位。
+    /// </summary>
     private void ApplyModelPosition()
     {
+        var model = _vm.Model;
+        var saved = new PixelPoint((int)Math.Round(model.X), (int)Math.Round(model.Y));
+        var height = HeightDip();
+
+        // 老数据没记签名：坐标还落在某块屏上就认那块屏为家，都对不上才算借用
+        var home = MonitorLayout.FindBySignature(model.ScreenSig)
+                   ?? (model.ScreenSig.Length == 0 ? MonitorLayout.Holding(saved, Width, height) : null);
+
+        if (home is { } liveHome)
+        {
+            IsExiled = false;
+            Position = MonitorLayout.PlaceOnHome(saved, Width, height, liveHome);
+            return;
+        }
+
+        var target = MonitorLayout.Fallback();
+        if (target is null)
+        {
+            ClampIntoVirtualDesktop(saved);
+            return;
+        }
+
+        IsExiled = true;
+        Position = MonitorLayout.MoveOnto(saved, Width, height,
+            MonitorLayout.BoundsOf(model.ScreenSig), target.Value);
+        DesktopLog.Write($"[monitor] 分区「{model.Name}」借用 {model.ScreenSig} → {target.Value.Signature} pos={Position}");
+    }
+
+    /// <summary>一块屏都枚举不到时的兜底：按虚拟桌面夹住，别把分区丢在屏幕外。</summary>
+    private void ClampIntoVirtualDesktop(PixelPoint saved)
+    {
         var (vx, vy, vw, vh) = DesktopEmbed.VirtualScreen();
-        var x = (int)Math.Clamp(_vm.Model.X, vx + 8, vx + Math.Max(8, vw - 80));
-        var y = (int)Math.Clamp(_vm.Model.Y, vy + 8, vy + Math.Max(8, vh - 60));
+        var x = (int)Math.Clamp(saved.X, vx + 8, vx + Math.Max(8, vw - 80));
+        var y = (int)Math.Clamp(saved.Y, vy + 8, vy + Math.Max(8, vh - 60));
         Position = new PixelPoint(x, y);
     }
+
+    /// <summary>分区高度由内容撑开，布局跑完前拿不到：按折叠/展开的典型高度估，只用于夹边与等比搬移。</summary>
+    private double HeightDip()
+    {
+        var scale = RenderScaling > 0 ? RenderScaling : 1;
+        if (Bounds.Height > 1) return Bounds.Height / scale;
+        return _vm.Collapsed ? 40 : 240;
+    }
+
+    /// <summary>屏幕变化后重新落位：家屏回来就回原位，家屏又没了就重新借用。</summary>
+    public void ReapplyPlacement()
+    {
+        if (_dragging || _resizing) return;
+        ApplyModelPosition();
+    }
+
+    /// <summary>眼下这块屏的签名，给新建的分区安家时用。</summary>
+    public string CurrentScreenSignature() => MonitorLayout.SignatureAt(Position, Width, HeightDip());
 
     protected override void OnOpened(EventArgs e)
     {
         base.OnOpened(e);
         AttachDesktop();
+
+        // 高度由内容撑开，Show 之前只能估：布局跑完后按真实尺寸再夹一次，别露出屏幕外
+        Dispatcher.UIThread.Post(ReapplyPlacement, DispatcherPriority.Loaded);
 
         if (_group != null)
             Dispatcher.UIThread.Post(
@@ -294,6 +355,11 @@ public partial class DesktopGroupWindow : Window
             || uMsg == DesktopNative.WM_DISPLAYCHANGE
             || uMsg == DesktopEmbed.ShellReadyMessage)
             Dispatcher.UIThread.Post(() => RefreshMaterial($"msg:0x{uMsg:X}"));
+
+        // 拔插屏幕、以及 explorer（任务栏）就绪：让落位逻辑重新判定家屏在不在。
+        // 分区常驻，这两条广播比主窗的屏幕事件更可靠。
+        if (uMsg == DesktopNative.WM_DISPLAYCHANGE || uMsg == DesktopEmbed.ShellReadyMessage)
+            Dispatcher.UIThread.Post(DisplayWatcher.Notify);
 
         // 置顶态：Avalonia 的样式缓存里没有 WS_EX_TOPMOST（它写 ExStyle 是整份覆盖），
         // 它写位置时又按普通窗口把整窗排回下面。这里每次位置写入都把插入位置改写回 topmost 带
@@ -527,23 +593,42 @@ public partial class DesktopGroupWindow : Window
         SavePosition();
     }
 
-    public void BeginResize()
+    public void BeginResize(bool fromLeft = false)
     {
         if (!DesktopNative.GetCursorPos(out var p)) return;
         _resizing = true;
+        _resizeFromLeft = fromLeft;
         _dragCursor = (p.X, p.Y);
         _resizeStartWidth = Width;
+        _resizeStartX = Position.X;
     }
 
     public void UpdateResize()
     {
         if (!_resizing || !DesktopNative.GetCursorPos(out var p)) return;
         var scale = RenderScaling <= 0 ? 1 : RenderScaling;
-        var delta = (p.X - _dragCursor.X) / scale;
-        var next = Math.Clamp(_resizeStartWidth + delta,
-            Models.DesktopGroupModel.MinWidth, Models.DesktopGroupModel.MaxWidth);
-        if (Math.Abs(Width - next) < 0.5) return;
-        Width = next;
+
+        if (!_resizeFromLeft)
+        {
+            var delta = (p.X - _dragCursor.X) / scale;
+            var next = Math.Clamp(_resizeStartWidth + delta,
+                Models.DesktopGroupModel.MinWidth, Models.DesktopGroupModel.MaxWidth);
+            if (Math.Abs(Width - next) < 0.5) return;
+            Width = next;
+            return;
+        }
+
+        // 左缘拉伸：右边缘钉住，宽度变化量反推 X；不允许把左缘拖出这块屏
+        var (vx, _, _, _) = DesktopEmbed.VirtualScreen();
+        var maxWidth = Math.Max(Models.DesktopGroupModel.MinWidth,
+            Math.Min(Models.DesktopGroupModel.MaxWidth,
+                     _resizeStartWidth + (_resizeStartX - vx) / scale));
+        var deltaLeft = (p.X - _dragCursor.X) / scale;
+        var width = Math.Clamp(_resizeStartWidth - deltaLeft,
+            Models.DesktopGroupModel.MinWidth, maxWidth);
+        var x = _resizeStartX + (int)Math.Round((_resizeStartWidth - width) * scale);
+        if (x != Position.X) Position = new PixelPoint(x, Position.Y);
+        if (Math.Abs(Width - width) >= 0.5) Width = width;
     }
 
     public void EndResize()
@@ -558,6 +643,10 @@ public partial class DesktopGroupWindow : Window
     {
         _vm.Model.X = Position.X;
         _vm.Model.Y = Position.Y;
+        // 用户主动落点就是新的家：记下当下所在屏，之后那块屏临时不在才有借用与回落的依据
+        var sig = CurrentScreenSignature();
+        if (sig.Length > 0) _vm.Model.ScreenSig = sig;
+        IsExiled = false;
         DesktopHost.PersistGroup(_vm);
     }
 

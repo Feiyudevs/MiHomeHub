@@ -9,8 +9,9 @@ using Avalonia.Media;
 using Avalonia.Styling;
 using Avalonia.Threading;
 using Avalonia.VisualTree;
-using System.Threading.Tasks;
+using System.Linq;
 using System.Runtime;
+using System.Threading.Tasks;
 using MiHome.Services;
 using MiHome.ViewModels;
 
@@ -20,6 +21,15 @@ public partial class MainWindow : Window
 {
     // 上次运行时保存的位置与大小，等到窗口显示后再生效
     private WindowPlacementStore.Placement? _savedPlacement;
+
+    // 家屏：保存时窗口所在的那块显示器。它暂时不在了也不丢记录，临时落到别的屏只是借用。
+    private string _homeSig = "";
+    private PixelPoint _homePosition;
+    private bool _hasHome;
+
+    // true = 当前坐标只是家屏缺席时的临时落位，不能当成新位置写盘
+    private bool _isExiled;
+    private PixelPoint _exiledPosition;
 
     // 普通状态下的窗口边界，最大化 / 最小化时用它作为下次恢复的依据
     private PixelPoint _normalPosition;
@@ -145,6 +155,10 @@ public partial class MainWindow : Window
     private void OnClosing(object? sender, WindowClosingEventArgs e)
     {
         Persist();
+        // 窗口即将销毁：停止空闲回收定时器，避免后台继续唤醒
+        _idleTrimTimer?.Stop();
+        _idleTrimTimer = null;
+
         if (_allowExit) return;
         // 关闭即退出：托盘菜单窗口还挂在 lifetime 上，只关主窗不会结束进程，统一走退出
         if (!AppSettingsStore.CloseToTray)
@@ -155,6 +169,7 @@ public partial class MainWindow : Window
         }
         e.Cancel = true;
         Hide();
+        Vm?.PausePolling();
         // 收进托盘后回收内存：窗口已隐藏，立即收缩工作集，降低常驻占用
         Services.MemoryTrimmer.TrimForce();
         // 安静几秒后无感回收 GPU 纹理（见下方 ScheduleGpuResourceRelease）
@@ -236,13 +251,66 @@ public partial class MainWindow : Window
 
     private void ApplySavedPlacement()
     {
+        DisplayWatcher.Attach(this);
+        DisplayWatcher.Changed -= OnDisplayChanged;
+        DisplayWatcher.Changed += OnDisplayChanged;
+
         if (_savedPlacement is { } saved)
         {
-            var position = new PixelPoint(saved.X, saved.Y);
-            // 显示器变更后旧坐标可能已在屏幕外，此时只沿用尺寸
-            if (IsVisibleOnSomeScreen(position)) Position = position;
+            _homeSig = saved.ScreenSig;
+            _homePosition = new PixelPoint(saved.X, saved.Y);
+            _hasHome = true;
         }
+
+        PlaceByHomeScreen();
         CaptureNormalBounds();
+    }
+
+    /// <summary>
+    /// 家屏在 → 用保存的坐标；家屏被关掉/拔掉 → 等比搬到还在用的那块屏，
+    /// 保存的坐标与签名都不动，等这块屏重新插上或下次开机回来时再落回原位。
+    /// </summary>
+    private void PlaceByHomeScreen()
+    {
+        if (!_hasHome) return;
+
+        var saved = _homePosition;
+        var home = MonitorLayout.FindBySignature(_homeSig)
+                   // 老数据没记签名：坐标仍落在某块屏上，就当场把那块屏认作家
+                   ?? (_homeSig.Length == 0 ? MonitorLayout.Holding(saved, Width, Height) : null);
+
+        if (home is { } liveHome)
+        {
+            _isExiled = false;
+            MoveTo(MonitorLayout.PlaceOnHome(saved, Width, Height, liveHome));
+            return;
+        }
+
+        var target = MonitorLayout.Fallback();
+        if (target is null) return;
+        _isExiled = true;
+        MoveTo(MonitorLayout.MoveOnto(saved, Width, Height, MonitorLayout.BoundsOf(_homeSig), target.Value));
+        DesktopLog.Write($"[monitor] 主窗借用 {_homeSig} → {target.Value.Signature} pos={_exiledPosition}");
+    }
+
+    /// <summary>屏幕变化：家屏回来了就落回原位，家屏没了就搬到备用屏；最大化时按当前屏重铺工作区。</summary>
+    private void OnDisplayChanged()
+    {
+        if (!_hasHome) return;
+        if (_isMaximized)
+        {
+            MaximizeToWorkArea();
+            return;
+        }
+        PlaceByHomeScreen();
+        Persist();
+    }
+
+    /// <summary>记下落点再改坐标：CaptureNormalBounds 靠这个值区分「程序搬的」和「用户拖的」。</summary>
+    private void MoveTo(PixelPoint position)
+    {
+        _exiledPosition = position;
+        if (Position != position) Position = position;
     }
 
     /// <summary>
@@ -297,9 +365,12 @@ public partial class MainWindow : Window
             // 最小化到任务栏：窗口已不可见，立即收缩工作集，降低常驻占用
             if (WindowState == WindowState.Minimized)
             {
+                Vm?.PausePolling();
                 Services.MemoryTrimmer.TrimForce();
                 return;
             }
+            // 从最小化恢复：重启状态轮询
+            Vm?.ResumePolling();
             if (WindowState != WindowState.Maximized) return;
 
             Dispatcher.UIThread.Post(() =>
@@ -309,21 +380,6 @@ public partial class MainWindow : Window
                 MaximizeToWorkArea();
             }, DispatcherPriority.Background);
         }
-    }
-
-    /// <summary>判断窗口左上角落在该坐标时，是否仍有足够区域（标题栏）处于某块屏幕的工作区内。</summary>
-    private bool IsVisibleOnSomeScreen(PixelPoint position)
-    {
-        var scaling = Screens.ScreenFromPoint(position)?.Scaling ?? Screens.Primary?.Scaling ?? 1;
-        var rect = new PixelRect(position, PixelSize.FromSize(_normalSize, scaling));
-        foreach (var screen in Screens.All)
-        {
-            var area = screen.WorkingArea;
-            int overlapX = Math.Min(rect.Right, area.Right) - Math.Max(rect.X, area.X);
-            int overlapY = Math.Min(rect.Bottom, area.Bottom) - Math.Max(rect.Y, area.Y);
-            if (overlapX >= 160 && overlapY >= 48) return true;
-        }
-        return false;
     }
 
     /// <summary>系统最大化时尺寸变化早于 WindowState 更新，延后一拍再取，避免把最大化边界记成普通边界。</summary>
@@ -336,9 +392,17 @@ public partial class MainWindow : Window
         if (_isMaximized && IsOnMaximizedBounds()) return;
         _isMaximized = false;
         if (double.IsNaN(Width) || Width <= 0 || double.IsNaN(Height) || Height <= 0) return;
+        // 借用别的屏期间用户自己挪了窗口 = 重新安家，此后这个位置就是它的家，照旧写盘
+        if (_isExiled && Position != _exiledPosition) _isExiled = false;
         _normalPosition = Position;
         _normalSize = new Size(Width, Height);
         _hasNormalBounds = true;
+        if (!_isExiled)
+        {
+            _homePosition = _normalPosition;
+            _homeSig = MonitorLayout.SignatureAt(_normalPosition, Width, Height);
+            _hasHome = true;
+        }
         QueuePersist();
     }
 
@@ -358,8 +422,9 @@ public partial class MainWindow : Window
         _settleTimer?.Dispose();
         _settleTimer = null;
         if (_isMaximized || !_hasNormalBounds) return;
-        WindowPlacementStore.Save(_normalPosition.X, _normalPosition.Y,
-            _normalSize.Width, _normalSize.Height);
+        // 借用别的屏期间写的仍是家屏坐标，尺寸按当下的记
+        WindowPlacementStore.Save(_homePosition.X, _homePosition.Y,
+            _normalSize.Width, _normalSize.Height, _homeSig);
     }
 
     private MainViewModel? Vm => DataContext as MainViewModel;
@@ -381,6 +446,28 @@ public partial class MainWindow : Window
     private void OnMaxClick(object? sender, RoutedEventArgs e) => ToggleMaximize();
 
     private void OnCloseClick(object? sender, RoutedEventArgs e) => Close();
+
+    /// <summary>调试：加载 100 个虚拟设备卡片</summary>
+    private void OnTestLoad100Click(object? sender, RoutedEventArgs e)
+    {
+        if (DataContext is MainViewModel vm)
+            vm.LoadTestDevices(100);
+    }
+
+    /// <summary>调试：加载 200 个虚拟设备卡片</summary>
+    private void OnTestLoad200Click(object? sender, RoutedEventArgs e)
+    {
+        if (DataContext is MainViewModel vm)
+            vm.LoadTestDevices(200);
+    }
+
+    /// <summary>调试：清空虚拟设备</summary>
+    private void OnTestClearClick(object? sender, RoutedEventArgs e)
+    {
+        if (DataContext is MainViewModel vm)
+            vm.ClearTestDevices();
+    }
+
 
     private void ToggleMaximize()
     {

@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Concurrent;
+using System.Collections.Generic;
 using System.IO;
 using System.Net;
 using System.Net.Http;
@@ -47,8 +48,33 @@ public static class MijiaIconService
         Http.DefaultRequestHeaders.TryAddWithoutValidation("User-Agent",
             "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/120.0 Safari/537.36");
 
+    /// <summary>图标缓存上限：超出时淘汰最久未使用的型号，避免原生 Skia 像素只增不减。</summary>
+    private static readonly int MaxIconCache = 64;
+
     /// <summary>同一型号只查一次（GetOrAdd 的工厂返回 Task，天然合并了并发重复请求）。</summary>
     private static readonly ConcurrentDictionary<string, Task<Bitmap?>> Cache = new(StringComparer.OrdinalIgnoreCase);
+
+    /// <summary>LRU 访问顺序，用于淘汰最久未使用的型号图标。</summary>
+    private static readonly LinkedList<string> Lru = new();
+    private static readonly object LruLock = new();
+
+    private static void TouchLru(string model)
+    {
+        lock (LruLock)
+        {
+            Lru.Remove(model);
+            Lru.AddLast(model);
+            while (Lru.Count > MaxIconCache)
+            {
+                var old = Lru.First!.Value;
+                Lru.RemoveFirst();
+                if (Cache.TryRemove(old, out var oldTask) && oldTask.IsCompleted)
+                {
+                    try { oldTask.Result?.Dispose(); } catch { }
+                }
+            }
+        }
+    }
 
     private sealed class IndexEntry
     {
@@ -65,10 +91,14 @@ public static class MijiaIconService
     private static readonly object IndexLock = new();
     private static IndexRoot? _index;
 
-    public static Task<Bitmap?> GetAsync(string model) =>
-        string.IsNullOrEmpty(model)
-            ? Task.FromResult<Bitmap?>(null)
-            : Cache.GetOrAdd(model, LoadAsync);
+    public static Task<Bitmap?> GetAsync(string model)
+    {
+        if (string.IsNullOrEmpty(model)) return Task.FromResult<Bitmap?>(null);
+        var task = Cache.GetOrAdd(model, LoadAsync);
+        // 每次访问都更新 LRU：无论命中内存还是新加入，都保证热门型号留在缓存里
+        TouchLru(model);
+        return task;
+    }
 
     /// <summary>
     /// 退出登录时释放全部已缓存的真机图（Skia 原生像素），并把内存缓存清空，
@@ -77,6 +107,7 @@ public static class MijiaIconService
     /// </summary>
     public static void Reset()
     {
+        lock (LruLock) Lru.Clear();
         foreach (var task in Cache.Values)
         {
             if (task.IsCompleted)

@@ -6,6 +6,7 @@ using System.Globalization;
 using System.IO;
 using System.Linq;
 using System.Runtime;
+using System.Runtime.InteropServices;
 using System.Threading.Tasks;
 using Avalonia;
 using Avalonia.Media;
@@ -283,7 +284,18 @@ public partial class MainViewModel : ObservableObject
     /// <summary>断开客户端并清空页面上的设备/房间/场景/家庭，回到未登录空态。</summary>
     private void ResetSessionUi()
     {
+        _client?.Dispose();
         _client = null;
+        // 退出登录时暂停轮询，避免 _client=null 后 timer 仍每秒唤醒
+        PausePolling();
+        // 退出登录时释放跨会话常驻缓存：Skia 原生像素不计入托管堆，不 Dispose 会一直占内存
+        MijiaIconService.Reset();
+        DeviceSpecService.Clear();
+        // 桌面组件窗口持有 MijiaDevice 实例（进而持有 Icon Bitmap），不清空它们设备就回收不掉
+        DesktopHost.HideAll();
+        // 断开每台设备对产品图 Bitmap 的引用，避免 Skia 原生像素残留
+        foreach (var d in _allDevices)
+            d.Icon = null;
         _allDevices.Clear();
         _selectedRoom = "全部";
         _detailDevice = null;
@@ -356,5 +368,19 @@ public partial class MainViewModel : ObservableObject
         BannerTotal = 0;
         BannerOn = 0;
         BannerOffline = 0;
+
+        // 退出登录后立即强制回收：压缩 LOH、执行完整 GC，并请示 Windows 收缩工作集，
+        // 让内存立即回落，不再等待 30 秒空闲自动回收或下一次 GC。
+        GCSettings.LargeObjectHeapCompactionMode = GCLargeObjectHeapCompactionMode.CompactOnce;
+        GC.Collect(GC.MaxGeneration, GCCollectionMode.Aggressive, blocking: true, compacting: true);
+        GC.WaitForPendingFinalizers();
+        GC.Collect(GC.MaxGeneration, GCCollectionMode.Aggressive, blocking: true, compacting: true);
+        try { SetProcessWorkingSetSize(GetCurrentProcess(), new IntPtr(-1), new IntPtr(-1)); } catch { }
     }
+
+    [DllImport("kernel32.dll")]
+    private static extern bool SetProcessWorkingSetSize(IntPtr hProcess, IntPtr min, IntPtr max);
+
+    [DllImport("kernel32.dll")]
+    private static extern IntPtr GetCurrentProcess();
 }

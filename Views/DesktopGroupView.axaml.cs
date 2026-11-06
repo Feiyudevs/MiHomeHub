@@ -308,12 +308,12 @@ public partial class DesktopGroupView : UserControl
         return new PixelRect(topLeft, new PixelSize(w, h));
     }
 
-    // ================= 右缘宽度拉伸 =================
+    // ================= 左右缘宽度拉伸 =================
 
     private void OnResizePressed(object? sender, PointerPressedEventArgs e)
     {
         if (!e.GetCurrentPoint(this).Properties.IsLeftButtonPressed) return;
-        Host?.BeginResize();
+        Host?.BeginResize(fromLeft: false);
         if (sender is Control c) e.Pointer.Capture(c);
         e.Handled = true;
     }
@@ -333,6 +333,30 @@ public partial class DesktopGroupView : UserControl
     }
 
     private void OnResizeCaptureLost(object? sender, PointerCaptureLostEventArgs e) => Host?.EndResize();
+
+    private void OnResizeLeftPressed(object? sender, PointerPressedEventArgs e)
+    {
+        if (!e.GetCurrentPoint(this).Properties.IsLeftButtonPressed) return;
+        Host?.BeginResize(fromLeft: true);
+        if (sender is Control c) e.Pointer.Capture(c);
+        e.Handled = true;
+    }
+
+    private void OnResizeLeftMoved(object? sender, PointerEventArgs e)
+    {
+        if (!e.GetCurrentPoint(this).Properties.IsLeftButtonPressed) return;
+        Host?.UpdateResize();
+        e.Handled = true;
+    }
+
+    private void OnResizeLeftReleased(object? sender, PointerReleasedEventArgs e)
+    {
+        Host?.EndResize();
+        e.Pointer.Capture(null);
+        e.Handled = true;
+    }
+
+    private void OnResizeLeftCaptureLost(object? sender, PointerCaptureLostEventArgs e) => Host?.EndResize();
 
     // ================= 分区菜单 =================
 

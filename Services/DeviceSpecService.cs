@@ -17,7 +17,29 @@ public static class DeviceSpecService
 {
     private static readonly HttpClient Http = new() { Timeout = TimeSpan.FromSeconds(15) };
 
+    /// <summary>规格缓存上限：超出时淘汰最久未使用的条目，避免 DeviceSpec 对象只增不减。</summary>
+    private static readonly int MaxSpecCache = 256;
+
     private static readonly ConcurrentDictionary<string, Lazy<Task<DeviceSpec?>>> Cache = new();
+
+    /// <summary>LRU 访问顺序，用于淘汰最久未使用的规格。</summary>
+    private static readonly LinkedList<string> SpecLru = new();
+    private static readonly object SpecLruLock = new();
+
+    private static void TouchSpecLru(string key)
+    {
+        lock (SpecLruLock)
+        {
+            SpecLru.Remove(key);
+            SpecLru.AddLast(key);
+            while (SpecLru.Count > MaxSpecCache)
+            {
+                var old = SpecLru.First!.Value;
+                SpecLru.RemoveFirst();
+                Cache.TryRemove(old, out _);
+            }
+        }
+    }
 
     /// <summary>
     /// 内部配置服务（设备信息、场景键位、屏幕保护/整机设置、遥控器配对）不是日常控制项，
@@ -32,7 +54,17 @@ public static class DeviceSpecService
     public static Task<DeviceSpec?> GetAsync(MijiaClient client, MijiaDevice device)
     {
         var key = string.IsNullOrEmpty(device.SpecType) ? device.Did : device.SpecType;
-        return Cache.GetOrAdd(key, _ => new Lazy<Task<DeviceSpec?>>(() => FetchAsync(client, device, key))).Value;
+        var task = Cache.GetOrAdd(key, _ => new Lazy<Task<DeviceSpec?>>(() => FetchAsync(client, device, key))).Value;
+        // 每次访问都更新 LRU：热门规格留在缓存里，冷门规格优先淘汰
+        TouchSpecLru(key);
+        return task;
+    }
+
+    /// <summary>清空全部规格缓存；退出登录时调用，避免跨会话残留 DeviceSpec 对象。</summary>
+    public static void Clear()
+    {
+        Cache.Clear();
+        lock (SpecLruLock) SpecLru.Clear();
     }
 
     private static async Task<DeviceSpec?> FetchAsync(MijiaClient client, MijiaDevice device, string key)

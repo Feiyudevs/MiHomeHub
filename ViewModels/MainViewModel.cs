@@ -54,7 +54,7 @@ public partial class MainViewModel : ObservableObject
     private bool _polling;
     private int _pollTick;
     private long _lastPollErrorLogAt;
-    private const int PollSeconds = 4;
+    private const int PollSeconds = 10;
     private const int SuppressMs = 5000;
 
     /// <summary>设备列表代次：切家庭/重载时递增，过期的规格解析结果直接丢弃。</summary>
@@ -321,6 +321,18 @@ public partial class MainViewModel : ObservableObject
         _pollTimer.Start();
     }
 
+    /// <summary>暂停状态轮询（窗口最小化/收托盘时调用，减少后台网络与分配）。</summary>
+    public void PausePolling()
+    {
+        _pollTimer?.Stop();
+    }
+
+    /// <summary>恢复状态轮询（窗口从托盘/最小化恢复时调用）。</summary>
+    public void ResumePolling()
+    {
+        _pollTimer?.Start();
+    }
+
     /// <summary>轮询一拍：在途请求未回时直接跳过，避免网络抖动时请求叠加。</summary>
     private async Task PollTickAsync()
     {
@@ -478,6 +490,7 @@ public partial class MainViewModel : ObservableObject
                 Log($"刷新 serviceToken 出错：{ex.Message}");
             }
         }
+        _client?.Dispose();
         _client = new MijiaClient(_auth);
         await LoadDevicesAsync();
     }
@@ -543,6 +556,10 @@ public partial class MainViewModel : ObservableObject
             _ = ResolveSpecsThenRefreshAsync(devices, gen);
 
             Log($"已加载 {_allDevices.Count} 个设备、{SceneItems.Count} 个场景");
+
+            // 设备加载完成后立即收缩原生渲染资源：大量卡片渲染会产生 Avalonia 合成层与 GPU 纹理，
+            // GC 不会自动回收这些原生内存，需主动调用 SetProcessWorkingSetSize 让 Windows 收缩工作集。
+            Services.MemoryTrimmer.TrimForce();
         }
         catch (Exception ex)
         {
@@ -642,6 +659,9 @@ public partial class MainViewModel : ObservableObject
             _ = LoadIconsAsync(devices);
             _ = ResolveSpecsThenRefreshAsync(devices, gen);
             Log($"「{HomeName}」已加载 {_allDevices.Count} 个设备、{SceneItems.Count} 个场景");
+
+            // 设备加载完成后立即收缩原生渲染资源
+            Services.MemoryTrimmer.TrimForce();
         }
         catch (Exception ex)
         {

@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using Avalonia;
 using Avalonia.Controls;
+using Avalonia.Threading;
 using MiHome.Models;
 using MiHome.ViewModels;
 using MiHome.Views;
@@ -49,10 +50,22 @@ public static class DesktopHost
         _main = main;
         _layout = DesktopGroupStore.Load();
         main.DevicesReloaded += SyncDevices;
+        DisplayWatcher.Changed += OnDisplayChanged;
 
         // 上次退出时开着的分区，这次启动直接贴回桌面
         if (_layout.Enabled)
             ShowAll();
+
+        // 开机自启赶在显示器全部就绪之前落位时（屏还没被枚举到，或那次广播根本没收到），
+        // 过几秒按当下的屏幕重新判定一次：家屏确实没开就留在备用屏，开了就落回原位。
+        DispatcherTimer.RunOnce(() => DisplayWatcher.Notify(), TimeSpan.FromSeconds(5));
+    }
+
+    /// <summary>屏幕增减：每块分区重新按家屏落位（家屏回来落回原位，家屏没了搬到备用屏）。</summary>
+    private static void OnDisplayChanged()
+    {
+        foreach (var win in Windows.Values.ToList())
+            win.ReapplyPlacement();
     }
 
     private static void SyncDevices()
@@ -210,6 +223,18 @@ public static class DesktopHost
                 Windows.Remove(vm.Model.Id);
         };
         win.Show();
+
+        // 新建的分区、以及没有签名记录的老数据：把眼下这块屏记成它的家。
+        // 借用别的屏期间（IsExiled）不记，否则临时落点会被当成家，屏回来也就不回去了。
+        if (vm.Model.ScreenSig.Length == 0 && !win.IsExiled)
+        {
+            var sig = win.CurrentScreenSignature();
+            if (sig.Length > 0)
+            {
+                vm.Model.ScreenSig = sig;
+                Save();
+            }
+        }
     }
 
     public static void ShowAll()

@@ -10,6 +10,8 @@
              RequestedThemeVariant="Dark">
     <Application.Resources>
         <ResourceDictionary>
+            <!-- 全局统一字体：避免每个控件重复解析默认字体，防止 GlyphTypeface 只增不减累积到 gen2 -->
+            <FontFamily x:Key="DefaultFontFamily">Microsoft YaHei UI</FontFamily>
             <ResourceDictionary.MergedDictionaries>
                 <ResourceInclude Source="avares://MiHome/Themes/Converters.axaml" />
                 <ResourceInclude Source="avares://MiHome/Themes/Icons.axaml" />

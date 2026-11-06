@@ -23,6 +23,12 @@ public sealed class DesktopGroupModel
 
     public double Y { get; set; } = 96;
 
+    /// <summary>
+    /// 这块分区所在显示器的签名。那块屏被关掉时分区临时搬到还在用的屏上，
+    /// X/Y 记录不动，等屏重新插上或下次开机回来时落回原位。
+    /// </summary>
+    public string ScreenSig { get; set; } = "";
+
     public double Width { get; set; } = DefaultWidth;
 
     public bool Collapsed { get; set; }

@@ -16,6 +16,9 @@ public static class WindowPlacementStore
         public int Y { get; set; }
         public double Width { get; set; }
         public double Height { get; set; }
+
+        /// <summary>保存时所在显示器的签名；这块屏被关掉时坐标先留着，等它回来落回原位。</summary>
+        public string ScreenSig { get; set; } = "";
     }
 
     public static Placement? Load()
@@ -33,7 +36,7 @@ public static class WindowPlacementStore
         }
     }
 
-    public static void Save(int x, int y, double width, double height)
+    public static void Save(int x, int y, double width, double height, string screenSig)
     {
         if (double.IsNaN(width) || width <= 0 || double.IsNaN(height) || height <= 0) return;
         try
@@ -44,7 +47,8 @@ public static class WindowPlacementStore
                 X = x,
                 Y = y,
                 Width = width,
-                Height = height
+                Height = height,
+                ScreenSig = screenSig
             }));
         }
         catch

@@ -72,6 +72,12 @@ internal static class DesktopNative
     public const int SM_CXVIRTUALSCREEN = 78;
     public const int SM_CYVIRTUALSCREEN = 79;
 
+    // ---- 显示器枚举（多屏落位） ----
+    public const uint MONITORINFOF_PRIMARY = 0x00000001;
+
+    /// <summary>GetDpiForMonitor 的类型：0 = 系统建议的有效缩放，正是 Avalonia 用的那个档位。</summary>
+    public const int MDT_EFFECTIVE_DPI = 0;
+
     public const uint GW_HWNDPREV = 3;
 
     // ---- 窗口消息（Z 序 / 激活） ----
@@ -207,6 +213,32 @@ internal static class DesktopNative
         public int X;
         public int Y;
     }
+
+    /// <summary>MONITORINFOEXW：边界 + 工作区 + 设备名（\\.\DISPLAYn）。</summary>
+    [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Unicode)]
+    public struct MONITORINFOEX
+    {
+        public int cbSize;
+        public RECT Monitor;
+        public RECT Work;
+        public uint Flags;
+        [MarshalAs(UnmanagedType.ByValTStr, SizeConst = 32)]
+        public string DeviceName;
+    }
+
+    public delegate bool EnumMonitorsProc(nint hMonitor, nint hdc, nint lprcMonitor, nint lParam);
+
+    [DllImport("user32.dll")]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    public static extern bool EnumDisplayMonitors(nint hdc, nint lprcClip, EnumMonitorsProc lpfnEnum, nint dwData);
+
+    [DllImport("user32.dll", CharSet = CharSet.Unicode)]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    public static extern bool GetMonitorInfo(nint hMonitor, ref MONITORINFOEX lpmi);
+
+    /// <summary>按屏取有效 DPI（shcore，Win8.1+）；拿不到时调用方按 96 处理。</summary>
+    [DllImport("shcore.dll")]
+    public static extern int GetDpiForMonitor(nint hMonitor, int dpiType, out uint dpiX, out uint dpiY);
 
     [DllImport("user32.dll")]
     public static extern nint GetWindow(nint hWnd, uint uCmd);

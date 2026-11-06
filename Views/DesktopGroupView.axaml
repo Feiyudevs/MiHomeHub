@@ -164,7 +164,14 @@
             </Grid>
         </Border>
 
-        <!-- 右缘宽度拖拽条：贴在卡片外沿，不抢卡片内容区的命中 -->
+        <!-- 宽度拖拽条：左右缘各一条，贴在卡片外沿，不抢卡片内容区的命中。
+             左缘拉伸时右边缘钉住，宿主窗口同时改 X 与宽度。 -->
+        <Border Name="ResizeGripLeft" Width="7" HorizontalAlignment="Left"
+                Background="Transparent" Cursor="SizeWestEast"
+                PointerPressed="OnResizeLeftPressed"
+                PointerMoved="OnResizeLeftMoved"
+                PointerReleased="OnResizeLeftReleased"
+                PointerCaptureLost="OnResizeLeftCaptureLost" />
         <Border Name="ResizeGrip" Width="7" HorizontalAlignment="Right"
                 Background="Transparent" Cursor="SizeWestEast"
                 PointerPressed="OnResizePressed"

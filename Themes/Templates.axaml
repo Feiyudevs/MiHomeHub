@@ -215,7 +215,7 @@
                             </StackPanel>
                         </StackPanel>
                         <!-- 右列：默认电源键垂直居中；卡片悬停时「一分为二」——
-                             电源键滑到右下（样式 translate 0→10px），「更多」在上方淡入下滑浮现（负 margin 贴右上角）；
+                             电源键滑到右下（样式 translate 0→10px），“更多”在上方淡入下滑浮现（负 margin 贴右上角）；
                              多路设备的「N 路」角标与电源键互斥（同一时刻只显示一个），贴右下。 -->
                         <Grid Grid.Column="2" MinWidth="32">
                             <ToggleButton Classes="Power" Classes.curtain="{Binding IsCurtain}"
@@ -225,7 +225,7 @@
                                           IsChecked="{Binding IsOn}" IsEnabled="{Binding !IsBusy}"
                                           Command="{Binding $parent[Window].((vm:IDeviceCardHost)DataContext).ToggleSwitchCommand}"
                                           CommandParameter="{Binding}" />
-                            <!-- 「更多」负 margin 悬浮到卡片右上角（卡片内距 15,13）：距角约 4px/9px，
+                            <!-- 「更多”负 margin 悬浮到卡片右上角（卡片内距 15,13）：距角约 4px/9px，
                                  保留布局槽只靠透明度浮现，不影响电源键位置 -->
                             <Button Classes="MoreBtn" ctl:MenuOpener.OpenOnClick="True"
                                     HorizontalAlignment="Center" VerticalAlignment="Top"
@@ -233,12 +233,12 @@
                                 <!-- 三个点显式双向居中：Button 内容对齐不保证 Center，不写会偏 -->
                                 <StackPanel Orientation="Horizontal" Spacing="3"
                                             HorizontalAlignment="Center" VerticalAlignment="Center">
-                                    <Ellipse Width="3" Height="3"
-                                             Fill="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" />
-                                    <Ellipse Width="3" Height="3"
-                                             Fill="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" />
-                                    <Ellipse Width="3" Height="3"
-                                             Fill="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" />
+                                        <Ellipse Width="3" Height="3"
+                                                 Fill="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" />
+                                        <Ellipse Width="3" Height="3"
+                                                 Fill="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" />
+                                        <Ellipse Width="3" Height="3"
+                                                 Fill="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" />
                                 </StackPanel>
                             </Button>
                             <!-- 多路开关不在卡片上铺满多个开关：显示路数，进抽屉逐路操作 -->

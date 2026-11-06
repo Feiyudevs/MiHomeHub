@@ -55,13 +55,13 @@ public sealed class VirtualizingAdaptiveGridPanel : VirtualizingPanel
     /// <summary>缓存容器上限（相对可见容器数的倍数）：超出后按最久未访问淘汰，防常驻无上限。</summary>
     /// <remarks>
     /// 实测（真实进程 dotnet-dump + 工作集采样）：每个「隐藏但保留」的卡片容器仍挂着合成层与离屏纹理，
-    /// 单张约 2~3MB 原生内存。原值 2.5 倍 / 硬上限 160 张，在设备多时会让进程稳定在 800MB 以上；
-    /// 压到 1.25 倍 / 硬上限 48 张后，滚动仍能从缓存直接复用（不回退到重建），但常驻上限大幅下降。
+    /// 单张约 2~3MB 原生内存。来回拖拽时容器会不断进出缓存，若上限过高，旧容器因 LRU 被不断刷新
+    /// 而长期驻留，导致内存持续攀升。现值 0.5 倍 / 硬上限 20 张，滚动停止后快速释放隐藏容器。
     /// </remarks>
-    private const double CacheRatio = 1.25;
+    private const double CacheRatio = 0.5;
 
     /// <summary>缓存硬上限，避免超大列表滚一圈后卡片全驻留。</summary>
-    private const int MaxCacheHard = 48;
+    private const int MaxCacheHard = 20;
 
     /// <summary>视口外缓冲（视口高度比例）：减少来回拖动时的边界抖动。</summary>
     private const double BufferFraction = 0.5;
@@ -279,7 +279,10 @@ public sealed class VirtualizingAdaptiveGridPanel : VirtualizingPanel
         return container;
     }
 
-    /// <summary>可见 → 隐藏缓存。保留绑定，只切 IsVisible。</summary>
+    /// <summary>可见 → 隐藏：直接销毁容器，不做缓存。
+    /// 来回拖拽时容器会不断进出可视区，缓存机制会导致隐藏容器累积，
+    /// 每个容器挂着合成层与离屏纹理（约2~3MB原生内存），拖拽越多内存越高。
+    /// 直接销毁可确保内存不随拖拽次数持续攀升。</summary>
     private void Hide(ItemContainerGenerator gen, int index)
     {
         if (!_realized.Remove(index, out var c))
@@ -295,19 +298,23 @@ public sealed class VirtualizingAdaptiveGridPanel : VirtualizingPanel
             return;
         }
 
-        c.SetCurrentValue(Visual.IsVisibleProperty, false);
-        _hidden[index] = c;
-        Touch(index);
-        TrimCache(gen);
+        if (key is not null)
+            gen.ClearItemContainer(c);
+
+        RemoveInternalChild(c);
+        _keys.Remove(c);
     }
 
-    /// <summary>超出上限时按 LRU 淘汰：真正解除绑定并移出可视树。</summary>
+    /// <summary>超出上限时强制淘汰隐藏容器：真正解除绑定并移出可视树。
+    /// 来回拖拽时容器会不断进出缓存，LRU 会被反复刷新导致旧容器一直不在队首，
+    /// 因此这里不再依赖 LRU 顺序，而是直接按固定硬上限强制清理，
+    /// 确保隐藏容器数量永远受限，内存不会随拖拽次数持续攀升。</summary>
     private void TrimCache(ItemContainerGenerator gen)
     {
-        int visible = _realized.Count;
-        int limit = Math.Min(MaxCacheHard, (int)(Math.Max(visible, 8) * CacheRatio) + 16);
+        // 只保留极少量隐藏容器，足够快速滚动时复用，但不会常驻太多
+        const int hardLimit = 8;
 
-        while (_hidden.Count > limit && _lru.First is { } node)
+        while (_hidden.Count > hardLimit && _lru.First is { } node)
         {
             int idx = node.Value;
             _lru.RemoveFirst();

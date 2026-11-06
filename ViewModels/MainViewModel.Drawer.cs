@@ -75,6 +75,13 @@ public partial class MainViewModel : ObservableObject
     /// <summary>抽屉关闭时释放面板 VM 与拖拽/确认定时器，避免后台轮询继续写隐藏控件。</summary>
     private void ClearSpecPanel()
     {
+        // 取消对详情设备的 PropertyChanged 订阅，避免抽屉反复打开/关闭时累积事件处理器
+        if (_detailDevice is { } detailDev && _detailHandler is { } handler)
+        {
+            detailDev.PropertyChanged -= handler;
+            _detailDevice = null;
+            _detailHandler = null;
+        }
         foreach (var timer in _specCommitTimers.Values) timer.Dispose();
         _specCommitTimers.Clear();
         _actionConfirmTimer?.Dispose();
