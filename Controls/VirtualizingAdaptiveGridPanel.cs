@@ -11,14 +11,8 @@ using Avalonia.VisualTree;
 namespace MiHome.Controls;
 
 /// <summary>
-/// 自适应网格 + UI 虚拟化：只生成视口内可见的卡片容器，屏幕外设备不进可视树。
-/// 布局规则与 AdaptiveGridPanel 一致：按可用宽度自动算列数、行等高、可选 MaxRows。
-///
-/// 关键设计（v3）：容器按「设备索引」缓存，而不是按类型回收池复用。
-/// 滚出视口的容器只隐藏、保留其数据绑定；滚回来时同一个索引拿回同一张卡片，
-/// 不做 ClearItemContainer / PrepareItemContainer，因此不会重建文本布局。
-/// 这一点很重要：反复 rebind 会让 Skia 的字体对象被反复创建（框架侧只增不减），
-/// 来回拖动滚动条时内存持续上涨；按索引稳定复用后，滚动不再产生新的文本排版。
+/// 等高卡片的自适应虚拟化网格。离屏容器先解除数据绑定，再进入按回收 key 区分的有界池；
+/// 同一索引仍在视口内时保留原容器，滚动进入的新索引优先使用池中的容器。
 /// </summary>
 public sealed class VirtualizingAdaptiveGridPanel : VirtualizingPanel
 {
@@ -52,43 +46,31 @@ public sealed class VirtualizingAdaptiveGridPanel : VirtualizingPanel
         set => SetValue(MaxRowsProperty, value);
     }
 
-    /// <summary>缓存容器上限（相对可见容器数的倍数）：超出后按最久未访问淘汰，防常驻无上限。</summary>
-    /// <remarks>
-    /// 实测（真实进程 dotnet-dump + 工作集采样）：每个「隐藏但保留」的卡片容器仍挂着合成层与离屏纹理，
-    /// 单张约 2~3MB 原生内存。来回拖拽时容器会不断进出缓存，若上限过高，旧容器因 LRU 被不断刷新
-    /// 而长期驻留，导致内存持续攀升。现值 0.5 倍 / 硬上限 20 张，滚动停止后快速释放隐藏容器。
-    /// </remarks>
-    private const double CacheRatio = 0.5;
-
-    /// <summary>缓存硬上限，避免超大列表滚一圈后卡片全驻留。</summary>
-    private const int MaxCacheHard = 20;
-
-    /// <summary>视口外缓冲（视口高度比例）：减少来回拖动时的边界抖动。</summary>
+    // 首页每个房间各有一个面板：限制离屏留存，同时允许滚动一行时直接复用。
+    private const int MinPoolLimit = 2;
+    private const int MaxPoolLimit = 64;
+    private const double EstimatedRowHeight = 90;
     private const double BufferFraction = 0.5;
+    private static readonly object ItemIsOwnContainer = new();
+
+    private Rect _viewport;
+    private bool _hasViewport;
+    private readonly Dictionary<int, Control> _realized = new();
+    private readonly Dictionary<object, Stack<Control>> _recyclePool = new();
+
+    // null 是「已生成但不可回收」；ItemIsOwnContainer 才表示无需生成容器的 Control 项。
+    private readonly Dictionary<Control, object?> _keys = new();
+    private int _pooledCount;
+    private int _poolLimit = MinPoolLimit;
+    private int _columns;
+    private double _itemWidth;
+    private double _rowHeight;
+    private double _heightMeasureWidth;
 
     static VirtualizingAdaptiveGridPanel()
     {
         AffectsMeasure<VirtualizingAdaptiveGridPanel>(MinItemWidthProperty, SpacingProperty, MaxRowsProperty);
     }
-
-    private Rect _viewport;
-
-    /// <summary>当前在可视树里可见（已排布）的容器：索引 → 容器。</summary>
-    private readonly Dictionary<int, Control> _realized = new();
-
-    /// <summary>隐藏的容器：索引 → 容器。保留数据绑定，滚回来直接显示，不重新准备。</summary>
-    private readonly Dictionary<int, Control> _hidden = new();
-
-    /// <summary>LRU：队首最久未用，用于淘汰。</summary>
-    private readonly LinkedList<int> _lru = new();
-
-    /// <summary>该容器对应的回收 key（用于销毁前的清理），null 表示项自身即容器。</summary>
-    private readonly Dictionary<Control, object?> _keys = new();
-
-    private int _columns;
-    private double _itemWidth;
-    private double _rowHeight;
-    private double _layoutWidth;
 
     protected override void OnAttachedToVisualTree(VisualTreeAttachmentEventArgs e)
     {
@@ -99,22 +81,23 @@ public sealed class VirtualizingAdaptiveGridPanel : VirtualizingPanel
     protected override void OnDetachedFromVisualTree(VisualTreeAttachmentEventArgs e)
     {
         EffectiveViewportChanged -= OnEffectiveViewportChanged;
+        _hasViewport = false;
         base.OnDetachedFromVisualTree(e);
     }
 
     private void OnEffectiveViewportChanged(object? sender, EffectiveViewportChangedEventArgs e)
     {
-        // 视口没实际变化就别再触发测量，避免「布局 → 视口变化 → 再布局」的自激
-        if (e.EffectiveViewport == _viewport)
+        if (_hasViewport && e.EffectiveViewport == _viewport)
             return;
 
+        _hasViewport = true;
         _viewport = e.EffectiveViewport;
         InvalidateMeasure();
     }
 
     protected override void OnItemsChanged(IReadOnlyList<object?> items, NotifyCollectionChangedEventArgs e)
     {
-        // 集合变化：索引与数据的对应关系失效，全部丢弃并重新布局
+        // 集合变化后索引与数据的对应关系失效；池中模板也可能已被替换。
         ClearAll();
         InvalidateMeasure();
     }
@@ -123,115 +106,100 @@ public sealed class VirtualizingAdaptiveGridPanel : VirtualizingPanel
     {
         var gen = ItemContainerGenerator;
         var items = Items;
-
         if (gen is null || items.Count == 0)
         {
             ClearAll();
             return default;
         }
 
-        double width = !double.IsInfinity(availableSize.Width)
-            ? availableSize.Width
-            : (Bounds.Width > 0 ? Bounds.Width : 0);
-
+        double width = double.IsFinite(availableSize.Width) ? availableSize.Width : Bounds.Width;
         if (width <= 0)
             return default;
 
         var layout = BuildLayout(width, items.Count);
         int rows = MaxRows > 0 ? Math.Min(layout.Rows, MaxRows) : layout.Rows;
+        var range = GetVisibleRange(layout.Columns, rows, items.Count);
+        SetPoolLimit(range.End - range.Start);
 
-        // 列数或宽度变了：行高缓存作废（卡片宽度变了，高度可能跟着变）
-        if (Math.Abs(width - _layoutWidth) > 0.5)
+        // 先回收离屏容器，随后进入视口的项目可在本次测量中直接复用它们。
+        RecycleOutside(gen, range);
+
+        bool needsHeight = _rowHeight <= 0 || Math.Abs(layout.ItemWidth - _heightMeasureWidth) > 0.5;
+        if (needsHeight && (_rowHeight <= 0 || range.Start < range.End || !_hasViewport))
         {
-            _layoutWidth = width;
-            _rowHeight = 0;
+            // 只测一个代表项；调整窗口宽度时不再生成首项到当前滚动位置的全部容器。
+            int probeIndex = range.Start < range.End ? range.Start : 0;
+            var probe = GetOrCreate(gen, items, probeIndex);
+            probe.Measure(new Size(layout.ItemWidth, double.PositiveInfinity));
+            _rowHeight = probe.DesiredSize.Height > 0 ? probe.DesiredSize.Height : EstimatedRowHeight;
+            _heightMeasureWidth = layout.ItemWidth;
+            range = GetVisibleRange(layout.Columns, rows, items.Count);
+            SetPoolLimit(range.End - range.Start);
+            RecycleOutside(gen, range);
         }
 
-        var vp = _viewport;
-        bool hasVp = vp is { Height: > 0 };
-        double vpTop = hasVp ? vp.Top : 0;
-        double vpBottom = hasVp
-            ? vp.Bottom
-            : (double.IsInfinity(availableSize.Height) ? vpTop + 400 : vpTop + availableSize.Height);
-
-        double stride = (_rowHeight > 0 ? _rowHeight : 90) + Spacing;
-        double buffer = hasVp ? vp.Height * BufferFraction : 0;
-        double top = Math.Max(0, vpTop - buffer);
-        double bottom = vpBottom + buffer;
-        if (bottom < top)
-            bottom = top;
-
-        int firstRow = Math.Max(0, (int)(top / stride));
-        int lastRow = (int)(bottom / stride);
-        if (lastRow > rows - 1)
-            lastRow = rows - 1;
-        if (lastRow < firstRow)
-            lastRow = firstRow;
-
-        int startIndex = firstRow * layout.Columns;
-        int endIndex = Math.Min(items.Count, (lastRow + 1) * layout.Columns);
-
-        var keep = new HashSet<int>();
-        double maxH = 0;
-
-        // 首行实测：首次没有行高时先量一张，保证 stride 准确
-        if (_rowHeight <= 0)
+        double maxHeight = _rowHeight;
+        for (int i = range.Start; i < range.End; i++)
         {
-            var c0 = GetOrCreate(gen, items, 0);
-            c0.Measure(new Size(layout.ItemWidth, double.PositiveInfinity));
-            if (c0.DesiredSize.Height > maxH)
-                maxH = c0.DesiredSize.Height;
-            keep.Add(0);
-            if (startIndex > 0)
-                startIndex = 0;
+            var container = GetOrCreate(gen, items, i);
+            container.Measure(new Size(layout.ItemWidth, double.PositiveInfinity));
+            maxHeight = Math.Max(maxHeight, container.DesiredSize.Height);
         }
 
-        for (int i = startIndex; i < endIndex; i++)
+        if (maxHeight > _rowHeight)
         {
-            var c = GetOrCreate(gen, items, i);
-            // 必须显式测量：否则 Arrange 时 Avalonia 会隐式补测，来回滚动变成 measure/arrange 风暴
-            c.Measure(new Size(layout.ItemWidth, double.PositiveInfinity));
-            if (c.DesiredSize.Height > maxH)
-                maxH = c.DesiredSize.Height;
-            keep.Add(i);
-        }
-
-        if (maxH > 0)
-            _rowHeight = maxH;
-
-        // 窗口外的可见容器 → 隐藏进缓存（不清绑定，滚回来零成本）
-        if (_realized.Count > keep.Count)
-        {
-            var indexSnapshot = new List<int>(_realized.Keys);
-            foreach (var idx in indexSnapshot)
-                if (!keep.Contains(idx))
-                    Hide(gen, idx);
+            _rowHeight = maxHeight;
+            // 新高度可能改变起始索引，按修正后的范围补齐并回收。
+            range = GetVisibleRange(layout.Columns, rows, items.Count);
+            RecycleOutside(gen, range);
+            for (int i = range.Start; i < range.End; i++)
+                GetOrCreate(gen, items, i).Measure(new Size(layout.ItemWidth, double.PositiveInfinity));
         }
 
         _columns = layout.Columns;
         _itemWidth = layout.ItemWidth;
-
-        double totalHeight = rows > 0 ? rows * _rowHeight + (rows - 1) * Spacing : 0;
-        double reportWidth = !double.IsInfinity(availableSize.Width) ? availableSize.Width : width;
-        return new Size(reportWidth, totalHeight);
+        return new Size(width, GetTotalHeight(rows));
     }
+
+    private (int Start, int End) GetVisibleRange(int columns, int rows, int count)
+    {
+        // 初次布局只需测一个代表项来估计总高度；待框架给出有效视口后再填充。
+        if (!_hasViewport || _viewport.Width <= 0 || _viewport.Height <= 0)
+            return (0, 0);
+
+        double height = _rowHeight > 0 ? _rowHeight : EstimatedRowHeight;
+        double spacing = Math.Max(0, Spacing);
+        double stride = height + spacing;
+        double buffer = _viewport.Height * BufferFraction;
+        double top = _viewport.Top - buffer;
+        double bottom = _viewport.Bottom + buffer;
+        double totalHeight = rows * height + Math.Max(0, rows - 1) * spacing;
+
+        // 不相交的分组不能通过钳制索引被误判为第一行可见。
+        if (bottom <= 0 || top >= totalHeight)
+            return (0, 0);
+
+        int firstRow = (int)Math.Clamp(Math.Floor(Math.Max(0, top) / stride), 0, rows);
+        int endRow = (int)Math.Clamp(Math.Ceiling(Math.Min(totalHeight, bottom) / stride), firstRow, rows);
+        return (Math.Min(count, firstRow * columns), Math.Min(count, endRow * columns));
+    }
+
+    private double GetTotalHeight(int rows) =>
+        rows > 0 ? rows * (_rowHeight > 0 ? _rowHeight : EstimatedRowHeight)
+            + (rows - 1) * Math.Max(0, Spacing) : 0;
 
     protected override Size ArrangeOverride(Size finalSize)
     {
-        double stride = _rowHeight + Spacing;
-        int columns = _columns > 0 ? _columns : 1;
-        foreach (var kv in _realized)
+        double spacing = Math.Max(0, Spacing);
+        double stride = _rowHeight + spacing;
+        int columns = Math.Max(1, _columns);
+        foreach (var (index, container) in _realized)
         {
-            int index = kv.Key;
-            var c = kv.Value;
             int row = index / columns;
             int col = index % columns;
-            double x = col * (_itemWidth + Spacing);
-            double y = row * stride;
-            double h = _rowHeight > 0 ? _rowHeight : c.DesiredSize.Height;
-            c.Arrange(new Rect(x, y, _itemWidth, h));
+            container.Arrange(new Rect(col * (_itemWidth + spacing), row * stride,
+                _itemWidth, _rowHeight > 0 ? _rowHeight : container.DesiredSize.Height));
         }
-
         return finalSize;
     }
 
@@ -240,141 +208,137 @@ public sealed class VirtualizingAdaptiveGridPanel : VirtualizingPanel
         if (_realized.TryGetValue(index, out var existing))
             return existing;
 
-        // 这个索引之前生成过：直接显示原容器，数据绑定原样保留（关键：不 rebind）
-        if (_hidden.Remove(index, out var cached))
-        {
-            Touch(index);
-            cached.SetCurrentValue(Visual.IsVisibleProperty, true);
-            _realized[index] = cached;
-            return cached;
-        }
-
         var item = items[index];
         Control container;
-
         if (gen.NeedsContainer(item, index, out var recycleKey))
         {
-            container = gen.CreateContainer(item, index, recycleKey);
-            AddInternalChild(container);
-            gen.PrepareItemContainer(container, item, index);
+            if (recycleKey is not null && _recyclePool.TryGetValue(recycleKey, out var pool)
+                && pool.Count > 0)
+            {
+                container = pool.Pop();
+                _pooledCount--;
+                if (pool.Count == 0)
+                    _recyclePool.Remove(recycleKey);
+                container.SetCurrentValue(Visual.IsVisibleProperty, true);
+                gen.PrepareItemContainer(container, item, index);
+            }
+            else
+            {
+                container = gen.CreateContainer(item, index, recycleKey);
+                gen.PrepareItemContainer(container, item, index);
+                AddInternalChild(container);
+                _keys[container] = recycleKey;
+            }
+            _realized[index] = container;
             gen.ItemContainerPrepared(container, item, index);
-            _keys[container] = recycleKey;
         }
         else
         {
             container = (Control)item!;
             if (!_keys.ContainsKey(container))
             {
-                gen.PrepareItemContainer(container, container, index);
+                gen.PrepareItemContainer(container, item, index);
                 AddInternalChild(container);
+                _keys[container] = ItemIsOwnContainer;
+                _realized[index] = container;
                 gen.ItemContainerPrepared(container, item, index);
-                _keys[container] = null;
             }
             container.SetCurrentValue(Visual.IsVisibleProperty, true);
+            _realized[index] = container;
         }
-
-        _realized[index] = container;
-        Touch(index);
-        TrimCache(gen);
         return container;
     }
 
-    /// <summary>可见 → 隐藏：直接销毁容器，不做缓存。
-    /// 来回拖拽时容器会不断进出可视区，缓存机制会导致隐藏容器累积，
-    /// 每个容器挂着合成层与离屏纹理（约2~3MB原生内存），拖拽越多内存越高。
-    /// 直接销毁可确保内存不随拖拽次数持续攀升。</summary>
-    private void Hide(ItemContainerGenerator gen, int index)
+    private void RecycleOutside(ItemContainerGenerator gen, (int Start, int End) range)
     {
-        if (!_realized.Remove(index, out var c))
+        foreach (int index in new List<int>(_realized.Keys))
+            if (index < range.Start || index >= range.End)
+                Recycle(gen, index);
+    }
+
+    private void Recycle(ItemContainerGenerator gen, int index)
+    {
+        if (!_realized.Remove(index, out var container))
             return;
 
-        if (!_keys.TryGetValue(c, out var key))
-            return;
-
-        if (key is null && ReferenceEquals(c, Items.Count > index ? Items[index] : null))
+        var key = _keys[container];
+        if (ReferenceEquals(key, ItemIsOwnContainer))
         {
-            // 项自身即容器：不能回收，只能隐藏
-            c.SetCurrentValue(Visual.IsVisibleProperty, false);
+            // Control 项保持已准备状态，不能 Clear 或作为其他项目的容器复用。
+            container.SetCurrentValue(Visual.IsVisibleProperty, false);
             return;
         }
 
-        if (key is not null)
-            gen.ClearItemContainer(c);
-
-        RemoveInternalChild(c);
-        _keys.Remove(c);
-    }
-
-    /// <summary>超出上限时强制淘汰隐藏容器：真正解除绑定并移出可视树。
-    /// 来回拖拽时容器会不断进出缓存，LRU 会被反复刷新导致旧容器一直不在队首，
-    /// 因此这里不再依赖 LRU 顺序，而是直接按固定硬上限强制清理，
-    /// 确保隐藏容器数量永远受限，内存不会随拖拽次数持续攀升。</summary>
-    private void TrimCache(ItemContainerGenerator gen)
-    {
-        // 只保留极少量隐藏容器，足够快速滚动时复用，但不会常驻太多
-        const int hardLimit = 8;
-
-        while (_hidden.Count > hardLimit && _lru.First is { } node)
+        // null recycle key 只表示不能入池，并不免除 ClearItemContainer。
+        gen.ClearItemContainer(container);
+        if (key is not null && _pooledCount < _poolLimit)
         {
-            int idx = node.Value;
-            _lru.RemoveFirst();
-            if (!_hidden.Remove(idx, out var c))
-                continue; // 该索引已在可见集合，跳过
-
-            if (_keys.TryGetValue(c, out var key) && key is not null)
-                gen.ClearItemContainer(c);
-
-            RemoveInternalChild(c);
-            _keys.Remove(c);
+            container.SetCurrentValue(Visual.IsVisibleProperty, false);
+            if (!_recyclePool.TryGetValue(key, out var pool))
+                _recyclePool[key] = pool = new Stack<Control>();
+            pool.Push(container);
+            _pooledCount++;
+        }
+        else
+        {
+            RemoveInternalChild(container);
+            _keys.Remove(container);
         }
     }
 
-    private void Touch(int index)
+    private void SetPoolLimit(int visibleCount)
     {
-        var node = _lru.Find(index);
-        if (node is not null)
-            _lru.Remove(node);
-        _lru.AddLast(index);
+        _poolLimit = Math.Clamp(visibleCount, MinPoolLimit, MaxPoolLimit);
+        if (_pooledCount <= _poolLimit)
+            return;
+
+        foreach (var key in new List<object>(_recyclePool.Keys))
+        {
+            var pool = _recyclePool[key];
+            while (pool.Count > 0 && _pooledCount > _poolLimit)
+            {
+                var container = pool.Pop();
+                _pooledCount--;
+                RemoveInternalChild(container);
+                _keys.Remove(container);
+            }
+            if (pool.Count == 0)
+                _recyclePool.Remove(key);
+            if (_pooledCount <= _poolLimit)
+                break;
+        }
     }
 
     private void ClearAll()
     {
-        if (_keys.Count == 0 && _realized.Count == 0 && _hidden.Count == 0)
-            return;
-
         var gen = ItemContainerGenerator;
-        foreach (var c in new List<Control>(_keys.Keys))
-            gen?.ClearItemContainer(c);
-
-        foreach (var c in new List<Control>(Children))
-            RemoveInternalChild(c);
-
+        var realized = new List<Control>(_realized.Values);
         _realized.Clear();
-        _hidden.Clear();
-        _lru.Clear();
+        foreach (var container in realized)
+            if (!ReferenceEquals(_keys[container], ItemIsOwnContainer))
+                gen?.ClearItemContainer(container);
+
+        // 池中容器已经 Clear；Control 项不调用 ClearItemContainer。
+        foreach (var container in new List<Control>(Children))
+            RemoveInternalChild(container);
+        _recyclePool.Clear();
         _keys.Clear();
+        _pooledCount = 0;
         _rowHeight = 0;
-        _layoutWidth = 0;
+        _heightMeasureWidth = 0;
     }
 
     private readonly record struct LayoutInfo(int Columns, int Rows, double ItemWidth);
 
     private LayoutInfo BuildLayout(double availableWidth, int count)
     {
-        var spacing = Math.Max(0, Spacing);
-        var minItemWidth = Math.Max(1, MinItemWidth);
-
-        if (double.IsInfinity(availableWidth))
-            return new LayoutInfo(1, count, minItemWidth);
-
-        var maxColumns = (int)Math.Floor((availableWidth + spacing) / (minItemWidth + spacing));
-        var columns = Math.Max(1, maxColumns);
-        var itemWidth = Math.Max(1, (availableWidth - spacing * (columns - 1)) / columns);
-        var rows = (int)Math.Ceiling(count / (double)columns);
+        double spacing = Math.Max(0, Spacing);
+        double minItemWidth = Math.Max(1, MinItemWidth);
+        int columns = Math.Max(1, (int)Math.Floor((availableWidth + spacing) / (minItemWidth + spacing)));
+        double itemWidth = Math.Max(1, (availableWidth - spacing * (columns - 1)) / columns);
+        int rows = (int)Math.Ceiling(count / (double)columns);
         return new LayoutInfo(columns, rows, itemWidth);
     }
-
-    // ---- INavigableContainer 抽象成员实现 ----
 
     protected override IInputElement? GetControl(NavigationDirection direction, IInputElement? from, bool wrap) => null;
 
@@ -383,23 +347,21 @@ public sealed class VirtualizingAdaptiveGridPanel : VirtualizingPanel
         if (_columns > 0 && _rowHeight > 0)
         {
             int row = index / _columns;
-            double y = row * (_rowHeight + Spacing);
             var sv = this.FindAncestorOfType<ScrollViewer>();
             if (sv is not null)
-                sv.Offset = new Vector(sv.Offset.X, y);
+                sv.Offset = new Vector(sv.Offset.X, row * (_rowHeight + Math.Max(0, Spacing)));
         }
-
         return ContainerFromIndex(index);
     }
 
     protected override Control? ContainerFromIndex(int index) =>
-        _realized.TryGetValue(index, out var c) ? c : null;
+        _realized.TryGetValue(index, out var container) ? container : null;
 
     protected override int IndexFromContainer(Control container)
     {
-        foreach (var kv in _realized)
-            if (kv.Value == container)
-                return kv.Key;
+        foreach (var (index, realized) in _realized)
+            if (ReferenceEquals(realized, container))
+                return index;
         return -1;
     }
 

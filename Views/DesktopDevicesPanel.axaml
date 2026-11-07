@@ -11,71 +11,71 @@
         <!-- 分区里的设备卡：开/关同一种半透明底（不再出现「渐变紫」第二种背景），
              也不投影 —— 贴桌面窗本身就是一块玻璃，卡片再叠阴影会显脏。
              主窗口列表里的同一张卡不受影响（那是应用级样式，这里的局部样式优先级更高） -->
-        <Style Selector="Button.DevCard /template/ Border#Card">
+        <Style Selector="ctl|DeviceCardButton.DevCard /template/ Border#Card">
             <Setter Property="Background" Value="{DynamicResource DskCardBrush}" />
             <Setter Property="BoxShadow" Value="0 0 0 0 #00000000" />
             <!-- 卡片外距收到 4：分区本身是玻璃，再留全局那 8 的投影留白会显得空洞 -->
             <Setter Property="Margin" Value="4" />
         </Style>
-        <Style Selector="Button.DevCard.on /template/ Border#Card">
+        <Style Selector="ctl|DeviceCardButton.DevCard.on /template/ Border#Card">
             <Setter Property="Background" Value="{DynamicResource DskCardBrush}" />
             <Setter Property="BoxShadow" Value="0 0 0 0 #00000000" />
         </Style>
         <!-- 悬停 / 按下不做位移：分区卡贴在桌面上，卡片整体上浮 3px 会让整块面板跟着抖
              （全局那份 DevCard 的 -3px / 0.99 缩放是主窗口列表的效果，这里覆盖成持平）。
              内部电源键下滑给「更多」让位保持不变，那是内容重排、不是卡片移动。 -->
-        <Style Selector="Button.DevCard:pointerover">
+        <Style Selector="ctl|DeviceCardButton.DevCard:pointerover">
             <Setter Property="RenderTransform" Value="translate(0px,0px)" />
         </Style>
-        <Style Selector="Button.DevCard:pressed">
+        <Style Selector="ctl|DeviceCardButton.DevCard:pressed">
             <Setter Property="RenderTransform" Value="translate(0px,0px)" />
         </Style>
 
         <!-- 卡面是半透明的（透出墙纸），主窗口那套灰压上去读不清：
              名称用近纯白，房间 / 路数 / 计数用提亮后的次级色（DskText2Brush） -->
-        <Style Selector="Button.DevCard TextBlock.DevName">
+        <Style Selector="ctl|DeviceCardButton.DevCard TextBlock.DevName">
             <Setter Property="Foreground" Value="{DynamicResource DskTextBrush}" />
         </Style>
-        <Style Selector="Button.DevCard TextBlock.DevMeta">
+        <Style Selector="ctl|DeviceCardButton.DevCard TextBlock.DevMeta">
             <Setter Property="Foreground" Value="{DynamicResource DskText2Brush}" />
         </Style>
-        <Style Selector="Button.DevCard TextBlock.DevBadgeText">
+        <Style Selector="ctl|DeviceCardButton.DevCard TextBlock.DevBadgeText">
             <Setter Property="Foreground" Value="{DynamicResource DskText2Brush}" />
         </Style>
         <!-- 路数角标底色也提亮一档，否则深色角标上的亮字看起来像被糊住 -->
-        <Style Selector="Button.DevCard Border.DevBadge">
+        <Style Selector="ctl|DeviceCardButton.DevCard Border.DevBadge">
             <Setter Property="Background" Value="#1FFFFFFF" />
         </Style>
 
         <!-- 卡片「更多」（三个点）：全局那档是 Text3Brush（深色主题 #646C7E），
              压在半透明玻璃卡面上几乎看不见 —— 分区里改用提亮后的次级色 DskText2Brush，
              自身悬停再上一档到近纯白。与 DevName / DevMeta 同一条思路。 -->
-        <Style Selector="Button.DevCard Button.MoreBtn">
+        <Style Selector="ctl|DeviceCardButton.DevCard ctl|DeviceMoreButton.MoreBtn">
             <Setter Property="Foreground" Value="{DynamicResource DskText2Brush}" />
         </Style>
-        <Style Selector="Button.DevCard Button.MoreBtn:pointerover">
+        <Style Selector="ctl|DeviceCardButton.DevCard ctl|DeviceMoreButton.MoreBtn:pointerover">
             <Setter Property="Foreground" Value="{DynamicResource DskTextBrush}" />
         </Style>
         <!-- 悬停加一层极淡的圆形底：三个点只有 3px，贴玻璃时纯靠亮色仍偏飘，
              给一点底色才能确认「点到了它」；保持极淡，不做按钮感 -->
-        <Style Selector="Button.DevCard Button.MoreBtn:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+        <Style Selector="ctl|DeviceCardButton.DevCard ctl|DeviceMoreButton.MoreBtn:pointerover /template/ ContentPresenter#PART_ContentPresenter">
             <Setter Property="Background" Value="{DynamicResource DskSwitchBrush}" />
         </Style>
 
         <!-- 电源键：底色同样半透明，实心深色在磨砂玻璃上会像一块黑板 -->
-        <Style Selector="ToggleButton.Power /template/ Border#Disc">
+        <Style Selector="ctl|DevicePowerButton.Power /template/ Border#Disc">
             <Setter Property="Background" Value="{DynamicResource DskSwitchBrush}" />
         </Style>
-        <Style Selector="ToggleButton.Power:checked /template/ Border#Disc">
+        <Style Selector="ctl|DevicePowerButton.Power:checked /template/ Border#Disc">
             <Setter Property="Background" Value="{DynamicResource PowerOnBrush}" />
         </Style>
         <!-- 未开启的电源图标提亮一档：全局用的是 Text2Brush（#99A1B3），压在半透明玻璃圆底上偏暗；
              提到 DskText2Brush（#C9D1DF），与 DevMeta 次级文字同档 —— 不用近纯白，避免和开启态抢视觉。
              本地样式会压过全局 :checked 的白色，所以 checked 那条要就地恢复 White -->
-        <Style Selector="ToggleButton.Power">
+        <Style Selector="ctl|DevicePowerButton.Power">
             <Setter Property="Foreground" Value="{DynamicResource DskText2Brush}" />
         </Style>
-        <Style Selector="ToggleButton.Power:checked">
+        <Style Selector="ctl|DevicePowerButton.Power:checked">
             <Setter Property="Foreground" Value="White" />
         </Style>
         <!-- 悬停时电源键下滑给「更多」让位：走全局那份 translate 10px（主窗口与分区同一档），
@@ -84,22 +84,22 @@
         <!-- ======== 卡片拖拽排序的交互辅助 ======== -->
         <!-- 只有宫格里超过一张卡才亮（ItemsControl 上的 reorder 类由视图模型给）：
              单卡没什么可排，亮着虚线框反而是骗人。辅助框是覆盖层，悬停点亮不推动兄弟卡片。 -->
-        <Style Selector="Button.DevCard /template/ Rectangle#DragHint">
+        <Style Selector="ctl|DeviceCardButton.DevCard /template/ Rectangle#DragHint">
             <Setter Property="Margin" Value="4" />
         </Style>
-        <Style Selector="ItemsControl.reorder Button.DevCard">
+        <Style Selector="ItemsControl.reorder ctl|DeviceCardButton.DevCard">
             <Setter Property="Cursor" Value="SizeAll" />
         </Style>
-        <Style Selector="ItemsControl.reorder Button.DevCard:pointerover /template/ Rectangle#DragHint">
+        <Style Selector="ItemsControl.reorder ctl|DeviceCardButton.DevCard:pointerover /template/ Rectangle#DragHint">
             <Setter Property="Opacity" Value="1" />
         </Style>
         <!-- 拖起来的那张：淡成虚影、取消悬停上浮，虚线框一直亮着；落到哪一格由宫格上的竖线指示 -->
-        <Style Selector="ItemsControl ContentPresenter.dragging Button.DevCard">
+        <Style Selector="ItemsControl ContentPresenter.dragging ctl|DeviceCardButton.DevCard">
             <Setter Property="Opacity" Value="0.4" />
             <Setter Property="RenderTransform" Value="translate(0px,0px)" />
             <Setter Property="Cursor" Value="SizeAll" />
         </Style>
-        <Style Selector="ItemsControl ContentPresenter.dragging Button.DevCard /template/ Rectangle#DragHint">
+        <Style Selector="ItemsControl ContentPresenter.dragging ctl|DeviceCardButton.DevCard /template/ Rectangle#DragHint">
             <Setter Property="Opacity" Value="1" />
         </Style>
         <!-- 落位提示两层：半透明框罩住即将被替换的那张卡，落点线说明插在框的哪一边。
@@ -140,10 +140,10 @@
         <!-- 分区里的场景卡：与设备卡同一套玻璃底、同一档高度，点整卡直接执行。
              外壳（圆角 + 细描边 + 内距）照设备卡右键菜单那份本地 Template，弹层样式应用时机不可控，本地值最稳 -->
         <DataTemplate x:Key="ZoneSceneCard" x:DataType="m:SceneCardItem">
-            <Button Classes="DevCard"
+            <ctl:DeviceCardButton Classes="DevCard"
                     Command="{Binding $parent[Window].((vm:DesktopGroupVm)DataContext).RunSceneCommand}"
                     CommandParameter="{Binding}">
-                <Button.ContextMenu>
+                <ctl:DeviceCardButton.ContextMenu>
                     <ContextMenu Padding="4" MinWidth="0" FontSize="11.5">
                         <ContextMenu.Template>
                             <ControlTemplate>
@@ -171,7 +171,7 @@
                             </MenuItem.Icon>
                         </MenuItem>
                     </ContextMenu>
-                </Button.ContextMenu>
+                </ctl:DeviceCardButton.ContextMenu>
                 <Grid ColumnDefinitions="Auto,*,Auto">
                     <Panel Grid.Column="0" Width="48" Height="48" VerticalAlignment="Center">
                         <!-- 场景图标不跟首页那套浅色底：分区底是玻璃，色块压上去会糊，改为一档半透明白底 + 场景自己的图标色 -->
@@ -198,7 +198,7 @@
                               Fill="{DynamicResource DskTextBrush}" Data="{StaticResource GeoPlay}" />
                     </Border>
                 </Grid>
-            </Button>
+            </ctl:DeviceCardButton>
         </DataTemplate>
     </UserControl.Resources>
 

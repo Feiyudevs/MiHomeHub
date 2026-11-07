@@ -49,6 +49,13 @@
     <TrimmerRootDescriptor Include="TrimmerRoots.xml" />
   </ItemGroup>
 
+  <!-- .NET 10.0.9 的 COM 调试登记表会重复追加同一 CCW，随 UI Automation 调用持续增长。
+       Release 分发关闭该调试辅助登记；保留 EventPipe/性能计数器，Debug 仍可正常调试。
+       dotnet/runtime#129191、#133260；不涉及 PublishTrimmed。 -->
+  <ItemGroup Condition="'$(Configuration)' == 'Release'">
+    <RuntimeHostConfigurationOption Include="System.Diagnostics.Debugger.IsSupported" Value="false" />
+  </ItemGroup>
+
   <!-- 显式排除构建输出目录：避免 SDK 默认 **/*.cs 通配把 obj/bin 下的
        AssemblyInfo 生成文件重复编入，导致 CS0579“特性重复”。 -->
   <ItemGroup>

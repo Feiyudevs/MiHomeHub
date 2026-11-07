@@ -1,4 +1,5 @@
 using System;
+using System.ComponentModel;
 using System.Linq;
 using Avalonia;
 using Avalonia.Animation;
@@ -44,6 +45,11 @@ public partial class DesktopGroupView : UserControl
     private Point _bodyPoint;
 
     private IDisposable? _clickTimer;
+    private DesktopZoneVm? _zone;
+    private bool _contentAttached;
+
+    // 多个分区同时折叠/关闭时合并回收；静态回调不捕获被卸载的 View 或设备树。
+    private static IDisposable? _contentReleaseTrim;
 
     public DesktopGroupWindow? Host { get; set; }
 
@@ -59,6 +65,94 @@ public partial class DesktopGroupView : UserControl
     public DesktopGroupView()
     {
         InitializeComponent();
+        DataContextChanged += (_, _) =>
+        {
+            if (_contentAttached) BindZone(DataContext as DesktopZoneVm);
+        };
+    }
+
+    protected override void OnAttachedToVisualTree(VisualTreeAttachmentEventArgs e)
+    {
+        base.OnAttachedToVisualTree(e);
+        _contentAttached = true;
+        BindZone(DataContext as DesktopZoneVm);
+    }
+
+    protected override void OnDetachedFromVisualTree(VisualTreeAttachmentEventArgs e)
+    {
+        ReleaseContent();
+        base.OnDetachedFromVisualTree(e);
+    }
+
+    /// <summary>窗口关闭时也显式摘掉 VM 监听和内容树，避免等待下一轮布局清理。</summary>
+    internal void ReleaseContent()
+    {
+        _contentAttached = false;
+        CancelPendingClick();
+        BindZone(null);
+    }
+
+    private void BindZone(DesktopZoneVm? zone)
+    {
+        if (!ReferenceEquals(_zone, zone))
+        {
+            if (_zone is not null) _zone.PropertyChanged -= OnZonePropertyChanged;
+            UnloadZoneContent();
+            _zone = zone;
+            if (_zone is not null) _zone.PropertyChanged += OnZonePropertyChanged;
+        }
+        UpdateZoneContent();
+    }
+
+    private void OnZonePropertyChanged(object? sender, PropertyChangedEventArgs e)
+    {
+        if (e.PropertyName is null or "" or nameof(DesktopZoneVm.ContentVisible) or nameof(DesktopZoneVm.Collapsed))
+            UpdateZoneContent();
+    }
+
+    private void UpdateZoneContent()
+    {
+        // 媒体卡展开时仍由卡面承担拖动；折叠后留下同一标题壳，才能再次展开。
+        Header.IsVisible = _zone is { } zone && (!zone.IsMedia || zone.Collapsed);
+        if (_zone is not { ContentVisible: true } activeZone)
+        {
+            UnloadZoneContent();
+            return;
+        }
+        if (ZoneContentHost.Child is not null) return;
+
+        Control? content = activeZone switch
+        {
+            DesktopGroupVm => new DesktopDevicesPanel(),
+            DesktopMediaVm => new DesktopMediaPanel(),
+            _ => null
+        };
+        if (content is null) return;
+        content.DataContext = activeZone;
+        ZoneContentHost.Child = content;
+    }
+
+    private void UnloadZoneContent()
+    {
+        if (ZoneContentHost.Child is not { } content) return;
+
+        var controls = content.GetVisualDescendants().OfType<Control>().Prepend(content).ToArray();
+        ZoneContentHost.Child = null;
+        foreach (var control in controls)
+        {
+            // 关闭独立 Popup，并清掉 ItemsControl 对设备/场景集合及生成容器的引用。
+            control.ContextMenu?.Close();
+            if (control is ItemsControl items) items.ItemsSource = null;
+        }
+        content.DataContext = null;
+
+        // 保留既有 90ms 淡出时序；到这里才请求回收，旧子树不会被 GC 任务闭包保留。
+        _contentReleaseTrim?.Dispose();
+        _contentReleaseTrim = DispatcherTimer.RunOnce(static () =>
+        {
+            _contentReleaseTrim = null;
+            MemoryTrimmer.TrimReleasedUi();
+        }, TimeSpan.FromMilliseconds(250));
     }
 
     /// <summary>被「加号」重复唤出时闪一下，让用户看清分区在哪。</summary>

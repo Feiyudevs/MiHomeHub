@@ -24,11 +24,20 @@ public static class MemoryTrimmer
     /// 回收内存：压缩 LOH、执行完整 GC，并请示操作系统收缩工作集。
     /// 内置 10 秒节流，避免频繁触发。
     /// </summary>
-    public static void Trim()
+    public static void Trim() => TryTrim(out _);
+
+    /// <summary>尝试自动回收；被节流时返回剩余等待时间，供滚停的一次性定时器延后重试。</summary>
+    internal static bool TryTrim(out TimeSpan retryAfter)
     {
-        // 节流：10 秒内只执行一次
-        if ((DateTimeOffset.UtcNow - _lastTrim).TotalSeconds < 10) return;
+        retryAfter = TimeSpan.Zero;
+        var remaining = TimeSpan.FromSeconds(10) - (DateTimeOffset.UtcNow - _lastTrim);
+        if (remaining > TimeSpan.Zero)
+        {
+            retryAfter = remaining;
+            return false;
+        }
         DoTrim();
+        return true;
     }
 
     /// <summary>
@@ -39,6 +48,9 @@ public static class MemoryTrimmer
     {
         DoTrim(blocking: false);
     }
+
+    /// <summary>界面已卸载时，后台完整回收并积极归还空闲堆段，降低隐藏后的私有提交。</summary>
+    internal static void TrimReleasedUi() => DoTrim(blocking: false, releaseUnusedMemory: true);
 
     /// <summary>
     /// 阻塞式强制回收：GC 同步完成后再返回，用于启动隐藏等 UI 不可见的场景。
@@ -67,39 +79,42 @@ public static class MemoryTrimmer
         });
     }
 
-    private static void DoTrim(bool blocking = false)
+    private static void DoTrim(bool blocking = false, bool releaseUnusedMemory = false)
     {
         _lastTrim = DateTimeOffset.UtcNow;
 
         // 在后台线程执行，避免阻塞 UI（阻塞式除外，由调用方确保处于空闲态）
         if (!blocking)
         {
-            Task.Run(() => RunTrim(blocking: false));
+            Task.Run(() => RunTrim(blocking: false, releaseUnusedMemory));
             return;
         }
-        RunTrim(blocking: true);
+        RunTrim(blocking: true, releaseUnusedMemory);
     }
 
-    private static void RunTrim(bool blocking)
+    private static void RunTrim(bool blocking, bool releaseUnusedMemory)
     {
         try
         {
             Console.WriteLine($"[MemoryTrimmer] 开始回收 blocking={blocking}");
 
             // 第一轮：压缩 LOH + 完整 GC
+            var mode = releaseUnusedMemory ? GCCollectionMode.Aggressive : GCCollectionMode.Forced;
+            // Aggressive要求同步GC；调用本身仍在后台任务，不阻塞关闭窗口的调用栈。
+            bool waitForGc = blocking || releaseUnusedMemory;
             GCSettings.LargeObjectHeapCompactionMode = GCLargeObjectHeapCompactionMode.CompactOnce;
-            GC.Collect(2, GCCollectionMode.Forced, blocking: blocking, compacting: true);
+            GC.Collect(2, mode, blocking: waitForGc, compacting: true);
             GC.WaitForPendingFinalizers();
 
             // 第二轮：回收 Finalizer 释放的对象，再次压缩 LOH
             GCSettings.LargeObjectHeapCompactionMode = GCLargeObjectHeapCompactionMode.CompactOnce;
-            GC.Collect(2, GCCollectionMode.Forced, blocking: blocking, compacting: true);
+            GC.Collect(2, mode, blocking: waitForGc, compacting: true);
             GC.WaitForPendingFinalizers();
 
             // 让 Windows 回收物理内存页（任务管理器中立即下降）
             SetProcessWorkingSetSize(GetCurrentProcess(), new IntPtr(-1), new IntPtr(-1));
 
-            var process = System.Diagnostics.Process.GetCurrentProcess();
+            using var process = System.Diagnostics.Process.GetCurrentProcess();
             var workingSetMb = process.WorkingSet64 / 1024 / 1024;
             var privateMemoryMb = process.PrivateMemorySize64 / 1024 / 1024;
             Console.WriteLine(

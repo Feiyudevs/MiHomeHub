@@ -10,9 +10,9 @@ using Avalonia.Styling;
 using Avalonia.Threading;
 using Avalonia.VisualTree;
 using System.Linq;
-using System.Runtime;
 using System.Threading.Tasks;
 using MiHome.Services;
+using MiHome.Controls;
 using MiHome.ViewModels;
 
 namespace MiHome.Views;
@@ -44,14 +44,13 @@ public partial class MainWindow : Window
     // 拖动/缩放期间位置连续变化，等变化停下（视为拖动结束）才写盘
     private IDisposable? _settleTimer;
 
-    // 空闲自动回收：记录最近交互时间，窗口安静超阈值后整理内存
-    private DateTimeOffset _lastInteraction = DateTimeOffset.UtcNow;
-    private DispatcherTimer? _idleTrimTimer;
     private DispatcherTimer? _gpuReleaseTimer;
-    private const double IdleTrimSeconds = 30;
 
-    public MainWindow()
+    public MainWindow() : this(false) { }
+
+    internal MainWindow(bool deferInitialContent)
     {
+        _deferInitialContent = deferInitialContent;
         InitializeComponent();
         // 任务栏图标要在建任务栏按钮之前就位，否则会永久空白
         WindowIconHelper.Apply(this);
@@ -73,73 +72,16 @@ public partial class MainWindow : Window
         // 拖动结束的写盘挂在定时器上，关闭时补一次，避免最后一次变化随静默期丢掉
         Closing += OnClosing;
 
-        // 空闲自动回收：窗口开着但用户不操作时，定期整理回收缩工作集
+        // 可见且非最小化时，启用滚停回收和空闲检查；隐藏到后台时停止定时器。
         InitIdleMemoryTrimmer();
-    }
-
-    // ======== 特效测试开关：定位内存占用用 ========
-    // 点击标题栏「特效」按钮：关闭所有 BoxShadow + 隐藏环境光晕，并强制 GC；
-    // 再点恢复。用于对比开关前后进程内存，判断阴影/光晕是否是内存大头。
-    private bool _fxOff;
-    private readonly Dictionary<Border, BoxShadows> _savedShadows = new();
-
-    private void OnToggleFxClick(object? sender, RoutedEventArgs e)
-    {
-        _fxOff = !_fxOff;
-        if (_fxOff)
-            DisableEffects();
-        else
-            RestoreEffects();
-
-        // 虚拟化滚动新 realize 的卡片会重新带上样式阴影，延迟再兜底扫两轮
-        Dispatcher.UIThread.Post(ReapplyIfOff, DispatcherPriority.Background);
-        Dispatcher.UIThread.Post(ReapplyIfOff, DispatcherPriority.Background);
-
-        ForceGc();
-
-        ToolTip.SetTip(FxBadge, _fxOff
-            ? "特效已关闭（阴影/光晕），点击恢复"
-            : "测试：关闭所有阴影/光晕并强制回收内存（再点恢复）");
-        FxBadge.Opacity = _fxOff ? 0.45 : 1.0;
-    }
-
-    private void ReapplyIfOff()
-    {
-        if (_fxOff) DisableEffects();
-    }
-
-    private void DisableEffects()
-    {
-        foreach (var border in this.GetVisualDescendants().OfType<Border>())
+        Closed += (_, _) =>
         {
-            var shadow = border.BoxShadow;
-            if (shadow.Count == 0)
-                continue;
-            if (!_savedShadows.ContainsKey(border))
-                _savedShadows[border] = shadow;
-            border.BoxShadow = default;
-        }
-
-        if (AmbientGlow is not null)
-            AmbientGlow.IsVisible = false;
-    }
-
-    private void RestoreEffects()
-    {
-        foreach (var kv in _savedShadows)
-            kv.Key.BoxShadow = kv.Value;
-        _savedShadows.Clear();
-
-        if (AmbientGlow is not null)
-            AmbientGlow.IsVisible = true;
-    }
-
-    private static void ForceGc()
-    {
-        GCSettings.LargeObjectHeapCompactionMode = GCLargeObjectHeapCompactionMode.CompactOnce;
-        GC.Collect(2, GCCollectionMode.Aggressive, blocking: true, compacting: true);
-        GC.WaitForPendingFinalizers();
-        GC.Collect(2, GCCollectionMode.Aggressive, blocking: true, compacting: true);
+            _releasedContentTrimTimer?.Stop();
+            DisplayWatcher.Changed -= OnDisplayChanged;
+            if (_observedMainViewModel is not null)
+                _observedMainViewModel.PropertyChanged -= OnMainViewModelPropertyChanged;
+            _observedMainViewModel = null;
+        };
     }
 
     // 托盘「退出」才真正结束进程；点关闭按钮只是收进托盘
@@ -155,11 +97,13 @@ public partial class MainWindow : Window
     private void OnClosing(object? sender, WindowClosingEventArgs e)
     {
         Persist();
-        // 窗口即将销毁：停止空闲回收定时器，避免后台继续唤醒
-        _idleTrimTimer?.Stop();
-        _idleTrimTimer = null;
-
-        if (_allowExit) return;
+        if (_allowExit)
+        {
+            _memoryTrimmersClosed = true;
+            StopAutomaticMemoryTrimmers();
+            _gpuReleaseTimer?.Stop();
+            return;
+        }
         // 关闭即退出：托盘菜单窗口还挂在 lifetime 上，只关主窗不会结束进程，统一走退出
         if (!AppSettingsStore.CloseToTray)
         {
@@ -171,32 +115,9 @@ public partial class MainWindow : Window
         Hide();
         Vm?.PausePolling();
         // 收进托盘后回收内存：窗口已隐藏，立即收缩工作集，降低常驻占用
-        Services.MemoryTrimmer.TrimForce();
+        RequestReleasedContentTrim();
         // 安静几秒后无感回收 GPU 纹理（见下方 ScheduleGpuResourceRelease）
         ScheduleGpuResourceRelease();
-    }
-
-    // ======== 空闲自动回收（参考 Feido InitIdleMemoryTrimmer） ========
-    /// <summary>
-    /// 空闲自动回收内存：hover、点按、滚轮、按键等交互会触发 JIT 与临时对象分配，
-    /// 使内存逐步攀升且 GC 不会主动回收；窗口内无交互超过阈值后自动整理，让占用回落。
-    /// </summary>
-    private void InitIdleMemoryTrimmer()
-    {
-        void MarkInteraction(object? s, RoutedEventArgs e) => _lastInteraction = DateTimeOffset.UtcNow;
-        AddHandler(InputElement.PointerMovedEvent, MarkInteraction, RoutingStrategies.Tunnel);
-        AddHandler(InputElement.PointerPressedEvent, MarkInteraction, RoutingStrategies.Tunnel);
-        AddHandler(InputElement.PointerWheelChangedEvent, MarkInteraction, RoutingStrategies.Tunnel);
-        AddHandler(InputElement.KeyDownEvent, MarkInteraction, RoutingStrategies.Tunnel);
-
-        _idleTrimTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(10) };
-        _idleTrimTimer.Tick += (s, e) =>
-        {
-            var idleSeconds = (DateTimeOffset.UtcNow - _lastInteraction).TotalSeconds;
-            if (idleSeconds >= IdleTrimSeconds && IsVisible)
-                Services.MemoryTrimmer.Trim();
-        };
-        _idleTrimTimer.Start();
     }
 
     // ======== 隐藏后进托盘的 GPU 纹理释放（参考 Feido ReleaseRenderCacheAsync） ========
@@ -220,21 +141,27 @@ public partial class MainWindow : Window
         _gpuReleaseTimer?.Stop();
         // 仅在确已收进托盘（不可见）时做一次无感回收
         if (IsVisible) return;
+        var prevOpacity = Opacity;
+        var prevTaskbar = ShowInTaskbar;
+        _presentingHiddenFrame = true;
         try
         {
-            var prevOpacity = Opacity;
-            var prevTaskbar = ShowInTaskbar;
             Opacity = 0;
             ShowInTaskbar = false;
             Show();
             InvalidateVisual();
             Hide();
-            Opacity = prevOpacity;
-            ShowInTaskbar = prevTaskbar;
         }
         catch
         {
             // 无感回收失败不影响托盘常驻
+        }
+        finally
+        {
+            if (IsVisible) Hide();
+            Opacity = prevOpacity;
+            ShowInTaskbar = prevTaskbar;
+            _presentingHiddenFrame = false;
         }
     }
 
@@ -360,13 +287,18 @@ public partial class MainWindow : Window
     protected override void OnPropertyChanged(AvaloniaPropertyChangedEventArgs change)
     {
         base.OnPropertyChanged(change);
+        if (change.Property == IsVisibleProperty || change.Property == WindowStateProperty)
+        {
+            UpdateMainContentLifetime();
+            UpdateAutomaticMemoryTrimmerActivity();
+        }
         if (change.Property == WindowStateProperty)
         {
             // 最小化到任务栏：窗口已不可见，立即收缩工作集，降低常驻占用
             if (WindowState == WindowState.Minimized)
             {
                 Vm?.PausePolling();
-                Services.MemoryTrimmer.TrimForce();
+                RequestReleasedContentTrim();
                 return;
             }
             // 从最小化恢复：重启状态轮询
@@ -446,28 +378,6 @@ public partial class MainWindow : Window
     private void OnMaxClick(object? sender, RoutedEventArgs e) => ToggleMaximize();
 
     private void OnCloseClick(object? sender, RoutedEventArgs e) => Close();
-
-    /// <summary>调试：加载 100 个虚拟设备卡片</summary>
-    private void OnTestLoad100Click(object? sender, RoutedEventArgs e)
-    {
-        if (DataContext is MainViewModel vm)
-            vm.LoadTestDevices(100);
-    }
-
-    /// <summary>调试：加载 200 个虚拟设备卡片</summary>
-    private void OnTestLoad200Click(object? sender, RoutedEventArgs e)
-    {
-        if (DataContext is MainViewModel vm)
-            vm.LoadTestDevices(200);
-    }
-
-    /// <summary>调试：清空虚拟设备</summary>
-    private void OnTestClearClick(object? sender, RoutedEventArgs e)
-    {
-        if (DataContext is MainViewModel vm)
-            vm.ClearTestDevices();
-    }
-
 
     private void ToggleMaximize()
     {
@@ -607,25 +517,12 @@ public partial class MainWindow : Window
 
     private void OnDataContextChanged(object? sender, EventArgs e)
     {
-        if (DataContext is MainViewModel vm)
-        {
-            // 抽屉可见性不再走 XAML 绑定，改由动画驱动：打开先显示再滑入，关闭先滑出再隐藏
-            vm.PropertyChanged += (_, args) =>
-            {
-                if (args.PropertyName == nameof(MainViewModel.IsDrawerOpen))
-                    Dispatcher.UIThread.Post(() => AnimateDeviceDrawer(vm.IsDrawerOpen));
-                if (args.PropertyName == nameof(MainViewModel.IsVoiceOpen))
-                {
-                    if (vm.IsVoiceOpen) AlignVoicePanel();
-                    Dispatcher.UIThread.Post(() => VoicePanelView?.Animate(vm.IsVoiceOpen));
-                }
-                if (args.PropertyName == nameof(MainViewModel.IsMusicOpen))
-                {
-                    if (vm.IsMusicOpen) AlignMusicPanel();
-                    Dispatcher.UIThread.Post(() => MusicPanelView?.Animate(vm.IsMusicOpen));
-                }
-            };
-        }
+        if (_observedMainViewModel is not null)
+            _observedMainViewModel.PropertyChanged -= OnMainViewModelPropertyChanged;
+        _observedMainViewModel = DataContext as MainViewModel;
+        if (_observedMainViewModel is not null)
+            _observedMainViewModel.PropertyChanged += OnMainViewModelPropertyChanged;
+        if (_mainContentRoot is not null) _mainContentRoot.DataContext = DataContext;
     }
 
     /// <summary>
@@ -633,13 +530,15 @@ public partial class MainWindow : Window
     /// </summary>
     private void AlignVoicePanel()
     {
-        if (CapsulePanelLeft(XiaoAiBtn, VoicePanelView) is double x) VoicePanelView.AlignToButton(x);
+        var panel = VoicePanelView;
+        if (CapsulePanelLeft(XiaoAiBtn, panel) is double x) panel?.AlignToButton(x);
     }
 
     /// <summary>音乐浮层同上：两个浮层同宽同手感，共用一套夹取。</summary>
     private void AlignMusicPanel()
     {
-        if (CapsulePanelLeft(MusicBtn, MusicPanelView) is double x) MusicPanelView.AlignToButton(x);
+        var panel = MusicPanelView;
+        if (CapsulePanelLeft(MusicBtn, panel) is double x) panel?.AlignToButton(x);
     }
 
     private double? CapsulePanelLeft(Control? anchor, Control? panel)

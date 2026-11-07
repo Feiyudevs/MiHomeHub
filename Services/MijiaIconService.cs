@@ -12,6 +12,7 @@ using System.Threading.Tasks;
 using Avalonia;
 using Avalonia.Media.Imaging;
 using Avalonia.Platform;
+using SkiaSharp;
 
 namespace MiHome.Services;
 
@@ -21,7 +22,7 @@ namespace MiHome.Services;
 /// 必须整段 URL 才能通过 CDN 校验；无该字段的型号返回 null，卡片回退到矢量图标。
 /// 结果同时写入 %APPDATA%\Feiyu\MiHome\icons\ 磁盘缓存：命中期内直接读盘，过期后对比 URL
 /// 再决定是否重新下载，产品图更新时能自动换新。
-/// 磁盘与内存都用接口原图，不做裁切/抠图（白描边等瑕疵原样保留）；仅在源 DPI≠96 时重包，防止图标显示过小。
+/// 磁盘保留接口原图；内存按 UI 所需尺寸解码，不做裁切或抠图，最长边不超过 192px。
 /// </summary>
 public static class MijiaIconService
 {
@@ -29,6 +30,7 @@ public static class MijiaIconService
 
     /// <summary>输出位图统一 96 DPI：Size（DIP）= 像素数，不再继承源图 pHYs（常是 72 或被当成 2835）。</summary>
     private static readonly Vector OutputDpi = new(96, 96);
+    private const int MaxDecodedEdge = 192;
 
     /// <summary>磁盘缓存有效期内不打产品库；过期后若 CDN 路径未变则续期，变了才重下。</summary>
     private static readonly TimeSpan DiskTtl = TimeSpan.FromDays(7);
@@ -68,10 +70,9 @@ public static class MijiaIconService
             {
                 var old = Lru.First!.Value;
                 Lru.RemoveFirst();
-                if (Cache.TryRemove(old, out var oldTask) && oldTask.IsCompleted)
-                {
-                    try { oldTask.Result?.Dispose(); } catch { }
-                }
+                // 设备和多个 Image 正在共享同一张 Bitmap；淘汰缓存不能销毁仍在显示的图片。
+                // 无实际持有者后由 Bitmap 的底层资源终结化释放；会话 Reset 仍负责主动清理。
+                Cache.TryRemove(old, out _);
             }
         }
     }
@@ -120,10 +121,11 @@ public static class MijiaIconService
 
     private static async Task<Bitmap?> LoadAsync(string model)
     {
+        Bitmap? cached = null;
         try
         {
-            var cached = TryReadDisk(model, out var entry);
-            if (entry != null && DateTime.UtcNow - DateTimeOffset.FromUnixTimeMilliseconds(entry.SavedAt) < DiskTtl)
+            cached = TryReadDisk(model, out var entry);
+            if (cached != null && entry != null && DateTime.UtcNow - DateTimeOffset.FromUnixTimeMilliseconds(entry.SavedAt) < DiskTtl)
                 return cached;
 
             var json = await Http.GetStringAsync(ProductApi + Uri.EscapeDataString(model));
@@ -151,12 +153,15 @@ public static class MijiaIconService
             // 也不能裁掉 ? 后的签名参数：该 CDN 校验签名，去签名会 403，必须整段 URL 下载。
             var bytes = await Http.GetByteArrayAsync(url);
             WriteDisk(model, url, bytes);
-            return FromBytes(bytes);
+            var replacement = FromBytes(bytes);
+            // 这里的过期磁盘图尚未交给调用者，换图后立即释放，避免同时留两份原生像素。
+            cached?.Dispose();
+            return replacement;
         }
         catch
         {
-            // 网络失败时尽量用磁盘图，不挡卡片
-            return TryReadDisk(model, out _);
+            // 网络失败时复用已解码的过期图，避免重复读盘并丢失第一张图的所有权。
+            return cached ?? TryReadDisk(model, out _);
         }
     }
 
@@ -168,10 +173,26 @@ public static class MijiaIconService
 
     private static Bitmap FromBytes(byte[] bytes)
     {
-        var src = new Bitmap(new MemoryStream(bytes));
+        // 只读取编码头取得尺寸，不先构造一张完整像素 Bitmap 再缩放。
+        int width, height;
+        using (var metadataStream = new MemoryStream(bytes, writable: false))
+        using (var codec = SKCodec.Create(metadataStream))
+        {
+            if (codec is null) throw new InvalidDataException("Unsupported product icon format.");
+            width = codec.Info.Width;
+            height = codec.Info.Height;
+        }
+
+        using var stream = new MemoryStream(bytes);
+        var src = Math.Max(width, height) <= MaxDecodedEdge
+            ? new Bitmap(stream)
+            : width >= height
+                ? Bitmap.DecodeToWidth(stream, MaxDecodedEdge, BitmapInterpolationMode.MediumQuality)
+                : Bitmap.DecodeToHeight(stream, MaxDecodedEdge, BitmapInterpolationMode.MediumQuality);
+        WriteableBitmap? dst = null;
         try
         {
-            // 不裁切、不抠图、不去白描边，也不预缩放。
+            // 不裁切、不抠图、不去白描边；解码尺寸已覆盖最大 56 DIP 图标在 3x 屏幕上的需求。
             // 1) 合法预乘（硬抠图边缘缩放时才不会闪脏色）
             // 2) 修正 DPI 到 96，让 DIP 尺寸 = 像素数
             // 缩放到显示尺寸交给界面层 Image 的 MediumQuality 插值（Skia 双线性 + mipmap
@@ -201,20 +222,24 @@ public static class MijiaIconService
             if (needPremul)
                 NormalizePremulInPlace(px, px.Length, src.AlphaFormat == AlphaFormat.Unpremul);
 
-            var dst = new WriteableBitmap(new PixelSize(w, h), OutputDpi,
+            dst = new WriteableBitmap(new PixelSize(w, h), OutputDpi,
                 PixelFormat.Bgra8888, AlphaFormat.Premul);
             using (var fb = dst.Lock())
             {
                 for (var y = 0; y < h; y++)
                     Marshal.Copy(px, y * srcStride, fb.Address + y * fb.RowBytes, srcStride);
             }
-
-            return dst;
         }
         catch
         {
+            // 转换失败时保留原图，释放已经分配但未能交给调用方的目标位图。
+            dst?.Dispose();
             return src;
         }
+
+        // 转换成功后只由调用方持有目标位图，原图的 Skia 像素应立即释放。
+        src.Dispose();
+        return dst!;
     }
 
     /// <summary>合法预乘：a=0 清零；Unpremul×a；Premul 把通道钳到 ≤a。不删像素、不改轮廓语义。</summary>

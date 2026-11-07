@@ -1,6 +1,10 @@
 using System;
 using Avalonia;
 using Avalonia.Controls;
+using Avalonia.Controls.Primitives;
+using Avalonia.Input;
+using Avalonia.Interactivity;
+using Avalonia.Threading;
 using MiHome.ViewModels;
 
 namespace MiHome.Views;
@@ -12,14 +16,44 @@ namespace MiHome.Views;
 public partial class MusicPanelView : UserControl
 {
     private MainViewModel? Vm => DataContext as MainViewModel;
+    private bool _volumePointerInput;
+    private bool _volumeKeyInput;
+    private bool _volumeWheelInput;
 
     public MusicPanelView()
     {
         InitializeComponent();
-        // 滑条值一变就交给统一的 600ms 防抖提交；回填的同值下发是幂等的，不必额外区分来源
+        // 只提交真实输入期间的变化；按需重建或服务端回填不能被误当成音量操作。
+        VolSlider.AddHandler(PointerPressedEvent, (_, e) =>
+        {
+            if (e.GetCurrentPoint(VolSlider).Properties.IsLeftButtonPressed) _volumePointerInput = true;
+        }, RoutingStrategies.Tunnel, handledEventsToo: true);
+        VolSlider.AddHandler(PointerReleasedEvent, (_, _) => _volumePointerInput = false,
+            RoutingStrategies.Bubble, handledEventsToo: true);
+        VolSlider.AddHandler(PointerCaptureLostEvent, (_, _) => _volumePointerInput = false,
+            RoutingStrategies.Direct, handledEventsToo: true);
+        VolSlider.AddHandler(Thumb.DragCompletedEvent, (_, _) => _volumePointerInput = false,
+            RoutingStrategies.Bubble, handledEventsToo: true);
+        VolSlider.AddHandler(KeyDownEvent, (_, e) =>
+        {
+            if (e.Key is Key.Left or Key.Right or Key.Up or Key.Down or Key.Home or Key.End or Key.PageUp or Key.PageDown)
+                _volumeKeyInput = true;
+        }, RoutingStrategies.Tunnel, handledEventsToo: true);
+        VolSlider.AddHandler(KeyUpEvent, (_, _) => _volumeKeyInput = false,
+            RoutingStrategies.Bubble, handledEventsToo: true);
+        VolSlider.AddHandler(PointerWheelChangedEvent, (_, _) =>
+        {
+            _volumeWheelInput = true;
+            Dispatcher.UIThread.Post(() => _volumeWheelInput = false);
+        }, RoutingStrategies.Tunnel, handledEventsToo: true);
+        VolSlider.LostFocus += (_, _) => _volumeKeyInput = false;
+        DetachedFromVisualTree += (_, _) =>
+            _volumePointerInput = _volumeKeyInput = _volumeWheelInput = false;
         VolSlider.PropertyChanged += (_, e) =>
         {
-            if (e.Property == Slider.ValueProperty && Vm?.MediaSpeaker is { } d)
+            if (e.Property == Slider.ValueProperty
+                && (_volumePointerInput || _volumeKeyInput || _volumeWheelInput)
+                && Vm?.MediaSpeaker is { } d)
                 Vm.ScheduleSpeakerVolumeCommit(d);
         };
     }

@@ -11,9 +11,11 @@ using MiHome.Services;
 using MiHome.ViewModels;
 using MiHome.Views;
 using System.Diagnostics;
+using System.Runtime.Versioning;
 
 namespace MiHome;
 
+[SupportedOSPlatform("windows")]
 public partial class App : Application
 {
     public override void Initialize() => AvaloniaXamlLoader.Load(this);
@@ -40,9 +42,9 @@ public partial class App : Application
             // 升级/换目录后 Run 键里可能还是旧 exe 路径
             StartupRegistration.Sync();
 
-            // 静默启动：窗口只用来先创建句柄，托盘就绪后立刻收起
+            // 静默启动只创建窗口句柄供托盘使用，不构建完整主界面。
             var silent = !AppSettingsStore.ShowMainWindowOnStartup;
-            var window = new MainWindow
+            var window = new MainWindow(deferInitialContent: silent)
             {
                 DataContext = new MainViewModel()
             };
@@ -63,6 +65,9 @@ public partial class App : Application
             desktop.MainWindow.AddHandler(Thumb.DragCompletedEvent, OnThumbDragCompleted,
                 RoutingStrategies.Bubble, handledEventsToo: true);
             SetupTray(window, desktop, silent);
+
+            // 单实例：重复启动的进程会发信号过来，弹出主界面
+            Services.SingleInstance.BeginWatch(() => ShowMainWindow(window));
 
             // 预热默认字体：强制创建并缓存 GlyphTypeface，避免运行时每排版一次就新建一份
             // 导致 gen2 老生代累积大量字体对象（实测可达 100 MB+）
@@ -105,8 +110,9 @@ public partial class App : Application
                 main.Opacity = 1;
                 main.ShowInTaskbar = true;
                 main.Hide();
+                main.CompleteSilentStartup();
                 // 静默启动即收进托盘：立即回收内存，让开机自启的常驻进程体积最小
-                Services.MemoryTrimmer.TrimForce();
+                Services.MemoryTrimmer.TrimReleasedUi();
             }
         }
 
@@ -130,8 +136,8 @@ public partial class App : Application
 
     private static void ShowMainWindow(MainWindow main)
     {
-        if (!main.IsVisible) main.Show();
         if (main.WindowState == WindowState.Minimized) main.WindowState = WindowState.Normal;
+        if (!main.IsVisible) main.Show();
         main.Activate();
     }
 
@@ -149,6 +155,8 @@ public partial class App : Application
     // 重新拉起一个实例后再退出当前进程；重启后是否弹主界面看「启动后显示主界面」
     private static void RestartApplication(MainWindow main)
     {
+        // 先放掉单实例互斥体再拉新进程：否则新进程会判定已有实例在跑、弹一下旧窗口就退出
+        Services.SingleInstance.Release();
         if (Environment.ProcessPath is { } exe)
             Process.Start(new ProcessStartInfo(exe) { UseShellExecute = true });
         main.ExitApplication();

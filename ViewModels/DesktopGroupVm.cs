@@ -52,7 +52,10 @@ public partial class DesktopGroupVm : DesktopZoneVm, IDeviceCardHost
 
     public override bool ShowCount => true;
 
-    public override string CountText => (Devices.Count + Scenes.Count).ToString();
+    /// <summary>徽标「已打开/总数」：已打开数只数设备（场景没有开关态），总数含场景卡。</summary>
+    public override string CountText => $"{OnCount}/{Devices.Count + Scenes.Count}";
+
+    private int OnCount => Devices.Count(d => d.IsOn);
 
     protected override string DangerText => "解散分区";
 
@@ -67,8 +70,41 @@ public partial class DesktopGroupVm : DesktopZoneVm, IDeviceCardHost
 
     public bool HasScenes => Scenes.Count > 0;
 
+    private readonly HashSet<MijiaDevice> _watched = new();
+
+    /// <summary>
+    /// 徽标要跟着设备开关状态走：对宫格里的设备实例挂 IsOn 监听。
+    /// 列表重建（Clear+重加）常是同一批实例，用集合去重避免重复订阅。
+    /// </summary>
+    private void SyncWatch()
+    {
+        foreach (var d in Devices)
+            if (_watched.Add(d)) d.PropertyChanged += OnDevicePropChanged;
+
+        if (_watched.Count > Devices.Count)
+        {
+            var live = new HashSet<MijiaDevice>(Devices);
+            foreach (var d in _watched)
+                if (!live.Contains(d)) d.PropertyChanged -= OnDevicePropChanged;
+            _watched.IntersectWith(live);
+        }
+    }
+
+    private void OnDevicePropChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
+    {
+        if (e.PropertyName == nameof(MijiaDevice.IsOn)) OnPropertyChanged(nameof(CountText));
+    }
+
+    /// <summary>分区解散时摘掉设备监听，实例归主列表管，VM 才能被正常回收。</summary>
+    public void Detach()
+    {
+        foreach (var d in _watched) d.PropertyChanged -= OnDevicePropChanged;
+        _watched.Clear();
+    }
+
     private void OnContentChanged(object? sender, NotifyCollectionChangedEventArgs e)
     {
+        SyncWatch();
         OnPropertyChanged(nameof(CountText));
         OnPropertyChanged(nameof(IsEmpty));
         OnPropertyChanged(nameof(HasDevices));

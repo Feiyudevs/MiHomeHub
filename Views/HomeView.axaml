@@ -300,14 +300,14 @@
                         <TextBlock Classes="SecTitle" Text="{Binding TitleText}" />
                         <!-- 虚拟化：每组卡片仅生成视口内的可视树 -->
                         <!-- 虚拟化自适应网格：每组仅生成视口内可见的卡片容器 -->
-                        <ItemsControl x:Name="DeviceItemsControl" ItemsSource="{Binding Items}"
+                        <ctl:RecyclingItemsControl x:Name="DeviceItemsControl" ItemsSource="{Binding Items}"
                                       ItemTemplate="{StaticResource DeviceCardTemplate}">
                             <ItemsControl.ItemsPanel>
                                 <ItemsPanelTemplate>
                                     <ctl:VirtualizingAdaptiveGridPanel MinItemWidth="240" Spacing="0" />
                                 </ItemsPanelTemplate>
                             </ItemsControl.ItemsPanel>
-                        </ItemsControl>
+                        </ctl:RecyclingItemsControl>
                     </StackPanel>
                 </DataTemplate>
             </ItemsControl.ItemTemplate>

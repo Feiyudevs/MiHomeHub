@@ -1,7 +1,6 @@
 <UserControl xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:vm="clr-namespace:MiHome.ViewModels"
-             xmlns:views="clr-namespace:MiHome.Views"
              x:Class="MiHome.Views.DesktopGroupView"
              x:DataType="vm:DesktopZoneVm"
              ClipToBounds="False">
@@ -26,17 +25,6 @@
              不在文字上加任何第二层。 -->
     </UserControl.Styles>
 
-    <UserControl.DataTemplates>
-        <!-- 分区内容按视图模型类型选面板：设备分区是宫格，媒体分区是音响播放卡。
-             标题栏、拖动、磨砂、圆角、宽度拉伸都由这层壳共用，两种分区行为永远一致。 -->
-        <DataTemplate DataType="{x:Type vm:DesktopGroupVm}" x:DataType="vm:DesktopGroupVm">
-            <views:DesktopDevicesPanel />
-        </DataTemplate>
-        <DataTemplate DataType="{x:Type vm:DesktopMediaVm}" x:DataType="vm:DesktopMediaVm">
-            <views:DesktopMediaPanel />
-        </DataTemplate>
-    </UserControl.DataTemplates>
-
     <Panel>
         <!-- CornerRadius 必须 = 8：DWM 圆角固定 8 DIP，两层曲线重合才不会在角部露出硬边。
              媒体分区没有标题栏，整张卡就是拖动面（按下落在按钮上时由按钮自己吃掉事件） -->
@@ -51,9 +39,9 @@
                 PointerCaptureLost="OnBodyCaptureLost">
             <Grid RowDefinitions="Auto,*">
 
-                <!-- ===== 标题栏：拖动区（媒体分区不显示，卡面自己承担拖动） ===== -->
+                <!-- ===== 标题栏：拖动区（展开的媒体分区隐藏，折叠后保留展开入口） ===== -->
                 <Border Grid.Row="0" Name="Header" Height="44" Background="Transparent"
-                        IsVisible="{Binding !IsMedia}"
+                        IsVisible="False"
                         PointerPressed="OnHeaderPressed"
                         PointerMoved="OnHeaderMoved"
                         PointerReleased="OnHeaderReleased"
@@ -148,7 +136,7 @@
                     </Grid>
                 </Border>
 
-                <!-- ===== 内容区：设备宫格或媒体卡（按视图模型类型装载），折叠时整块淡出并退出布局 =====
+                <!-- ===== 内容区：展开时才创建设备/场景宫格或媒体卡，淡出完成后卸载整棵子树 =====
                      边距由上面 ZoneBody / ZoneBody.media 两条样式控制（媒体分区四边 12，与标题栏留白对齐） -->
                 <StackPanel Grid.Row="1" Classes="ZoneBody" Classes.media="{Binding IsMedia}"
                             IsVisible="{Binding ContentVisible}"
@@ -158,8 +146,8 @@
                             <DoubleTransition Property="Opacity" Duration="0:0:0.08" />
                         </Transitions>
                     </StackPanel.Transitions>
-                    <ContentControl Content="{Binding}" HorizontalContentAlignment="Stretch"
-                                    VerticalContentAlignment="Top" />
+                    <!-- 不使用 ContentControl 的模板回收缓存；Child=null 即解除对内容树的引用。 -->
+                    <Border Name="ZoneContentHost" HorizontalAlignment="Stretch" VerticalAlignment="Top" />
                 </StackPanel>
             </Grid>
         </Border>

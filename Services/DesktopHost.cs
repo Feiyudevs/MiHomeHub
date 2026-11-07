@@ -243,6 +243,7 @@ public static class DesktopHost
         EnsureMediaGroup();
         foreach (var model in _layout.Groups.ToList())
         {
+            if (model.IsMedia && _layout.MediaHidden) continue;
             if (Groups.Any(g => g.Model.Id == model.Id)) continue;
             var vm = CreateVm(_main, model);
             Groups.Add(vm);
@@ -260,6 +261,7 @@ public static class DesktopHost
         foreach (var vm in Groups)
         {
             if (vm is DesktopMediaVm media) media.Detach();
+            if (vm is DesktopGroupVm group) group.Detach();
             CloseGroupDialogs(vm);
         }
         Groups.Clear();
@@ -283,6 +285,7 @@ public static class DesktopHost
             try { win.Close(); } catch { }
         }
         if (vm is DesktopMediaVm media) media.Detach();
+        if (vm is DesktopGroupVm group) group.Detach();
         // 这个分区开着的弹窗一起收掉，避免对着已解散的分区操作
         CloseGroupDialogs(vm);
         Save();
@@ -331,7 +334,13 @@ public static class DesktopHost
         _layout.MediaHidden = true;
         var vm = Groups.FirstOrDefault(g => g.IsMedia);
         if (vm != null) RemoveGroup(vm);
-        else Save();
+        else
+        {
+            // 总开关关着时 VM 已被清空，但模型还留在配置里：一并删掉，
+            // 否则下次启动 ShowAll 会把这块分区复活，设置开关却显示「关」
+            _layout.Groups.RemoveAll(g => g.IsMedia);
+            Save();
+        }
     }
 
     /// <summary>设置页重新打开媒体分区。</summary>

@@ -244,7 +244,7 @@
         </Style>
         <!-- ======== 卡片电源按钮：圆形底 + 电源图标（关=淡底，开=主色底） ======== -->
         <!-- 关闭态用 TrackBrush：SurfaceBrush 只有 5% 白，深色卡上圆底几乎不可见，会被看成一个小图标 -->
-        <Style Selector="ToggleButton.Power">
+        <Style Selector="ctl|DevicePowerButton.Power">
             <Setter Property="Width" Value="32"/>
             <Setter Property="Height" Value="32"/>
             <Setter Property="Cursor" Value="Hand"/>
@@ -289,35 +289,35 @@
         </Style>
         <!-- 普通设备显示电源符号；窗帘卡片（.curtain）换成布帘图标，
              且布帘形态直接跟随开关状态：关=合拢，开=收向两侧 -->
-        <Style Selector="ToggleButton.Power /template/ Path#CurtainClosed">
+        <Style Selector="ctl|DevicePowerButton.Power /template/ Path#CurtainClosed">
             <Setter Property="IsVisible" Value="True"/>
         </Style>
-        <Style Selector="ToggleButton.Power /template/ Path#CurtainOpen">
+        <Style Selector="ctl|DevicePowerButton.Power /template/ Path#CurtainOpen">
             <Setter Property="IsVisible" Value="False"/>
         </Style>
-        <Style Selector="ToggleButton.Power /template/ Viewbox#CurtainIcons">
+        <Style Selector="ctl|DevicePowerButton.Power /template/ Viewbox#CurtainIcons">
             <Setter Property="IsVisible" Value="False"/>
         </Style>
-        <Style Selector="ToggleButton.Power.curtain /template/ Path#PowerIcon">
+        <Style Selector="ctl|DevicePowerButton.Power.curtain /template/ Path#PowerIcon">
             <Setter Property="IsVisible" Value="False"/>
         </Style>
-        <Style Selector="ToggleButton.Power.curtain /template/ Viewbox#CurtainIcons">
+        <Style Selector="ctl|DevicePowerButton.Power.curtain /template/ Viewbox#CurtainIcons">
             <Setter Property="IsVisible" Value="True"/>
         </Style>
-        <Style Selector="ToggleButton.Power.curtain:checked /template/ Path#CurtainClosed">
+        <Style Selector="ctl|DevicePowerButton.Power.curtain:checked /template/ Path#CurtainClosed">
             <Setter Property="IsVisible" Value="False"/>
         </Style>
-        <Style Selector="ToggleButton.Power.curtain:checked /template/ Path#CurtainOpen">
+        <Style Selector="ctl|DevicePowerButton.Power.curtain:checked /template/ Path#CurtainOpen">
             <Setter Property="IsVisible" Value="True"/>
         </Style>
-        <Style Selector="ToggleButton.Power /template/ Border#Disc">
+        <Style Selector="ctl|DevicePowerButton.Power /template/ Border#Disc">
             <Setter Property="Transitions">
                 <Transitions>
                     <BrushTransition Property="Background" Duration="0:0:0.22"/>
                 </Transitions>
             </Setter>
         </Style>
-        <Style Selector="ToggleButton.Power">
+        <Style Selector="ctl|DevicePowerButton.Power">
             <Setter Property="RenderTransform" Value="translate(0px,0px)"/>
             <Setter Property="Transitions">
                 <Transitions>
@@ -328,17 +328,17 @@
         <!-- 卡片悬停时右列「一分为二」：电源键从垂直居中滑到右下角（10px：卡片内容高 48、键 32，
              居中时键顶 8px，滑 10 后键顶 18px 正好压在「更多」下沿 17px 之下不重叠，下沿只超出内容区
              2px、离卡片底边还有 11px；再往下滑就贴到卡边上），给上方浮现的「更多」让位 -->
-        <Style Selector="Button.DevCard:pointerover ToggleButton.Power">
+        <Style Selector="ctl|DeviceCardButton.DevCard:pointerover ctl|DevicePowerButton.Power">
             <Setter Property="RenderTransform" Value="translate(0px,10px)"/>
         </Style>
-        <Style Selector="ToggleButton.Power:pointerover /template/ Border#Disc">
+        <Style Selector="ctl|DevicePowerButton.Power:pointerover /template/ Border#Disc">
             <Setter Property="Opacity" Value="0.85"/>
         </Style>
-        <Style Selector="ToggleButton.Power:checked">
+        <Style Selector="ctl|DevicePowerButton.Power:checked">
             <Setter Property="Background" Value="{DynamicResource PowerOnBrush}"/>
             <Setter Property="Foreground" Value="White"/>
         </Style>
-        <Style Selector="ToggleButton.Power:disabled">
+        <Style Selector="ctl|DevicePowerButton.Power:disabled">
             <Setter Property="Opacity" Value="0.4"/>
         </Style>
         <!-- ======== 侧栏导航 ======== -->
@@ -442,9 +442,10 @@
             <Setter Property="FontWeight" Value="SemiBold"/>
         </Style>
         <!-- ======== 设备卡（§8.6：无边框，开启淡紫渐变） ======== -->
-        <Style Selector="Button.DevCard">
+        <Style Selector="ctl|DeviceCardButton.DevCard">
             <Setter Property="Cursor" Value="Hand"/>
             <Setter Property="HorizontalAlignment" Value="Stretch"/>
+            <Setter Property="VerticalAlignment" Value="Center"/>
             <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
             <Setter Property="RenderTransform" Value="translate(0px,0px)"/>
             <Setter Property="Transitions">
@@ -475,7 +476,7 @@
                 </ControlTemplate>
             </Setter>
         </Style>
-        <Style Selector="Button.DevCard /template/ Rectangle#DragHint">
+        <Style Selector="ctl|DeviceCardButton.DevCard /template/ Rectangle#DragHint">
             <!-- 外距与 Border#Card 同档（全局 8 / 分区 4），改那边要同步这边 -->
             <Setter Property="Margin" Value="8"/>
             <Setter Property="Opacity" Value="0"/>
@@ -485,19 +486,19 @@
                 </Transitions>
             </Setter>
         </Style>
-        <Style Selector="Button.DevCard /template/ Border#Card">
+        <Style Selector="ctl|DeviceCardButton.DevCard /template/ Border#Card">
             <Setter Property="Margin" Value="8"/>
             <Setter Property="Background" Value="{DynamicResource CardBrush}"/>
             <!-- 用 BoxShadow 而非 Effect：Effect 会离屏渲染成与元素等大的图层，投影外扩部分被裁成硬边 -->
             <Setter Property="BoxShadow" Value="0 1 2 0 #050F172A, 0 4 14 0 #060F172A"/>
         </Style>
-        <Style Selector="Button.DevCard.on /template/ Border#Card">
+        <Style Selector="ctl|DeviceCardButton.DevCard.on /template/ Border#Card">
             <Setter Property="Background" Value="{DynamicResource DevOnBrush}"/>
         </Style>
-        <Style Selector="Button.DevCard:pointerover">
+        <Style Selector="ctl|DeviceCardButton.DevCard:pointerover">
             <Setter Property="RenderTransform" Value="translate(0px,-3px)"/>
         </Style>
-        <Style Selector="Button.DevCard:pressed">
+        <Style Selector="ctl|DeviceCardButton.DevCard:pressed">
             <Setter Property="RenderTransform" Value="translate(0px,-1px) scale(0.99)"/>
         </Style>
         <!-- 设备图标：只画矢量图标本身，不垫底板 -->
@@ -832,7 +833,7 @@
              不依赖样式匹配 —— 弹出层的样式应用时机不可控，本地值最稳。 -->
         <!-- 「更多」：比电源键略小（26×26 正圆）、右列内水平居中同轴；
              无任何底色，只有三个点；默认隐藏 + 上浮 3px，卡片悬停时淡入下滑浮现 -->
-        <Style Selector="Button.MoreBtn">
+        <Style Selector="ctl|DeviceMoreButton.MoreBtn">
             <Setter Property="Width" Value="26"/>
             <Setter Property="Height" Value="26"/>
             <Setter Property="Padding" Value="0"/>
@@ -844,6 +845,22 @@
             <Setter Property="Opacity" Value="0"/>
             <Setter Property="IsHitTestVisible" Value="False"/>
             <Setter Property="Foreground" Value="{DynamicResource Text3Brush}"/>
+            <!-- 保留原 Fluent ContentPresenter 的结构及命名，只不加载无关的按钮主题状态。 -->
+            <Setter Property="Template">
+                <ControlTemplate>
+                    <ContentPresenter Name="PART_ContentPresenter"
+                                      Background="{TemplateBinding Background}"
+                                      BorderBrush="{TemplateBinding BorderBrush}"
+                                      BorderThickness="{TemplateBinding BorderThickness}"
+                                      CornerRadius="{TemplateBinding CornerRadius}"
+                                      Content="{TemplateBinding Content}"
+                                      ContentTemplate="{TemplateBinding ContentTemplate}"
+                                      Padding="{TemplateBinding Padding}"
+                                      HorizontalContentAlignment="{TemplateBinding HorizontalContentAlignment}"
+                                      VerticalContentAlignment="{TemplateBinding VerticalContentAlignment}"
+                                      RecognizesAccessKey="True" />
+                </ControlTemplate>
+            </Setter>
             <Setter Property="RenderTransform" Value="translate(0px,-3px)"/>
             <Setter Property="Transitions">
                 <Transitions>
@@ -852,20 +869,20 @@
                 </Transitions>
             </Setter>
         </Style>
-        <Style Selector="Button.DevCard:pointerover Button.MoreBtn">
+        <Style Selector="ctl|DeviceCardButton.DevCard:pointerover ctl|DeviceMoreButton.MoreBtn">
             <Setter Property="Opacity" Value="1"/>
             <Setter Property="IsHitTestVisible" Value="True"/>
             <Setter Property="RenderTransform" Value="translate(0px,0px)"/>
         </Style>
-        <Style Selector="Button.MoreBtn:pointerover">
+        <Style Selector="ctl|DeviceMoreButton.MoreBtn:pointerover">
             <Setter Property="Foreground" Value="{DynamicResource TextBrush}"/>
         </Style>
         <!-- 无背景版：任何状态（卡片悬停 / 自身 hover / 按下）都不铺底色，
              Fluent Button 主题自带的 pointerover/pressed 灰底显式压回透明 -->
-        <Style Selector="Button.MoreBtn:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+        <Style Selector="ctl|DeviceMoreButton.MoreBtn:pointerover /template/ ContentPresenter#PART_ContentPresenter">
             <Setter Property="Background" Value="Transparent"/>
         </Style>
-        <Style Selector="Button.MoreBtn:pressed /template/ ContentPresenter#PART_ContentPresenter">
+        <Style Selector="ctl|DeviceMoreButton.MoreBtn:pressed /template/ ContentPresenter#PART_ContentPresenter">
             <Setter Property="Background" Value="Transparent"/>
         </Style>
 

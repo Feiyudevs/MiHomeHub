@@ -420,6 +420,8 @@ public partial class DesktopGroupWindow : Window
             _group.Devices.CollectionChanged -= OnDevicesChanged;
             _group.Scenes.CollectionChanged -= OnDevicesChanged;
         }
+        Root.ReleaseContent();
+        Root.Host = null;
         _guard?.Stop();
         _chromeTimer?.Stop();
         _settleTimer?.Stop();
@@ -506,6 +508,7 @@ public partial class DesktopGroupWindow : Window
                 ScheduleChrome();
                 break;
             case nameof(DesktopZoneVm.Collapsed):
+            case nameof(DesktopZoneVm.ContentVisible):
                 ScheduleChrome();
                 break;
             case nameof(DesktopZoneVm.IsTopmost):

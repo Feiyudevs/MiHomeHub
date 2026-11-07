@@ -20,21 +20,29 @@ public sealed class DeviceIconConverter : IValueConverter
     private const string AirCon = "M4,5 H20 V11.5 H4 Z M7.5,15.5 H13.5 M10.5,19 H16.5";
     private const string Device = "M6,5.5 H18 V18.5 H6 Z M10.5,12 H13.5";
 
+    // 图标形状固定，所有卡片只读共享，避免滚动重新绑定时重复解析和分配原生路径。
+    private static readonly Geometry LightGeometry = Geometry.Parse(Light);
+    private static readonly Geometry SwitchGeometry = Geometry.Parse(Switch);
+    private static readonly Geometry SocketGeometry = Geometry.Parse(Socket);
+    private static readonly Geometry CurtainGeometry = Geometry.Parse(Curtain);
+    private static readonly Geometry AirConGeometry = Geometry.Parse(AirCon);
+    private static readonly Geometry DeviceGeometry = Geometry.Parse(Device);
+
     public static readonly DeviceIconConverter Instance = new();
 
     public object? Convert(object? value, Type targetType, object? parameter, CultureInfo culture)
     {
         if (!typeof(Geometry).IsAssignableFrom(targetType)) return null;
         var key = value is MijiaDevice d ? d.IconKey : "device";
-        return Geometry.Parse(key switch
+        return key switch
         {
-            "light" => Light,
-            "switch" => Switch,
-            "socket" => Socket,
-            "curtain" => Curtain,
-            "ac" => AirCon,
-            _ => Device
-        });
+            "light" => LightGeometry,
+            "switch" => SwitchGeometry,
+            "socket" => SocketGeometry,
+            "curtain" => CurtainGeometry,
+            "ac" => AirConGeometry,
+            _ => DeviceGeometry
+        };
     }
 
     public object? ConvertBack(object? value, Type targetType, object? parameter, CultureInfo culture)

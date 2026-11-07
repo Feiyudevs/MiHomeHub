@@ -50,7 +50,7 @@
             </ItemsPanelTemplate>
         </ItemsControl.ItemsPanel>
     </ItemsControl>
-    <ItemsControl ItemsSource="{Binding Devices}" IsVisible="{Binding !ShowSkeleton}"
+    <ctl:RecyclingItemsControl ItemsSource="{Binding Devices}" IsVisible="{Binding !ShowSkeleton}"
                   ItemTemplate="{StaticResource DeviceCardTemplate}">
         <ItemsControl.ItemsPanel>
             <ItemsPanelTemplate>
@@ -58,7 +58,7 @@
                 <ctl:VirtualizingAdaptiveGridPanel MinItemWidth="240" Spacing="0" />
             </ItemsPanelTemplate>
         </ItemsControl.ItemsPanel>
-    </ItemsControl>
+    </ctl:RecyclingItemsControl>
     <TextBlock Classes="Hint" Text="该房间暂无匹配设备" HorizontalAlignment="Center"
                Margin="0,40" IsVisible="{Binding ShowEmptyHint}" />
     </StackPanel>

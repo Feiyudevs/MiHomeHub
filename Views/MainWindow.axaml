@@ -37,6 +37,8 @@
     <Window.Styles>
         <StyleInclude Source="avares://MiHome/Themes/MainWindowStyles.axaml" />
     </Window.Styles>
+    <Window.Resources>
+      <DataTemplate x:Key="MainWindowUiTemplate" x:DataType="vm:MainViewModel">
     <Grid RowDefinitions="60,*">
         <!-- ================= 标题栏 60（§8.1） ================= -->
         <Grid Grid.Row="0" x:Name="TitleBar" ColumnDefinitions="Auto,Auto,Auto,Auto,*,Auto"
@@ -206,26 +208,6 @@
                 </Grid>
             </Border>
             <StackPanel Grid.Column="5" Orientation="Horizontal" VerticalAlignment="Center">
-                <!-- 特效测试开关：定位内存占用用（关闭所有阴影/光晕 + 强制 GC） -->
-                <Button x:Name="FxBadge" Classes="ThemeBtn" Margin="0,0,6,0" Click="OnToggleFxClick"
-                        ToolTip.Tip="测试：关闭所有阴影/光晕并强制回收内存（再点恢复）">
-                    <TextBlock Text="特效" FontSize="11" FontWeight="SemiBold" />
-                </Button>
-                <!-- 调试：加载虚拟设备卡片，定位内存是否在 UI 渲染层（仅 DEBUG） -->
-                <Button x:Name="TestDevicesBadge" Classes="ThemeBtn" Margin="0,0,6,0" Click="OnTestLoad100Click"
-                        ToolTip.Tip="测试：加载 100 个虚拟设备卡片（仅 DEBUG）">
-                    <TextBlock Text="测100" FontSize="11" FontWeight="SemiBold"
-                               Foreground="{DynamicResource Accent2Brush}" />
-                </Button>
-                <Button x:Name="TestDevicesBadge200" Classes="ThemeBtn" Margin="0,0,6,0" Click="OnTestLoad200Click"
-                        ToolTip.Tip="测试：加载 200 个虚拟设备卡片（仅 DEBUG）">
-                    <TextBlock Text="测200" FontSize="11" FontWeight="SemiBold"
-                               Foreground="{DynamicResource Accent2Brush}" />
-                </Button>
-                <Button x:Name="TestDevicesClearBadge" Classes="ThemeBtn" Margin="0,0,6,0" Click="OnTestClearClick"
-                        ToolTip.Tip="测试：清空虚拟设备（仅 DEBUG）">
-                    <TextBlock Text="清空" FontSize="11" FontWeight="SemiBold" />
-                </Button>
                 <Button Classes="ThemeBtn" Margin="0,0,6,0" Command="{Binding OpenLogCommand}" ToolTip.Tip="操作日志">
                     <Path Width="15" Height="15" Stretch="Uniform"
                           Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}"
@@ -304,7 +286,7 @@
                     BoxShadow="0 3 10 0 #170F172A" ClipToBounds="True" Margin="0,0,-10,-10">
                 <Grid>
                     <!-- 环境光晕：面板底层两团超大半径的径向光斑（特效测试时可整体隐藏） -->
-                    <Panel x:Name="AmbientGlow" IsHitTestVisible="False">
+                    <Panel IsHitTestVisible="False">
                         <Border Width="560" Height="520" HorizontalAlignment="Left" VerticalAlignment="Top"
                                 Margin="-190,-210,0,0">
                             <Border.Background>
@@ -368,4 +350,6 @@
         <!-- ================= 操作日志弹窗（走 DialogPopup 基类：遮罩 + 居中卡片，跨满整个窗口） ================= -->
         <views:LogDialogView Grid.Row="0" Grid.RowSpan="2" />
     </Grid>
+      </DataTemplate>
+    </Window.Resources>
 </Window>
