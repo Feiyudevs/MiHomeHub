@@ -111,6 +111,88 @@
         <Style Selector="Button.BtnGhost:pointerover /template/ ContentPresenter#Cp">
             <Setter Property="TextBlock.Foreground" Value="{DynamicResource TextBrush}"/>
         </Style>
+
+        <!-- 区块内的轻量「添加」小钮：不做实心底，只描一圈淡边。
+             实心底在深色卡里像一块砖，压在标题行右侧很抢眼；描边版才是"可点入口"的视觉语言。 -->
+        <Style Selector="Button.AddChip">
+            <Setter Property="Height" Value="24"/>
+            <Setter Property="Padding" Value="9,0"/>
+            <Setter Property="FontSize" Value="11.5"/>
+            <Setter Property="FontWeight" Value="Normal"/>
+            <Setter Property="Foreground" Value="{DynamicResource Text2Brush}"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="Template">
+                <ControlTemplate>
+                    <Border Name="Bd" CornerRadius="7"
+                            Background="Transparent"
+                            BorderBrush="{DynamicResource LineBrush}" BorderThickness="1"
+                            Padding="{TemplateBinding Padding}">
+                        <ContentPresenter Name="Cp" Content="{TemplateBinding Content}"
+                                          HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                    </Border>
+                </ControlTemplate>
+            </Setter>
+        </Style>
+        <Style Selector="Button.AddChip:pointerover /template/ Border#Bd">
+            <Setter Property="Background" Value="{DynamicResource AccentSoftBrush}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource AccentBrush}"/>
+        </Style>
+        <Style Selector="Button.AddChip:pointerover">
+            <Setter Property="Foreground" Value="{DynamicResource Accent2Brush}"/>
+        </Style>
+        <Style Selector="Button.AddChip:disabled /template/ Border#Bd">
+            <Setter Property="Opacity" Value="0.45"/>
+        </Style>
+        <!-- 危险动作钮（删除）：结构与 BtnGhost 一致，正红文字 + 悬停淡红底 -->
+        <Style Selector="Button.BtnDanger">
+            <Setter Property="Height" Value="34"/>
+            <Setter Property="Padding" Value="16,0"/>
+            <Setter Property="FontSize" Value="13"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="Template">
+                <ControlTemplate>
+                    <Border Name="Bd" CornerRadius="10" Background="{DynamicResource Surface4Brush}"
+                            Padding="{TemplateBinding Padding}">
+                        <ContentPresenter Name="Cp" Content="{TemplateBinding Content}"
+                                          TextBlock.Foreground="{DynamicResource DangerBrush}"
+                                          HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                    </Border>
+                </ControlTemplate>
+            </Setter>
+        </Style>
+        <Style Selector="Button.BtnDanger:pointerover /template/ Border#Bd">
+            <Setter Property="Background" Value="{DynamicResource DangerSoftBrush}"/>
+        </Style>
+        <Style Selector="Button.BtnDanger:disabled /template/ Border#Bd">
+            <Setter Property="Opacity" Value="0.45"/>
+        </Style>
+        <!-- 自绘开关：轨道 38x22，滑块居左/居右表示关/开 -->
+        <Style Selector="Button.Switch">
+            <Setter Property="Width" Value="38"/>
+            <Setter Property="Height" Value="22"/>
+            <Setter Property="Padding" Value="0"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="Template">
+                <ControlTemplate>
+                    <Border Name="Track" CornerRadius="11" Background="{DynamicResource Card2Brush}">
+                        <Ellipse Name="Knob" Width="16" Height="16" Margin="3,0"
+                                 HorizontalAlignment="Left" VerticalAlignment="Center"
+                                 Fill="{DynamicResource Text3Brush}"/>
+                    </Border>
+                </ControlTemplate>
+            </Setter>
+        </Style>
+        <Style Selector="Button.Switch.on /template/ Border#Track">
+            <Setter Property="Background" Value="{DynamicResource SwitchOnBrush}"/>
+        </Style>
+        <Style Selector="Button.Switch.on /template/ Ellipse#Knob">
+            <Setter Property="HorizontalAlignment" Value="Right"/>
+            <Setter Property="Fill" Value="White"/>
+        </Style>
+        <Style Selector="Button.Switch:pointerover /template/ Border#Track">
+            <Setter Property="Opacity" Value="0.85"/>
+        </Style>
         <Style Selector="Button.IconBtn">
             <Setter Property="Width" Value="34"/>
             <Setter Property="Height" Value="34"/>
@@ -233,7 +315,7 @@
             </Setter>
         </Style>
         <Style Selector="ToggleButton.Switch:checked">
-            <Setter Property="Background" Value="{DynamicResource AccentBrush}"/>
+            <Setter Property="Background" Value="{DynamicResource SwitchOnBrush}"/>
             <Setter Property="Foreground" Value="White"/>
         </Style>
         <Style Selector="ToggleButton.Switch:checked /template/ Ellipse#Thumb">
@@ -758,6 +840,93 @@
         <Style Selector="Button.PlayCircle:pointerover /template/ Border#Card">
             <Setter Property="Background" Value="{DynamicResource HoverBrush}"/>
         </Style>
+        <!-- ======== 输入框统一外观 ========
+             Fluent 深色默认给 TextBox 一块纯黑底 + 亮白边，压在卡片上像个窟窿。
+             这里换成「半透明底 + 10 圆角 + 极淡描边」：静止一档、悬停亮一档、
+             聚焦只把描边换成主色，底色不动，避免输入时整块跳色。
+             带类的输入框（.Search / .Log / .VoiceInput）选择器更具体，各自的外观不受影响。 -->
+        <Style Selector="TextBox">
+            <Setter Property="Foreground" Value="{DynamicResource TextBrush}"/>
+            <Setter Property="CaretBrush" Value="{DynamicResource AccentBrush}"/>
+            <Setter Property="SelectionBrush" Value="{DynamicResource AccentBrush}"/>
+            <Setter Property="Background" Value="{DynamicResource Surface4Brush}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource LineBrush}"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="CornerRadius" Value="10"/>
+            <Setter Property="Padding" Value="12,0"/>
+            <Setter Property="FontSize" Value="13"/>
+            <Setter Property="VerticalContentAlignment" Value="Center"/>
+        </Style>
+        <!-- 模板里的 Border 才是真正画底和边的元素：Fluent 的 pointerover / focus 会改它，必须逐档压回来 -->
+        <Style Selector="TextBox /template/ Border#PART_BorderElement">
+            <Setter Property="Background" Value="{DynamicResource Surface4Brush}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource LineBrush}"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="CornerRadius" Value="10"/>
+            <Setter Property="Transitions">
+                <Transitions>
+                    <BrushTransition Property="Background" Duration="0:0:0.15"/>
+                    <BrushTransition Property="BorderBrush" Duration="0:0:0.15"/>
+                </Transitions>
+            </Setter>
+        </Style>
+        <Style Selector="TextBox:pointerover /template/ Border#PART_BorderElement">
+            <Setter Property="Background" Value="{DynamicResource Surface5Brush}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource LineStrongBrush}"/>
+        </Style>
+        <Style Selector="TextBox:focus /template/ Border#PART_BorderElement">
+            <Setter Property="Background" Value="{DynamicResource Surface5Brush}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource AccentBrush}"/>
+        </Style>
+        <!-- 占位文字：比正文淡两档，别和真实内容抢注意力 -->
+        <Style Selector="TextBox /template/ TextBlock#PART_Watermark">
+            <Setter Property="Foreground" Value="{DynamicResource Text3Brush}"/>
+            <Setter Property="Opacity" Value="0.75"/>
+        </Style>
+        <!-- 数字框 / 时间框内部的 TextBox 自带边框，会和外框叠成双层，统一压平 -->
+        <Style Selector="NumericUpDown /template/ TextBox">
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="CornerRadius" Value="8"/>
+            <Setter Property="Padding" Value="8,0"/>
+        </Style>
+        <Style Selector="NumericUpDown /template/ TextBox /template/ Border#PART_BorderElement">
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="CornerRadius" Value="8"/>
+        </Style>
+
+        <!-- ======== 下拉框：与输入框同一套底色 / 描边语言 ======== -->
+        <Style Selector="ComboBox">
+            <Setter Property="Foreground" Value="{DynamicResource TextBrush}"/>
+            <Setter Property="Background" Value="{DynamicResource Surface4Brush}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource LineBrush}"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="CornerRadius" Value="10"/>
+            <Setter Property="Padding" Value="12,0,10,0"/>
+            <Setter Property="FontSize" Value="12.5"/>
+            <Setter Property="MinHeight" Value="32"/>
+            <Setter Property="VerticalContentAlignment" Value="Center"/>
+        </Style>
+        <Style Selector="ComboBox /template/ Border#Background">
+            <Setter Property="Background" Value="{DynamicResource Surface4Brush}"/>
+            <Setter Property="CornerRadius" Value="10"/>
+        </Style>
+        <Style Selector="ComboBox /template/ Border#BorderElement">
+            <Setter Property="BorderBrush" Value="{DynamicResource LineBrush}"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="CornerRadius" Value="10"/>
+        </Style>
+        <Style Selector="ComboBox:pointerover /template/ Border#Background">
+            <Setter Property="Background" Value="{DynamicResource Surface5Brush}"/>
+        </Style>
+        <Style Selector="ComboBox:pointerover /template/ Border#BorderElement">
+            <Setter Property="BorderBrush" Value="{DynamicResource LineStrongBrush}"/>
+        </Style>
+        <Style Selector="ComboBox:focus /template/ Border#BorderElement">
+            <Setter Property="BorderBrush" Value="{DynamicResource AccentBrush}"/>
+        </Style>
+
         <!-- ======== 搜索框：胶囊造型，聚焦/悬停均不改色 ======== -->
         <Style Selector="TextBox.Search">
             <Setter Property="Height" Value="32"/>
@@ -794,11 +963,19 @@
             <Setter Property="FontSize" Value="12"/>
             <Setter Property="TextWrapping" Value="Wrap"/>
         </Style>
-        <!-- ======== 滚动条：默认隐藏，悬停浮现圆角胶囊 ======== -->
+        <!-- ======== 滚动条：默认隐藏，鼠标进入哪个滚动容器就只浮出它自己的胶囊 ======== -->
         <Style Selector="ScrollBar">
             <Setter Property="Opacity" Value="0"/>
         </Style>
-        <Style Selector="Window:pointerover ScrollBar">
+        <!-- 不能按整个 Window 判断：下拉浮层是 Popup 独立窗口，鼠标进了浮层后主窗口
+             :pointerover 会掉，浮层自己的滚动条反而一直藏着；而鼠标回到主窗口时又会把
+             编辑弹窗 / 背后列表 / 浮层的滚动条一次性全点亮（同时冒出 3 条）。
+             改成以各自的 ScrollViewer 为准，Popup 里的 ScrollViewer 也能命中。 -->
+        <Style Selector="ScrollViewer:pointerover ScrollBar">
+            <Setter Property="Opacity" Value="1"/>
+        </Style>
+        <!-- 指针直接落在滑块 / 轨道上（拖动过程中）也要保持可见 -->
+        <Style Selector="ScrollBar:pointerover">
             <Setter Property="Opacity" Value="1"/>
         </Style>
         <!-- 箭头按钮：PathIcon 自己的主题把 Foreground 写死成 TextControlForeground，
@@ -911,7 +1088,7 @@
                                 MaxHeight="{TemplateBinding CardMaxHeight}">
                             <!-- 正文再长也只在卡片内滚：这层裁切接管原 DialogCard 上的 ClipToBounds，
                                  超出一行的内容不会再画到卡片圆角外面，同时不挡卡片的投影 -->
-                            <Grid RowDefinitions="Auto,*" ClipToBounds="True">
+                            <Grid RowDefinitions="Auto,*,Auto" ClipToBounds="True">
                                 <Panel Name="DialogHeader" Background="Transparent" Margin="28,20,22,0">
                                     <StackPanel>
                                         <TextBlock Text="{TemplateBinding Title}" FontSize="19" FontWeight="Bold"
@@ -941,6 +1118,10 @@
                                               HorizontalScrollBarVisibility="Disabled">
                                     <ContentPresenter Content="{TemplateBinding Content}" Margin="0,0,16,0"/>
                                 </ScrollViewer>
+                                <!-- 底部常驻操作区：正文滚到哪都在，Footer 为空时整行高度为 0、不占位 -->
+                                <ContentPresenter Grid.Row="2" Content="{TemplateBinding Footer}"
+                                                  IsVisible="{Binding Footer, RelativeSource={RelativeSource TemplatedParent},
+                                                              Converter={x:Static ObjectConverters.IsNotNull}}"/>
                             </Grid>
                         </Border>
                     </Grid>
@@ -973,8 +1154,147 @@
             <Setter Property="Foreground" Value="{DynamicResource TextBrush}"/>
         </Style>
 
-        <!-- ======== 设置页顶部 Tab 导航（分段胶囊） ======== -->
-        <!-- 容器：极淡底 + 细描边，弱化默认态；内部按钮选中后浮起为强调色 -->
+        <!-- ======== 触发条件编辑器（弹窗）：取值片 + 可折叠的筛选行 ======== -->
+        <!-- 取值片：胶囊按钮，选中态走品牌实心底 + 白字（与下拉选中同族） -->
+        <Style Selector="Button.Chip">
+            <Setter Property="Height" Value="28" />
+            <Setter Property="Padding" Value="12,0" />
+            <Setter Property="Margin" Value="0,0,6,6" />
+            <Setter Property="FontSize" Value="11.5" />
+            <Setter Property="CornerRadius" Value="14" />
+            <Setter Property="Background" Value="{DynamicResource Surface4Brush}" />
+            <Setter Property="BorderBrush" Value="{DynamicResource LineBrush}" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="Foreground" Value="{DynamicResource Text2Brush}" />
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="Focusable" Value="False" />
+            <Setter Property="Template">
+                <ControlTemplate>
+                    <Border Name="Bd" CornerRadius="{TemplateBinding CornerRadius}"
+                            Background="{TemplateBinding Background}"
+                            BorderBrush="{TemplateBinding BorderBrush}"
+                            BorderThickness="{TemplateBinding BorderThickness}"
+                            Padding="{TemplateBinding Padding}">
+                        <ContentPresenter Content="{TemplateBinding Content}"
+                                          TextBlock.Foreground="{TemplateBinding Foreground}"
+                                          TextBlock.FontSize="{TemplateBinding FontSize}"
+                                          HorizontalAlignment="Center" VerticalAlignment="Center" />
+                    </Border>
+                </ControlTemplate>
+            </Setter>
+        </Style>
+        <Style Selector="Button.Chip:pointerover /template/ Border#Bd">
+            <Setter Property="Background" Value="{DynamicResource Surface5Brush}" />
+            <Setter Property="BorderBrush" Value="{DynamicResource LineStrongBrush}" />
+        </Style>
+        <Style Selector="Button.Chip.on /template/ Border#Bd">
+            <Setter Property="Background" Value="{DynamicResource SelBgBrush}" />
+            <Setter Property="BorderBrush" Value="{DynamicResource SelBgBrush}" />
+        </Style>
+        <Style Selector="Button.Chip.on">
+            <Setter Property="Foreground" Value="{DynamicResource SelTextBrush}" />
+        </Style>
+
+        <!-- 筛选参数的一行：整行可点展开取值片，右侧显示当前值。
+             悬停不给整行铺底色（一行横跨整个卡片，铺开太抢眼），只把文字与箭头提亮 -->
+        <Style Selector="Button.ArgHead">
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="BorderThickness" Value="0" />
+            <Setter Property="Padding" Value="7,4" />
+            <Setter Property="Margin" Value="-7,0,-7,0" />
+            <Setter Property="CornerRadius" Value="8" />
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="HorizontalAlignment" Value="Stretch" />
+            <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+            <Setter Property="Focusable" Value="False" />
+            <Setter Property="Template">
+                <ControlTemplate>
+                    <Border Name="Bd" CornerRadius="8" Background="{TemplateBinding Background}"
+                            Padding="{TemplateBinding Padding}">
+                        <ContentPresenter Content="{TemplateBinding Content}"
+                                          HorizontalAlignment="Stretch" VerticalAlignment="Center" />
+                    </Border>
+                </ControlTemplate>
+            </Setter>
+        </Style>
+        <Style Selector="TextBlock.ArgName">
+            <Setter Property="FontSize" Value="12" />
+            <Setter Property="VerticalAlignment" Value="Center" />
+            <Setter Property="Foreground" Value="{DynamicResource Text2Brush}" />
+        </Style>
+        <Style Selector="Button.ArgHead:pointerover TextBlock.ArgName">
+            <Setter Property="Foreground" Value="{DynamicResource TextBrush}" />
+        </Style>
+        <Style Selector="Path.ArgChev">
+            <Setter Property="Stroke" Value="{DynamicResource Text3Brush}" />
+        </Style>
+        <Style Selector="Button.ArgHead:pointerover Path.ArgChev">
+            <Setter Property="Stroke" Value="{DynamicResource Text2Brush}" />
+        </Style>
+        <!-- 收起行右侧的当前取值：未筛显示「任意」用弱色，筛过用正文色加粗 -->
+        <Style Selector="TextBlock.ArgVal">
+            <Setter Property="FontSize" Value="11.5" />
+            <Setter Property="Foreground" Value="{DynamicResource Text3Brush}" />
+        </Style>
+        <Style Selector="TextBlock.ArgVal.picked">
+            <Setter Property="Foreground" Value="{DynamicResource TextBrush}" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+        </Style>
+
+        <!-- 设备选择行：点一下弹「选择设备」窗，样式与下拉触发器同族（底色 + 描边 + 右箭头） -->
+        <Style Selector="Button.DevPick">
+            <Setter Property="Height" Value="40" />
+            <Setter Property="Padding" Value="12,0" />
+            <Setter Property="CornerRadius" Value="10" />
+            <Setter Property="Background" Value="{DynamicResource Surface4Brush}" />
+            <Setter Property="BorderBrush" Value="{DynamicResource LineBrush}" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="HorizontalAlignment" Value="Stretch" />
+            <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+            <Setter Property="VerticalContentAlignment" Value="Center" />
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="Focusable" Value="False" />
+        </Style>
+        <Style Selector="Button.DevPick /template/ ContentPresenter#PART_ContentPresenter">
+            <Setter Property="Background" Value="{DynamicResource Surface4Brush}" />
+            <Setter Property="BorderBrush" Value="{DynamicResource LineBrush}" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="CornerRadius" Value="10" />
+            <Setter Property="Padding" Value="12,0" />
+        </Style>
+        <Style Selector="Button.DevPick:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+            <Setter Property="Background" Value="{DynamicResource Surface5Brush}" />
+            <Setter Property="BorderBrush" Value="{DynamicResource LineStrongBrush}" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="CornerRadius" Value="10" />
+        </Style>
+
+        <!-- ======== 弹窗里的分组卡：把「名称 / 启用 / 触发条件」这类零散字段收成一张淡底卡 ======== -->
+        <Style Selector="Border.SecCard">
+            <Setter Property="Background" Value="{DynamicResource CardSoftBrush}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource LineBrush}"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="CornerRadius" Value="14"/>
+            <Setter Property="Padding" Value="14,13"/>
+        </Style>
+        <Style Selector="TextBlock.SecLabel">
+            <Setter Property="FontSize" Value="12"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="Foreground" Value="{DynamicResource Text2Brush}"/>
+        </Style>
+        <!-- 小状态胶囊：「只读」「N 项」这类轻标 -->
+        <Style Selector="Border.MiniTag">
+            <Setter Property="Background" Value="{DynamicResource Surface4Brush}"/>
+            <Setter Property="CornerRadius" Value="7"/>
+            <Setter Property="Padding" Value="7,2"/>
+            <Setter Property="VerticalAlignment" Value="Center"/>
+        </Style>
+
+        <!-- ======== 智能页：场景 / 自动化卡 ======== -->
+        <!-- 智能页的场景卡直接套设备卡的壳（ctl|DeviceCardButton.DevCard），
+             外观 / 悬停 / 按下全部共用（页头提示已改为纯文字，原来的 HintChip 胶囊样式删除）。 -->
+
+        <!-- ======== 顶部 Tab 导航：设置页纯文字，智能页可放图标与计数 ======== -->
         <Style Selector="Border.TabBar">
             <Setter Property="Background" Value="{DynamicResource SurfaceBrush}"/>
             <Setter Property="BorderBrush" Value="{DynamicResource LineBrush}"/>
@@ -992,12 +1312,28 @@
             <Setter Property="FontWeight" Value="SemiBold"/>
             <Setter Property="Cursor" Value="Hand"/>
             <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="Focusable" Value="False"/>
+            <Setter Property="Transitions">
+                <Transitions>
+                    <BrushTransition Property="Foreground" Duration="0:0:0.18"/>
+                </Transitions>
+            </Setter>
             <Setter Property="Template">
                 <ControlTemplate>
-                    <Border Name="Bd" CornerRadius="9" Background="{TemplateBinding Background}"
-                            Padding="{TemplateBinding Padding}">
-                        <ContentPresenter Content="{TemplateBinding Content}" HorizontalAlignment="Center"
-                                          VerticalAlignment="Center"/>
+                    <Border Name="Bd" CornerRadius="9" Background="Transparent">
+                        <Panel>
+                            <Border Name="Hov" CornerRadius="9" Opacity="0"
+                                    Background="{DynamicResource HoverBrush}">
+                                <Border.Transitions>
+                                    <Transitions>
+                                        <DoubleTransition Property="Opacity" Duration="0:0:0.16" Easing="CubicEaseOut"/>
+                                    </Transitions>
+                                </Border.Transitions>
+                            </Border>
+                            <ContentPresenter Content="{TemplateBinding Content}"
+                                              Margin="{TemplateBinding Padding}"
+                                              HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Panel>
                     </Border>
                 </ControlTemplate>
             </Setter>
@@ -1005,12 +1341,45 @@
         <Style Selector="Button.Tab:pointerover">
             <Setter Property="Foreground" Value="{DynamicResource TextBrush}"/>
         </Style>
+        <Style Selector="Button.Tab:pointerover /template/ Border#Hov">
+            <Setter Property="Opacity" Value="1"/>
+        </Style>
         <Style Selector="Button.Tab.on">
             <Setter Property="Foreground" Value="White"/>
-            <Setter Property="Background" Value="{DynamicResource PrimaryBtnBrush}"/>
         </Style>
         <Style Selector="Button.Tab.on:pointerover">
             <Setter Property="Foreground" Value="White"/>
+        </Style>
+        <Style Selector="Button.Tab.on:pointerover /template/ Border#Hov">
+            <Setter Property="Opacity" Value="0"/>
+        </Style>
+        <Style Selector="Border.TabSlider">
+            <Setter Property="Background" Value="{DynamicResource PrimaryBtnBrush}"/>
+            <Setter Property="CornerRadius" Value="9"/>
+        </Style>
+        <Style Selector="Border.TabSlider.ready">
+            <Setter Property="Transitions">
+                <Transitions>
+                    <DoubleTransition Property="Canvas.Left" Duration="0:0:0.28" Easing="CubicEaseInOut"/>
+                    <DoubleTransition Property="Canvas.Top" Duration="0:0:0.28" Easing="CubicEaseInOut"/>
+                    <DoubleTransition Property="Width" Duration="0:0:0.28" Easing="CubicEaseInOut"/>
+                    <DoubleTransition Property="Height" Duration="0:0:0.28" Easing="CubicEaseInOut"/>
+                </Transitions>
+            </Setter>
+        </Style>
+        <Style Selector="Border.TabBadge">
+            <Setter Property="Background" Value="{DynamicResource Surface5Brush}"/>
+            <Setter Property="CornerRadius" Value="8"/>
+            <Setter Property="Padding" Value="6,1"/>
+            <Setter Property="VerticalAlignment" Value="Center"/>
+            <Setter Property="Transitions">
+                <Transitions>
+                    <BrushTransition Property="Background" Duration="0:0:0.18"/>
+                </Transitions>
+            </Setter>
+        </Style>
+        <Style Selector="Button.Tab.on Border.TabBadge">
+            <Setter Property="Background" Value="#33FFFFFF"/>
         </Style>
 
         <!-- 预设色块：按钮本体透明，色点与选中环都是内层 Border（避开 Fluent 模板的边框冲突） -->

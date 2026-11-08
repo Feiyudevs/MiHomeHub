@@ -1,0 +1,163 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="clr-namespace:MiHome.ViewModels"
+        xmlns:m="clr-namespace:MiHome.Models"
+        xmlns:ctl="clr-namespace:MiHome.Controls"
+        x:Class="MiHome.Views.TriggerEditorWindow"
+        x:DataType="vm:MainViewModel"
+        Title="触发条件"
+        SystemDecorations="None"
+        CanResize="False"
+        ShowInTaskbar="False"
+        WindowStartupLocation="Manual"
+        TransparencyLevelHint="Transparent"
+        Background="Transparent"
+        RenderOptions.TextRenderingMode="Antialias">
+    <!-- 触发条件的添加 / 编辑：独立弹窗（模态），跟场景编辑面板解耦，
+         面板里只剩已生效条件的列表 + 「＋ 添加」。数据仍挂在主视图模型上，
+         确定 / 取消直接复用 ConfirmTrigger / CancelTriggerEditor 两个命令。
+         窗体铺满父窗口客户区（尺寸由 FitTo 设置），遮罩才能像设置弹窗一样盖住整窗。 -->
+    <Window.Styles>
+        <StyleInclude Source="avares://MiHome/Themes/MainWindowStyles.axaml" />
+    </Window.Styles>
+
+    <ctl:DialogPopup x:Name="EditorPopup" CardWidth="500" CardMaxHeight="600"
+                     CanDrag="False"
+                     Title="{Binding TriggerEditorTitle}"
+                     Subtitle="设备触发按 MIoT 规格生成，定时按整点分钟任意设；点「确定」后随场景一起保存"
+                     IsOpen="{Binding IsTriggerEditorOpen}"
+                     CloseCommand="{Binding CancelTriggerEditorCommand}">
+
+        <ctl:DialogPopup.Footer>
+            <Border BorderBrush="{DynamicResource LineBrush}" BorderThickness="0,1,0,0"
+                    Padding="0,14,0,0" Margin="28,0,22,20">
+                <Grid ColumnDefinitions="*,Auto,Auto">
+                    <TextBlock Text="手动 / 语音触发仍在米家 App 里改" FontSize="10.5"
+                               VerticalAlignment="Center"
+                               Foreground="{DynamicResource Text3Brush}" />
+                    <Button Grid.Column="1" Classes="BtnGhost" Content="取消" Margin="0,0,8,0"
+                            Command="{Binding CancelTriggerEditorCommand}" />
+                    <Button Grid.Column="2" Classes="BtnPrimary" Content="确定"
+                            Command="{Binding ConfirmTriggerCommand}"
+                            IsEnabled="{Binding !TriggerEditorBusy}" />
+                </Grid>
+            </Border>
+        </ctl:DialogPopup.Footer>
+
+        <StackPanel Spacing="14">
+            <StackPanel Spacing="6">
+                <TextBlock Classes="SecLabel" Text="① 触发类型" />
+                <ctl:OptionPicker Classes="wide"
+                                  Options="{Binding TriggerKindOptions}"
+                                  SelectedValue="{Binding SelectedTriggerKindValue, Mode=TwoWay}" />
+            </StackPanel>
+
+            <!-- 类型 = 设备：选设备 → 选条件 → 筛选 -->
+            <StackPanel Spacing="6" IsVisible="{Binding !IsTimerTriggerKind}">
+                <TextBlock Classes="SecLabel" Text="② 设备" />
+                <!-- 点一下弹「选择设备」窗（与桌面组件的添加设备弹窗同一套卡片网格），选完回填 -->
+                <Button Classes="DevPick" Click="OnPickDeviceClick"
+                        ToolTip.Tip="从设备列表里选一台">
+                    <Grid ColumnDefinitions="*,Auto">
+                        <TextBlock Text="{Binding TriggerDeviceLabel}" FontSize="13"
+                                   VerticalAlignment="Center" TextTrimming="CharacterEllipsis"
+                                   Foreground="{DynamicResource TextBrush}" />
+                        <Path Grid.Column="1" Width="12" Height="12" Stretch="Uniform"
+                              StrokeThickness="1.7" StrokeLineCap="Round" StrokeJoin="Round"
+                              VerticalAlignment="Center" Margin="8,0,0,0"
+                              Stroke="{DynamicResource Text3Brush}"
+                              Data="{StaticResource GeoArrow}" />
+                    </Grid>
+                </Button>
+            </StackPanel>
+
+            <StackPanel Spacing="6" IsVisible="{Binding !IsTimerTriggerKind}">
+                <TextBlock Classes="SecLabel" Text="③ 条件" />
+                <ctl:OptionPicker Classes="wide"
+                                  Options="{Binding TriggerConditionOptions}"
+                                  SelectedValue="{Binding SelectedTriggerConditionKey, Mode=TwoWay}" />
+            </StackPanel>
+
+            <!-- 类型 = 定时：时刻 + 重复，结构照米家云端实测报文拼 -->
+            <StackPanel Spacing="6" IsVisible="{Binding IsTimerTriggerKind}">
+                <TextBlock Classes="SecLabel" Text="② 时间" />
+                <!-- ClockIdentifier 只认 12HourClock / 24HourClock（写 24Hour 会抛 Invalid ClockIdentifier） -->
+                <TimePicker ClockIdentifier="24HourClock" Width="200" HorizontalAlignment="Left"
+                            SelectedTime="{Binding TimerTime, Mode=TwoWay}" />
+            </StackPanel>
+
+            <StackPanel Spacing="6" IsVisible="{Binding IsTimerTriggerKind}">
+                <TextBlock Classes="SecLabel" Text="③ 重复" />
+                <ctl:OptionPicker Classes="wide"
+                                  Options="{Binding TimerRepeatOptions}"
+                                  SelectedValue="{Binding SelectedTimerRepeatValue, Mode=TwoWay}" />
+            </StackPanel>
+
+            <TextBlock Text="正在读取设备能力…" FontSize="11.5"
+                       IsVisible="{Binding TriggerEditorBusy}"
+                       Foreground="{DynamicResource Text3Brush}" />
+
+            <StackPanel Spacing="5" IsVisible="{Binding HasTriggerArgs}">
+                <TextBlock Classes="SecLabel" Text="{Binding TriggerArgSectionTitle}" />
+                <ItemsControl ItemsSource="{Binding TriggerArgGroups}">
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate x:DataType="m:TriggerArgGroup">
+                            <StackPanel Spacing="6" Margin="0,0,0,3">
+                                <!-- 收起态：一行「参数名 · 当前值」，点开才铺开取值片 -->
+                                <Button Classes="ArgHead"
+                                        Command="{Binding ToggleExpandCommand}"
+                                        ToolTip.Tip="展开 / 收起该参数的取值">
+                                    <Grid ColumnDefinitions="Auto,*,Auto">
+                                        <Panel Grid.Column="0" Width="12" Height="12"
+                                               VerticalAlignment="Center">
+                                            <Path Classes="ArgChev" Width="12" Height="12" Stretch="Uniform"
+                                                  HorizontalAlignment="Center" VerticalAlignment="Center"
+                                                  IsVisible="{Binding IsExpanded}"
+                                                  StrokeThickness="1.8" StrokeLineCap="Round"
+                                                  StrokeJoin="Round"
+                                                  Data="{StaticResource GeoChevron}" />
+                                            <Path Classes="ArgChev" Width="12" Height="12" Stretch="Uniform"
+                                                  HorizontalAlignment="Center" VerticalAlignment="Center"
+                                                  IsVisible="{Binding !IsExpanded}"
+                                                  StrokeThickness="1.8" StrokeLineCap="Round"
+                                                  StrokeJoin="Round"
+                                                  Data="{StaticResource GeoArrow}" />
+                                        </Panel>
+                                        <TextBlock Grid.Column="1" Classes="ArgName" Text="{Binding Name}"
+                                                   Margin="8,0,8,0" />
+                                        <TextBlock Grid.Column="2" Classes="ArgVal"
+                                                   Classes.picked="{Binding HasPick}"
+                                                   Text="{Binding Summary}"
+                                                   VerticalAlignment="Center" />
+                                    </Grid>
+                                </Button>
+                                <ItemsControl ItemsSource="{Binding Chips}" IsVisible="{Binding IsExpanded}">
+                                    <ItemsControl.ItemsPanel>
+                                        <ItemsPanelTemplate>
+                                            <WrapPanel Orientation="Horizontal" />
+                                        </ItemsPanelTemplate>
+                                    </ItemsControl.ItemsPanel>
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate x:DataType="m:TriggerValueChip">
+                                            <Button Classes="Chip" Classes.on="{Binding IsSelected}"
+                                                    Content="{Binding Label}"
+                                                    Command="{Binding SelectCommand}" />
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
+                            </StackPanel>
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
+            </StackPanel>
+
+            <!-- 结果预览：拼出来的那句话，和列表里显示的一致 -->
+            <Border Background="{DynamicResource Surface4Brush}" CornerRadius="10" Padding="11,8"
+                    IsVisible="{Binding TriggerPreview,
+                                Converter={x:Static StringConverters.IsNotNullOrEmpty}}">
+                <TextBlock Text="{Binding TriggerPreview}" FontSize="11.5" TextWrapping="Wrap"
+                           Foreground="{DynamicResource Text2Brush}" />
+            </Border>
+        </StackPanel>
+    </ctl:DialogPopup>
+</Window>

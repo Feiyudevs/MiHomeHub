@@ -243,6 +243,20 @@
             <TextBlock Classes="Hint" Text="未获取到该空调的控制参数，暂无法调节"
                        IsVisible="{Binding DrawerDevice.AcSchema, Converter={x:Static ObjectConverters.IsNull}}" />
         </StackPanel>
+        <!-- 相关场景：本设备参与的自动化（触发）+ 会控制本设备的场景，点行尾立即执行 -->
+        <Border Classes="DrCard" IsVisible="{Binding HasDrawerScenes}">
+            <StackPanel Spacing="8">
+                <Grid ColumnDefinitions="*,Auto">
+                    <TextBlock Text="相关场景" FontSize="14" FontWeight="SemiBold"
+                               Foreground="{DynamicResource TextBrush}" />
+                    <TextBlock Grid.Column="1" FontSize="11.5" VerticalAlignment="Center"
+                               Foreground="{DynamicResource Text3Brush}"
+                               Text="{Binding DrawerScenes.Count, StringFormat='{}{0} 个'}" />
+                </Grid>
+                <ItemsControl ItemsSource="{Binding DrawerScenes}"
+                              ItemTemplate="{StaticResource SceneDeviceRowTemplate}" />
+            </StackPanel>
+        </Border>
         <!-- 高级设置：常用控制卡之外的规格属性与低频动作，默认折叠，点击展开 -->
         <Border Classes="DrCard" IsVisible="{Binding HasAdvanced}">
             <StackPanel Spacing="8">

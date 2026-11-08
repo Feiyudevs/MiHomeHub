@@ -342,6 +342,7 @@ public partial class MainViewModel : ObservableObject
         VoiceText = "";
         IsVoiceOpen = false;
         IsMusicOpen = false;
+        IsHomeOpen = false;
         IsVoiceSending = false;
         VoiceHint = "";
         VoiceHintIsError = false;

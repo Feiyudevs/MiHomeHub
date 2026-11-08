@@ -16,7 +16,7 @@
         <StackPanel Classes="SetArea">
             <!-- 顶部 Tab 导航 -->
             <Border Classes="TabBar" Margin="0,0,0,18">
-                <StackPanel Orientation="Horizontal" Spacing="4">
+                <ctl:SlidingTabPanel Classes="SlidingTab" SelectedIndex="{Binding SettingsTab}" Spacing="4">
                     <Button Classes="Tab" Classes.on="{Binding SettingsTab, Converter={StaticResource IntEq}, ConverterParameter=0}"
                             Tag="0" Click="OnTabClick" Content="通用" />
                     <Button Classes="Tab" Classes.on="{Binding SettingsTab, Converter={StaticResource IntEq}, ConverterParameter=1}"
@@ -25,7 +25,7 @@
                             Tag="2" Click="OnTabClick" Content="账户" />
                     <Button Classes="Tab" Classes.on="{Binding SettingsTab, Converter={StaticResource IntEq}, ConverterParameter=3}"
                             Tag="3" Click="OnTabClick" Content="关于" />
-                </StackPanel>
+                </ctl:SlidingTabPanel>
             </Border>
 
             <!-- 通用 -->

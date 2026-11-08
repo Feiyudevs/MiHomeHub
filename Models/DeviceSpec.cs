@@ -93,13 +93,42 @@ public sealed class SpecActionDef
     public int InputCount { get; init; }
 }
 
+/// <summary>规格里的一个事件。arguments 是同一服务里作为出参的属性 piid 列表。</summary>
+public sealed class SpecEventDef
+{
+    public int Siid { get; init; }
+    public int Eiid { get; init; }
+
+    /// <summary>事件短名（urn 第 4 段），如 lock-event。</summary>
+    public required string Name { get; init; }
+
+    /// <summary>展示名：中文 comment 优先，缺失时退回英文 description。</summary>
+    public required string Desc { get; init; }
+
+    public required string ServiceDesc { get; init; }
+
+    /// <summary>出参属性（同服务的 piid），逐个对应触发源里的筛选键 prop.&lt;model&gt;.&lt;siid&gt;.&lt;piid&gt;。</summary>
+    public List<int> ArgPiids { get; init; } = new();
+
+    public string Key => $"event.{Siid}.{Eiid}";
+}
+
 /// <summary>一台设备（按 spec_type 共享）的完整规格。</summary>
 public sealed class DeviceSpec
 {
     public List<SpecPropertyDef> Properties { get; } = new();
     public List<SpecActionDef> Actions { get; } = new();
 
-    public bool Valid => Properties.Count > 0 || Actions.Count > 0;
+    /// <summary>可做触发条件的事件（门锁的开锁、门铃、低电量等都在这里）。</summary>
+    public List<SpecEventDef> Events { get; } = new();
+
+    public bool Valid => Properties.Count > 0 || Actions.Count > 0 || Events.Count > 0;
+
+    public SpecPropertyDef? FindProp(int siid, int piid) =>
+        Properties.FirstOrDefault(p => p.Siid == siid && p.Piid == piid);
+
+    public SpecEventDef? FindEvent(int siid, int eiid) =>
+        Events.FirstOrDefault(e => e.Siid == siid && e.Eiid == eiid);
 
     /// <summary>多键开关的每一路可写 on；无线按键/遥控器没有可写 on，结果为空。</summary>
     public List<SpecPropertyDef> OnChannels =>

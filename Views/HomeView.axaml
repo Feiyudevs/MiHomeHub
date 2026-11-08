@@ -11,7 +11,9 @@
              
     xmlns:views="clr-namespace:MiHome.Views"
              x:Class="MiHome.Views.HomeView">
-    <StackPanel x:DataType="vm:MainViewModel">
+    <!-- 右 16 内距 + 底 20 内距：右侧是给页面滚动条让出的空白（Carousel 右外距 6 + 16 = 原 22，正文宽度不变），
+         底部留白只在滚到末尾时露出来，静止时不占版面 -->
+    <StackPanel x:DataType="vm:MainViewModel" Margin="0,0,16,20">
         <!-- Hero：透明底；左侧问候+概览按钮，右侧统计卡+环境概览。
              左列 Auto、右列 *：统计卡整行占宽更大，反过来写会把问候语挤到裁字，右侧也就没有换行的余量 -->
         <Grid ColumnDefinitions="Auto,*" Margin="28,26">

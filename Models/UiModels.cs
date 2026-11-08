@@ -2,6 +2,7 @@ using System.Collections.Generic;
 using Avalonia;
 using Avalonia.Media;
 using CommunityToolkit.Mvvm.ComponentModel;
+using MiHome.Services;
 
 namespace MiHome.Models;
 
@@ -122,12 +123,54 @@ public sealed partial class SceneCardItem : ObservableObject
 {
     public required MijiaScene Scene { get; init; }
     public string Name => Scene.Name;
+
+    public bool IsAutomation => Scene.IsAutomation;
+
+    /// <summary>卡片主说明：自动化优先展示触发条件，手动场景展示动作摘要。</summary>
+    public string Summary => IsAutomation
+        ? (string.IsNullOrWhiteSpace(Scene.TriggerSummary) ? Scene.ActionSummary : Scene.TriggerSummary)
+        : Scene.ActionSummary;
+
+    /// <summary>卡片次说明：自动化补充动作摘要，手动场景补充动作条数。</summary>
+    public string Detail => IsAutomation
+        ? Scene.ActionSummary
+        : (Scene.ActionCount > 0 ? $"{Scene.ActionCount} 个动作" : "无动作");
+
+    /// <summary>启停态（自动化可切换；切换时先乐观更新，失败回滚）。</summary>
+    [ObservableProperty] private bool _isEnabled;
+
+    /// <summary>设备详情里的角色标签（触发 / 控制），列表页为空表示不显示。</summary>
+    [ObservableProperty] private string _roleText = "";
+    public bool HasRole => !string.IsNullOrEmpty(RoleText);
+
+    partial void OnRoleTextChanged(string value) => OnPropertyChanged(nameof(HasRole));
+
     public required Geometry Icon { get; init; }
     /// <summary>卡片右上光晕渐变（场景色低透明度）。</summary>
     public required IBrush GlowBrush { get; init; }
     public required IBrush IconBgBrush { get; init; }
     public required IBrush IconFgBrush { get; init; }
     [ObservableProperty] private bool _isRunning;
+
+    /// <summary>在设备维度（抽屉 / 按设备分组）里绑定的设备 did；null 表示整条场景视角。</summary>
+    [ObservableProperty] private string? _targetDid;
+
+    /// <summary>能否「只执行本机动作」：绑定了设备，且场景里确有可直接下发的属性写入。</summary>
+    public bool CanRunOnDevice => TargetDid != null && Scene.CanExecuteOnDevice(TargetDid);
+
+    /// <summary>本机在这条场景里可下发的属性条数（按钮提示用）。</summary>
+    public int DeviceActionCount => TargetDid == null ? 0 : Scene.WritableCountForDevice(TargetDid);
+
+    public string DeviceRunTip => DeviceActionCount > 0
+        ? $"只执行本机 {DeviceActionCount} 项动作"
+        : "只执行本机动作";
+
+    partial void OnTargetDidChanged(string? value)
+    {
+        OnPropertyChanged(nameof(CanRunOnDevice));
+        OnPropertyChanged(nameof(DeviceActionCount));
+        OnPropertyChanged(nameof(DeviceRunTip));
+    }
 
     private static readonly string[] Palette =
     {
@@ -155,6 +198,7 @@ public sealed partial class SceneCardItem : ObservableObject
         return new SceneCardItem
         {
             Scene = scene,
+            IsEnabled = scene.Enable,
             Icon = SceneIconFor(scene.Name),
             GlowBrush = glow,
             IconBgBrush = new SolidColorBrush(Alpha(color, 0x26)),

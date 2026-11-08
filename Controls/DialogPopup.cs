@@ -46,6 +46,13 @@ public class DialogPopup : ContentControl
     public static readonly StyledProperty<object?> HeaderActionsProperty =
         AvaloniaProperty.Register<DialogPopup, object?>(nameof(HeaderActions));
 
+    /// <summary>
+    /// 正文滚动区之外的底部常驻区（保存 / 取消这类操作钮）。
+    /// 正文再长也只在中间滚动，底部操作始终可见；为空时整行不占位。
+    /// </summary>
+    public static readonly StyledProperty<object?> FooterProperty =
+        AvaloniaProperty.Register<DialogPopup, object?>(nameof(Footer));
+
     /// <summary>标题栏是否可拖动宿主窗口（弹窗宿主是自绘无边框窗时用）。</summary>
     public static readonly StyledProperty<bool> CanDragProperty =
         AvaloniaProperty.Register<DialogPopup, bool>(nameof(CanDrag));
@@ -102,6 +109,12 @@ public class DialogPopup : ContentControl
     {
         get => GetValue(HeaderActionsProperty);
         set => SetValue(HeaderActionsProperty, value);
+    }
+
+    public object? Footer
+    {
+        get => GetValue(FooterProperty);
+        set => SetValue(FooterProperty, value);
     }
 
     public bool CanDrag

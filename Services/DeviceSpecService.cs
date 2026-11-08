@@ -147,8 +147,52 @@ public static class DeviceSpecService
                     if (action != null) spec.Actions.Add(action);
                 }
             }
+
+            if (svc.TryGetProperty("events", out var events) && events.ValueKind == JsonValueKind.Array)
+            {
+                foreach (var e in events.EnumerateArray())
+                {
+                    var evt = ParseEvent(e, siid, serviceDesc);
+                    if (evt != null) spec.Events.Add(evt);
+                }
+            }
         }
         return spec;
+    }
+
+    private static SpecEventDef? ParseEvent(JsonElement e, int siid, string serviceDesc)
+    {
+        if (e.ValueKind != JsonValueKind.Object) return null;
+        if (!e.TryGetProperty("type", out var t)) return null;
+        var parts = (t.GetString() ?? "").Split(':');
+        if (parts.Length < 5 || parts[2] != "event") return null;
+
+        var eiid = e.TryGetProperty("iid", out var eiidEl) ? eiidEl.GetInt32() : 0;
+        if (eiid <= 0) return null;
+
+        var args = new List<int>();
+        if (e.TryGetProperty("arguments", out var argsEl) && argsEl.ValueKind == JsonValueKind.Array)
+        {
+            foreach (var a in argsEl.EnumerateArray())
+            {
+                // 规格站给的是 piid 数字数组；个别设备给对象，取 iid
+                if (a.ValueKind == JsonValueKind.Number && a.TryGetInt32(out var p) && p > 0) args.Add(p);
+                else if (a.ValueKind == JsonValueKind.Object && a.TryGetProperty("iid", out var ai) && ai.GetInt32() > 0)
+                    args.Add(ai.GetInt32());
+            }
+        }
+
+        // 事件名不做 CleanLabel：中文 comment 里常有「（除钥匙）」这类关键区分信息
+        var desc = ReadText(e, "comment") ?? ReadText(e, "description") ?? parts[3];
+        return new SpecEventDef
+        {
+            Siid = siid,
+            Eiid = eiid,
+            Name = parts[3],
+            Desc = desc,
+            ServiceDesc = serviceDesc,
+            ArgPiids = args
+        };
     }
 
     private static SpecPropertyDef? ParseProperty(JsonElement p, int siid, string serviceName, string serviceDesc)

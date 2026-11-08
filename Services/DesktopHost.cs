@@ -427,6 +427,8 @@ public static class DesktopHost
             _picker.Closed += (_, _) => _picker = null;
         }
         _picker.Bind(vm);
+        // 先按工作区收尺寸（小屏 / 高缩放下 956×736 会顶出屏幕，底部内容就滚不到），再定位
+        _picker.FitToWorkArea();
         // 在当前屏幕工作区居中弹出（多屏时按光标所在的那块屏）
         PopupPlacement.CenterOnScreen(_picker, _picker.Width, _picker.Height);
         if (!_picker.IsVisible) _picker.Show();

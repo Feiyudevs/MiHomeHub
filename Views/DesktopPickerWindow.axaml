@@ -173,8 +173,9 @@
         <!-- 遮罩：窗口透明，这里只负责「点外面关掉」；窗体比卡片四周各多 58，那圈透明带是留给卡片投影的 -->
         <Border Name="Mask" Background="Transparent" PointerPressed="OnMaskPressed" />
 
-        <!-- 尺寸固定：切分类只换内容，卡片（和窗体）不能跟着内容多少忽高忽低 -->
-        <Border Classes="DialogCard" Width="840" Height="620"
+        <!-- 尺寸固定：切分类只换内容，卡片（和窗体）不能跟着内容多少忽高忽低。
+             小屏 / 高分屏下由 FitToWorkArea 按工作区等比收，卡片底部不会顶出屏幕 -->
+        <Border x:Name="PickerCard" Classes="DialogCard" Width="840" Height="620"
                 HorizontalAlignment="Center" VerticalAlignment="Center">
             <!-- 裁切挂在这层：DialogCard 上的投影不能带 ClipToBounds，否则被卡片自己边界裁光 -->
             <Grid RowDefinitions="Auto,Auto,Auto,*" ClipToBounds="True">
@@ -265,9 +266,11 @@
                 <!-- ===== 按房间分组 + 网格卡片 ===== -->
                 <!-- 右边距缩到 6 把滚动条推到卡片内侧边缘，正文用 16 内距补回，卡片位置不变 -->
                 <ScrollViewer Name="BodyScroll" Grid.Row="3" Margin="28,14,6,22"
+                              ClipToBounds="True"
                               VerticalScrollBarVisibility="Auto"
                               HorizontalScrollBarVisibility="Disabled">
-                    <StackPanel Margin="0,0,16,0">
+                    <!-- 底部再留 8：滚到底时最后一行下面有呼吸，不会贴着视口边被切感 -->
+                    <StackPanel Margin="0,0,16,8">
                         <ItemsControl ItemsSource="{Binding Groups}">
                             <ItemsControl.ItemTemplate>
                                 <DataTemplate x:DataType="vm:PickerGroup">
@@ -335,6 +338,22 @@
                                    IsVisible="{Binding IsEmptyResult}" />
                     </StackPanel>
                 </ScrollViewer>
+
+                <!-- 列表底部渐隐：滚动到中间位置时，视口底边必然切在某一行的腰上。
+                     这里压一层「透明 → 卡片底色」的遮罩，被切的行自然淡出，
+                     不会像被卡片边缘一刀截断。内容不满一屏时它盖住的是空白，无副作用 -->
+                <Border Grid.Row="3" Height="20" VerticalAlignment="Bottom"
+                        Margin="28,0,6,22"
+                        IsHitTestVisible="False"
+                        Background="{DynamicResource DrawerBgBrush}">
+                    <Border.OpacityMask>
+                        <LinearGradientBrush StartPoint="0%,0%" EndPoint="0%,100%">
+                            <GradientStop Offset="0" Color="#00FFFFFF" />
+                            <GradientStop Offset="0.6" Color="#99FFFFFF" />
+                            <GradientStop Offset="1" Color="#FFFFFFFF" />
+                        </LinearGradientBrush>
+                    </Border.OpacityMask>
+                </Border>
             </Grid>
         </Border>
     </Panel>

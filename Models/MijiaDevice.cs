@@ -496,14 +496,4 @@ public class MijiaRoom
     [JsonPropertyName("dids")] public List<string> Dids { get; set; } = new();
 }
 
-public class MijiaScene
-{
-    [JsonPropertyName("scene_id")]
-    [JsonConverter(typeof(LenientStringConverter))]
-    public string SceneId { get; set; } = "";
-
-    [JsonPropertyName("name")] public string Name { get; set; } = "";
-
-    /// <summary>由客户端回填，接口在场景对象里不给 home_id。</summary>
-    [JsonIgnore] public string HomeId { get; set; } = "";
-}
+// 场景 / 自动化模型见 Models/MijiaScene.cs（探针确认的完整结构）。

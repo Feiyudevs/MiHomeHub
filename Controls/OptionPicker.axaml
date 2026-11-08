@@ -186,7 +186,10 @@
                HorizontalOffset="18" VerticalOffset="-4" WindowManagerAddShadowHint="False">
             <Border Name="Panel" Classes="PickPanel">
                 <ScrollViewer Name="Scroller" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
-                    <ItemsControl Name="List">
+                    <!-- Fluent 的滚动条是 overlay 画在视口右缘的，不占独立轨道。
+                         内容右侧留出 14px，让胶囊落在留白里，不压菜单项的文字 /
+                         房间标签 / 选中高亮条；滚动条本身位置不动。 -->
+                    <ItemsControl Name="List" Margin="0,0,14,0">
                         <ItemsControl.ItemsPanel>
                             <ItemsPanelTemplate>
                                 <StackPanel Spacing="2" />

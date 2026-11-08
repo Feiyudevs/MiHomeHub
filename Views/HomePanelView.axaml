@@ -1,0 +1,62 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:m="clr-namespace:MiHome.Models"
+             xmlns:vm="clr-namespace:MiHome.ViewModels"
+             xmlns:svc="clr-namespace:MiHome.Services"
+             x:Class="MiHome.Views.HomePanelView"
+             x:DataType="vm:MainViewModel">
+    <!-- 与小爱 / 音乐浮层同一套开合动画（OverlayReveal）；宽度按家庭列表内容收窄，
+         不再跟着 344 的宽卡片走 —— 里面没有输入框/滑块，撑那么宽只会显空 -->
+    <Border x:Name="HomePanel" Classes="HomePanel" Width="260"
+            HorizontalAlignment="Left" VerticalAlignment="Top" Margin="12,2,0,0"
+            Opacity="0" IsVisible="False">
+        <Border.RenderTransform>
+            <TranslateTransform Y="0" />
+        </Border.RenderTransform>
+        <StackPanel Spacing="10">
+            <!-- 头部：房子徽标 + 当前家庭名，规格对齐另两个浮层 -->
+            <Grid ColumnDefinitions="Auto,*">
+                <Border Width="34" Height="34" CornerRadius="11"
+                        Background="{DynamicResource AccentSoftBrush}"
+                        VerticalAlignment="Center">
+                    <Viewbox Width="17" Height="17"
+                             HorizontalAlignment="Center" VerticalAlignment="Center">
+                        <Panel Width="24" Height="24">
+                            <Path Stroke="{DynamicResource Accent2Brush}" StrokeThickness="1.7"
+                                  StrokeLineCap="Round" StrokeJoin="Round"
+                                  Data="{x:Static svc:NavIcons.HouseLine}" />
+                        </Panel>
+                    </Viewbox>
+                </Border>
+                <StackPanel Grid.Column="1" Margin="10,0,0,0" VerticalAlignment="Center" Spacing="1">
+                    <TextBlock Text="我的家庭" FontSize="13.5" FontWeight="SemiBold"
+                               Foreground="{DynamicResource TextBrush}" />
+                    <TextBlock Classes="Hint Sub" FontSize="11" Text="{Binding HomeName}"
+                               TextTrimming="CharacterEllipsis" />
+                </StackPanel>
+            </Grid>
+            <!-- 家庭列表：选中项沿用标题栏下拉的勾选态样式 -->
+            <ItemsControl ItemsSource="{Binding HomeOptions}">
+                <ItemsControl.ItemTemplate>
+                    <DataTemplate x:DataType="m:HomeOption">
+                        <Button Classes="HomeMenuItem" Classes.is-on="{Binding IsSelected}"
+                                Command="{Binding $parent[ItemsControl].((vm:MainViewModel)DataContext).SwitchHomeCommand}"
+                                CommandParameter="{Binding}"
+                                ToolTip.Tip="{Binding Name}">
+                            <TextBlock Text="{Binding Name}" FontSize="13"
+                                       Foreground="{DynamicResource TextBrush}"
+                                       TextTrimming="CharacterEllipsis" />
+                        </Button>
+                    </DataTemplate>
+                </ItemsControl.ItemTemplate>
+            </ItemsControl>
+            <!-- 底部说明：与语音浮层同一行文风 -->
+            <StackPanel Orientation="Horizontal" Spacing="5" HorizontalAlignment="Center">
+                <Path Width="9" Height="9" Stretch="Uniform" VerticalAlignment="Center"
+                      Stroke="{DynamicResource Text3Brush}" StrokeThickness="1.4"
+                      StrokeLineCap="Round" Data="{StaticResource GeoLock}" />
+                <TextBlock Classes="Hint" FontSize="11" Text="切换后刷新该家庭下的设备" />
+            </StackPanel>
+        </StackPanel>
+    </Border>
+</UserControl>

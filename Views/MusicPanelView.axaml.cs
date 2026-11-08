@@ -77,5 +77,8 @@ public partial class MusicPanelView : UserControl
         MusicPanel.Margin = new Thickness(left, 2, 0, 0);
     }
 
+    /// <summary>卡片本体宽度（宿主 UserControl 是整窗宽，夹取必须用卡片宽）。</summary>
+    public double CardWidth => MusicPanel.Bounds.Width > 0 ? MusicPanel.Bounds.Width : 344;
+
     public void Animate(bool open) => OverlayReveal.Run(MusicPanel, open, () => Vm?.IsMusicOpen == true);
 }

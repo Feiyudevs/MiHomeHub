@@ -70,6 +70,7 @@ public partial class MainViewModel : ObservableObject
         IsDrawerOpen = true;
         BuildSpecPanel(device);
         AttachDrawerDetail(device);
+        UpdateDrawerScenes();
     }
 
     /// <summary>抽屉关闭时释放面板 VM 与拖拽/确认定时器，避免后台轮询继续写隐藏控件。</summary>

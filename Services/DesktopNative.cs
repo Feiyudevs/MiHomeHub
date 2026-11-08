@@ -29,6 +29,7 @@ internal static class DesktopNative
     public const uint WS_EX_TRANSPARENT = 0x00000020;
     public const uint WS_EX_DLGMODALFRAME = 0x00000001;
     public const uint WS_EX_WINDOWEDGE = 0x00000100;
+    public const uint WS_EX_CLIENTEDGE = 0x00000200;
 
     /// <summary>Avalonia 合成窗会带上；带它时 SetWindowRgn 裁不到合成层，圆角会被穿透。</summary>
     public const uint WS_EX_NOREDIRECTIONBITMAP = 0x00200000;
@@ -51,6 +52,8 @@ internal static class DesktopNative
     public const int SW_HIDE = 0;
 
     // ---- DWM ----
+    /// <summary>只读：当前是否在渲染非客户区（1 = 开）。DWMWA_NCRENDERING_POLICY 本身只能写。</summary>
+    public const int DWMWA_NCRENDERING_ENABLED = 1;
     public const int DWMWA_NCRENDERING_POLICY = 2;
     public const int DWMWA_TRANSITIONS_FORCEDISABLED = 3;
     public const int DWMWA_CLOAK = 13;
@@ -82,8 +85,23 @@ internal static class DesktopNative
 
     // ---- 窗口消息（Z 序 / 激活） ----
     public const uint WM_MOUSEACTIVATE = 0x0021;
+    public const uint WM_NCHITTEST = 0x0084;
+    public const uint WM_SIZE = 0x0005;
     public const uint WM_WINDOWPOSCHANGING = 0x0046;
+    public const uint WM_WINDOWPOSCHANGED = 0x0047;
     public const int MA_NOACTIVATE = 3;
+
+    // ---- WM_NCHITTEST 返回值 ----
+    public const int HTTRANSPARENT = -1;
+    public const int HTCLIENT = 1;
+    public const int HTLEFT = 10;
+    public const int HTRIGHT = 11;
+    public const int HTTOP = 12;
+    public const int HTTOPLEFT = 13;
+    public const int HTTOPRIGHT = 14;
+    public const int HTBOTTOM = 15;
+    public const int HTBOTTOMLEFT = 16;
+    public const int HTBOTTOMRIGHT = 17;
 
     // ---- 窗口消息（桌面重合成，广播到所有顶层窗口） ----
     public const uint WM_DISPLAYCHANGE = 0x007E;
@@ -193,6 +211,14 @@ internal static class DesktopNative
 
     [DllImport("user32.dll")]
     [return: MarshalAs(UnmanagedType.Bool)]
+    public static extern bool GetClientRect(nint hWnd, out RECT lpRect);
+
+    [DllImport("user32.dll")]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    public static extern bool ClientToScreen(nint hWnd, ref POINT lpPoint);
+
+    [DllImport("user32.dll")]
+    [return: MarshalAs(UnmanagedType.Bool)]
     public static extern bool InvalidateRect(nint hWnd, nint lpRect, [MarshalAs(UnmanagedType.Bool)] bool bErase);
 
     /// <summary>注册「跨进程同名同 ID」的消息（TaskbarCreated 这类 shell 广播）。</summary>
@@ -243,6 +269,15 @@ internal static class DesktopNative
     [DllImport("user32.dll")]
     public static extern nint GetWindow(nint hWnd, uint uCmd);
 
+    [DllImport("user32.dll")]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    public static extern bool IsIconic(nint hWnd);
+
+    [DllImport("user32.dll")]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    public static extern bool AdjustWindowRectEx(ref RECT lpRect, uint dwStyle,
+        [MarshalAs(UnmanagedType.Bool)] bool bMenu, uint dwExStyle);
+
     // ---- 区域（圆角裁切） ----
     [DllImport("gdi32.dll")]
     public static extern nint CreateRoundRectRgn(int left, int top, int right, int bottom, int w, int h);
@@ -257,6 +292,9 @@ internal static class DesktopNative
     // ---- DWM ----
     [DllImport("dwmapi.dll")]
     public static extern int DwmSetWindowAttribute(nint hWnd, int attr, ref int value, int size);
+
+    [DllImport("dwmapi.dll")]
+    public static extern int DwmGetWindowAttribute(nint hWnd, int attr, out int value, int size);
 
     [DllImport("dwmapi.dll")]
     public static extern int DwmExtendFrameIntoClientArea(nint hWnd, ref MARGINS margins);

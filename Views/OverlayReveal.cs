@@ -12,9 +12,20 @@ namespace MiHome.Views;
 /// <summary>
 /// 标题栏胶囊浮层的开合动画：打开淡入轻落、关闭反向收起后再隐藏，
 /// 避免收起过程中残留的浮层挡住下面的点击。小爱与音乐两个浮层共用。
+/// 手感基准：点击后第一帧就要「亮」，位移只做 6px 的落定，
+/// 整体压在 150ms 内结束 —— 再长就会被感知成迟钝。
 /// </summary>
 internal static class OverlayReveal
 {
+    // ── 时长：打开=淡入快、位移稍长；关闭=两段都短，绝不拖住下一次点击 ──
+    private static readonly TimeSpan OpenSlide = TimeSpan.FromMilliseconds(150);
+    private static readonly TimeSpan OpenFade = TimeSpan.FromMilliseconds(100);
+    private static readonly TimeSpan CloseSlide = TimeSpan.FromMilliseconds(110);
+    private static readonly TimeSpan CloseFade = TimeSpan.FromMilliseconds(90);
+
+    /// <summary>收起终点：负值让卡片往标题栏方向退，视觉上像「缩回胶囊」。</summary>
+    private const double HiddenOffset = -6d;
+
     /// <summary>
     /// 驱动一个带 TranslateTransform 的浮层开关。
     /// <paramref name="isStillOpen"/> 在收起动画结束时回读 VM 状态：
@@ -24,18 +35,23 @@ internal static class OverlayReveal
     {
         if (panel.RenderTransform is not TranslateTransform tx) return;
 
-        var duration = TimeSpan.FromMilliseconds(open ? 240 : 160);
-        Easing ease = open ? new CubicEaseOut() : new CubicEaseIn();
-        var fromY = open ? -8d : tx.Y;
+        var fromY = open ? HiddenOffset : tx.Y;
+        var toY = open ? 0d : HiddenOffset;
         var fromOpacity = open ? 0d : panel.Opacity;
+        var toOpacity = open ? 1d : 0d;
 
         panel.IsVisible = true;
         tx.Y = fromY;
+        // 打开时先压到全透明，否则布局后的第一帧会以满不透明度闪一下再被动画拉回 0，
+        // 观感就是「先闪、再淡入」的顿挫。
+        if (open) panel.Opacity = 0d;
 
+        // 打开用 QuinticEaseOut：起步极快、收尾顺滑，卡片几乎立刻到位；
+        // 关闭用 CubicEaseIn：越走越快，干脆利落。
         var slide = new Animation
         {
-            Duration = duration,
-            Easing = ease,
+            Duration = open ? OpenSlide : CloseSlide,
+            Easing = open ? new QuinticEaseOut() : new CubicEaseIn(),
             FillMode = FillMode.Forward
         };
         slide.Children.Add(new KeyFrame
@@ -46,10 +62,14 @@ internal static class OverlayReveal
         slide.Children.Add(new KeyFrame
         {
             Cue = new Cue(1d),
-            Setters = { new Setter(TranslateTransform.YProperty, open ? 0d : -8d) }
+            Setters = { new Setter(TranslateTransform.YProperty, toY) }
         });
 
-        _ = Fade(fromOpacity, open ? 1d : 0d, duration, ease).RunAsync(panel);
+        // 透明度独立跑一条更短的曲线：先「亮」起来，剩下的位移只做轻微落定，
+        // 这样即使位移还在走，用户也已经能看清并点击卡片了。
+        _ = Fade(fromOpacity, toOpacity, open ? OpenFade : CloseFade,
+                 open ? new CubicEaseOut() : new CubicEaseIn()).RunAsync(panel);
+
         _ = slide.RunAsync(panel).ContinueWith(_ =>
             Dispatcher.UIThread.Post(() =>
             {

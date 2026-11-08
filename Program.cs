@@ -1,4 +1,4 @@
-using Avalonia;
+﻿using Avalonia;
 using Avalonia.Media;
 using MiHome.Services;
 using System;
@@ -12,6 +12,83 @@ internal sealed class Program
     [STAThread]
     public static void Main(string[] args)
     {
+        // 隐藏诊断口：把场景/自动化候选接口全打一遍，原始响应落盘后退出，不启界面。
+        // 见 Services/SceneProbe.cs；服务端结构确认后可连同该文件一起删掉。
+        if (args.Any(a => string.Equals(a, "--scene-probe", StringComparison.OrdinalIgnoreCase)))
+        {
+            SceneProbe.RunAsync().GetAwaiter().GetResult();
+            return;
+        }
+
+        // 启停接口探针：只做幂等写（把当前 enable 原样写回），确认接口名后再落业务代码。
+        if (args.Any(a => string.Equals(a, "--scene-probe-enable", StringComparison.OrdinalIgnoreCase)))
+        {
+            SceneProbe.RunEnableAsync().GetAwaiter().GetResult();
+            return;
+        }
+
+        // 编辑接口探针（阶段一）：只用不存在的 scene_id / 空 body 试，不改动任何真实场景。
+        if (args.Any(a => string.Equals(a, "--scene-probe-edit", StringComparison.OrdinalIgnoreCase)))
+        {
+            SceneProbe.RunEditAsync().GetAwaiter().GetResult();
+            return;
+        }
+
+        // 克隆探针：用真实自动化当模板，scene_id=0 + enable=false 新建一条测试副本，成功后立即删除。
+        // 顺序探针：克隆多动作场景、颠倒顺序后新建，读回校验 order 是否生效，随后删除。
+        if (args.Any(a => string.Equals(a, "--scene-probe-order", StringComparison.OrdinalIgnoreCase)))
+        {
+            SceneProbe.RunOrderAsync().GetAwaiter().GetResult();
+            return;
+        }
+
+        if (args.Any(a => string.Equals(a, "--scene-probe-clone", StringComparison.OrdinalIgnoreCase)))
+        {
+            SceneProbe.RunCloneAsync().GetAwaiter().GetResult();
+            return;
+        }
+
+        // 设备触发条件能力探针（只读）：确认按设备取自动化能力列表的云端接口。
+        var tp = Array.FindIndex(args, a => string.Equals(a, "--trigger-probe", StringComparison.OrdinalIgnoreCase));
+        if (tp >= 0)
+        {
+            var did = tp + 1 < args.Length && !args[tp + 1].StartsWith("--", StringComparison.Ordinal) ? args[tp + 1] : null;
+            TriggerProbe.RunAsync(did).GetAwaiter().GetResult();
+            return;
+        }
+
+        // 触发条件可写性实验（新建禁用副本 → 读回 → 删除）。
+        var tt = Array.FindIndex(args, a => string.Equals(a, "--trigger-test", StringComparison.OrdinalIgnoreCase));
+        if (tt >= 0)
+        {
+            var did = tt + 1 < args.Length && !args[tt + 1].StartsWith("--", StringComparison.Ordinal) ? args[tt + 1] : null;
+            TriggerProbe.RunTriggerTestAsync(did).GetAwaiter().GetResult();
+            return;
+        }
+
+        // 触发条件端到端验证：用正式代码生成触发源，建禁用副本 → 读回 → 删除。
+        var te = Array.FindIndex(args, a => string.Equals(a, "--trigger-e2e", StringComparison.OrdinalIgnoreCase));
+        if (te >= 0)
+        {
+            var did = te + 1 < args.Length && !args[te + 1].StartsWith("--", StringComparison.Ordinal) ? args[te + 1] : null;
+            TriggerProbe.RunCatalogTestAsync(did).GetAwaiter().GetResult();
+            return;
+        }
+
+        // 弹窗 XAML 自检：直接实例化触发条件 / 添加动作弹窗，InitializeComponent 抛异常就落盘。
+        if (args.Any(a => string.Equals(a, "--dialog-probe", StringComparison.OrdinalIgnoreCase)))
+        {
+            DialogProbe.Run();
+            return;
+        }
+
+        // 创建链路探针：复刻 UI 新建场景 / 自动化的云端提交，看真实报错。
+        if (args.Any(a => string.Equals(a, "--create-probe", StringComparison.OrdinalIgnoreCase)))
+        {
+            CreateProbe.RunAsync().GetAwaiter().GetResult();
+            return;
+        }
+
         // 单实例：已有常驻进程时唤起它的主界面，自己直接退出
         if (!SingleInstance.TryAcquire())
         {

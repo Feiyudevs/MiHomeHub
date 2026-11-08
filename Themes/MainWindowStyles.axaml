@@ -76,6 +76,10 @@
         <Style Selector="Button.AccountChip:pointerover /template/ Border#Bg">
             <Setter Property="Background" Value="{DynamicResource HoverBrush}" />
         </Style>
+        <!-- 家庭浮层展开中：胶囊保持悬停底色，和另两个胶囊的 .open 观感一致 -->
+        <Style Selector="Button.AccountChip.open /template/ Border#Bg">
+            <Setter Property="Background" Value="{DynamicResource HoverBrush}" />
+        </Style>
         <!-- 胶囊里的「登录」：不铺底色，只用强调色文字 -->
         <Style Selector="Button.AccountLogin">
             <Setter Property="Cursor" Value="Hand" />
@@ -143,6 +147,31 @@
         <Style Selector="TextBox.SearchInline /template/ Border#PART_BorderElement">
             <Setter Property="Background" Value="Transparent" />
             <Setter Property="BorderThickness" Value="0" />
+        </Style>
+        <!-- 搜索框右端的清空钮：18px 圆点，默认透明，悬停才浮出底 -->
+        <Style Selector="Button.SearchClear">
+            <Setter Property="Width" Value="18" />
+            <Setter Property="Height" Value="18" />
+            <Setter Property="Padding" Value="0" />
+            <Setter Property="MinWidth" Value="0" />
+            <Setter Property="Margin" Value="0,0,5,0" />
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="BorderThickness" Value="0" />
+            <Setter Property="HorizontalAlignment" Value="Right" />
+            <Setter Property="VerticalAlignment" Value="Center" />
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="Focusable" Value="False" />
+            <Setter Property="Template">
+                <ControlTemplate>
+                    <Border Name="Bd" CornerRadius="9" Background="{TemplateBinding Background}">
+                        <ContentPresenter Content="{TemplateBinding Content}"
+                                          HorizontalAlignment="Center" VerticalAlignment="Center" />
+                    </Border>
+                </ControlTemplate>
+            </Setter>
+        </Style>
+        <Style Selector="Button.SearchClear:pointerover /template/ Border#Bd">
+            <Setter Property="Background" Value="{DynamicResource HoverBrush}" />
         </Style>
         <!-- 下拉菜单项：圆角胶囊底 + 右侧绿勾，选中项不拉满整行宽度 -->
         <Style Selector="Button.HomeMenuItem">
@@ -563,6 +592,15 @@
             <Setter Property="BorderBrush" Value="{DynamicResource Accent2Brush}" />
         </Style>
         <Style Selector="Border.VoicePanel">
+            <Setter Property="Background" Value="{DynamicResource CardBrush}" />
+            <Setter Property="CornerRadius" Value="18" />
+            <Setter Property="Padding" Value="16" />
+            <Setter Property="BorderBrush" Value="{DynamicResource LineBrush}" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="BoxShadow" Value="0 12 28 0 #2A0F172A" />
+        </Style>
+        <!-- 家庭浮层与语音 / 音乐浮层同一壳：同宽、同圆角、同内距、同投影 -->
+        <Style Selector="Border.HomePanel">
             <Setter Property="Background" Value="{DynamicResource CardBrush}" />
             <Setter Property="CornerRadius" Value="18" />
             <Setter Property="Padding" Value="16" />

@@ -102,6 +102,34 @@ internal static class PopupPlacement
     }
 
     /// <summary>
+    /// 把固定尺寸的弹窗夹进「当前屏幕」工作区（单位 DIP），返回收敛后的 (宽, 高)。
+    /// 小屏、或 125%/150% 缩放把 1080p 折成几百 DIP 时，固定的 956×736 会顶出工作区，
+    /// 卡片底部（以及滚动区最后几行）就被屏幕边缘切掉 —— 这种弹窗先过这一道再定位。
+    /// </summary>
+    public static (double Width, double Height) FitToWorkArea(
+        Window win, double widthDip, double heightDip, PixelPoint? at = null)
+    {
+        var screens = ScreensOf(win);
+        if (screens == null) return (widthDip, heightDip);
+
+        // 挑屏口径与 CenterOnScreen 一致：显式参考点 → 光标 → 主窗口
+        var reference = at ?? CursorPoint() ?? WindowPoint(win);
+        var screen = (reference != null ? screens.ScreenFromPoint(reference.Value) : null)
+                     ?? screens.Primary;
+        if (screen == null) return (widthDip, heightDip);
+
+        var scale = screen.Scaling > 0 ? screen.Scaling : win.RenderScaling;
+        if (scale <= 0) scale = 1;
+
+        var wa = screen.WorkingArea;
+        var maxW = wa.Width / scale - EdgeDip * 2;
+        var maxH = wa.Height / scale - EdgeDip * 2;
+
+        return (Math.Max(360, Math.Min(widthDip, maxW)),
+                Math.Max(320, Math.Min(heightDip, maxH)));
+    }
+
+    /// <summary>
     /// 把窗口摆到鼠标处。多屏时按光标所在屏；右下放不下翻到左上方，再夹住。
     /// </summary>
     public static bool PlaceAtCursor(Window win, double widthDip, double heightDip)

@@ -61,6 +61,8 @@
                     <!-- 淡入起点：必须与 HoverBrush 同色、只把透明位拉满，配色改一处要改两处 -->
                     <SolidColorBrush x:Key="PlayHoverFromBrush" Color="#00282F42"/>
                     <SolidColorBrush x:Key="LineBrush" Color="#12FFFFFF"/>
+                    <!-- 主窗口卡片外轮廓：比全局 LineBrush 深一档，窗口贴在桌面上时才立得住 -->
+                    <SolidColorBrush x:Key="WindowLineBrush" Color="#1AFFFFFF"/>
                     <!-- 可点胶囊的悬停描边：比 LineBrush 亮一档，让静止/悬停/展开三态成色阶 -->
                     <SolidColorBrush x:Key="LineStrongBrush" Color="#22FFFFFF"/>
                     <SolidColorBrush x:Key="TextBrush" Color="#EEF1F6"/>
@@ -94,6 +96,9 @@
                     <SolidColorBrush x:Key="NavActiveTextBrush" Color="#C7BCFF"/>
                     <!-- 电源键开启态：比导航选中文字色（浅薰衣草）更深的次级主色，实心紫更压得住深色卡 -->
                     <SolidColorBrush x:Key="PowerOnBrush" Color="#7C5CFC"/>
+                    <!-- 开关开启态轨道：直接用主色实心档。原来的 AccentBrush 带 alpha 的透明天蓝，
+                         叠在深色卡上会偏青，指示灯式开关应统一走品牌紫 -->
+                    <SolidColorBrush x:Key="SwitchOnBrush" Color="#8B7CFF"/>
                     <SolidColorBrush x:Key="GreenBrush" Color="#6BE894"/>
                     <SolidColorBrush x:Key="GreenSoftBrush" Color="#242FD573"/>
                     <SolidColorBrush x:Key="BlueBrush" Color="#7FABFF"/>
@@ -101,6 +106,9 @@
                     <SolidColorBrush x:Key="PinkBrush" Color="#FF8FAB"/>
                     <Color x:Key="PinkColor">#FF8FAB</Color>
                     <SolidColorBrush x:Key="PinkSoftBrush" Color="#22FF8FAB"/>
+                    <!-- 危险动作（删除）：正红，不要用粉色——粉色在深色卡上像装饰色，传达不出"不可逆" -->
+                    <SolidColorBrush x:Key="DangerBrush" Color="#FF5A5A"/>
+                    <SolidColorBrush x:Key="DangerSoftBrush" Color="#2AFF5A5A"/>
                     <SolidColorBrush x:Key="BlueSoftBrush" Color="#244D8DFF"/>
                     <SolidColorBrush x:Key="AmberBrush" Color="#FFD97A"/>
                     <SolidColorBrush x:Key="AmberSoftBrush" Color="#33FFC868"/>
@@ -213,6 +221,30 @@
                     <!-- 菜单项文字：单独开键而不复用 TextBrush，桌面分区才能在自己面板的
                          Resources 里就地覆盖成浅色，不波及主窗口列表。图标描边直接绑同一支。 -->
                     <SolidColorBrush x:Key="MenuTextBrush" Color="#EEF1F6"/>
+                    <!-- ======== 下拉框（ComboBox）：与输入框同一套半透明底 + 极淡描边，
+                         浮层沿用右键菜单的深板；选中项走品牌紫实心 ======== -->
+                    <SolidColorBrush x:Key="ComboBoxBackground" Color="#0FFFFFFF"/>
+                    <SolidColorBrush x:Key="ComboBoxBackgroundPointerOver" Color="#14FFFFFF"/>
+                    <SolidColorBrush x:Key="ComboBoxBackgroundPressed" Color="#14FFFFFF"/>
+                    <SolidColorBrush x:Key="ComboBoxBackgroundDisabled" Color="#08FFFFFF"/>
+                    <SolidColorBrush x:Key="ComboBoxBorderBrush" Color="#12FFFFFF"/>
+                    <SolidColorBrush x:Key="ComboBoxBorderBrushPointerOver" Color="#22FFFFFF"/>
+                    <SolidColorBrush x:Key="ComboBoxBorderBrushPressed" Color="#22FFFFFF"/>
+                    <SolidColorBrush x:Key="ComboBoxBorderBrushDisabled" Color="#0AFFFFFF"/>
+                    <SolidColorBrush x:Key="ComboBoxForeground" Color="#EEF1F6"/>
+                    <SolidColorBrush x:Key="ComboBoxForegroundPointerOver" Color="#EEF1F6"/>
+                    <SolidColorBrush x:Key="ComboBoxForegroundPressed" Color="#EEF1F6"/>
+                    <SolidColorBrush x:Key="ComboBoxForegroundDisabled" Color="#646C7E"/>
+                    <SolidColorBrush x:Key="ComboBoxDropDownBackground" Color="#1E2431"/>
+                    <SolidColorBrush x:Key="ComboBoxDropDownBorderBrush" Color="#1AFFFFFF"/>
+                    <SolidColorBrush x:Key="ComboBoxDropDownForeground" Color="#EEF1F6"/>
+                    <SolidColorBrush x:Key="ComboBoxItemBackgroundPointerOver" Color="#282F42"/>
+                    <SolidColorBrush x:Key="ComboBoxItemBackgroundPressed" Color="#282F42"/>
+                    <SolidColorBrush x:Key="ComboBoxItemBackgroundSelected" Color="#8B7CFF"/>
+                    <SolidColorBrush x:Key="ComboBoxItemBackgroundSelectedPointerOver" Color="#9B8CFF"/>
+                    <SolidColorBrush x:Key="ComboBoxItemBackgroundSelectedPressed" Color="#6F60DE"/>
+                    <SolidColorBrush x:Key="ComboBoxItemForeground" Color="#EEF1F6"/>
+                    <SolidColorBrush x:Key="ComboBoxItemForegroundSelected" Color="#FFFFFF"/>
                 </ResourceDictionary>
                 <ResourceDictionary x:Key="Light">
                     <SolidColorBrush x:Key="BgBrush" Color="#E6EAF1"/>
@@ -231,6 +263,8 @@
                     <SolidColorBrush x:Key="HoverBrush" Color="#E8EDF5"/>
                     <SolidColorBrush x:Key="PlayHoverFromBrush" Color="#00E8EDF5"/>
                     <SolidColorBrush x:Key="LineBrush" Color="#140F172A"/>
+                    <!-- 主窗口卡片外轮廓：比全局 LineBrush 深一档，窗口贴在桌面上时才立得住 -->
+                    <SolidColorBrush x:Key="WindowLineBrush" Color="#1A0F172A"/>
                     <!-- 可点胶囊的悬停描边：比 LineBrush 深一档，让静止/悬停/展开三态成色阶 -->
                     <SolidColorBrush x:Key="LineStrongBrush" Color="#240F172A"/>
                     <SolidColorBrush x:Key="TextBrush" Color="#0F172A"/>
@@ -261,6 +295,8 @@
                     <SolidColorBrush x:Key="NavActiveTextBrush" Color="#5B4BC9"/>
                     <!-- 电源键开启态：浅色主题下再提亮一档，更通透 -->
                     <SolidColorBrush x:Key="PowerOnBrush" Color="#9B8CFF"/>
+                    <!-- 开关开启态轨道：浅底上用取色到的实心紫 #7C5CFC（与菜单选中底同档） -->
+                    <SolidColorBrush x:Key="SwitchOnBrush" Color="#7C5CFC"/>
                     <SolidColorBrush x:Key="GreenBrush" Color="#4ADE80"/>
                     <SolidColorBrush x:Key="GreenSoftBrush" Color="#1F16A34A"/>
                     <SolidColorBrush x:Key="BlueBrush" Color="#60A5FA"/>
@@ -269,6 +305,8 @@
                     <SolidColorBrush x:Key="PinkBrush" Color="#EC4899"/>
                     <Color x:Key="PinkColor">#EC4899</Color>
                     <SolidColorBrush x:Key="PinkSoftBrush" Color="#1AEC4899"/>
+                    <SolidColorBrush x:Key="DangerBrush" Color="#DC2626"/>
+                    <SolidColorBrush x:Key="DangerSoftBrush" Color="#1ADC2626"/>
                     <SolidColorBrush x:Key="AmberBrush" Color="#FBBF24"/>
                     <SolidColorBrush x:Key="AmberSoftBrush" Color="#24E9A05C"/>
                     <SolidColorBrush x:Key="AmberSoft2Brush" Color="#38E9A05C"/>
@@ -367,6 +405,29 @@
                     <SolidColorBrush x:Key="MenuBgBrush" Color="#FFFFFF"/>
                     <SolidColorBrush x:Key="MenuLineBrush" Color="#140F172A"/>
                     <SolidColorBrush x:Key="MenuTextBrush" Color="#0F172A"/>
+                    <!-- ======== 下拉框（ComboBox）：与输入框同一套淡底 + 极淡描边，浮层用纯白板 ======== -->
+                    <SolidColorBrush x:Key="ComboBoxBackground" Color="#0F0F172A"/>
+                    <SolidColorBrush x:Key="ComboBoxBackgroundPointerOver" Color="#160F172A"/>
+                    <SolidColorBrush x:Key="ComboBoxBackgroundPressed" Color="#160F172A"/>
+                    <SolidColorBrush x:Key="ComboBoxBackgroundDisabled" Color="#080F172A"/>
+                    <SolidColorBrush x:Key="ComboBoxBorderBrush" Color="#140F172A"/>
+                    <SolidColorBrush x:Key="ComboBoxBorderBrushPointerOver" Color="#240F172A"/>
+                    <SolidColorBrush x:Key="ComboBoxBorderBrushPressed" Color="#240F172A"/>
+                    <SolidColorBrush x:Key="ComboBoxBorderBrushDisabled" Color="#0C0F172A"/>
+                    <SolidColorBrush x:Key="ComboBoxForeground" Color="#0F172A"/>
+                    <SolidColorBrush x:Key="ComboBoxForegroundPointerOver" Color="#0F172A"/>
+                    <SolidColorBrush x:Key="ComboBoxForegroundPressed" Color="#0F172A"/>
+                    <SolidColorBrush x:Key="ComboBoxForegroundDisabled" Color="#8A93A6"/>
+                    <SolidColorBrush x:Key="ComboBoxDropDownBackground" Color="#FFFFFF"/>
+                    <SolidColorBrush x:Key="ComboBoxDropDownBorderBrush" Color="#140F172A"/>
+                    <SolidColorBrush x:Key="ComboBoxDropDownForeground" Color="#0F172A"/>
+                    <SolidColorBrush x:Key="ComboBoxItemBackgroundPointerOver" Color="#EDF1F8"/>
+                    <SolidColorBrush x:Key="ComboBoxItemBackgroundPressed" Color="#EDF1F8"/>
+                    <SolidColorBrush x:Key="ComboBoxItemBackgroundSelected" Color="#7C5CFC"/>
+                    <SolidColorBrush x:Key="ComboBoxItemBackgroundSelectedPointerOver" Color="#9C8BFF"/>
+                    <SolidColorBrush x:Key="ComboBoxItemBackgroundSelectedPressed" Color="#6A4BEA"/>
+                    <SolidColorBrush x:Key="ComboBoxItemForeground" Color="#0F172A"/>
+                    <SolidColorBrush x:Key="ComboBoxItemForegroundSelected" Color="#FFFFFF"/>
                 </ResourceDictionary>
             </ResourceDictionary.ThemeDictionaries>
 </ResourceDictionary>

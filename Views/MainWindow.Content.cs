@@ -29,11 +29,13 @@ public partial class MainWindow
     private TextBox SearchInput => FindMainControl<TextBox>("SearchInput")!;
     private Button XiaoAiBtn => FindMainControl<Button>("XiaoAiBtn")!;
     private Button MusicBtn => FindMainControl<Button>("MusicBtn")!;
+    private Button HomeChipBtn => FindMainControl<Button>("HomeChipBtn")!;
     private Border? DeviceMask => FindMainControl<Border>("DeviceMask");
     private Border? DeviceMaskLight => FindMainControl<Border>("DeviceMaskLight");
     private DeviceDrawerView? DeviceDrawerView => FindMainControl<DeviceDrawerView>("DeviceDrawerView");
     private VoicePanelView? VoicePanelView => FindMainControl<VoicePanelView>("VoicePanelView");
     private MusicPanelView? MusicPanelView => FindMainControl<MusicPanelView>("MusicPanelView");
+    private HomePanelView? HomePanelView => FindMainControl<HomePanelView>("HomePanelView");
 
     public override void Show()
     {
@@ -68,11 +70,12 @@ public partial class MainWindow
             root.DataContext = DataContext;
             _mainContentRoot = root;
             _mainContentScope = built.NameScope;
-            Content = root;
+            SurfaceContentHost.Content = root;
             Dispatcher.UIThread.Post(() =>
             {
                 if (!ReferenceEquals(_mainContentRoot, root) || Vm is not { } vm) return;
                 if (vm.IsDrawerOpen) AnimateDeviceDrawer(true);
+                if (vm.IsHomeOpen) { AlignHomePanel(); HomePanelView?.Animate(true); }
                 if (vm.IsVoiceOpen) { AlignVoicePanel(); VoicePanelView?.Animate(true); }
                 if (vm.IsMusicOpen) { AlignMusicPanel(); MusicPanelView?.Animate(true); }
             }, DispatcherPriority.Loaded);
@@ -99,7 +102,7 @@ public partial class MainWindow
             }
             _mainContentRoot = null;
             _mainContentScope = null;
-            Content = null;
+            SurfaceContentHost.Content = null;
             if (Vm is { } vm)
             {
                 vm.CloseOverlaysCommand.Execute(null);
@@ -134,11 +137,17 @@ public partial class MainWindow
     {
         if (!IsMainContentLoaded) return;
         if (e.PropertyName is not (nameof(MainViewModel.IsDrawerOpen)
-            or nameof(MainViewModel.IsVoiceOpen) or nameof(MainViewModel.IsMusicOpen))) return;
+            or nameof(MainViewModel.IsVoiceOpen) or nameof(MainViewModel.IsMusicOpen)
+            or nameof(MainViewModel.IsHomeOpen))) return;
         Dispatcher.UIThread.Post(() =>
         {
             if (!IsMainContentLoaded || Vm is not { } vm) return;
             if (e.PropertyName == nameof(MainViewModel.IsDrawerOpen)) AnimateDeviceDrawer(vm.IsDrawerOpen);
+            if (e.PropertyName == nameof(MainViewModel.IsHomeOpen))
+            {
+                if (vm.IsHomeOpen) AlignHomePanel();
+                HomePanelView?.Animate(vm.IsHomeOpen);
+            }
             if (e.PropertyName == nameof(MainViewModel.IsVoiceOpen))
             {
                 if (vm.IsVoiceOpen) AlignVoicePanel();

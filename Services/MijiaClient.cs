@@ -52,7 +52,11 @@ public class MijiaClient : IDisposable
         _http.DefaultRequestHeaders.Add("Cookie", cookie);
     }
 
-    private async Task<JsonElement> RequestAsync(string uri, object dataObj)
+    /// <summary>
+    /// 底层请求：返回完整响应信封（含 code / message / result），不在这里抛业务错误。
+    /// 诊断探针需要看到原始 code 与字段结构，业务层走 <see cref="RequestAsync"/>。
+    /// </summary>
+    internal async Task<JsonElement> RequestRawAsync(string uri, object dataObj)
     {
         var dataJson = JsonSerializer.Serialize(dataObj);
         var nonce = MijiaCrypto.GenNonce();
@@ -89,10 +93,17 @@ public class MijiaClient : IDisposable
             }
         }
 
+        return ret;
+    }
+
+    /// <summary>业务请求：剥掉外层信封，code≠0 直接抛。</summary>
+    private async Task<JsonElement> RequestAsync(string uri, object dataObj)
+    {
+        var ret = await RequestRawAsync(uri, dataObj);
         if (ret.TryGetProperty("code", out var c) && c.ValueKind == JsonValueKind.Number && c.GetInt32() != 0)
         {
             var msg = ret.TryGetProperty("message", out var m) ? m.GetString() : "未知错误";
-            throw new Exception($"米家 API 错误 {c}: {msg}");
+            throw new Exception($"米家 API 错误 {c.GetInt32()}: {msg}");
         }
         return ret.TryGetProperty("result", out var r) ? r : ret;
     }
@@ -264,6 +275,306 @@ public class MijiaClient : IDisposable
             scene_id = scene.SceneId, scene_type = 2, phone_id = "null",
             home_id = scene.HomeId, owner_uid = owner
         });
+    }
+
+    /// <summary>
+    /// 只执行场景里落到指定设备的那几条属性动作：逐条 set_prop 下发，完全不碰云端场景定义。
+    /// 用于「我只想开这盏灯，不想整套场景跑一遍」——比改米家场景安全得多，也不受场景里其他设备离线影响。
+    /// 返回实际下发条数；tts / 执行其他场景 / 设备组命令这类无法单拆的动作会跳过。
+    /// </summary>
+    public async Task<(int Applied, int Skipped)> RunSceneOnDeviceAsync(MijiaScene scene, string did)
+    {
+        var actions = scene.ActionsForDevice(did);
+        if (actions.Count == 0) return (0, 0);
+
+        var applied = 0;
+        var skipped = 0;
+        var errors = new List<string>();
+
+        foreach (var action in actions)
+        {
+            var writes = action.Writes.Where(w => MijiaScene.SameDid(w.Did ?? action.TargetDid, did)).ToList();
+            if (writes.Count == 0)
+            {
+                // tts 播报、跳转其他场景、设备组命令：参数无法照搬到单设备，跳过并计数
+                skipped++;
+                continue;
+            }
+
+            foreach (var w in writes)
+            {
+                var value = w.Raw is { } raw ? ReadValue(raw) : null;
+                if (value == null)
+                {
+                    skipped++;
+                    continue;
+                }
+
+                try
+                {
+                    await SetPropAsync(w.Did ?? did, w.Siid, w.Piid, value);
+                    applied++;
+                }
+                catch (Exception ex)
+                {
+                    errors.Add($"{w.Describe()}（{ex.Message}）");
+                }
+            }
+        }
+
+        if (applied == 0 && errors.Count > 0)
+            throw new Exception(string.Join("；", errors));
+
+        if (applied == 0 && skipped > 0)
+            throw new Exception("这条场景对当前设备只有语音/跳转类动作，无法单独下发");
+
+        return (applied, skipped);
+    }
+
+    // ===== 场景 / 自动化全量（2026-11 探针实测结论） =====
+    // 两个接口必须一起拿，各缺一半：
+    //   GetSimpleSceneList(app_version=12,get_type=2)
+    //     → manual_scene_info_list / auto_scene_info_list 分类准确（12 手动 + N 自动化），
+    //       且每条已带 scene_action（设备/动作/属性值）与 enable；
+    //       但自动化只有 first_trigger，拿不到完整且/或条件与生效时段。
+    //   GetSceneList(app_version=12,get_type=2)
+    //     → scene_info_list 是全集详情（scene_trigger / scene_condition / scene_action / timewindow / room_id），
+    //       但它的 type 字段语义混乱（手动自动化混在一起），且不带 get_type 参数会漏条目。
+    // 所以：分类听 Simple，详情听 SceneList，按 scene_id 合并。
+
+    private const string SceneFullListUri = "/appgateway/miot/appsceneservice/AppSceneService/GetSceneList";
+    private const string SceneStatusUri = "/appgateway/miot/appsceneservice/AppSceneService/SetSceneStatus";
+
+    /// <summary>编辑 / 新建场景（2026-11 实锤：整条对象原样回传，scene_id="0" 表示新建）。</summary>
+    private const string SceneEditUri = "/appgateway/miot/appsceneservice/AppSceneService/Edit";
+
+    /// <summary>删除场景（入参 {scene_id}，实测可用）。</summary>
+    private const string SceneDeleteUri = "/appgateway/miot/appsceneservice/AppSceneService/Delete";
+
+    /// <summary>
+    /// 只取「场景/自动化 → 启停态」的轻量同步：每个家庭一次 GetSimpleSceneList（简化版，带 enable）。
+    /// 用于本应用在某处改了开关、或用户在手机 App 上改了之后把界面状态对齐，
+    /// 不重建列表、不拉动作详情，网络开销远小于 GetSceneBundleAsync。
+    /// </summary>
+    public async Task<Dictionary<string, bool>> GetSceneEnableMapAsync()
+    {
+        var map = new Dictionary<string, bool>(StringComparer.Ordinal);
+        var homes = _homes.Count > 0 ? _homes : await GetHomesAsync();
+
+        foreach (var home in homes)
+        {
+            var raw = await TryRawAsync(SceneListUri, new
+            {
+                app_version = 12, get_type = 2, home_id = home.Id, owner_uid = home.Uid
+            });
+            if (Unwrap(raw) is not { } result) continue;
+
+            foreach (var listName in new[] { "manual_scene_info_list", "auto_scene_info_list" })
+            {
+                foreach (var s in ReadSceneList(result, listName))
+                {
+                    if (!string.IsNullOrEmpty(s.SceneId)) map[s.SceneId] = s.Enable;
+                }
+            }
+        }
+
+        return map;
+    }
+
+    /// <summary>
+    /// 启停自动化 / 场景。2026-11 探针实测：SetSceneStatus 幂等写（原值写回）返回 code=0、result=true，
+    /// 复核状态未变，说明它就是启停入口；用户实测手机米家 App 同步变化。
+    /// 入参同时带 enable(bool) 与 status(1/0)：接口只认其中一个，两个给一致值最稳。
+    /// </summary>
+    public async Task SetSceneEnabledAsync(MijiaScene scene, bool enable)
+    {
+        var owner = _homes.Find(h => h.Id == scene.HomeId)?.Uid ?? 0;
+        var r = await RequestAsync(SceneStatusUri, new
+        {
+            app_version = 12,
+            scene_id = scene.SceneId,
+            enable,
+            status = enable ? 1 : 0,
+            home_id = scene.HomeId,
+            owner_uid = owner
+        });
+        if (r.ValueKind == JsonValueKind.False)
+            throw new Exception("云端未接受这次启停操作");
+    }
+
+    /// <summary>
+    /// 保存（编辑或新建）场景。整条原始对象原样回传，只做必要字段覆盖，避免漏字段被服务端拒绝。
+    /// <paramref name="mutate"/> 就地修改报文（改名称、改动作值等）。
+    /// 返回服务端确认的 scene_id（新建时是新 id）。
+    /// </summary>
+    public async Task<string> SaveSceneAsync(MijiaScene scene, Action<System.Text.Json.Nodes.JsonObject>? mutate = null)
+    {
+        var body = BuildEditPayload(scene);
+        mutate?.Invoke(body);
+        return await PostEditAsync(body, scene.SceneId);
+    }
+
+    /// <summary>
+    /// 以场景为模板新建一条副本。副本默认关闭，避免复制完成瞬间就被触发。
+    /// </summary>
+    public async Task<string> DuplicateSceneAsync(MijiaScene scene, string newName)
+    {
+        var body = BuildEditPayload(scene);
+        body["scene_id"] = "0";
+        body["name"] = newName;
+        body["enable"] = false;
+        body["enable_push"] = false;
+        body["common_use"] = false;
+        var now = DateTimeOffset.UtcNow.ToUnixTimeSeconds().ToString();
+        body["create_time"] = now;
+        body["update_time"] = now;
+        return await PostEditAsync(body, "");
+    }
+
+    /// <summary>删除场景 / 自动化。实测入参只要 scene_id + 家庭信息。</summary>
+    public async Task DeleteSceneAsync(MijiaScene scene)
+    {
+        var owner = _homes.Find(h => h.Id == scene.HomeId)?.Uid ?? 0;
+        await RequestAsync(SceneDeleteUri, new
+        {
+            app_version = 12,
+            scene_id = scene.SceneId,
+            home_id = scene.HomeId,
+            owner_uid = owner
+        });
+    }
+
+    /// <summary>
+    /// 构造编辑报文：以原始 JSON 为底（编辑接口要求整条对象结构完整），
+    /// 再补 app_version / home_id / owner_uid 这几个接口级字段。
+    /// </summary>
+    private System.Text.Json.Nodes.JsonObject BuildEditPayload(MijiaScene scene)
+    {
+        if (scene.Raw == null)
+            throw new Exception("这条场景没有保留原始报文，请刷新后重试");
+
+        var body = (System.Text.Json.Nodes.JsonObject)scene.Raw.DeepClone();
+        var owner = _homes.Find(h => h.Id == scene.HomeId)?.Uid
+                    ?? (long.TryParse(body["uid"]?.ToString(), out var u) ? u : 0);
+
+        body["app_version"] = 12;
+        body["home_id"] = scene.HomeId;
+        body["owner_uid"] = owner;
+        if (body["uid"] == null) body["uid"] = owner.ToString();
+        return body;
+    }
+
+    private async Task<string> PostEditAsync(System.Text.Json.Nodes.JsonObject body, string fallbackId)
+    {
+        var r = await RequestAsync(SceneEditUri, body);
+        if (r.ValueKind == JsonValueKind.Object && r.TryGetProperty("scene_id", out var sid))
+            return sid.ToString();
+        return fallbackId;
+    }
+
+    /// <summary>
+    /// 拉当前所有家庭的场景 + 自动化，已合并详情并按 <see cref="MijiaScene.IsAutomation"/> 分类。
+    /// 详情接口失败时降级为简化列表（仍有动作与启用态，只是没有完整触发条件）。
+    /// </summary>
+    public async Task<List<MijiaScene>> GetSceneBundleAsync()
+    {
+        var homes = _homes.Count > 0 ? _homes : await GetHomesAsync();
+        var tasks = homes.Select(LoadHomeScenesAsync);
+        var lists = await Task.WhenAll(tasks);
+        return lists.SelectMany(x => x).ToList();
+    }
+
+    private async Task<List<MijiaScene>> LoadHomeScenesAsync(MijiaHome home)
+    {
+        var simpleTask = TryRawAsync(SceneListUri, new
+        {
+            app_version = 12, get_type = 2, home_id = home.Id, owner_uid = home.Uid
+        });
+        var fullTask = TryRawAsync(SceneFullListUri, new
+        {
+            app_version = 12, get_type = 2, home_id = home.Id, owner_uid = home.Uid
+        });
+        await Task.WhenAll(simpleTask, fullTask);
+
+        var manual = new List<MijiaScene>();
+        var autos = new List<MijiaScene>();
+        if (Unwrap(simpleTask.Result) is { } simple)
+        {
+            manual = ReadSceneList(simple, "manual_scene_info_list");
+            autos = ReadSceneList(simple, "auto_scene_info_list");
+        }
+
+        var detail = new Dictionary<string, MijiaScene>(StringComparer.Ordinal);
+        if (Unwrap(fullTask.Result) is { } full)
+        {
+            foreach (var d in ReadSceneList(full, "scene_info_list"))
+                if (!string.IsNullOrEmpty(d.SceneId)) detail[d.SceneId] = d;
+        }
+
+        var result = new List<MijiaScene>(manual.Count + autos.Count);
+        var seen = new HashSet<string>(StringComparer.Ordinal);
+
+        void Add(MijiaScene item, bool isAutomation)
+        {
+            if (string.IsNullOrEmpty(item.SceneId) || !seen.Add(item.SceneId)) return;
+            item.HomeId = home.Id;
+            item.IsAutomation = isAutomation;
+            result.Add(item);
+        }
+
+        // 分类以简化列表为准，详情用来补字段（详情对象本身带动作与触发条件）
+        foreach (var s in manual) Add(detail.TryGetValue(s.SceneId, out var d) ? d : s, false);
+        foreach (var s in autos) Add(detail.TryGetValue(s.SceneId, out var d) ? d : s, true);
+
+        // 详情里多出来的（简化列表没覆盖到的）按有无触发条件归类
+        foreach (var d in detail.Values)
+        {
+            if (seen.Contains(d.SceneId)) continue;
+            Add(d, d.Triggers.Count > 0);
+        }
+
+        return result;
+    }
+
+    /// <summary>剥掉 {code,message,result} 外壳；接口直接返回结果时原样给出。</summary>
+    private static JsonElement? Unwrap(JsonElement? raw)
+    {
+        if (raw is not { } r) return null;
+        if (r.ValueKind != JsonValueKind.Object) return r;
+        return r.TryGetProperty("result", out var res) ? res : r;
+    }
+
+    private static List<MijiaScene> ReadSceneList(JsonElement result, string arrayName)
+    {
+        var list = new List<MijiaScene>();
+        if (result.ValueKind != JsonValueKind.Object) return list;
+        if (!result.TryGetProperty(arrayName, out var arr) || arr.ValueKind != JsonValueKind.Array)
+            return list;
+
+        foreach (var el in arr.EnumerateArray())
+        {
+            if (el.ValueKind != JsonValueKind.Object) continue;
+            MijiaScene? s = null;
+            try { s = el.Deserialize<MijiaScene>(); } catch { }
+            if (s == null || string.IsNullOrEmpty(s.SceneId)) continue;
+            // 留一份原始 JSON：编辑接口要整条回传，缺字段会被服务端拒绝
+            try { s.Raw = System.Text.Json.Nodes.JsonNode.Parse(el.GetRawText())?.AsObject(); } catch { }
+            list.Add(s);
+        }
+        return list;
+    }
+
+    /// <summary>取原始响应，任何异常都返回 null（用于可降级的辅助接口）。</summary>
+    private async Task<JsonElement?> TryRawAsync(string uri, object dataObj)
+    {
+        try
+        {
+            return await RequestRawAsync(uri, dataObj);
+        }
+        catch
+        {
+            return null;
+        }
     }
 
     /// <summary>读属性：did + siid + piid</summary>

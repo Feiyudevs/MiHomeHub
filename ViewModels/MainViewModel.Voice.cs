@@ -30,6 +30,7 @@ public partial class MainViewModel : ObservableObject
     [ObservableProperty] private string _voiceText = "";
     [ObservableProperty] private bool _isVoiceOpen;
     [ObservableProperty] private bool _isMusicOpen;
+    [ObservableProperty] private bool _isHomeOpen;
     [ObservableProperty] private bool _isVoiceSending;
     /// <summary>浮层内的执行结果提示：成功/失败原因，不再只写隐藏日志。</summary>
     [ObservableProperty] private string _voiceHint = "";
@@ -47,18 +48,36 @@ public partial class MainViewModel : ObservableObject
         {
             IsVoiceOpen = false;
             IsMusicOpen = false;
+            IsHomeOpen = false;
         }
     }
 
-    // 标题栏两个胶囊浮层同宽同位，互斥展开，避免叠在一起
+    // 标题栏三个胶囊浮层同宽同位，互斥展开，避免叠在一起
     partial void OnIsVoiceOpenChanged(bool value)
     {
-        if (value) IsMusicOpen = false;
+        if (value)
+        {
+            IsMusicOpen = false;
+            IsHomeOpen = false;
+        }
     }
 
     partial void OnIsMusicOpenChanged(bool value)
     {
-        if (value) IsVoiceOpen = false;
+        if (value)
+        {
+            IsVoiceOpen = false;
+            IsHomeOpen = false;
+        }
+    }
+
+    partial void OnIsHomeOpenChanged(bool value)
+    {
+        if (value)
+        {
+            IsVoiceOpen = false;
+            IsMusicOpen = false;
+        }
     }
 
     partial void OnSelectedSpeakerValueChanged(object? value)
@@ -126,6 +145,9 @@ public partial class MainViewModel : ObservableObject
 
     [RelayCommand]
     private void ToggleMusic() => IsMusicOpen = !IsMusicOpen;
+
+    [RelayCommand]
+    private void ToggleHome() => IsHomeOpen = !IsHomeOpen;
 
     /// <summary>把输入框里的话交给默认音箱的 execute-text-directive 动作。</summary>
     [RelayCommand]

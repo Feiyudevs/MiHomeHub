@@ -1,4 +1,4 @@
-<Window 
+<ctl:CustomWindow 
     
     
     xmlns="https://github.com/avaloniaui"
@@ -29,10 +29,8 @@
         Icon="/Assets/logo.ico"
         Width="1280" Height="800"
         MinWidth="980" MinHeight="620"
-        Background="{DynamicResource BgBrush}"
-        ExtendClientAreaToDecorationsHint="True"
-        ExtendClientAreaChromeHints="NoChrome"
-        ExtendClientAreaTitleBarHeightHint="60"
+        SurfaceCornerRadius="20"
+        ShadowMargin="34"
         KeyDown="OnKeyDown">
     <Window.Styles>
         <StyleInclude Source="avares://MiHome/Themes/MainWindowStyles.axaml" />
@@ -57,35 +55,9 @@
             <Border Grid.Column="1" Classes="AccountGroup" Margin="18,0,0,0">
                 <StackPanel Orientation="Horizontal">
                     <Button Classes="AccountChip" x:Name="HomeChipBtn"
+                            Classes.open="{Binding IsHomeOpen}"
+                            Command="{Binding ToggleHomeCommand}"
                             ToolTip.Tip="{Binding HomeChipTip}">
-                        <Button.Flyout>
-                            <Flyout Placement="BottomEdgeAlignedLeft"
-                                    ShowMode="TransientWithDismissOnPointerMoveAway">
-                                <!-- 不用 BoxShadow：Avalonia 阴影会按直角矩形外扩，盖住圆角 -->
-                                <Border Background="{DynamicResource CardBrush}" CornerRadius="14"
-                                        Padding="8" MinWidth="188" MaxWidth="260"
-                                        BorderBrush="{DynamicResource LineBrush}" BorderThickness="1">
-                                    <StackPanel Spacing="2">
-                                        <TextBlock Text="切换家庭" FontSize="11" Margin="10,4,10,6"
-                                                   Foreground="{DynamicResource Text3Brush}" />
-                                        <ItemsControl ItemsSource="{Binding HomeOptions}">
-                                            <ItemsControl.ItemTemplate>
-                                                <DataTemplate x:DataType="m:HomeOption">
-                                                    <Button Classes="HomeMenuItem" Classes.is-on="{Binding IsSelected}"
-                                                            Command="{Binding $parent[Window].((vm:MainViewModel)DataContext).SwitchHomeCommand}"
-                                                            CommandParameter="{Binding}"
-                                                            ToolTip.Tip="{Binding Name}">
-                                                        <TextBlock Text="{Binding Name}" FontSize="13"
-                                                                   Foreground="{DynamicResource TextBrush}"
-                                                                   TextTrimming="CharacterEllipsis" />
-                                                    </Button>
-                                                </DataTemplate>
-                                            </ItemsControl.ItemTemplate>
-                                        </ItemsControl>
-                                    </StackPanel>
-                                </Border>
-                            </Flyout>
-                        </Button.Flyout>
                         <StackPanel Orientation="Horizontal" Spacing="6">
                             <!-- 与侧栏 house 图标同一份细线几何 -->
                             <Path Width="13" Height="13" Stretch="Uniform" StrokeThickness="1.6"
@@ -202,9 +174,20 @@
                     </Viewbox>
                     <TextBox Grid.Column="1" x:Name="SearchInput" Classes="SearchInline"
                              MinWidth="0" Height="30" VerticalAlignment="Center"
-                             IsTabStop="False"
-                             Watermark="搜索设备、房间…" Text="{Binding SearchText}"
+                             IsTabStop="False" Padding="2,0,24,0"
+                             Watermark="{Binding SearchWatermark}" Text="{Binding SearchText}"
                              KeyDown="OnSearchKeyDown" LostFocus="OnSearchLostFocus" />
+                    <!-- 有文字才出现的清空钮：右端 18px 圆点，点一下清空关键词（不收起输入框，方便改词重搜） -->
+                    <Button Grid.Column="1" Classes="SearchClear"
+                            IsVisible="{Binding HasSearchText}"
+                            Click="OnSearchClearClick" ToolTip.Tip="清空搜索">
+                        <Viewbox Width="9" Height="9">
+                            <Panel Width="24" Height="24">
+                                <Path StrokeThickness="2.6" StrokeLineCap="Round"
+                                      Data="{StaticResource GeoClose}" />
+                            </Panel>
+                        </Viewbox>
+                    </Button>
                 </Grid>
             </Border>
             <StackPanel Grid.Column="5" Orientation="Horizontal" VerticalAlignment="Center">
@@ -263,7 +246,7 @@
                     <Button Classes="NavRow" Classes.on="{Binding SelectedNavIndex, Converter={StaticResource IntEq}, ConverterParameter=0}" Tag="home"
                             Content="首页" Click="OnGotoHome" />
                     <Button Classes="NavRow" Classes.on="{Binding SelectedNavIndex, Converter={StaticResource IntEq}, ConverterParameter=2}" Tag="scene"
-                            Content="场景" Click="OnGotoScenes" />
+                            Content="智能" Click="OnGotoScenes" />
                 </StackPanel>
                 <TextBlock DockPanel.Dock="Top" Classes="NavCaption" Text="{Binding RoomCount, StringFormat='房间 · {0}'}" />
                 <!-- 所有房间 -->
@@ -306,8 +289,16 @@
                             </Border.Background>
                         </Border>
                     </Panel>
+                    <!-- 滚动条整体右移的实现（不改变文档流）：
+                         Carousel 右外距 22 → 6，把 ScrollViewer 连同它的滚条列一起右扩 16px；
+                         正文各页面根容器补 16 右内距（见 HomeView/RoomsView/ScenesView 根 StackPanel），
+                         于是「外距 6 + 内距 16 = 原来 22」，正文可用宽度与卡片列数/位置完全不变，
+                         滚条则落进这条 16px 空白里，不再贴着卡片。
+                         注意别改用 ScrollViewer.Padding 缩正文：那样正文的测量宽度会大于裁剪宽度，
+                         自适应网格按测量宽度算列宽 → 最右一列被裁掉半张卡（已踩过）。
+                         底部不再留 28 外边距：列表直接铺到面板下沿，避免「下面一条空白 + 末行被切」的假裁切。 -->
                     <Carousel SelectedIndex="{Binding SelectedNavIndex}"
-                              Margin="22,20,22,28">
+                              Margin="22,20,6,0">
                         <ScrollViewer HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Auto">
                             <views:HomeView />
                         </ScrollViewer>
@@ -335,6 +326,11 @@
              遮罩已移入圆角内容面板内部（只盖内容区、随面板裁圆角，不盖侧栏/标题栏）；
              抽屉保留在根层，Grid.Row=1 + HorizontalAlignment=Right，滑入主体右侧。 -->
         <views:DeviceDrawerView x:Name="DeviceDrawerView" Grid.Row="1" ZIndex="100" />
+        <!-- ================= 自动化 / 场景编辑面板（写云端 AppSceneService/Edit） ================= -->
+        <views:SceneEditorView Grid.Row="1" ZIndex="110" />
+        <!-- ================= 我的家庭：标题栏家庭胶囊唤出的切换浮层 ================= -->
+        <!-- 三个胶囊浮层同宽同位，左沿各自对齐唤出按钮，共用 OverlayReveal 的同一套开合动画 -->
+        <views:HomePanelView x:Name="HomePanelView" Grid.Row="1" ZIndex="120" />
         <!-- ================= 小爱语音：标题栏右侧胶囊唤出的指令浮层（仅检测到音箱时出现） ================= -->
         <!-- 浮层右缘对齐标题栏胶囊右缘（右侧栏钮宽度固定，所以用右对齐 + 固定右边距） -->
         <views:VoicePanelView x:Name="VoicePanelView" Grid.Row="1" ZIndex="120" />
@@ -352,4 +348,25 @@
     </Grid>
       </DataTemplate>
     </Window.Resources>
-</Window>
+    <!-- ================= 自绘窗体表面（自定义窗体，无毛玻璃） =================
+         外层留白（Margin 由 CustomWindow 按 ShadowMargin 写入）用来放自绘投影；
+         投影必须画在与裁切不同的 Border 上：同一个 Border 开 ClipToBounds 会把 BoxShadow 裁光。
+         圆角外形由外层 Border 画（背景 + 1px 描边），内容裁剪交给内层 Border。
+         最大化时 CustomWindow 把两层的 Margin / CornerRadius 一起归零，铺满工作区。 -->
+    <Grid x:Name="SurfaceHost">
+        <Border x:Name="SurfaceShadow" Margin="34" CornerRadius="20"
+                IsHitTestVisible="False"
+                BoxShadow="0 8 24 0 #4D11182B" />
+        <!-- 外层只画「背景 + 描边」，不能开 ClipToBounds：圆角裁剪是 1 位掩膜（不带抗锯齿），
+             会把描边和圆角边的抗锯齿一起切成硬台阶。内容裁剪下放给内层 SurfaceClip，
+             它的圆角比外层小 1（正好落在描边内侧），切出来的台阶盖在同色背景上，看不见。 -->
+        <Border x:Name="RootSurface" Margin="34" CornerRadius="20"
+                Background="{DynamicResource BgBrush}"
+                BorderBrush="{DynamicResource WindowLineBrush}"
+                BorderThickness="1">
+            <Border x:Name="SurfaceClip" CornerRadius="19" ClipToBounds="True">
+                <ContentControl x:Name="SurfaceContentHost" />
+            </Border>
+        </Border>
+    </Grid>
+</ctl:CustomWindow>

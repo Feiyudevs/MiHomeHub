@@ -5,7 +5,9 @@
              xmlns:ctl="clr-namespace:MiHome.Controls"
              xmlns:views="clr-namespace:MiHome.Views"
              x:Class="MiHome.Views.RoomsView">
-    <StackPanel x:DataType="vm:MainViewModel">
+    <!-- 右 16 内距 + 底 20 内距：右侧是给页面滚动条让出的空白（Carousel 右外距 6 + 16 = 原 22，正文宽度不变），
+         底部留白只在滚到末尾时露出来，静止时不占版面 -->
+    <StackPanel x:DataType="vm:MainViewModel" Margin="0,0,16,20">
     <!-- 房间横幅 -->
     <Border CornerRadius="20" Padding="22,20" Margin="0,0,0,18"
             Background="{DynamicResource BannerBrush}">
@@ -34,10 +36,23 @@
             </StackPanel>
             <Border Grid.Column="1" Width="120" Height="120" CornerRadius="30"
                     Background="{DynamicResource Surface4Brush}" VerticalAlignment="Center">
-                <Path Width="56" Height="56" Stretch="Uniform"
-                      Stroke="{DynamicResource Text3Brush}" StrokeThickness="1.4"
-                      StrokeLineCap="Round" StrokeJoin="Round" Opacity="0.7"
-                      Data="{StaticResource GeoRooms}" />
+                <Panel>
+                    <!-- 与侧栏房间图标共用同一套 key 和两种画法：玻璃模式取多色 SVG，细线模式取线稿 -->
+                    <Image Width="76" Height="76" Stretch="Uniform"
+                           HorizontalAlignment="Center" VerticalAlignment="Center"
+                           IsVisible="{Binding IconGlass}"
+                           Source="{Binding BannerIconKey, Converter={StaticResource NavSvg}}" />
+                    <Viewbox Width="76" Height="76" Stretch="Uniform"
+                             HorizontalAlignment="Center" VerticalAlignment="Center"
+                             IsVisible="{Binding !IconGlass}">
+                        <Panel Width="24" Height="24">
+                            <Path Width="24" Height="24" Stretch="None"
+                                  Stroke="{DynamicResource NavActiveTextBrush}" StrokeThickness="0.9"
+                                  StrokeLineCap="Round" StrokeJoin="Round"
+                                  Data="{Binding BannerIconKey, Converter={StaticResource NavLine}}" />
+                        </Panel>
+                    </Viewbox>
+                </Panel>
             </Border>
         </Grid>
     </Border>

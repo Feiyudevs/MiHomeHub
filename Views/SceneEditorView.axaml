@@ -1,0 +1,605 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="clr-namespace:MiHome.ViewModels"
+             xmlns:m="clr-namespace:MiHome.Models"
+             xmlns:ctl="clr-namespace:MiHome.Controls"
+             x:Class="MiHome.Views.SceneEditorView"
+             x:DataType="vm:MainViewModel">
+    <!-- 自动化 / 场景编辑面板：名称、启停、动作值可直接改并写回云端（AppSceneService/Edit）。
+         版式分三层：基础信息卡 → 触发条件卡（下拉查看全部条件）→ 执行顺序列表（可折叠）；
+         保存 / 取消常驻在底部 Footer，正文再长也不会把操作钮滚出视野。 -->
+    <UserControl.Styles>
+        <!-- 已有触发条件的一行：整行可点（只有可编辑的行才有手型与悬停） -->
+        <Style Selector="Border.TrigRow">
+            <Setter Property="Background" Value="{DynamicResource Surface4Brush}" />
+            <Setter Property="BorderBrush" Value="{DynamicResource LineBrush}" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="CornerRadius" Value="10" />
+            <Setter Property="Padding" Value="10,8" />
+            <Setter Property="Margin" Value="0,0,0,6" />
+        </Style>
+        <Style Selector="Border.TrigRow.editable">
+            <Setter Property="Cursor" Value="Hand" />
+        </Style>
+        <Style Selector="Border.TrigRow.editable:pointerover">
+            <Setter Property="Background" Value="{DynamicResource Surface5Brush}" />
+            <Setter Property="BorderBrush" Value="{DynamicResource LineStrongBrush}" />
+        </Style>
+        <!-- 行首的「事件 / 状态 / 定时 / 手动」小胶囊 -->
+        <Style Selector="Border.TrigKind">
+            <Setter Property="Background" Value="{DynamicResource CardBrush}" />
+            <Setter Property="BorderBrush" Value="{DynamicResource LineBrush}" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="CornerRadius" Value="6" />
+            <Setter Property="Padding" Value="6,2" />
+            <Setter Property="VerticalAlignment" Value="Center" />
+            <Setter Property="Margin" Value="0,0,9,0" />
+        </Style>
+
+        <!-- 行尾删除钮：22px 方形，只有悬停才出淡红底 -->
+        <Style Selector="Button.TrigDel">
+            <Setter Property="Width" Value="22" />
+            <Setter Property="Height" Value="22" />
+            <Setter Property="Padding" Value="0" />
+            <Setter Property="CornerRadius" Value="7" />
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="BorderThickness" Value="0" />
+            <Setter Property="Foreground" Value="{DynamicResource Text3Brush}" />
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="Focusable" Value="False" />
+            <Setter Property="Template">
+                <ControlTemplate>
+                    <Border Name="Bd" CornerRadius="7" Background="{TemplateBinding Background}">
+                        <ContentPresenter Content="{TemplateBinding Content}"
+                                          HorizontalAlignment="Center" VerticalAlignment="Center" />
+                    </Border>
+                </ControlTemplate>
+            </Setter>
+        </Style>
+        <Style Selector="Button.TrigDel:pointerover /template/ Border#Bd">
+            <Setter Property="Background" Value="{DynamicResource DangerSoftBrush}" />
+        </Style>
+        <Style Selector="Button.TrigDel:pointerover">
+            <Setter Property="Foreground" Value="{DynamicResource DangerBrush}" />
+        </Style>
+        <!-- 弱确认待删态：叉常驻红色 + 淡红底，明确"再点一次就没了" -->
+        <Style Selector="Button.TrigDel.confirm /template/ Border#Bd">
+            <Setter Property="Background" Value="{DynamicResource DangerSoftBrush}" />
+        </Style>
+        <Style Selector="Button.TrigDel.confirm">
+            <Setter Property="Foreground" Value="{DynamicResource DangerBrush}" />
+        </Style>
+
+        <!-- 三级选择器容器：比卡片更浅一档的内嵌面板 -->
+        <!-- 执行顺序标题：整行可点折叠，不铺悬停底色（折叠是次要操作，别让整行闪） -->
+        <Style Selector="Button.OrderHeader">
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="BorderThickness" Value="0" />
+            <Setter Property="Padding" Value="8,6" />
+            <Setter Property="Margin" Value="-8,0,-8,0" />
+            <Setter Property="CornerRadius" Value="9" />
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="HorizontalAlignment" Value="Stretch" />
+            <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+            <Setter Property="Focusable" Value="False" />
+            <Setter Property="Template">
+                <ControlTemplate>
+                    <Border Name="Bd" CornerRadius="9" Background="{TemplateBinding Background}"
+                            Padding="{TemplateBinding Padding}">
+                        <ContentPresenter Content="{TemplateBinding Content}"
+                                          HorizontalAlignment="Stretch" VerticalAlignment="Center" />
+                    </Border>
+                </ControlTemplate>
+            </Setter>
+        </Style>
+
+        <!-- 延时秒数步进器：− [数字] +，比 NumericUpDown 的白色按钮条干净 -->
+        <Style Selector="Border.Stepper">
+            <Setter Property="Background" Value="{DynamicResource Surface4Brush}" />
+            <Setter Property="BorderBrush" Value="{DynamicResource LineBrush}" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="CornerRadius" Value="10" />
+            <Setter Property="Padding" Value="2" />
+        </Style>
+        <Style Selector="Button.StepBtn">
+            <Setter Property="Width" Value="26" />
+            <Setter Property="Height" Value="26" />
+            <Setter Property="Padding" Value="0" />
+            <Setter Property="CornerRadius" Value="7" />
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="BorderThickness" Value="0" />
+            <Setter Property="Foreground" Value="{DynamicResource Text2Brush}" />
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="Focusable" Value="False" />
+            <Setter Property="Template">
+                <ControlTemplate>
+                    <Border Name="Bd" CornerRadius="7" Background="{TemplateBinding Background}">
+                        <ContentPresenter Content="{TemplateBinding Content}"
+                                          HorizontalAlignment="Center" VerticalAlignment="Center" />
+                    </Border>
+                </ControlTemplate>
+            </Setter>
+        </Style>
+        <Style Selector="Button.StepBtn:pointerover /template/ Border#Bd">
+            <Setter Property="Background" Value="{DynamicResource HoverBrush}" />
+        </Style>
+        <!-- 数字本体：不画自己的边框，融进步进器里 -->
+        <Style Selector="TextBox.StepValue">
+            <Setter Property="Width" Value="58" />
+            <Setter Property="Height" Value="26" />
+            <Setter Property="Padding" Value="0" />
+            <Setter Property="FontSize" Value="12.5" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+            <Setter Property="TextAlignment" Value="Center" />
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="BorderThickness" Value="0" />
+        </Style>
+        <Style Selector="TextBox.StepValue /template/ Border#PART_BorderElement">
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="BorderThickness" Value="0" />
+        </Style>
+    </UserControl.Styles>
+
+    <ctl:DialogPopup CardWidth="672" CardMaxHeight="740"
+                     ContentMargin="28,16,6,6"
+                     Title="{Binding SceneEditTitle}"
+                     Subtitle="{Binding SceneEditSubtitle}"
+                     IsOpen="{Binding IsSceneEditorOpen}"
+                     CloseCommand="{Binding CloseSceneEditorCommand}">
+        <!-- 底部常驻操作条：左侧删除 + 以此新建（二次确认），右侧取消 / 保存 -->
+        <ctl:DialogPopup.Footer>
+            <Border BorderBrush="{DynamicResource LineBrush}" BorderThickness="0,1,0,0"
+                    Padding="0,14,0,0" Margin="28,0,22,20">
+                <StackPanel Spacing="8">
+                    <!-- 保存失败 / 校验不通过的可见报错：不能只躺在日志面板里（被弹窗挡住 = 看起来“点了没反应”） -->
+                    <TextBlock Text="{Binding SceneEditError}" FontSize="11.5" TextWrapping="Wrap"
+                               IsVisible="{Binding HasSceneEditError}"
+                               Foreground="{DynamicResource DangerBrush}" />
+                    <Grid ColumnDefinitions="Auto,Auto,*,Auto,Auto">
+                        <Button Classes="BtnDanger" Content="{Binding DeleteButtonText}"
+                                IsVisible="{Binding IsSceneEditMode}"
+                                Command="{Binding DeleteSceneCommand}"
+                                IsEnabled="{Binding !SceneEditBusy}"
+                                ToolTip.Tip="再点一次确认删除" />
+                        <Button Grid.Column="1" Classes="BtnGhost" Content="以此新建"
+                                Margin="8,0,0,0" FontWeight="Normal"
+                                IsVisible="{Binding IsSceneEditMode}"
+                                Command="{Binding DuplicateSceneCommand}"
+                                IsEnabled="{Binding !SceneEditBusy}"
+                                ToolTip.Tip="复制成一个新的副本，副本默认关闭" />
+                        <Button Grid.Column="3" Classes="BtnGhost" Content="取消" Margin="0,0,8,0"
+                                Command="{Binding CloseSceneEditorCommand}" />
+                        <Button Grid.Column="4" Classes="BtnPrimary" Content="{Binding SaveSceneButtonText}"
+                                Command="{Binding SaveSceneEditorCommand}"
+                                IsEnabled="{Binding !SceneEditBusy}" />
+                    </Grid>
+                </StackPanel>
+            </Border>
+        </ctl:DialogPopup.Footer>
+
+        <StackPanel Spacing="14">
+            <!-- ===== 基础信息：名称 + 启停 并排成一行、左右各占一半，中间用淡竖线分隔 ===== -->
+            <Border Classes="SecCard">
+                <Grid ColumnDefinitions="*,Auto,*">
+                    <StackPanel Spacing="6" VerticalAlignment="Center" Margin="0,0,16,0">
+                        <TextBlock Classes="SecLabel" Text="名称" />
+                        <TextBox Text="{Binding SceneEditName, Mode=TwoWay}" Height="38" MaxLength="40"
+                                 Watermark="{Binding SceneEditNameWatermark}" />
+                    </StackPanel>
+                    <!-- 淡竖分割线：落在卡片正中（左右两列等宽、左右内距对称） -->
+                    <Border Grid.Column="1" Width="1" Margin="0,2"
+                            Background="{DynamicResource LineBrush}" />
+                    <Grid Grid.Column="2" ColumnDefinitions="*,Auto" Margin="16,0,0,0"
+                          VerticalAlignment="Center">
+                        <StackPanel Spacing="3" VerticalAlignment="Center">
+                            <TextBlock Text="启用" FontSize="13" FontWeight="SemiBold"
+                                       Foreground="{DynamicResource TextBrush}" />
+                            <TextBlock Text="{Binding SceneEditEnableHint}"
+                                       FontSize="11.5" Foreground="{DynamicResource Text3Brush}" />
+                        </StackPanel>
+                        <ToggleButton Grid.Column="1" Classes="Switch" VerticalAlignment="Center"
+                                      HorizontalAlignment="Right" Margin="14,0,0,0"
+                                      IsChecked="{Binding SceneEditEnabled, Mode=TwoWay}" />
+                    </Grid>
+                </Grid>
+            </Border>
+
+            <!-- ===== 触发条件：只有自动化才有；点开是一个只读下拉，列出这条自动化的全部条件 ===== -->
+            <Border Classes="SecCard" IsVisible="{Binding IsAutomationEditor}">
+                <StackPanel Spacing="9">
+                    <Grid ColumnDefinitions="Auto,*,Auto">
+                        <Path Width="13" Height="13" Stretch="Uniform" VerticalAlignment="Center"
+                              StrokeThickness="1.6" StrokeLineCap="Round" StrokeJoin="Round"
+                              Stroke="{DynamicResource AmberBrush}"
+                              Data="{StaticResource GeoBolt}" />
+                        <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="7"
+                                    Margin="7,0,10,0" VerticalAlignment="Center">
+                            <TextBlock Classes="SecLabel" Text="触发条件" VerticalAlignment="Center" />
+                            <Border Classes="MiniTag"
+                                    IsVisible="{Binding TriggerCount,
+                                                Converter={x:Static StringConverters.IsNotNullOrEmpty}}">
+                                <TextBlock Text="{Binding TriggerCount}" FontSize="10.5"
+                                           Foreground="{DynamicResource Text2Brush}" />
+                            </Border>
+                        </StackPanel>
+                        <Button Grid.Column="2" Classes="AddChip" Margin="10,0,0,0"
+                                VerticalAlignment="Center"
+                                IsVisible="{Binding CanEditTrigger}"
+                                Command="{Binding AddTriggerCommand}"
+                                ToolTip.Tip="按设备选择事件或状态作为触发条件">
+                            <StackPanel Orientation="Horizontal" Spacing="4">
+                                <Path Width="9" Height="9" Stretch="Uniform"
+                                      StrokeThickness="1.8" StrokeLineCap="Round"
+                                      Stroke="{Binding $parent[Button].Foreground}"
+                                      Data="{StaticResource GeoPlus}" />
+                                <TextBlock Text="添加条件" FontSize="11.5" />
+                            </StackPanel>
+                        </Button>
+                    </Grid>
+
+                    <!-- 已有条件：整行可点（可编辑的）载入编辑器 -->
+                    <ItemsControl ItemsSource="{Binding SceneTriggerRows}">
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate x:DataType="m:SceneTriggerRow">
+                                <Border Classes="TrigRow" Classes.editable="{Binding Editable}"
+                                        PointerPressed="OnTriggerRowPressed">
+                                    <Grid ColumnDefinitions="Auto,*,Auto">
+                                        <Border Classes="TrigKind" VerticalAlignment="Top" Margin="0,1,9,0">
+                                            <TextBlock Text="{Binding KindLabel}" FontSize="10.5"
+                                                       Foreground="{DynamicResource Text3Brush}" />
+                                        </Border>
+                                        <StackPanel Grid.Column="1" Spacing="3">
+                                            <TextBlock Text="{Binding Title}" FontSize="12.5" FontWeight="SemiBold"
+                                                       TextWrapping="Wrap" MaxLines="2"
+                                                       TextTrimming="CharacterEllipsis"
+                                                       Foreground="{DynamicResource TextBrush}" />
+                                            <TextBlock Text="{Binding Subtitle}" FontSize="11"
+                                                       TextWrapping="Wrap" MaxLines="2"
+                                                       TextTrimming="CharacterEllipsis"
+                                                       Foreground="{DynamicResource Text3Brush}" />
+                                        </StackPanel>
+                                        <Button Grid.Column="2" Classes="TrigDel" VerticalAlignment="Center"
+                                                Margin="8,0,0,0" IsVisible="{Binding Editable}"
+                                                ToolTip.Tip="删除这条条件（点保存后生效）"
+                                                Command="{Binding $parent[UserControl].((vm:MainViewModel)DataContext).RemoveTriggerCommand}"
+                                                CommandParameter="{Binding}">
+                                            <Path Width="9" Height="9" Stretch="Uniform"
+                                                  Stroke="{DynamicResource Text3Brush}" StrokeThickness="1.6"
+                                                  StrokeLineCap="Round"
+                                                  Data="{StaticResource GeoClose}" />
+                                        </Button>
+                                    </Grid>
+                                </Border>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+
+                    <!-- 状态条件（scene_condition）仍只读 -->
+                    <TextBlock Text="{Binding SceneStateConditionText}" IsVisible="{Binding HasStateCondition}"
+                               FontSize="11" TextWrapping="Wrap" Opacity="0.9"
+                               Foreground="{DynamicResource Text3Brush}" />
+
+                    <!-- 添加 / 编辑走独立弹窗（TriggerEditorWindow），卡片里只留已生效的条件列表 -->
+                    <TextBlock Text="触发条件按设备 MIoT 规格生成：定时与「手动触发」仍在米家 App 里改。"
+                               FontSize="11" TextWrapping="Wrap" Opacity="0.85"
+                               Foreground="{DynamicResource Text3Brush}" />
+                </StackPanel>
+            </Border>
+
+            <!-- ===== 执行顺序：标题行可折叠；卡片自上而下即执行次序，按住左侧手柄可拖动 ===== -->
+            <StackPanel Spacing="9">
+                <Grid ColumnDefinitions="*,Auto">
+                    <Button Classes="OrderHeader" Command="{Binding ToggleSceneOrderCommand}"
+                            ToolTip.Tip="点击折叠 / 展开执行顺序">
+                        <Grid ColumnDefinitions="Auto,*,Auto">
+                            <!-- 箭头与文字放进同一个水平 StackPanel：都挂在同一条垂直中线上，
+                                 不要再靠 Grid 三列各自居中（列高不一致时会错开几像素）。 -->
+                            <StackPanel Orientation="Horizontal" Spacing="7"
+                                        VerticalAlignment="Center">
+                                <!-- 折叠箭头：两个图标几何不同，偏移必须分开给。
+                                     - GeoChevron 是 V 形，视觉重心偏上 → 需要下移补偿汉字字形
+                                     - GeoArrow 是左右上下对称的 > 形，重心就在正中 → 不补偿
+                                     偏移用 RenderTransform：Margin 配 VerticalAlignment=Center
+                                     会被摊进居中计算，写 2px 只实际移动 1px。 -->
+                                <Panel Width="12" Height="10" VerticalAlignment="Center">
+                                    <Path Width="10" Height="10" Stretch="Uniform"
+                                          HorizontalAlignment="Center" VerticalAlignment="Center"
+                                          RenderTransform="translate(0px, 2.5px)"
+                                          IsVisible="{Binding IsSceneOrderExpanded}"
+                                          StrokeThickness="1.7" StrokeLineCap="Round" StrokeJoin="Round"
+                                          Stroke="{DynamicResource Text3Brush}"
+                                          Data="{StaticResource GeoChevron}" />
+                                    <Path Width="10" Height="10" Stretch="Uniform"
+                                          HorizontalAlignment="Center" VerticalAlignment="Center"
+                                          IsVisible="{Binding !IsSceneOrderExpanded}"
+                                          StrokeThickness="1.7" StrokeLineCap="Round" StrokeJoin="Round"
+                                          Stroke="{DynamicResource Text3Brush}"
+                                          Data="{StaticResource GeoArrow}" />
+                                </Panel>
+                                <TextBlock Classes="SecLabel" Text="执行顺序" VerticalAlignment="Center" />
+                                <TextBlock Text="按住左侧手柄可拖动换顺序" FontSize="11" VerticalAlignment="Center"
+                                           Opacity="0.75" Foreground="{DynamicResource Text3Brush}" />
+                            </StackPanel>
+                            <Border Grid.Column="2" Classes="MiniTag" Margin="10,0,0,0"
+                                    IsVisible="{Binding SceneEditActionCount,
+                                                Converter={x:Static StringConverters.IsNotNullOrEmpty}}">
+                                <TextBlock Text="{Binding SceneEditActionCount}" FontSize="10.5" FontWeight="SemiBold"
+                                           Foreground="{DynamicResource Text2Brush}" />
+                            </Border>
+                        </Grid>
+                    </Button>
+                    <!-- 添加动作：打开独立弹窗（设备 → 属性 → 值） -->
+                    <Button Grid.Column="1" Classes="AddChip"
+                            Margin="8,0,0,0" VerticalAlignment="Center"
+                            Command="{Binding AddSceneActionCommand}"
+                            IsEnabled="{Binding !SceneEditBusy}"
+                            ToolTip.Tip="选设备 → 选属性 → 设定值">
+                        <StackPanel Orientation="Horizontal" Spacing="4">
+                            <Path Width="9" Height="9" Stretch="Uniform"
+                                  StrokeThickness="1.8" StrokeLineCap="Round" StrokeJoin="Round"
+                                  Stroke="{Binding $parent[Button].Foreground}"
+                                  Data="{StaticResource GeoPlus}" />
+                            <TextBlock Text="添加动作" FontSize="11.5" />
+                        </StackPanel>
+                    </Button>
+                </Grid>
+
+                <ItemsControl ItemsSource="{Binding SceneEditRows}"
+                              IsVisible="{Binding IsSceneOrderExpanded}">
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate x:DataType="m:SceneEditActionRow">
+                            <Border Classes="EditRow" Classes.dragging="{Binding IsDragging}"
+                                    Classes.delay="{Binding IsVirtual}"
+                                    Classes.pending="{Binding PendingRemove}"
+                                    CornerRadius="12" Margin="0,0,0,8"
+                                    DragDrop.AllowDrop="True"
+                                    DragDrop.DragOver="OnRowDragOver"
+                                    DragDrop.DragLeave="OnRowDragLeave"
+                                    DragDrop.Drop="OnRowDrop"
+                                    PointerMoved="OnRowPointerMoved">
+                                <Border.Styles>
+                                    <!-- 默认配色放样式里（不能写成 Border 的本地值，否则后面的
+                                         dragover / pending 样式覆盖不了：本地值优先级更高）。 -->
+                                    <Style Selector="Border.EditRow">
+                                        <Setter Property="Background" Value="{DynamicResource CardSoftBrush}" />
+                                        <Setter Property="BorderBrush" Value="{DynamicResource LineBrush}" />
+                                        <Setter Property="BorderThickness" Value="1" />
+                                    </Style>
+                                    <!-- 卡片本身不做悬停变色：行内输入控件多，整行忽明忽暗反而吵 -->
+                                    <Style Selector="Border.EditRow.dragging">
+                                        <Setter Property="Opacity" Value="0.4" />
+                                    </Style>
+                                    <!-- 插入位置提示：只画一条贴着卡片物理边缘的亮线。
+                                         不再整卡描边——「整卡框 + 插入线」两套信号叠在一起反而看不懂；
+                                         也不用 BoxShadow（外发光会被列表裁掉两边）。
+                                         卡片自身不带 Padding（内距挪到内部 Grid 上），Panel 的原点才是
+                                         卡片左上角，线贴 Top / Bottom 才不会压到标题文字。 -->
+                                    <Style Selector="Border.EditRow Border.DropTip">
+                                        <Setter Property="IsVisible" Value="False" />
+                                        <Setter Property="Height" Value="2.5" />
+                                        <Setter Property="CornerRadius" Value="1.25" />
+                                        <Setter Property="Margin" Value="12,0" />
+                                        <Setter Property="HorizontalAlignment" Value="Stretch" />
+                                        <Setter Property="Background" Value="{DynamicResource Accent2Brush}" />
+                                        <Setter Property="ZIndex" Value="20" />
+                                    </Style>
+                                    <Style Selector="Border.EditRow Border.DropTip.top">
+                                        <Setter Property="VerticalAlignment" Value="Top" />
+                                    </Style>
+                                    <Style Selector="Border.EditRow Border.DropTip.bottom">
+                                        <Setter Property="VerticalAlignment" Value="Bottom" />
+                                    </Style>
+                                    <Style Selector="Border.EditRow.dropbefore Border.DropTip.top">
+                                        <Setter Property="IsVisible" Value="True" />
+                                    </Style>
+                                    <Style Selector="Border.EditRow.dropafter Border.DropTip.bottom">
+                                        <Setter Property="IsVisible" Value="True" />
+                                    </Style>
+                                    <!-- 延时卡：左侧一条琥珀色标线（画在卡片内侧，不走边框，避免四条边都变琥珀） -->
+                                    <Style Selector="Border.EditRow Border.DelayBar">
+                                        <Setter Property="IsVisible" Value="False" />
+                                        <Setter Property="Width" Value="2" />
+                                        <Setter Property="CornerRadius" Value="1" />
+                                        <Setter Property="Background" Value="{DynamicResource AmberBrush}" />
+                                        <Setter Property="HorizontalAlignment" Value="Left" />
+                                        <Setter Property="VerticalAlignment" Value="Stretch" />
+                                        <Setter Property="Margin" Value="3,12,0,12" />
+                                    </Style>
+                                    <Style Selector="Border.EditRow.delay Border.DelayBar">
+                                        <Setter Property="IsVisible" Value="True" />
+                                    </Style>
+                                    <!-- 弱确认待删态：整卡描红边，再点一次 × 才真删 -->
+                                    <Style Selector="Border.EditRow.pending">
+                                        <Setter Property="BorderBrush" Value="{DynamicResource DangerBrush}" />
+                                        <Setter Property="BorderThickness" Value="1.5" />
+                                        <Setter Property="Background" Value="{DynamicResource DangerSoftBrush}" />
+                                    </Style>
+                                </Border.Styles>
+
+                                <Panel>
+                                    <Border Classes="DropTip top" />
+                                    <Border Classes="DropTip bottom" />
+                                    <Border Classes="DelayBar" />
+                                    <!-- 内距放在内容 Grid 上：Panel 才能占满整张卡的物理边界，
+                                         贴 Top / Bottom 的插入线才不会落进文字区 -->
+                                    <Grid ColumnDefinitions="Auto,*,Auto" Margin="4,10,12,10">
+                                    <!-- 拖拽手柄：2×3 点阵，所有卡片都能拖，延时卡也是独立一步 -->
+                                    <Border Width="18" Background="Transparent" Cursor="SizeAll"
+                                            PointerPressed="OnRowGripPressed">
+                                        <StackPanel Orientation="Horizontal" Spacing="3"
+                                                    HorizontalAlignment="Center" VerticalAlignment="Center">
+                                            <StackPanel Spacing="3">
+                                                <Ellipse Width="2.4" Height="2.4" Fill="{DynamicResource Text3Brush}" Opacity="0.55" />
+                                                <Ellipse Width="2.4" Height="2.4" Fill="{DynamicResource Text3Brush}" Opacity="0.55" />
+                                                <Ellipse Width="2.4" Height="2.4" Fill="{DynamicResource Text3Brush}" Opacity="0.55" />
+                                            </StackPanel>
+                                            <StackPanel Spacing="3">
+                                                <Ellipse Width="2.4" Height="2.4" Fill="{DynamicResource Text3Brush}" Opacity="0.55" />
+                                                <Ellipse Width="2.4" Height="2.4" Fill="{DynamicResource Text3Brush}" Opacity="0.55" />
+                                                <Ellipse Width="2.4" Height="2.4" Fill="{DynamicResource Text3Brush}" Opacity="0.55" />
+                                            </StackPanel>
+                                        </StackPanel>
+                                    </Border>
+
+                                    <StackPanel Grid.Column="1" Spacing="8" Margin="2,0,0,0">
+                                        <!-- 标题行：设备/场景名 + 副标题，右取值控件 -->
+                                        <Grid ColumnDefinitions="*,Auto">
+                                            <StackPanel Spacing="2" VerticalAlignment="Center"
+                                                        Margin="0,0,10,0">
+                                                <TextBlock Text="{Binding Title}" FontSize="13"
+                                                           FontWeight="SemiBold"
+                                                           IsVisible="{Binding IsRealAction}"
+                                                           TextTrimming="CharacterEllipsis"
+                                                           Foreground="{DynamicResource TextBrush}" />
+                                                <StackPanel Orientation="Horizontal" Spacing="6"
+                                                            IsVisible="{Binding IsDelay}">
+                                                    <Grid Width="12" Height="12" VerticalAlignment="Center">
+                                                        <Ellipse Width="11" Height="11" StrokeThickness="1.4"
+                                                                 HorizontalAlignment="Left" VerticalAlignment="Top"
+                                                                 Stroke="{DynamicResource AmberBrush}" Opacity="0.85" />
+                                                        <Path StrokeThickness="1.4" StrokeLineCap="Round"
+                                                              Stroke="{DynamicResource AmberBrush}" Opacity="0.85"
+                                                              Data="M5.5,3 L5.5,5.6 L7.6,7.2" />
+                                                    </Grid>
+                                                    <TextBlock Text="延时" FontSize="13" FontWeight="SemiBold"
+                                                               VerticalAlignment="Center"
+                                                               Foreground="{DynamicResource AmberBrush}" />
+                                                </StackPanel>
+                                                <TextBlock Text="{Binding Caption}" FontSize="11.5"
+                                                           TextWrapping="Wrap"
+                                                           Foreground="{DynamicResource Text3Brush}" />
+                                            </StackPanel>
+
+                                            <!-- 延时秒数：自绘步进器（−  180  +） -->
+                                            <StackPanel Grid.Column="1" Orientation="Horizontal"
+                                                        Spacing="6" VerticalAlignment="Center"
+                                                        IsVisible="{Binding IsDelay}">
+                                                <Border Classes="Stepper">
+                                                    <Grid ColumnDefinitions="Auto,Auto,Auto">
+                                                        <Button Classes="StepBtn" Click="OnDelayStepDown"
+                                                                ToolTip.Tip="减少 10 秒">
+                                                            <!-- 减号不能用 GeoMin + Stretch=Uniform：该几何是 M4,12 L20,12，
+                                                                 外接框高为 0，Uniform 缩放会把它压成不可见。直接用一条横线画。 -->
+                                                            <Border Width="9" Height="1.6" CornerRadius="1"
+                                                                    HorizontalAlignment="Center"
+                                                                    VerticalAlignment="Center"
+                                                                    Background="{Binding $parent[Button].Foreground}" />
+                                                        </Button>
+                                                        <TextBox Grid.Column="1" Classes="StepValue"
+                                                                 Text="{Binding DelaySeconds, Mode=TwoWay}" />
+                                                        <Button Grid.Column="2" Classes="StepBtn" Click="OnDelayStepUp"
+                                                                ToolTip.Tip="增加 10 秒">
+                                                            <Path Width="10" Height="10" Stretch="Uniform"
+                                                                  Stroke="{Binding $parent[Button].Foreground}"
+                                                                  StrokeThickness="1.6" StrokeLineCap="Round"
+                                                                  Data="{StaticResource GeoPlus}" />
+                                                        </Button>
+                                                    </Grid>
+                                                </Border>
+                                                <TextBlock Text="秒" FontSize="11.5"
+                                                           VerticalAlignment="Center"
+                                                           Foreground="{DynamicResource Text3Brush}" />
+                                            </StackPanel>
+
+                                            <!-- 场景启停 -->
+                                            <ToggleButton Grid.Column="1" Classes="Switch"
+                                                          VerticalAlignment="Center"
+                                                          IsVisible="{Binding IsSceneToggle}"
+                                                          IsChecked="{Binding ToggleEnabled, Mode=TwoWay}" />
+
+                                            <!-- 设备属性（单值） -->
+                                            <Panel Grid.Column="1" VerticalAlignment="Center"
+                                                   IsVisible="{Binding HasSingleValue}">
+                                                <ToggleButton Classes="Switch"
+                                                              IsVisible="{Binding Primary.IsBool}"
+                                                              IsChecked="{Binding Primary.BoolValue, Mode=TwoWay}" />
+                                                <NumericUpDown IsVisible="{Binding Primary.IsNumber}" Width="120"
+                                                               Minimum="{Binding Primary.Min}"
+                                                               Maximum="{Binding Primary.Max}"
+                                                               Increment="{Binding Primary.Step}"
+                                                               FormatString="0.##"
+                                                               Value="{Binding Primary.NumValue, Mode=TwoWay}" />
+                                                <ComboBox IsVisible="{Binding Primary.IsOption}" Width="140"
+                                                          ItemsSource="{Binding Primary.OptionNames}"
+                                                          SelectedIndex="{Binding Primary.OptionIndex, Mode=TwoWay}" />
+                                                <TextBox IsVisible="{Binding Primary.IsText}" Width="140" Height="32"
+                                                         Text="{Binding Primary.TextValue, Mode=TwoWay}" />
+                                            </Panel>
+
+                                            <!-- 执行场景：标题/说明在左、场景下拉在右，同一行。
+                                                 走自绘 OptionPicker（原生 ComboBox 滚轮会误选） -->
+                                            <ctl:OptionPicker Grid.Column="1" Classes="wide" Width="200"
+                                                              HorizontalAlignment="Right" VerticalAlignment="Center"
+                                                              IsVisible="{Binding IsSceneRun}"
+                                                              Options="{Binding SceneOptions}"
+                                                              SelectedValue="{Binding SelectedSceneId, Mode=TwoWay}" />
+                                        </Grid>
+
+                                        <!-- 设备属性（多值，少见）：逐行列出 -->
+                                        <ItemsControl IsVisible="{Binding HasMultipleValues}"
+                                                      ItemsSource="{Binding Values}">
+                                            <ItemsControl.ItemTemplate>
+                                                <DataTemplate x:DataType="m:SceneActionEditItem">
+                                                    <Grid ColumnDefinitions="*,Auto" Margin="0,3,0,3">
+                                                        <TextBlock Text="{Binding Title}" FontSize="12"
+                                                                   VerticalAlignment="Center"
+                                                                   TextTrimming="CharacterEllipsis"
+                                                                   Foreground="{DynamicResource Text3Brush}" />
+                                                        <Panel Grid.Column="1" VerticalAlignment="Center">
+                                                            <ToggleButton Classes="Switch" IsVisible="{Binding IsBool}"
+                                                                          IsChecked="{Binding BoolValue, Mode=TwoWay}" />
+                                                            <NumericUpDown IsVisible="{Binding IsNumber}" Width="120"
+                                                                           Minimum="{Binding Min}" Maximum="{Binding Max}"
+                                                                           Increment="{Binding Step}" FormatString="0.##"
+                                                                           Value="{Binding NumValue, Mode=TwoWay}" />
+                                                            <ComboBox IsVisible="{Binding IsOption}" Width="140"
+                                                                      ItemsSource="{Binding OptionNames}"
+                                                                      SelectedIndex="{Binding OptionIndex, Mode=TwoWay}" />
+                                                            <TextBox IsVisible="{Binding IsText}" Width="140" Height="32"
+                                                                     Text="{Binding TextValue, Mode=TwoWay}" />
+                                                        </Panel>
+                                                    </Grid>
+                                                </DataTemplate>
+                                            </ItemsControl.ItemTemplate>
+                                        </ItemsControl>
+
+                                        <!-- 播报文字 -->
+                                        <TextBox IsVisible="{Binding IsTts}" Height="34" FontSize="12"
+                                                 Text="{Binding TtsText, Mode=TwoWay}"
+                                                 Watermark="要播报的文字" />
+
+                                        <!-- 手机通知 -->
+                                        <StackPanel IsVisible="{Binding IsNotify}" Spacing="6">
+                                            <TextBox Height="32" FontSize="12" Watermark="通知标题"
+                                                     Text="{Binding NotifyTitle, Mode=TwoWay}" />
+                                            <TextBox Height="32" FontSize="12" Watermark="通知内容"
+                                                     Text="{Binding NotifyDesc, Mode=TwoWay}" />
+                                        </StackPanel>
+                                    </StackPanel>
+
+                                    <!-- 行尾删除：弱确认（第一次点标红、再点一次真删） -->
+                                    <Button Grid.Column="2" Classes="TrigDel"
+                                            Classes.confirm="{Binding PendingRemove}"
+                                            VerticalAlignment="Center"
+                                            Margin="6,0,0,0"
+                                            ToolTip.Tip="第一次点标红确认，再点一次移除（点保存后生效）"
+                                            Command="{Binding $parent[UserControl].((vm:MainViewModel)DataContext).RemoveSceneActionCommand}"
+                                            CommandParameter="{Binding}">
+                                        <Path Width="9" Height="9" Stretch="Uniform"
+                                              Stroke="{Binding $parent[Button].Foreground}" StrokeThickness="1.6"
+                                              StrokeLineCap="Round"
+                                              Data="{StaticResource GeoClose}" />
+                                    </Button>
+                                </Grid>
+                                </Panel>
+                            </Border>
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
+
+                <TextBlock Text="{Binding SceneEditNote}" IsVisible="{Binding HasSceneEditNote}"
+                           FontSize="11.5" TextWrapping="Wrap" Foreground="{DynamicResource Text3Brush}" />
+            </StackPanel>
+        </StackPanel>
+    </ctl:DialogPopup>
+</UserControl>

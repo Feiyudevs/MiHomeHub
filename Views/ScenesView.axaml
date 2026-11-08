@@ -1,31 +1,151 @@
 <UserControl xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-             xmlns:m="clr-namespace:MiHome.Models"
              xmlns:vm="clr-namespace:MiHome.ViewModels"
              xmlns:ctl="clr-namespace:MiHome.Controls"
              xmlns:views="clr-namespace:MiHome.Views"
              x:Class="MiHome.Views.ScenesView">
-    <StackPanel x:DataType="vm:MainViewModel">
-    <Grid ColumnDefinitions="*,Auto" Margin="0,0,0,18">
-        <StackPanel>
-            <TextBlock Text="我的场景" FontSize="19" FontWeight="Bold"
-                       Foreground="{DynamicResource TextBrush}" />
-            <TextBlock Text="点击卡片右下角播放按钮即可执行" FontSize="12.5" Margin="0,5,0,0"
-                       Foreground="{DynamicResource Text3Brush}" />
-        </StackPanel>
-        <Button Grid.Column="1" Classes="BtnGhost" Content="刷新" VerticalAlignment="Top"
-                Command="{Binding LoadDevicesCommand}" IsEnabled="{Binding !IsLoading}" />
-    </Grid>
-    <ItemsControl ItemsSource="{Binding SceneItems}" ItemTemplate="{StaticResource SceneBigTemplate}">
-        <ItemsControl.ItemsPanel>
-            <ItemsPanelTemplate>
-                <ctl:AdaptiveGridPanel MinItemWidth="260" Spacing="0" />
-            </ItemsPanelTemplate>
-        </ItemsControl.ItemsPanel>
-    </ItemsControl>
-    <views:EmptyState IsVisible="{Binding ShowSceneEmpty}"
-                      Icon="{StaticResource GeoScene}"
-                      Title="还没有场景"
-                      Description="在米家 App 创建场景后，会同步到这里" />
+    <!-- 右 16 内距 + 底 20 内距：右侧是给页面滚动条让出的空白（Carousel 右外距 6 + 16 = 原 22，正文宽度不变），
+         底部留白只在滚到末尾时露出来，静止时不占版面 -->
+    <StackPanel x:DataType="vm:MainViewModel" Margin="0,0,16,20">
+        <!-- 页头：图标徽章 + 标题说明，右侧「点击卡片可编辑」提示（无底无边）+ 刷新 -->
+        <Grid ColumnDefinitions="*,Auto,Auto" Margin="0,0,0,16">
+            <StackPanel Orientation="Horizontal" Spacing="12">
+                <Border Width="42" Height="42" CornerRadius="14" VerticalAlignment="Center"
+                        Background="{DynamicResource AccentSoftBrush}">
+                    <Path Width="21" Height="21" Stretch="Uniform"
+                          StrokeThickness="1.7" StrokeLineCap="Round" StrokeJoin="Round"
+                          Stroke="{DynamicResource Accent2Brush}"
+                          Data="{StaticResource GeoBolt}" />
+                </Border>
+                <StackPanel VerticalAlignment="Center" Spacing="3">
+                    <TextBlock Text="智能" FontSize="19" FontWeight="Bold"
+                               Foreground="{DynamicResource TextBrush}" />
+                    <TextBlock Text="场景与自动化同步自米家；执行在卡片右上角，标题栏搜索按名称/动作筛卡片"
+                               FontSize="12" Foreground="{DynamicResource Text3Brush}" />
+                </StackPanel>
+            </StackPanel>
+            <!-- 整卡可点即编辑，页头给一句明示，省得用户只敢点角落（纯文字，不套底/描边） -->
+            <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="6"
+                        Margin="0,0,14,0" VerticalAlignment="Center">
+                <Path Width="12" Height="12" Stretch="Uniform"
+                      StrokeThickness="1.6" StrokeLineCap="Round" StrokeJoin="Round"
+                      Stroke="{DynamicResource Text3Brush}"
+                      Data="M4,20 L4.6,16.2 L15.8,5 L19,8.2 L7.8,19.4 Z M13.8,7 L17,10.2" />
+                <TextBlock Text="点击卡片可编辑" FontSize="11.5"
+                           Foreground="{DynamicResource Text3Brush}" />
+            </StackPanel>
+            <Button Grid.Column="2" Classes="BtnGhost" VerticalAlignment="Center"
+                    Command="{Binding LoadDevicesCommand}" IsEnabled="{Binding !IsLoading}"
+                    ToolTip.Tip="重新拉取场景与自动化">
+                <StackPanel Orientation="Horizontal" Spacing="6">
+                    <Path Width="13" Height="13" Stretch="Uniform"
+                          StrokeThickness="1.7" StrokeLineCap="Round" StrokeJoin="Round"
+                          Stroke="{DynamicResource Text3Brush}"
+                          Data="{StaticResource GeoRefresh}" />
+                    <TextBlock Text="刷新" FontSize="12" FontWeight="Normal" />
+                </StackPanel>
+            </Button>
+        </Grid>
+
+        <!-- 分段：场景 / 自动化（图标 + 名称 + 数量胶囊）；最右端是新建入口，点了自动跳到对应分段 -->
+        <Grid ColumnDefinitions="Auto,*,Auto" Margin="0,0,0,16">
+            <Border Classes="TabBar" VerticalAlignment="Center">
+                <ctl:SlidingTabPanel Classes="SlidingTab" SelectedIndex="{Binding SceneTab}" Spacing="4">
+                    <Button Classes="Tab" Classes.on="{Binding IsSceneTabManual}"
+                            Command="{Binding SelectSceneTabCommand}" CommandParameter="0">
+                        <StackPanel Orientation="Horizontal" Spacing="7">
+                            <Path Width="13" Height="13" Stretch="Uniform"
+                                  StrokeThickness="1.7" StrokeLineCap="Round" StrokeJoin="Round"
+                                  Stroke="{Binding $parent[Button].Foreground}"
+                                  Data="{StaticResource GeoScene}" />
+                            <TextBlock Text="场景"
+                                       Foreground="{Binding $parent[Button].Foreground}" />
+                            <Border Classes="TabBadge">
+                                <TextBlock Text="{Binding SceneViewItems.Count}" FontSize="10.5" FontWeight="Bold"
+                                           Foreground="{Binding $parent[Button].Foreground}" />
+                            </Border>
+                        </StackPanel>
+                    </Button>
+                    <Button Classes="Tab" Classes.on="{Binding IsSceneTabAutomation}"
+                            Command="{Binding SelectSceneTabCommand}" CommandParameter="1">
+                        <StackPanel Orientation="Horizontal" Spacing="7">
+                            <Path Width="13" Height="13" Stretch="Uniform"
+                                  StrokeThickness="1.7" StrokeLineCap="Round" StrokeJoin="Round"
+                                  Stroke="{Binding $parent[Button].Foreground}"
+                                  Data="{StaticResource GeoBolt}" />
+                            <TextBlock Text="自动化"
+                                       Foreground="{Binding $parent[Button].Foreground}" />
+                            <Border Classes="TabBadge">
+                                <TextBlock Text="{Binding AutomationViewItems.Count}" FontSize="10.5" FontWeight="Bold"
+                                           Foreground="{Binding $parent[Button].Foreground}" />
+                            </Border>
+                        </StackPanel>
+                    </Button>
+                </ctl:SlidingTabPanel>
+            </Border>
+            <!-- 新建入口：两个中性按钮（不用主色），各自带往对应分段的 CommandParameter -->
+            <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+                <Button Classes="BtnGhost" Height="32" Padding="12,0"
+                        Command="{Binding NewSceneCommand}" CommandParameter="scene"
+                        ToolTip.Tip="新建一条手动场景，点击后自动切到「场景」分段">
+                    <StackPanel Orientation="Horizontal" Spacing="6">
+                        <Path Width="11" Height="11" Stretch="Uniform"
+                              StrokeThickness="1.8" StrokeLineCap="Round" StrokeJoin="Round"
+                              Stroke="{DynamicResource Text2Brush}"
+                              Data="{StaticResource GeoPlus}" />
+                        <TextBlock Text="新建场景" FontSize="12" FontWeight="Normal" />
+                    </StackPanel>
+                </Button>
+                <Button Classes="BtnGhost" Height="32" Padding="12,0"
+                        Command="{Binding NewSceneCommand}" CommandParameter="automation"
+                        ToolTip.Tip="新建一条自动化，点击后自动切到「自动化」分段">
+                    <StackPanel Orientation="Horizontal" Spacing="6">
+                        <Path Width="11" Height="11" Stretch="Uniform"
+                              StrokeThickness="1.8" StrokeLineCap="Round" StrokeJoin="Round"
+                              Stroke="{DynamicResource Text2Brush}"
+                              Data="{StaticResource GeoPlus}" />
+                        <TextBlock Text="新建自动化" FontSize="12" FontWeight="Normal" />
+                    </StackPanel>
+                </Button>
+            </StackPanel>
+        </Grid>
+
+        <!-- 分段一：手动场景 -->
+        <Panel IsVisible="{Binding IsSceneTabManual}">
+            <ItemsControl ItemsSource="{Binding SceneViewItems}" ItemTemplate="{StaticResource SceneBigTemplate}">
+                <ItemsControl.ItemsPanel>
+                    <ItemsPanelTemplate>
+                        <ctl:AdaptiveGridPanel MinItemWidth="240" Spacing="0" />
+                    </ItemsPanelTemplate>
+                </ItemsControl.ItemsPanel>
+            </ItemsControl>
+            <views:EmptyState IsVisible="{Binding ShowSceneEmpty}"
+                              Icon="{StaticResource GeoScene}"
+                              Title="还没有场景"
+                              Description="点右上角「新建场景」直接建一条，米家 App 里建的也会同步过来" />
+            <views:EmptyState IsVisible="{Binding ShowSceneNoMatch}"
+                              Icon="{StaticResource GeoSearch}"
+                              Title="没有匹配的场景"
+                              Description="换个关键词试试，清空标题栏搜索即恢复全部" />
+        </Panel>
+
+        <!-- 分段二：自动化（如果…就…） -->
+        <Panel IsVisible="{Binding IsSceneTabAutomation}">
+            <ItemsControl ItemsSource="{Binding AutomationViewItems}" ItemTemplate="{StaticResource SceneBigTemplate}">
+                <ItemsControl.ItemsPanel>
+                    <ItemsPanelTemplate>
+                        <ctl:AdaptiveGridPanel MinItemWidth="240" Spacing="0" />
+                    </ItemsPanelTemplate>
+                </ItemsControl.ItemsPanel>
+            </ItemsControl>
+            <views:EmptyState IsVisible="{Binding ShowAutomationEmpty}"
+                              Icon="{StaticResource GeoBolt}"
+                              Title="还没有自动化"
+                              Description="点右上角「新建自动化」加一条「如果…就…」，米家 App 里建的也会同步过来" />
+            <views:EmptyState IsVisible="{Binding ShowAutomationNoMatch}"
+                              Icon="{StaticResource GeoSearch}"
+                              Title="没有匹配的自动化"
+                              Description="换个关键词试试，清空标题栏搜索即恢复全部" />
+        </Panel>
     </StackPanel>
 </UserControl>

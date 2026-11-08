@@ -45,6 +45,9 @@ public partial class VoicePanelView : UserControl
         VoicePanel.Margin = new Thickness(left, 2, 0, 0);
     }
 
+    /// <summary>卡片本体宽度（宿主 UserControl 是整窗宽，夹取必须用卡片宽）。</summary>
+    public double CardWidth => VoicePanel.Bounds.Width > 0 ? VoicePanel.Bounds.Width : 344;
+
     /// <summary>
     /// 浮层开合：打开时淡入并从标题栏下方轻落，关闭时反向收起后再隐藏。
     /// </summary>

@@ -1,5 +1,4 @@
 using Avalonia.Controls;
-using MiHome.Views;
 
 namespace MiHome.Views;
 

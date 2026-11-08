@@ -17,7 +17,7 @@ using MiHome.ViewModels;
 
 namespace MiHome.Views;
 
-public partial class MainWindow : Window
+public partial class MainWindow : CustomWindow
 {
     // 上次运行时保存的位置与大小，等到窗口显示后再生效
     private WindowPlacementStore.Placement? _savedPlacement;
@@ -52,6 +52,10 @@ public partial class MainWindow : Window
     {
         _deferInitialContent = deferInitialContent;
         InitializeComponent();
+        // 窗口矩形包含投影留白，最小尺寸同步加上，保证正文最小可用宽度不缩水
+        MinWidth += ShadowMargin * 2;
+        MinHeight += ShadowMargin * 2;
+        RefreshSurfaceGeometry();
         // 任务栏图标要在建任务栏按钮之前就位，否则会永久空白
         WindowIconHelper.Apply(this);
         _normalSize = new Size(Width, Height);
@@ -257,11 +261,17 @@ public partial class MainWindow : Window
         // 还有没落盘的普通边界就补上，最大化本身不记录；此后到退出最大化前不再写
         if (_settleTimer is not null) Persist();
         _isMaximized = true;
+        // 先把系统外框压干净，再算边界：否则 Width 会被按「客户区 + frame」换算，外层溢出工作区
+        ApplyWindowChromeNow();
+        // 先撤掉投影留白与圆角，再铺满工作区；否则窗口矩形里会留一圈透明边、四角露出桌面
+        SetSurfaceMaximized(true);
         _maximizedPosition = work.Position;
         _maximizedSize = new Size(work.Width / scaling, work.Height / scaling);
         Position = _maximizedPosition;
         Width = _maximizedSize.Width;
         Height = _maximizedSize.Height;
+        // 外层矩形再按物理像素钉死一次：正好铺满工作区，不多不少
+        SetSurfaceBounds(work);
     }
 
     /// <summary>
@@ -276,11 +286,42 @@ public partial class MainWindow : Window
 
     private void RestoreFromMaximize()
     {
+        // 同上：先压干净外框，避免 Width/Height 被按「客户区 + frame」换算成溢出的外层矩形
+        ApplyWindowChromeNow();
         _isMaximized = false;
-        if (!_hasNormalBounds) return;
-        Position = _normalPosition;
-        Width = _normalSize.Width;
-        Height = _normalSize.Height;
+        if (_hasNormalBounds)
+        {
+            Position = _normalPosition;
+            Width = _normalSize.Width;
+            Height = _normalSize.Height;
+            var scale = Screens.ScreenFromPoint(_normalPosition)?.Scaling ?? RenderScaling;
+            if (scale <= 0) scale = 1;
+            SetSurfaceBounds(new PixelRect(_normalPosition, new PixelSize(
+                (int)Math.Round(_normalSize.Width * scale),
+                (int)Math.Round(_normalSize.Height * scale))));
+        }
+        // 尺寸先回到普通边界再放回留白，避免还原瞬间卡片被工作区裁一圈
+        SetSurfaceMaximized(false);
+    }
+
+    /// <summary>
+    /// 把内容级圆角 / 投影留白对齐到 <see cref="CustomWindow"/> 的当前生效值。
+    /// 两层 Border 必须同步：投影层与裁切层分开，投影才不会被 ClipToBounds 裁成硬边。
+    /// </summary>
+    protected override void OnSurfaceGeometryChanged()
+    {
+        var margin = new Thickness(EffectiveShadowMargin);
+        var radius = new CornerRadius(EffectiveCornerRadius);
+        // 内容裁剪层比外轮廓小一个描边宽度：1 位裁剪掩膜的硬台阶落在描边内侧的同色背景上，看不见。
+        var innerRadius = new CornerRadius(System.Math.Max(0d, EffectiveCornerRadius - 1d));
+
+        SurfaceShadow.Margin = margin;
+        SurfaceShadow.CornerRadius = radius;
+        SurfaceShadow.IsVisible = EffectiveShadowMargin > 0;
+
+        RootSurface.Margin = margin;
+        RootSurface.CornerRadius = radius;
+        SurfaceClip.CornerRadius = innerRadius;
     }
 
     /// <summary>系统（Win+↑、贴边）发起的最大化同样会溢出屏幕，转成自己实现的铺满工作区。</summary>
@@ -291,6 +332,15 @@ public partial class MainWindow : Window
         {
             UpdateMainContentLifetime();
             UpdateAutomaticMemoryTrimmerActivity();
+        }
+        // 收进托盘（Hide）后不再轮询；从托盘 Show 回来要恢复。
+        // 之前只处理了「最小化」这条路径，Hide→Show 时 WindowState 没有变化，轮询会一直停着。
+        if (change.Property == IsVisibleProperty)
+        {
+            // GPU 纹理回收会临时 Show/Hide 一帧，不能把它当成用户唤出/收起
+            if (_presentingHiddenFrame) return;
+            if (IsVisible && WindowState != WindowState.Minimized) Vm?.ResumePolling();
+            else if (!IsVisible) Vm?.PausePolling();
         }
         if (change.Property == WindowStateProperty)
         {
@@ -426,14 +476,16 @@ public partial class MainWindow : Window
     private void OnOverlayOutsidePressed(object? sender, PointerPressedEventArgs e)
     {
         if (Vm is not { } vm) return;
-        if (!vm.IsVoiceOpen && !vm.IsMusicOpen) return;
+        if (!vm.IsVoiceOpen && !vm.IsMusicOpen && !vm.IsHomeOpen) return;
         if (e.Source is not Visual src) return;
         if (!e.GetCurrentPoint(this).Properties.IsLeftButtonPressed) return;
         if (TopLevel.GetTopLevel(src) != this) return;
+        if (IsWithin(src, HomeChipBtn) || IsWithin(src, HomePanelView)) return;
         if (IsWithin(src, XiaoAiBtn) || IsWithin(src, VoicePanelView)) return;
         if (IsWithin(src, MusicBtn) || IsWithin(src, MusicPanelView)) return;
         vm.IsVoiceOpen = false;
         vm.IsMusicOpen = false;
+        vm.IsHomeOpen = false;
     }
 
     private static bool IsWithin(Visual src, Visual? container)
@@ -461,6 +513,14 @@ public partial class MainWindow : Window
         if (e.Key != Key.Escape) return;
         e.Handled = true; // 不让窗口级 Escape 顺手关掉其他浮层
         SetSearchOpen(false);
+    }
+
+    /// <summary>清空钮：只清关键词，输入框保持展开（方便立刻改词重搜）。</summary>
+    private void OnSearchClearClick(object? sender, RoutedEventArgs e)
+    {
+        if (FindMainControl<TextBox>("SearchInput") is not { } input) return;
+        input.Text = string.Empty;
+        input.Focus();
     }
 
     private void OnSearchLostFocus(object? sender, RoutedEventArgs e)
@@ -531,25 +591,37 @@ public partial class MainWindow : Window
     private void AlignVoicePanel()
     {
         var panel = VoicePanelView;
-        if (CapsulePanelLeft(XiaoAiBtn, panel) is double x) panel?.AlignToButton(x);
+        if (CapsulePanelLeft(XiaoAiBtn, panel, panel?.CardWidth ?? 344) is double x) panel?.AlignToButton(x);
     }
 
     /// <summary>音乐浮层同上：两个浮层同宽同手感，共用一套夹取。</summary>
     private void AlignMusicPanel()
     {
         var panel = MusicPanelView;
-        if (CapsulePanelLeft(MusicBtn, panel) is double x) panel?.AlignToButton(x);
+        if (CapsulePanelLeft(MusicBtn, panel, panel?.CardWidth ?? 344) is double x) panel?.AlignToButton(x);
     }
 
-    private double? CapsulePanelLeft(Control? anchor, Control? panel)
+    /// <summary>我的家庭浮层同上：左沿对齐家庭胶囊，同宽同位。</summary>
+    private void AlignHomePanel()
     {
-        if (anchor == null || panel == null) return null;
-        var pt = anchor.TranslatePoint(new Point(0, 0), panel);
+        var panel = HomePanelView;
+        if (CapsulePanelLeft(HomeChipBtn, panel, panel?.CardWidth ?? 344) is double x) panel?.AlignToButton(x);
+    }
+
+    /// <summary>
+    /// 把卡片左沿落到锚点按钮左沿。<paramref name="host"/> 是铺满整窗的宿主 UserControl
+    /// （所以只能拿它当坐标系，宽度必须用 <paramref name="cardWidth"/>，不能用 host.Bounds.Width）。
+    /// </summary>
+    private double? CapsulePanelLeft(Control? anchor, Control? host, double cardWidth)
+    {
+        if (anchor == null || host == null) return null;
+        var pt = anchor.TranslatePoint(new Point(0, 0), host);
         if (pt is null) return null;
 
-        const double panelWidth = 344;
         const double edge = 12;
-        var maxLeft = Bounds.Width - edge - panelWidth;
+        // Bounds 是含投影留白的窗口矩形，正文可见宽度要减掉两侧留白
+        var visibleWidth = Bounds.Width - EffectiveShadowMargin * 2;
+        var maxLeft = visibleWidth - edge - cardWidth;
         return Math.Clamp(pt.Value.X, edge, Math.Max(edge, maxLeft));
     }
 

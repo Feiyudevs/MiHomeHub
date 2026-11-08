@@ -289,36 +289,95 @@
                     </Panel>
                 </Border>
             </DataTemplate>
+        <!-- 场景 / 自动化卡：直接复用设备卡的控件与壳（ctl:DeviceCardButton + .DevCard 样式），
+             所以圆角、内距、投影、悬停上浮、按下缩放手感与首页设备卡完全一致；
+             三列结构也照设备卡：左＝图标，中＝名称 + 一行摘要，右＝执行（场景）/ 启停（自动化）。
+             整卡仍是按钮，点一下进编辑器（没有收藏 / 编辑小按钮）。 -->
         <DataTemplate x:Key="SceneBigTemplate" x:DataType="m:SceneCardItem">
-            <Border CornerRadius="16" Margin="8" MinHeight="112"
-                    Background="{DynamicResource CardBrush}"
-                    BoxShadow="0 1 2 0 #050F172A, 0 5 16 0 #080F172A">
-                <Panel>
-                    <Border CornerRadius="16" Background="{Binding GlowBrush}" IsHitTestVisible="False"/>
-                    <Border Padding="14">
-                        <Panel>
-                            <StackPanel VerticalAlignment="Top">
-                                <Border Width="40" Height="40" CornerRadius="12" Background="{Binding IconBgBrush}"
-                                        HorizontalAlignment="Left">
-                                    <Path Width="20" Height="20" Stretch="Uniform" Stroke="{Binding IconFgBrush}"
-                                          StrokeThickness="1.7" StrokeLineCap="Round" StrokeJoin="Round"
-                                          Data="{Binding Icon}" />
-                                </Border>
-                                <TextBlock Text="{Binding Name}" FontSize="14" FontWeight="Bold" Margin="0,10,0,0"
-                                           Foreground="{DynamicResource TextBrush}" />
-                            </StackPanel>
-                            <Border HorizontalAlignment="Right" VerticalAlignment="Top" CornerRadius="20" Padding="8,4"
-                                    Background="{DynamicResource GreenSoftBrush}" IsVisible="{Binding IsRunning}">
-                                <TextBlock Text="运行中 ✓" FontSize="10.5" FontWeight="Bold"
-                                           Foreground="{DynamicResource GreenBrush}" />
-                            </Border>
-                            <Button Classes="PlayCircle" Width="36" Height="36"
-                                    HorizontalAlignment="Right" VerticalAlignment="Bottom"
-                                    Command="{Binding $parent[Window].((vm:MainViewModel)DataContext).RunSceneCommand}"
-                                    CommandParameter="{Binding}" />
-                        </Panel>
+            <ctl:DeviceCardButton Classes="DevCard"
+                                  ToolTip.Tip="点击卡片编辑"
+                                  Command="{Binding $parent[Window].((vm:MainViewModel)DataContext).OpenSceneEditorCommand}"
+                                  CommandParameter="{Binding}">
+                <Grid ColumnDefinitions="Auto,*,Auto">
+                    <!-- 左：场景色图标（设备卡是裸线性图标，这里保留柔色底块，一眼区分类别） -->
+                    <Border Width="46" Height="46" CornerRadius="14" Background="{Binding IconBgBrush}"
+                            VerticalAlignment="Center">
+                        <Path Width="22" Height="22" Stretch="Uniform" Stroke="{Binding IconFgBrush}"
+                              StrokeThickness="1.7" StrokeLineCap="Round" StrokeJoin="Round"
+                              Data="{Binding Icon}" />
                     </Border>
-                </Panel>
+                    <!-- 中：名称 + 摘要，与设备卡的「名称 / 副标题」同构；摘要小一号、与名称拉开 6px 呼吸 -->
+                    <StackPanel Grid.Column="1" VerticalAlignment="Center" Margin="12,0,10,0" Spacing="6">
+                        <TextBlock Text="{Binding Name}" FontSize="13.5" FontWeight="SemiBold"
+                                   MaxLines="1" TextTrimming="CharacterEllipsis"
+                                   Foreground="{DynamicResource TextBrush}" />
+                        <TextBlock Text="{Binding Summary}" FontSize="10.5"
+                                   MaxLines="1" TextTrimming="CharacterEllipsis"
+                                   Foreground="{DynamicResource Text3Brush}" />
+                    </StackPanel>
+                    <!-- 右：与设备卡电源键同位；运行中角标贴在执行钮左侧 -->
+                    <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="4" VerticalAlignment="Center">
+                        <Border CornerRadius="8" Padding="6,1.5" VerticalAlignment="Center"
+                                Background="{DynamicResource GreenSoftBrush}" IsVisible="{Binding IsRunning}">
+                            <TextBlock Text="运行中" FontSize="9.5" FontWeight="Bold"
+                                       Foreground="{DynamicResource GreenBrush}" />
+                        </Border>
+                        <!-- 手动场景：执行（与设备卡电源键同一套圆形按钮手感） -->
+                        <Button Classes="PlayCircle" Width="32" Height="32"
+                                IsVisible="{Binding !IsAutomation}"
+                                ToolTip.Tip="执行"
+                                Command="{Binding $parent[Window].((vm:MainViewModel)DataContext).RunSceneCommand}"
+                                CommandParameter="{Binding}" />
+                        <!-- 自动化启停：走 SetSceneStatus，只改 enable，不动动作定义 -->
+                        <Button Classes="Switch" Classes.on="{Binding IsEnabled}"
+                                VerticalAlignment="Center"
+                                IsVisible="{Binding IsAutomation}"
+                                ToolTip.Tip="开启 / 关闭这条自动化"
+                                Command="{Binding $parent[Window].((vm:MainViewModel)DataContext).ToggleAutomationCommand}"
+                                CommandParameter="{Binding}" />
+                    </StackPanel>
+                </Grid>
+            </ctl:DeviceCardButton>
+        </DataTemplate>
+
+        <!-- 场景紧凑行：设备详情「相关场景」与场景页「按设备」共用 -->
+        <DataTemplate x:Key="SceneDeviceRowTemplate" x:DataType="m:SceneCardItem">
+            <Border CornerRadius="12" Padding="11,9" Margin="0,0,0,6"
+                    Background="{DynamicResource CardBrush}">
+                <Grid ColumnDefinitions="Auto,*,Auto,Auto,Auto">
+                    <Border Width="28" Height="28" CornerRadius="9" Background="{Binding IconBgBrush}"
+                            VerticalAlignment="Center">
+                        <Path Width="15" Height="15" Stretch="Uniform" Stroke="{Binding IconFgBrush}"
+                              StrokeThickness="1.7" StrokeLineCap="Round" StrokeJoin="Round"
+                              Data="{Binding Icon}" />
+                    </Border>
+                    <StackPanel Grid.Column="1" Margin="10,0,8,0" VerticalAlignment="Center">
+                        <TextBlock Text="{Binding Name}" FontSize="13" FontWeight="SemiBold"
+                                   TextTrimming="CharacterEllipsis" MaxLines="1"
+                                   Foreground="{DynamicResource TextBrush}" />
+                        <TextBlock Text="{Binding Summary}" FontSize="11.5" Margin="0,3,0,0"
+                                   TextTrimming="CharacterEllipsis" MaxLines="1"
+                                   Foreground="{DynamicResource Text3Brush}" />
+                    </StackPanel>
+                    <Border Grid.Column="2" CornerRadius="10" Padding="7,2" Margin="0,0,8,0"
+                            VerticalAlignment="Center"
+                            Background="{DynamicResource GreenSoftBrush}" IsVisible="{Binding HasRole}">
+                        <TextBlock Text="{Binding RoleText}" FontSize="10.5" FontWeight="Bold"
+                                   Foreground="{DynamicResource GreenBrush}" />
+                    </Border>
+                    <!-- 仅本机：只下发这条场景里落到该设备的动作，不跑整条场景 -->
+                    <Button Grid.Column="3" Classes="BtnGhost" Height="24" Padding="8,0"
+                            FontSize="10.5" FontWeight="SemiBold" Margin="0,0,6,0"
+                            VerticalAlignment="Center" Content="仅本机"
+                            IsVisible="{Binding CanRunOnDevice}"
+                            ToolTip.Tip="{Binding DeviceRunTip}"
+                            Command="{Binding $parent[UserControl].((vm:MainViewModel)DataContext).RunSceneOnDeviceCommand}"
+                            CommandParameter="{Binding}" />
+                    <Button Grid.Column="4" Classes="PlayCircle" Width="28" Height="28"
+                            VerticalAlignment="Center" ToolTip.Tip="执行整条场景"
+                            Command="{Binding $parent[UserControl].((vm:MainViewModel)DataContext).RunSceneCommand}"
+                            CommandParameter="{Binding}" />
+                </Grid>
             </Border>
         </DataTemplate>
 </ResourceDictionary>
