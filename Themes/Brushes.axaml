@@ -42,6 +42,9 @@
                  拖拽时鼠标离开把手也不会缩到看不见（样式赋值压不过模板里的本地 DynamicResource） -->
             <ScaleTransform x:Key="VerticalSmallScrollThumbScaleTransform" ScaleX="1" ScaleY="1"/>
             <ScaleTransform x:Key="HorizontalSmallScrollThumbScaleTransform" ScaleX="1" ScaleY="1"/>
+            <!-- ======== 卡片投影：运行期由「设置 → 通用 → 卡片阴影」整体替换 ======== -->
+            <BoxShadows x:Key="CardShadow">0 1 2 0 #050F172A, 0 5 16 0 #080F172A</BoxShadows>
+            <BoxShadows x:Key="CardShadowHover">0 3 8 0 #0D0F172A, 0 10 24 0 #140F172A</BoxShadows>
             <ResourceDictionary.ThemeDictionaries>
                 <ResourceDictionary x:Key="Dark">
                     <SolidColorBrush x:Key="BgBrush" Color="#07090E"/>
@@ -184,6 +187,10 @@
                     <!-- 分区里的电源键：底也是半透明白，不能压住磨砂 -->
                     <SolidColorBrush x:Key="DskSwitchBrush" Color="#33FFFFFF"/>
                     <SolidColorBrush x:Key="DskSwitchOnBrush" Color="#9984ECFF"/>
+                    <!-- 设备卡「更多」：铺满设备图标位置的圆角方底（近不透明的卡面色，压住背后的图标）；
+                         自身悬停再亮一档，确认「点到它了」 -->
+                    <SolidColorBrush x:Key="MoreBtnBgBrush" Color="#E61A1F2C"/>
+                    <SolidColorBrush x:Key="MoreBtnBgHoverBrush" Color="#F22A3145"/>
                     <LinearGradientBrush x:Key="PrimaryBtnBrush" StartPoint="0,0" EndPoint="1,1">
                         <GradientStop Color="#7C5CFC" Offset="0"/>
                         <GradientStop Color="#8B7CFF" Offset="1"/>
@@ -373,6 +380,10 @@
                     <SolidColorBrush x:Key="DskCardBrush" Color="#B8FFFFFF"/>
                     <SolidColorBrush x:Key="DskSwitchBrush" Color="#B3E7EBF3"/>
                     <SolidColorBrush x:Key="DskSwitchOnBrush" Color="#CC8E83F0"/>
+                    <!-- 设备卡「更多」：铺满设备图标位置的圆角方底（浅灰蓝、近不透明，白卡上也有边界）；
+                         自身悬停再深一档 -->
+                    <SolidColorBrush x:Key="MoreBtnBgBrush" Color="#F2DDE4F0"/>
+                    <SolidColorBrush x:Key="MoreBtnBgHoverBrush" Color="#FFC9D3E6"/>
                     <LinearGradientBrush x:Key="PrimaryBtnBrush" StartPoint="0,0" EndPoint="1,1">
                         <GradientStop Color="#6D5BE3" Offset="0"/>
                         <GradientStop Color="#8B7CFF" Offset="1"/>

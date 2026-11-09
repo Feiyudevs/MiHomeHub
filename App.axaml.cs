@@ -37,6 +37,8 @@ public partial class App : Application
     public override void OnFrameworkInitializationCompleted()
     {
         RequestedThemeVariant = ThemeStore.CurrentVariant;
+        // 卡片投影偏好可能在启动前就是关闭状态，先落到资源再建窗口，避免首帧闪一下投影
+        CardShadowScope.Apply(AppSettingsStore.CardShadow);
         if (ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
         {
             // 升级/换目录后 Run 键里可能还是旧 exe 路径

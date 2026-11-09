@@ -60,6 +60,18 @@
                                               Options="{Binding IconOptions}"
                                               SelectedValue="{Binding IconGlass}" />
                         </Grid>
+                        <Grid ColumnDefinitions="Auto,*,Auto">
+                            <Border Classes="SetIc" Background="{DynamicResource BlueSoftBrush}">
+                                <Path Stroke="{DynamicResource BlueBrush}" Data="{StaticResource GeoShadow}" />
+                            </Border>
+                            <StackPanel Grid.Column="1" Margin="12,0" VerticalAlignment="Center">
+                                <TextBlock Text="卡片阴影" FontSize="13.5" FontWeight="SemiBold"
+                                           Foreground="{DynamicResource TextBrush}" />
+                                <TextBlock Text="关闭后卡片改为扁平贴合，界面更清爽" Classes="Hint Sub" Margin="0,2,0,0" />
+                            </StackPanel>
+                            <ToggleButton Grid.Column="2" Classes="Switch" VerticalAlignment="Center"
+                                          IsChecked="{Binding CardShadow}" />
+                        </Grid>
                     </StackPanel>
                 </Border>
                 <Border Classes="Card">

@@ -1,4 +1,5 @@
 using System;
+using System.ComponentModel;
 using System.Runtime.InteropServices;
 using Avalonia;
 using Avalonia.Animation;
@@ -24,11 +25,16 @@ public partial class TrayMenuWindow : Window
 
     // 有音箱时多出的媒体块高度（下拉 32 + 间距 + 三键 34 + 上下留白 + 分隔线）
     private const double MediaBlockHeight = 94;
-    private const double BaseHeight = 232;
+    // 基础高度含顶部「米家控制中心」标题行（26 + 与下一项的 1px 间距）
+    private const double BaseHeight = 259;
 
     private readonly MainViewModel _vm;
     private readonly ScaleTransform _scale = new(1, 1);
     private readonly TranslateTransform _slide = new();
+
+    // 定位锚点：媒体区在打开过程中才出现/收起时要重排窗口，得拿原锚点再贴一次
+    private Screen? _screen;
+    private PixelPoint _anchor;
 
     // 点托盘图标时窗口会先失活隐藏，紧接着才收到 Clicked；用时间戳区分「关闭」和「重新打开」
     private long _hiddenAt;
@@ -63,6 +69,25 @@ public partial class TrayMenuWindow : Window
         };
         Card.Opacity = 0;
         Deactivated += (_, _) => Dismiss();
+        _vm.PropertyChanged += OnViewModelPropertyChanged;
+    }
+
+    /// <summary>设备/音箱数据在菜单开着时到货：媒体区从骨架换成真控件，或家里其实没音箱要收掉，窗口高度跟着重排。</summary>
+    private void OnViewModelPropertyChanged(object? sender, PropertyChangedEventArgs e)
+    {
+        if (e.PropertyName != nameof(MainViewModel.TrayMediaSlot)) return;
+        if (!IsVisible || _screen is null) return;
+        // 同步收尾可能在线程池回来，窗口尺寸/位置只能在 UI 线程改
+        if (!Dispatcher.UIThread.CheckAccess())
+        {
+            Dispatcher.UIThread.Post(() => OnViewModelPropertyChanged(sender, e));
+            return;
+        }
+
+        var height = _vm.TrayMediaSlot ? BaseHeight + MediaBlockHeight : BaseHeight;
+        if (Math.Abs(height - Height) < 0.5) return;
+        Height = height;
+        PlaceNear(_screen, _anchor);
     }
 
     /// <summary>贴着托盘图标弹出；已经打开时再次触发就是收起。</summary>
@@ -84,8 +109,10 @@ public partial class TrayMenuWindow : Window
     private void Open(Screen? screen, PixelPoint anchor)
     {
         if (screen is null) return;
-        // 媒体块跟着有没有音箱出现/收起，高度要在定位前定下来
-        Height = _vm.HasSpeaker ? BaseHeight + MediaBlockHeight : BaseHeight;
+        // 媒体区（含加载骨架）在不在，高度要先定下来再定位
+        _screen = screen;
+        _anchor = anchor;
+        Height = _vm.TrayMediaSlot ? BaseHeight + MediaBlockHeight : BaseHeight;
         RefreshThemeEntry();
         PlaceNear(screen, anchor);
         Show();

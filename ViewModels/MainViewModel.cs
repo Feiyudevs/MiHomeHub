@@ -79,6 +79,8 @@ public partial class MainViewModel : ObservableObject
     [ObservableProperty] private bool _autoStart = StartupRegistration.IsEnabled();
     [ObservableProperty] private bool _showMainWindowOnStartup = AppSettingsStore.ShowMainWindowOnStartup;
     [ObservableProperty] private bool _closeToTray = AppSettingsStore.CloseToTray;
+    /// <summary>true = 卡片带投影；false = 扁平无投影。</summary>
+    [ObservableProperty] private bool _cardShadow = AppSettingsStore.CardShadow;
 
     /// <summary>设置弹窗当前 Tab：0 通用 / 1 桌面组件 / 2 账户 / 3 关于。</summary>
     [ObservableProperty] private int _settingsTab;
@@ -284,6 +286,8 @@ public partial class MainViewModel : ObservableObject
     private void RaiseSyncState()
     {
         OnPropertyChanged(nameof(SyncPending));
+        OnPropertyChanged(nameof(TrayMediaSlot));
+        OnPropertyChanged(nameof(TraySpeakerPending));
         OnPropertyChanged(nameof(ShowSkeleton));
         OnPropertyChanged(nameof(ShowSceneSkeleton));
         OnPropertyChanged(nameof(ShowQuickScenes));
@@ -437,6 +441,12 @@ public partial class MainViewModel : ObservableObject
     }
 
     partial void OnIconGlassChanged(bool value) => IconStyleStore.Set(value);
+
+    partial void OnCardShadowChanged(bool value)
+    {
+        AppSettingsStore.SetCardShadow(value);
+        CardShadowScope.Apply(value);
+    }
 
     partial void OnAutoStartChanged(bool value)
     {

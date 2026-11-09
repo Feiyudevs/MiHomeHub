@@ -50,7 +50,7 @@
             <Setter Property="Background" Value="{DynamicResource CardBrush}"/>
             <Setter Property="CornerRadius" Value="{StaticResource R}"/>
             <Setter Property="Padding" Value="18"/>
-            <Setter Property="BoxShadow" Value="0 1 2 0 #050F172A, 0 5 16 0 #080F172A"/>
+            <Setter Property="BoxShadow" Value="{DynamicResource CardShadow}"/>
         </Style>
         <!-- 设置页内卡片：比全局再淡一档，整体更收敛 -->
         <Style Selector="StackPanel.SetArea Border.Card">
@@ -407,12 +407,8 @@
                 </Transitions>
             </Setter>
         </Style>
-        <!-- 卡片悬停时右列「一分为二」：电源键从垂直居中滑到右下角（10px：卡片内容高 48、键 32，
-             居中时键顶 8px，滑 10 后键顶 18px 正好压在「更多」下沿 17px 之下不重叠，下沿只超出内容区
-             2px、离卡片底边还有 11px；再往下滑就贴到卡边上），给上方浮现的「更多」让位 -->
-        <Style Selector="ctl|DeviceCardButton.DevCard:pointerover ctl|DevicePowerButton.Power">
-            <Setter Property="RenderTransform" Value="translate(0px,10px)"/>
-        </Style>
+        <!-- 卡片悬停不再移动电源键：「更多」已改为浮在左侧设备图标上，右列保持原位，
+             开关随手感不变（标签页 / 桌面分区共用这一档） -->
         <Style Selector="ctl|DevicePowerButton.Power:pointerover /template/ Border#Disc">
             <Setter Property="Opacity" Value="0.85"/>
         </Style>
@@ -478,8 +474,29 @@
             <Setter Property="Foreground" Value="{DynamicResource NavActiveTextBrush}"/>
             <Setter Property="FontWeight" Value="SemiBold"/>
         </Style>
+        <!-- 选中底色交给共享滑块（Border.NavSlider）画：行自身留透明，悬停也不盖住滑块，
+             这样滑块才能从上一行「位移」到当前行（位置由 MainWindow 按 .on 行边界同步） -->
         <Style Selector="Button.NavRow.on /template/ Border#Bg">
+            <Setter Property="Background" Value="Transparent"/>
+        </Style>
+        <Style Selector="Button.NavRow.on:pointerover /template/ Border#Bg">
+            <Setter Property="Background" Value="Transparent"/>
+        </Style>
+        <!-- 侧栏选中滑块：浅紫底 + 圆角（与外层行底色 12 圆角、10,3 内缩对齐），
+             位移/宽高过渡与页签共享滑块同一套 0.28s CubicEaseInOut；首帧无过渡，避免开场滑块从 0 飞入 -->
+        <Style Selector="Border.NavSlider">
             <Setter Property="Background" Value="{DynamicResource AccentSoftBrush}"/>
+            <Setter Property="CornerRadius" Value="12"/>
+        </Style>
+        <Style Selector="Border.NavSlider.ready">
+            <Setter Property="Transitions">
+                <Transitions>
+                    <DoubleTransition Property="Canvas.Left" Duration="0:0:0.28" Easing="CubicEaseInOut"/>
+                    <DoubleTransition Property="Canvas.Top" Duration="0:0:0.28" Easing="CubicEaseInOut"/>
+                    <DoubleTransition Property="Width" Duration="0:0:0.28" Easing="CubicEaseInOut"/>
+                    <DoubleTransition Property="Height" Duration="0:0:0.28" Easing="CubicEaseInOut"/>
+                </Transitions>
+            </Setter>
         </Style>
         <Style Selector="Button.NavRow.on /template/ Border#Bar">
             <Setter Property="Background" Value="{DynamicResource AccentBrush}"/>
@@ -572,7 +589,7 @@
             <Setter Property="Margin" Value="8"/>
             <Setter Property="Background" Value="{DynamicResource CardBrush}"/>
             <!-- 用 BoxShadow 而非 Effect：Effect 会离屏渲染成与元素等大的图层，投影外扩部分被裁成硬边 -->
-            <Setter Property="BoxShadow" Value="0 1 2 0 #050F172A, 0 4 14 0 #060F172A"/>
+            <Setter Property="BoxShadow" Value="{DynamicResource CardShadow}"/>
         </Style>
         <Style Selector="ctl|DeviceCardButton.DevCard.on /template/ Border#Card">
             <Setter Property="Background" Value="{DynamicResource DevOnBrush}"/>
@@ -611,7 +628,7 @@
             <Setter Property="Padding" Value="15,13"/>
             <Setter Property="Margin" Value="8"/>
             <Setter Property="Background" Value="{DynamicResource SkelCardBrush}"/>
-            <Setter Property="BoxShadow" Value="0 1 2 0 #050F172A, 0 4 14 0 #060F172A"/>
+            <Setter Property="BoxShadow" Value="{DynamicResource CardShadow}"/>
         </Style>
         <Style Selector="Border.SkelIc">
             <Setter Property="Width" Value="42"/>
@@ -760,7 +777,7 @@
         </Style>
         <Style Selector="Button.SceneMini /template/ Border#Card">
             <Setter Property="Background" Value="{DynamicResource CardBrush}"/>
-            <Setter Property="BoxShadow" Value="0 1 2 0 #050F172A, 0 5 16 0 #080F172A"/>
+            <Setter Property="BoxShadow" Value="{DynamicResource CardShadow}"/>
         </Style>
         <Style Selector="Button.SceneMini:pointerover">
             <Setter Property="RenderTransform" Value="translate(0px,-3px)"/>
@@ -801,7 +818,7 @@
         </Style>
         <Style Selector="Button.SceneBig /template/ Border#Card">
             <Setter Property="Background" Value="{DynamicResource CardBrush}"/>
-            <Setter Property="BoxShadow" Value="0 1 2 0 #050F172A, 0 5 16 0 #080F172A"/>
+            <Setter Property="BoxShadow" Value="{DynamicResource CardShadow}"/>
         </Style>
         <Style Selector="Button.SceneBig:pointerover">
             <Setter Property="RenderTransform" Value="translate(0px,-4px)"/>
@@ -1008,20 +1025,19 @@
              点击行为由 Controls/MenuOpener 附加属性接管：打开与右键同一份菜单。
              菜单本体（外壳 + 菜单项主题）直接内联在 Templates.axaml 的设备卡模板里，
              不依赖样式匹配 —— 弹出层的样式应用时机不可控，本地值最稳。 -->
-        <!-- 「更多」：比电源键略小（26×26 正圆）、右列内水平居中同轴；
-             无任何底色，只有三个点；默认隐藏 + 上浮 3px，卡片悬停时淡入下滑浮现 -->
+        <!-- 「更多」：48×48 点击热区，与设备图标同尺寸；可见内容是一枚铺满热区的圆角方底 + 三个点。
+             默认隐藏 + 上浮 3px，卡片悬停时淡入下滑浮现 -->
         <Style Selector="ctl|DeviceMoreButton.MoreBtn">
-            <Setter Property="Width" Value="26"/>
-            <Setter Property="Height" Value="26"/>
+            <Setter Property="Width" Value="48"/>
+            <Setter Property="Height" Value="48"/>
             <Setter Property="Padding" Value="0"/>
-            <Setter Property="CornerRadius" Value="13"/>
             <Setter Property="Background" Value="Transparent"/>
             <Setter Property="BorderThickness" Value="0"/>
             <Setter Property="Focusable" Value="False"/>
             <Setter Property="Cursor" Value="Hand"/>
             <Setter Property="Opacity" Value="0"/>
             <Setter Property="IsHitTestVisible" Value="False"/>
-            <Setter Property="Foreground" Value="{DynamicResource Text3Brush}"/>
+            <Setter Property="Foreground" Value="{DynamicResource TextBrush}"/>
             <!-- 保留原 Fluent ContentPresenter 的结构及命名，只不加载无关的按钮主题状态。 -->
             <Setter Property="Template">
                 <ControlTemplate>
@@ -1054,8 +1070,22 @@
         <Style Selector="ctl|DeviceMoreButton.MoreBtn:pointerover">
             <Setter Property="Foreground" Value="{DynamicResource TextBrush}"/>
         </Style>
-        <!-- 无背景版：任何状态（卡片悬停 / 自身 hover / 按下）都不铺底色，
-             Fluent Button 主题自带的 pointerover/pressed 灰底显式压回透明 -->
+        <!-- 底色：铺满整个 48×48 热区（与设备图同大），大圆角方底 + 基本不透明的浅色，
+             把背后的设备图标完全压住，三个点才读得清；
+             自身悬停 / 按下只把底色提亮一档，不出现 Fluent Button 主题自带的实心灰底 -->
+        <Style Selector="ctl|DeviceMoreButton.MoreBtn Border.MoreBtnPill">
+            <Setter Property="Width" Value="48"/>
+            <Setter Property="Height" Value="48"/>
+            <Setter Property="Background" Value="{DynamicResource MoreBtnBgBrush}"/>
+            <Setter Property="CornerRadius" Value="14"/>
+            <Setter Property="Padding" Value="0"/>
+        </Style>
+        <Style Selector="ctl|DeviceMoreButton.MoreBtn:pointerover Border.MoreBtnPill">
+            <Setter Property="Background" Value="{DynamicResource MoreBtnBgHoverBrush}"/>
+        </Style>
+        <Style Selector="ctl|DeviceMoreButton.MoreBtn:pressed Border.MoreBtnPill">
+            <Setter Property="Background" Value="{DynamicResource MoreBtnBgHoverBrush}"/>
+        </Style>
         <Style Selector="ctl|DeviceMoreButton.MoreBtn:pointerover /template/ ContentPresenter#PART_ContentPresenter">
             <Setter Property="Background" Value="Transparent"/>
         </Style>

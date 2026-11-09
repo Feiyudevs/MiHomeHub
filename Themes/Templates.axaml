@@ -48,7 +48,7 @@
             <DataTemplate x:Key="StatSkeletonTemplate" x:DataType="x:String">
                 <Border CornerRadius="16" Padding="16,13" MinWidth="96" Margin="0,0,10,10"
                         Background="{DynamicResource SkelCardBrush}"
-                        BoxShadow="0 1 2 0 #050F172A, 0 5 16 0 #080F172A">
+                        BoxShadow="{DynamicResource CardShadow}">
                     <Panel ClipToBounds="True">
                         <StackPanel Spacing="6">
                             <StackPanel Orientation="Horizontal" Spacing="6">
@@ -122,8 +122,8 @@
                     <Setter Property="Background" Value="{DynamicResource SelBgPressBrush}"/>
                 </Style>
             </ControlTheme>
-            <!-- 设备卡（§8.6）：图标 | 名称 + 房间·状态；右上角「更多」（悬停浮现，点击开菜单）、
-                 右下角电源键。主窗口列表与桌面分区共用这一张卡：动作统一交给所在窗口 DataContext 的
+            <!-- 设备卡（§8.6）：图标 | 名称 + 房间·状态；「更多」浮在设备图标正中（悬停浮现，点击开菜单）、
+                 右侧电源键固定居中。主窗口列表与桌面分区共用这一张卡：动作统一交给所在窗口 DataContext 的
                  IDeviceCardHost 实现（主窗口=抽屉，分区=控制弹窗），卡片本身不知道贴在哪；
                  菜单同理（右键 / 「更多」都开它），文案 / 图标 / 动作都由宿主给。 -->
             <!-- 设备菜单按需创建，右键、菜单键和更多按钮共享。 -->
@@ -199,6 +199,24 @@
                                 <Image Source="{Binding Icon}" Stretch="Uniform"
                                        RenderOptions.BitmapInterpolationMode="MediumQuality" />
                             </Border>
+                            <!-- 「更多」浮在设备图标正中（卡片悬停时淡入）：48×48 圆角方底与设备图同大，
+                                 把图标整个盖住，三个点居中；与图标同格叠放，不占布局槽 -->
+                            <ctl:DeviceMoreButton Classes="MoreBtn" ctl:MenuOpener.OpenOnClick="True"
+                                    HorizontalAlignment="Center" VerticalAlignment="Center"
+                                    ToolTip.Tip="更多">
+                                <Border Classes="MoreBtnPill">
+                                    <!-- 三个点显式双向居中：Button 内容对齐不保证 Center，不写会偏 -->
+                                    <StackPanel Orientation="Horizontal" Spacing="4"
+                                                HorizontalAlignment="Center" VerticalAlignment="Center">
+                                        <Ellipse Width="3.5" Height="3.5"
+                                                 Fill="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" />
+                                        <Ellipse Width="3.5" Height="3.5"
+                                                 Fill="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" />
+                                        <Ellipse Width="3.5" Height="3.5"
+                                                 Fill="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" />
+                                    </StackPanel>
+                                </Border>
+                            </ctl:DeviceMoreButton>
                         </Panel>
                         <StackPanel Grid.Column="1" VerticalAlignment="Center" Margin="12,0,10,0" Spacing="3">
                             <!-- 三处文字的 Foreground 一律走样式（不在元素上写本地值）：
@@ -216,8 +234,7 @@
                                 </Border>
                             </StackPanel>
                         </StackPanel>
-                        <!-- 右列：默认电源键垂直居中；卡片悬停时「一分为二」——
-                             电源键滑到右下（样式 translate 0→10px），“更多”在上方淡入下滑浮现（负 margin 贴右上角）；
+                        <!-- 右列：电源键固定垂直居中，不随悬停位移（「更多」已移到左侧图标上）；
                              多路设备的「N 路」角标与电源键互斥（同一时刻只显示一个），贴右下。 -->
                         <Grid Grid.Column="2" MinWidth="32">
                             <ctl:DevicePowerButton Classes="Power" Classes.curtain="{Binding IsCurtain}"
@@ -227,22 +244,6 @@
                                           IsChecked="{Binding IsOn}" IsEnabled="{Binding !IsBusy}"
                                           Command="{Binding $parent[Window].((vm:IDeviceCardHost)DataContext).ToggleSwitchCommand}"
                                           CommandParameter="{Binding}" />
-                            <!-- 「更多”负 margin 悬浮到卡片右上角（卡片内距 15,13）：距角约 4px/9px，
-                                 保留布局槽只靠透明度浮现，不影响电源键位置 -->
-                            <ctl:DeviceMoreButton Classes="MoreBtn" ctl:MenuOpener.OpenOnClick="True"
-                                    HorizontalAlignment="Center" VerticalAlignment="Top"
-                                    Margin="0,-9,0,0" ToolTip.Tip="更多">
-                                <!-- 三个点显式双向居中：Button 内容对齐不保证 Center，不写会偏 -->
-                                <StackPanel Orientation="Horizontal" Spacing="3"
-                                            HorizontalAlignment="Center" VerticalAlignment="Center">
-                                        <Ellipse Width="3" Height="3"
-                                                 Fill="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" />
-                                        <Ellipse Width="3" Height="3"
-                                                 Fill="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" />
-                                        <Ellipse Width="3" Height="3"
-                                                 Fill="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" />
-                                </StackPanel>
-                            </ctl:DeviceMoreButton>
                             <!-- 多路开关不在卡片上铺满多个开关：显示路数，进抽屉逐路操作 -->
                             <Border Classes="DevBadge" CornerRadius="8" Padding="8,3" HorizontalAlignment="Right" VerticalAlignment="Bottom"
                                     Margin="0,0,-2,-4"
@@ -260,7 +261,7 @@
             <DataTemplate x:Key="SceneMiniTemplate" x:DataType="m:SceneCardItem">
                 <Border CornerRadius="16" Margin="8" MinHeight="80"
                         Background="{DynamicResource CardBrush}"
-                        BoxShadow="0 1 2 0 #050F172A, 0 5 16 0 #080F172A">
+                        BoxShadow="{DynamicResource CardShadow}">
                     <Panel>
                         <Border CornerRadius="16" Background="{Binding GlowBrush}" IsHitTestVisible="False"/>
                         <Border Padding="12">

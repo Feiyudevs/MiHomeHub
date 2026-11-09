@@ -240,30 +240,37 @@
         </Grid>
         <!-- ================= 主体：侧栏 + 内容面板 ================= -->
         <Grid Grid.Row="1" ColumnDefinitions="180,*" Margin="10,0,10,10">
-            <!-- 侧栏 -->
-            <DockPanel Grid.Column="0" Margin="10,10,10,0">
-                <StackPanel DockPanel.Dock="Top">
-                    <Button Classes="NavRow" Classes.on="{Binding SelectedNavIndex, Converter={StaticResource IntEq}, ConverterParameter=0}" Tag="home"
-                            Content="首页" Click="OnGotoHome" />
-                    <Button Classes="NavRow" Classes.on="{Binding SelectedNavIndex, Converter={StaticResource IntEq}, ConverterParameter=2}" Tag="scene"
-                            Content="智能" Click="OnGotoScenes" />
-                </StackPanel>
-                <TextBlock DockPanel.Dock="Top" Classes="NavCaption" Text="{Binding RoomCount, StringFormat='房间 · {0}'}" />
-                <!-- 所有房间 -->
-                <ScrollViewer VerticalScrollBarVisibility="Auto" Margin="0,0,0,4">
-                    <ItemsControl ItemsSource="{Binding Rooms}">
-                        <ItemsControl.ItemTemplate>
-                            <DataTemplate x:DataType="m:RoomChip">
-                                <Button Classes="NavRow room" Classes.on="{Binding IsSelected}"
-                                        Tag="{Binding IconKey}"
-                                        Content="{Binding Name}"
-                                        Command="{Binding $parent[Window].((vm:MainViewModel)DataContext).PickRoomCommand}"
-                                        CommandParameter="{Binding}" />
-                            </DataTemplate>
-                        </ItemsControl.ItemTemplate>
-                    </ItemsControl>
-                </ScrollViewer>
-            </DockPanel>
+            <!-- 侧栏：选中底色做成一块共享滑块（NavSlider），在首页/智能/房间行之间上下位移，
+                 位移与宽高过渡对齐页签（SlidingTabPanel）的 0.28s CubicEaseInOut；滑块铺在导航行下层，
+                 行自身的 .on 底色因此改成透明，位置由 MainWindow 按 .on 行的实际边界同步。 -->
+            <Panel Grid.Column="0" Margin="10,10,10,0">
+                <Canvas x:Name="NavSliderLayer" IsHitTestVisible="False">
+                    <Border x:Name="NavSlider" Classes="NavSlider" IsVisible="False" />
+                </Canvas>
+                <DockPanel>
+                    <StackPanel DockPanel.Dock="Top">
+                        <Button Classes="NavRow" Classes.on="{Binding SelectedNavIndex, Converter={StaticResource IntEq}, ConverterParameter=0}" Tag="home"
+                                Content="首页" Click="OnGotoHome" />
+                        <Button Classes="NavRow" Classes.on="{Binding SelectedNavIndex, Converter={StaticResource IntEq}, ConverterParameter=2}" Tag="scene"
+                                Content="智能" Click="OnGotoScenes" />
+                    </StackPanel>
+                    <TextBlock DockPanel.Dock="Top" Classes="NavCaption" Text="{Binding RoomCount, StringFormat='房间 · {0}'}" />
+                    <!-- 所有房间 -->
+                    <ScrollViewer x:Name="NavRoomsScroll" VerticalScrollBarVisibility="Auto" Margin="0,0,0,4">
+                        <ItemsControl ItemsSource="{Binding Rooms}">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate x:DataType="m:RoomChip">
+                                    <Button Classes="NavRow room" Classes.on="{Binding IsSelected}"
+                                            Tag="{Binding IconKey}"
+                                            Content="{Binding Name}"
+                                            Command="{Binding $parent[Window].((vm:MainViewModel)DataContext).PickRoomCommand}"
+                                            CommandParameter="{Binding}" />
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                    </ScrollViewer>
+                </DockPanel>
+            </Panel>
             <!-- 内容面板：只左上圆角；左侧与侧栏齐平，右/下用 -10 抵掉主体网格的边距，贴住窗口边缘 -->
             <Border Grid.Column="1" CornerRadius="40,0,0,0" Background="{DynamicResource PanelBrush}"
                     BoxShadow="0 3 10 0 #170F172A" ClipToBounds="True" Margin="0,0,-10,-10">
@@ -297,7 +304,7 @@
                          注意别改用 ScrollViewer.Padding 缩正文：那样正文的测量宽度会大于裁剪宽度，
                          自适应网格按测量宽度算列宽 → 最右一列被裁掉半张卡（已踩过）。
                          底部不再留 28 外边距：列表直接铺到面板下沿，避免「下面一条空白 + 末行被切」的假裁切。 -->
-                    <Carousel SelectedIndex="{Binding SelectedNavIndex}"
+                    <Carousel x:Name="PageCarousel" SelectedIndex="{Binding SelectedNavIndex}"
                               Margin="22,20,6,0">
                         <ScrollViewer HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Auto">
                             <views:HomeView />

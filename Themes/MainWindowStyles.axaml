@@ -329,7 +329,7 @@
             <Setter Property="Background" Value="{DynamicResource CardBrush}" />
             <Setter Property="CornerRadius" Value="16" />
             <Setter Property="Padding" Value="16,15" />
-            <Setter Property="BoxShadow" Value="0 1 2 0 #050F172A, 0 5 16 0 #080F172A" />
+            <Setter Property="BoxShadow" Value="{DynamicResource CardShadow}" />
         </Style>
         <!-- 动作二次确认态：柔主色底 + 主色文字，跟普通幽灵按钮拉开 -->
         <Style Selector="Button.BtnGhost.confirming /template/ Border#Bd">
@@ -433,7 +433,7 @@
                 <ControlTemplate>
                     <Border Name="Card" CornerRadius="16" Padding="16,13" MinWidth="96"
                             Background="{DynamicResource CardBrush}"
-                            BoxShadow="0 1 2 0 #050F172A, 0 5 16 0 #080F172A">
+                            BoxShadow="{DynamicResource CardShadow}">
                         <!-- 内容拉伸到卡片内距宽：右上角箭头才有确定的右边界可贴 -->
                         <ContentPresenter Content="{TemplateBinding Content}"
                                           HorizontalAlignment="Stretch" VerticalAlignment="Center" />
@@ -450,7 +450,7 @@
             </Setter>
         </Style>
         <Style Selector="Button.StatCard:pointerover /template/ Border#Card">
-            <Setter Property="BoxShadow" Value="0 3 8 0 #0D0F172A, 0 10 24 0 #140F172A" />
+            <Setter Property="BoxShadow" Value="{DynamicResource CardShadowHover}" />
         </Style>
         <Style Selector="Button.StatCard:pointerover">
             <Setter Property="RenderTransform" Value="translate(0px,-2px)" />

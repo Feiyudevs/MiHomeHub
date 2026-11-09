@@ -22,6 +22,9 @@ public static class AppSettingsStore
     /// <summary>小爱语音指令默认下发的音箱 did；空串表示还没选过。</summary>
     public static string DefaultSpeakerDid { get; private set; } = "";
 
+    /// <summary>true = 卡片带投影；false = 扁平无投影。</summary>
+    public static bool CardShadow { get; private set; } = true;
+
     static AppSettingsStore()
     {
         try
@@ -37,6 +40,8 @@ public static class AppSettingsStore
                 ShowMainWindowOnStartup = w.ValueKind == JsonValueKind.True;
             if (root.TryGetProperty("defaultSpeakerDid", out var s) && s.ValueKind == JsonValueKind.String)
                 DefaultSpeakerDid = s.GetString() ?? "";
+            if (root.TryGetProperty("cardShadow", out var d))
+                CardShadow = d.ValueKind != JsonValueKind.False;
         }
         catch
         {
@@ -68,6 +73,12 @@ public static class AppSettingsStore
         Save();
     }
 
+    public static void SetCardShadow(bool on)
+    {
+        CardShadow = on;
+        Save();
+    }
+
     private static void Save()
     {
         var payload = JsonSerializer.Serialize(new
@@ -75,7 +86,8 @@ public static class AppSettingsStore
             autoStart = AutoStart,
             closeToTray = CloseToTray,
             showMainWindowOnStartup = ShowMainWindowOnStartup,
-            defaultSpeakerDid = DefaultSpeakerDid
+            defaultSpeakerDid = DefaultSpeakerDid,
+            cardShadow = CardShadow
         });
         // 写盘出 UI 线程；进程被强杀时可能丢最后一次偏好，可接受
         _ = Task.Run(() =>

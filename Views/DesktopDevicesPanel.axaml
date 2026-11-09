@@ -23,7 +23,7 @@
         </Style>
         <!-- 悬停 / 按下不做位移：分区卡贴在桌面上，卡片整体上浮 3px 会让整块面板跟着抖
              （全局那份 DevCard 的 -3px / 0.99 缩放是主窗口列表的效果，这里覆盖成持平）。
-             内部电源键下滑给「更多」让位保持不变，那是内容重排、不是卡片移动。 -->
+             卡片内的按钮也不再随悬停重排，那是内容位移、同样会带动整块面板。 -->
         <Style Selector="ctl|DeviceCardButton.DevCard:pointerover">
             <Setter Property="RenderTransform" Value="translate(0px,0px)" />
         </Style>
@@ -47,19 +47,15 @@
             <Setter Property="Background" Value="#1FFFFFFF" />
         </Style>
 
-        <!-- 卡片「更多」（三个点）：全局那档是 Text3Brush（深色主题 #646C7E），
-             压在半透明玻璃卡面上几乎看不见 —— 分区里改用提亮后的次级色 DskText2Brush，
-             自身悬停再上一档到近纯白。与 DevName / DevMeta 同一条思路。 -->
+        <!-- 卡片「更多」（三个点）：全局那档是 Text2Brush（#99A1B3），
+             压在半透明玻璃卡面上偏暗 —— 分区里改用提亮后的次级色 DskText2Brush，
+             自身悬停再上一档到近纯白。与 DevName / DevMeta 同一条思路。
+             半透明圆底沿用全局 MoreBtnBgBrush / Hover 档，只随卡片色系微调，不再另铺一层亮底。 -->
         <Style Selector="ctl|DeviceCardButton.DevCard ctl|DeviceMoreButton.MoreBtn">
             <Setter Property="Foreground" Value="{DynamicResource DskText2Brush}" />
         </Style>
         <Style Selector="ctl|DeviceCardButton.DevCard ctl|DeviceMoreButton.MoreBtn:pointerover">
             <Setter Property="Foreground" Value="{DynamicResource DskTextBrush}" />
-        </Style>
-        <!-- 悬停加一层极淡的圆形底：三个点只有 3px，贴玻璃时纯靠亮色仍偏飘，
-             给一点底色才能确认「点到了它」；保持极淡，不做按钮感 -->
-        <Style Selector="ctl|DeviceCardButton.DevCard ctl|DeviceMoreButton.MoreBtn:pointerover /template/ ContentPresenter#PART_ContentPresenter">
-            <Setter Property="Background" Value="{DynamicResource DskSwitchBrush}" />
         </Style>
 
         <!-- 电源键：底色同样半透明，实心深色在磨砂玻璃上会像一块黑板 -->
@@ -78,8 +74,6 @@
         <Style Selector="ctl|DevicePowerButton.Power:checked">
             <Setter Property="Foreground" Value="White" />
         </Style>
-        <!-- 悬停时电源键下滑给「更多」让位：走全局那份 translate 10px（主窗口与分区同一档），
-             这里不再重复覆盖 -->
 
         <!-- ======== 卡片拖拽排序的交互辅助 ======== -->
         <!-- 只有宫格里超过一张卡才亮（ItemsControl 上的 reorder 类由视图模型给）：

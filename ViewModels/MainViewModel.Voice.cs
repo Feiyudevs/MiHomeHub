@@ -26,6 +26,22 @@ public partial class MainViewModel : ObservableObject
     public ObservableCollection<OptionItem> SpeakerOptions { get; } = new();
     [ObservableProperty] private object? _selectedSpeakerValue;
     [ObservableProperty] private bool _hasSpeaker;
+
+    /// <summary>
+    /// 托盘菜单是否需要媒体区（含加载占位）：设备表还没到、音箱未知时也要留出高度，
+    /// 否则首次打开先按窄版定位，数据到达后媒体块被挤在窗口外。
+    /// </summary>
+    public bool TrayMediaSlot => HasSpeaker || SyncPending;
+
+    /// <summary>音箱信息尚未就绪：托盘里先画骨架，等设备表和音箱候选到达再换成真控件。</summary>
+    public bool TraySpeakerPending => SyncPending && !HasSpeaker;
+
+    partial void OnHasSpeakerChanged(bool value)
+    {
+        OnPropertyChanged(nameof(TrayMediaSlot));
+        OnPropertyChanged(nameof(TraySpeakerPending));
+    }
+
     [ObservableProperty] private string _defaultSpeakerName = "";
     [ObservableProperty] private string _voiceText = "";
     [ObservableProperty] private bool _isVoiceOpen;

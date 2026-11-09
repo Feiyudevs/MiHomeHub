@@ -139,6 +139,13 @@
             <Setter Property="Foreground" Value="{DynamicResource Text3Brush}" />
             <Setter Property="VerticalAlignment" Value="Center" />
         </Style>
+        <!-- 触发器主文字：默认强色；挂 .muted 的实例（如托盘里的音箱选择）弱一档 -->
+        <Style Selector="TextBlock.Cur">
+            <Setter Property="Foreground" Value="{DynamicResource TextBrush}" />
+        </Style>
+        <Style Selector="controls|OptionPicker.muted TextBlock.Cur">
+            <Setter Property="Foreground" Value="{DynamicResource Text2Brush}" />
+        </Style>
         <Style Selector="Button.PickItem:pointerover /template/ Border#Bd">
             <Setter Property="Background" Value="{DynamicResource SelBgHoverBrush}" />
         </Style>
@@ -170,9 +177,8 @@
                 <Border Name="Pre" Grid.Column="0" Classes="RoomTag" Margin="0,0,6,0" IsVisible="False">
                     <TextBlock Name="PreTxt" Classes="Pre" />
                 </Border>
-                <TextBlock Name="Cur" Grid.Column="1" Text="选择" FontSize="12.5" FontWeight="Medium"
-                           Foreground="{DynamicResource TextBrush}" VerticalAlignment="Center"
-                           TextTrimming="CharacterEllipsis" />
+                <TextBlock Name="Cur" Grid.Column="1" Classes="Cur" Text="选择" FontSize="12.5" FontWeight="Medium"
+                           VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
                 <!-- Fill 而非 Uniform：几何包围盒 12:6 与视口 9:4.5 等比，形状必铺满视口、
                      中心即控件中心；Uniform 缩放后的内容不落在视口垂直中心，箭头会整体偏上 -->
                 <Path Name="Chev" Grid.Column="2" Width="9" Height="4.5" Stretch="Fill"

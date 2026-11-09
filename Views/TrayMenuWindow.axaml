@@ -5,7 +5,7 @@
         x:Class="MiHome.Views.TrayMenuWindow"
         x:DataType="vm:MainViewModel"
         Title="米家 · 控制中心"
-        Width="272" Height="232"
+        Width="272" Height="259"
         SystemDecorations="None"
         CanResize="False"
         ShowInTaskbar="False"
@@ -122,6 +122,32 @@
         <Style Selector="Button.TrayPlay:pressed">
             <Setter Property="Opacity" Value="0.78" />
         </Style>
+        <!-- 媒体骨架的扫光：托盘卡只有 ~216px 宽，全局 SkelShineSm 的 190px 扫程会扫不满 -->
+        <Style Selector="Border.TrayShine">
+            <Setter Property="Width" Value="60" />
+            <Setter Property="Height" Value="110" />
+            <Setter Property="Canvas.Top" Value="-20" />
+            <Setter Property="Canvas.Left" Value="-70" />
+            <Setter Property="IsHitTestVisible" Value="False" />
+            <Setter Property="Background" Value="{DynamicResource SkelShineBrush}" />
+            <Setter Property="RenderTransform">
+                <Setter.Value>
+                    <TranslateTransform X="0" />
+                </Setter.Value>
+            </Setter>
+        </Style>
+        <Style Selector="Border.TrayShine.run">
+            <Style.Animations>
+                <Animation Duration="0:0:1.5" IterationCount="Infinite" Easing="CubicEaseInOut">
+                    <KeyFrame Cue="0%">
+                        <Setter Property="TranslateTransform.X" Value="0" />
+                    </KeyFrame>
+                    <KeyFrame Cue="100%">
+                        <Setter Property="TranslateTransform.X" Value="240" />
+                    </KeyFrame>
+                </Animation>
+            </Style.Animations>
+        </Style>
     </Window.Styles>
 
     <!-- 外边距留给阴影，改动前先确认阴影扩散不会顶到窗口边缘 -->
@@ -131,12 +157,32 @@
                 BorderBrush="{DynamicResource LineBrush}" BorderThickness="1"
                 BoxShadow="0 8 20 0 #59000000">
             <StackPanel Margin="7" Spacing="1">
-                <!-- 媒体控制：当前音箱下拉 + 上一曲/播放暂停/下一曲；家里没有音箱时整块连同分隔线一起收掉 -->
+                <TextBlock x:Name="MenuTitle" Text="米家控制中心" Height="26" Margin="10,4,10,0"
+                           FontSize="12.5" LetterSpacing="0.4"
+                           Foreground="{DynamicResource TextBrush}"
+                           HorizontalAlignment="Stretch" TextAlignment="Center"
+                           VerticalAlignment="Center" />
+
+                <!-- 媒体控制：上一曲/播放暂停/下一曲，下面是当前音箱下拉；家里没有音箱时整块连同分隔线一起收掉 -->
+                <Panel ClipToBounds="True" IsVisible="{Binding TraySpeakerPending}">
+                    <StackPanel Spacing="6" Margin="1,2,1,6">
+                        <StackPanel Orientation="Horizontal" Spacing="10" HorizontalAlignment="Center">
+                            <Border Width="34" Height="34" CornerRadius="17"
+                                    Background="{DynamicResource SkelBarBrush}" Opacity="0.45" />
+                            <Border Width="34" Height="34" CornerRadius="17"
+                                    Background="{DynamicResource SkelBarBrush}" />
+                            <Border Width="34" Height="34" CornerRadius="17"
+                                    Background="{DynamicResource SkelBarBrush}" Opacity="0.45" />
+                        </StackPanel>
+                        <Border Height="32" CornerRadius="8" Background="{DynamicResource SkelBarBrush}" />
+                    </StackPanel>
+                    <Canvas IsHitTestVisible="False">
+                        <!-- 扫光只在骨架真的显示时跑，收起后动画不能跟着常驻（无限动画会让合成器满帧空转） -->
+                        <Border Classes="TrayShine" Classes.run="{Binding TraySpeakerPending}" />
+                    </Canvas>
+                </Panel>
+
                 <StackPanel Spacing="6" Margin="1,2,1,6" IsVisible="{Binding HasSpeaker}">
-                    <ctl:OptionPicker x:Name="SpeakerPicker" Classes="wide"
-                                      ToolTip.Tip="切换要控制的音箱"
-                                      Options="{Binding SpeakerOptions}"
-                                      SelectedValue="{Binding SelectedSpeakerValue, Mode=TwoWay}" />
                     <StackPanel Orientation="Horizontal" Spacing="10" HorizontalAlignment="Center">
                         <Button Classes="TrayMedia" ToolTip.Tip="上一曲"
                                 Command="{Binding MediaPreviousCommand}">
@@ -166,10 +212,14 @@
                             </Viewbox>
                         </Button>
                     </StackPanel>
+                    <ctl:OptionPicker x:Name="SpeakerPicker" Classes="wide muted"
+                                      ToolTip.Tip="切换要控制的音箱"
+                                      Options="{Binding SpeakerOptions}"
+                                      SelectedValue="{Binding SelectedSpeakerValue, Mode=TwoWay}" />
                 </StackPanel>
 
                 <Rectangle Height="1" Margin="10,5" Fill="{DynamicResource LineBrush}"
-                           IsVisible="{Binding HasSpeaker}" />
+                           IsVisible="{Binding TrayMediaSlot}" />
 
                 <Button Classes="TrayItem" Click="OnShowMainClick">
                     <Grid ColumnDefinitions="20,*">

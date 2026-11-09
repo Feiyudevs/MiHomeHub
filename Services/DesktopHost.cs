@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using Avalonia;
 using Avalonia.Controls;
+using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Threading;
 using MiHome.Models;
 using MiHome.ViewModels;
@@ -85,7 +86,7 @@ public static class DesktopHost
     {
         if (_main == null || device == null) return null;
 
-        var (x, y) = NextFreeSpot();
+        var (x, y) = NextGroupSpot();
         var model = new DesktopGroupModel
         {
             Name = string.IsNullOrWhiteSpace(name)
@@ -146,7 +147,7 @@ public static class DesktopHost
 
     /// <summary>
     /// 分区菜单里的「添加分区」：在 <paramref name="near"/> 附近放一块空白设备分区。
-    /// 优先右→下→左→上找不与现有分区重叠的落点，都放不下退回全局错位摆放。
+    /// 优先右→下→左→上逐圈找不与现有分区重叠的落点，都放不下退到整屏里离它最近的空位。
     /// </summary>
     public static DesktopGroupVm? CreateBlankGroup(DesktopZoneVm near)
     {
@@ -166,37 +167,84 @@ public static class DesktopHost
         return vm;
     }
 
-    /// <summary>空白分区尺寸未知，按一列卡片的典型大小参与占位判断。</summary>
+    /// <summary>空白分区尺寸未知，按一列卡片的典型大小参与占位判断（DIP）。</summary>
     private const double BlankZoneGuessW = 320;
     private const double BlankZoneGuessH = 240;
 
-    /// <summary>在参考分区附近找空位：右、下、左、上依次试，全被占用退回全局错位摆放。</summary>
-    private static (double X, double Y) NextSpotNear(DesktopGroupModel refModel)
-    {
-        const double gap = 12;
-        var w = refModel.Width;
-        var candidates = new (double X, double Y)[]
-        {
-            (refModel.X + w + gap, refModel.Y),          // 右侧
-            (refModel.X, refModel.Y + BlankZoneGuessH + gap),   // 下方
-            (refModel.X - BlankZoneGuessW - gap, refModel.Y),   // 左侧
-            (refModel.X, refModel.Y - BlankZoneGuessH - gap),   // 上方
-        };
+    /// <summary>分区之间的最小间距（DIP），避免贴死互相压住边框。</summary>
+    private const double GroupGapDip = 12;
 
-        foreach (var (x, y) in candidates)
-        {
-            if (IsFree(x, y, BlankZoneGuessW, BlankZoneGuessH)) return (x, y);
-        }
-        return NextFreeSpot();
+    /// <summary>整屏找空位时的搜索步长（物理像素）。</summary>
+    private const double SpotStepPx = 20;
+
+    /// <summary>分区所在屏幕的缩放；没开窗时按主屏缩放近似。</summary>
+    private static double GroupScale(string id)
+    {
+        if (Windows.TryGetValue(id, out var win) && win.RenderScaling > 0) return win.RenderScaling;
+        return MonitorLayout.Fallback()?.Scaling ?? 1;
     }
 
-    /// <summary>矩形 (x, y, w, h) 是否不与任何现有分区重叠（分区没有存高度，按估算值参与判断）。</summary>
-    private static bool IsFree(double x, double y, double w, double h)
+    /// <summary>
+    /// 分区在桌面上的实际矩形（物理像素）：开了窗就量窗口，
+    /// 没开窗只能按模型宽度 + 一列卡片的典型高度估，宁可估大不估小。
+    /// </summary>
+    private static (double X, double Y, double W, double H) OccupiedRect(DesktopGroupModel g)
+    {
+        var scale = GroupScale(g.Id);
+        var wDip = g.Width > 0 ? g.Width : BlankZoneGuessW;
+        var hDip = BlankZoneGuessH;
+
+        if (Windows.TryGetValue(g.Id, out var win))
+        {
+            if (win.Width > 0) wDip = win.Width;
+            if (win.Height > 0) hDip = win.Height;
+        }
+
+        return (g.X, g.Y, wDip * scale, hDip * scale);
+    }
+
+    /// <summary>一枚新分区的占位尺寸（物理像素）。</summary>
+    private static (double W, double H) NewGroupSize(double scale)
+        => (BlankZoneGuessW * scale, BlankZoneGuessH * scale);
+
+    /// <summary>在参考分区附近找空位：右→下→左→上逐圈外扩，都挤不下再在整屏里找离它最近的空位。</summary>
+    private static (double X, double Y) NextSpotNear(DesktopGroupModel refModel)
+    {
+        var (rx, ry, rw, rh) = OccupiedRect(refModel);
+        var scale = GroupScale(refModel.Id);
+        var gap = GroupGapDip * scale;
+        var (w, h) = NewGroupSize(scale);
+
+        for (var ring = 1; ring <= 3; ring++)
+        {
+            var candidates = new (double X, double Y)[]
+            {
+                (rx + rw + gap * ring, ry),                   // 右侧
+                (rx, ry + rh + gap * ring),                   // 下方
+                (rx - w - gap * ring, ry),                    // 左侧
+                (rx, ry - h - gap * ring),                    // 上方
+            };
+
+            foreach (var (x, y) in candidates)
+            {
+                if (IsSpotFree(x, y, w, h, gap)) return (x, y);
+            }
+        }
+
+        return NearestFreeSpot((rx + rw / 2, ry + rh / 2));
+    }
+
+    /// <summary>
+    /// 矩形 (x, y, w, h) 与所有现有分区都不相交（四周再留 gap）：
+    /// 新分区既不压住别人，也不会被别人盖住。
+    /// </summary>
+    private static bool IsSpotFree(double x, double y, double w, double h, double gap)
     {
         foreach (var g in _layout.Groups)
         {
-            if (x < g.X + g.Width && g.X < x + w &&
-                y < g.Y + BlankZoneGuessH && g.Y < y + h)
+            var (gx, gy, gw, gh) = OccupiedRect(g);
+            if (x < gx + gw + gap && gx < x + w + gap &&
+                y < gy + gh + gap && gy < y + h + gap)
                 return false;
         }
         return true;
@@ -380,31 +428,71 @@ public static class DesktopHost
         Save();
     }
 
-    /// <summary>新建分区时的错位摆放：沿对角线找没被占用的位置，超出屏幕就回到左上角排队。</summary>
-    private static (double X, double Y) NextFreeSpot()
+    /// <summary>
+    /// 新建分区的落点：已有分区就贴着最后一个设备分区放（右→下→左→上找空位），
+    /// 一个分区都没有时排到主屏右侧、自上而下。
+    /// </summary>
+    private static (double X, double Y) NextGroupSpot()
     {
-        var (vx, vy, vw, vh) = DesktopEmbed.VirtualScreen();
-        const int step = 30;
-        const int margin = 56;
-        const int guessW = 340;
-        const int guessH = 240;
+        var anchor = _layout.Groups.LastOrDefault(g => !g.IsMedia)
+                     ?? _layout.Groups.LastOrDefault();
+        return anchor != null ? NextSpotNear(anchor) : PrimaryRightColumnSpot();
+    }
 
-        for (var i = 0; i < 40; i++)
+    /// <summary>空桌面：主屏工作区右侧贴边，自上而下找第一处不被占用的位置。</summary>
+    private static (double X, double Y) PrimaryRightColumnSpot()
+    {
+        const double margin = 24;
+        var monitor = MonitorLayout.Fallback();
+        var area = monitor?.WorkArea ?? new PixelRect(0, 0, 1920, 1080);
+        var scale = monitor?.Scaling ?? 1;
+        var gap = GroupGapDip * scale;
+        var (w, h) = NewGroupSize(scale);
+        var x = area.Right - w - margin;
+
+        for (var y = area.Y + margin; y + h <= area.Bottom - margin; y += SpotStepPx)
         {
-            var x = vx + margin + i * step;
-            var y = vy + margin + i * step;
-            if (x + guessW > vx + vw || y + guessH > vy + vh) break;
-            var taken = _layout.Groups.Any(g => Math.Abs(g.X - x) < 22 && Math.Abs(g.Y - y) < 22);
-            if (!taken) return (x, y);
+            if (IsSpotFree(x, y, w, h, gap)) return (x, y);
         }
 
-        var fallback = _layout.Groups.Count % 8;
-        return (vx + margin, vy + margin + fallback * step);
+        return NearestFreeSpot((area.Right - w, area.Y + h));
+    }
+
+    /// <summary>整屏扫描：在虚拟桌面里找离参考点最近、且不与任何分区相交的落点。</summary>
+    private static (double X, double Y) NearestFreeSpot((double X, double Y) from)
+    {
+        const double margin = 24;
+        var (vx, vy, vw, vh) = DesktopEmbed.VirtualScreen();
+        var scale = MonitorLayout.Fallback()?.Scaling ?? 1;
+        var gap = GroupGapDip * scale;
+        var (w, h) = NewGroupSize(scale);
+
+        var found = false;
+        double bestD = double.MaxValue, bestX = vx + margin, bestY = vy + margin;
+
+        for (var y = vy + margin; y + h <= vy + vh - margin; y += SpotStepPx)
+        {
+            for (var x = vx + margin; x + w <= vx + vw - margin; x += SpotStepPx)
+            {
+                if (!IsSpotFree(x, y, w, h, gap)) continue;
+
+                var d = Math.Abs(x - from.X) + Math.Abs(y - from.Y);
+                if (d >= bestD) continue;
+
+                bestD = d;
+                bestX = x;
+                bestY = y;
+                found = true;
+            }
+        }
+
+        // 桌面实在挤满时也返回一个静止落点，至少不会叠在参考分区上
+        return found ? (bestX, bestY) : (vx + margin, vy + margin);
     }
 
     // ================= 弹窗 =================
 
-    /// <summary>设备卡「添加到桌面组件」：弹窗选择要加入的分区，或新建分区。</summary>
+    /// <summary>设备卡「添加到桌面组件」：以软件为中心弹窗，多选已有分区或按需新建。</summary>
     public static void OpenGroupPicker(MijiaDevice device)
     {
         if (_groupPicker == null)
@@ -413,8 +501,23 @@ public static class DesktopHost
             _groupPicker.Closed += (_, _) => _groupPicker = null;
         }
         _groupPicker.Bind(device);
-        PopupPlacement.CenterOnScreen(_groupPicker, _groupPicker.Width, _groupPicker.Height);
-        if (!_groupPicker.IsVisible) _groupPicker.Show();
+
+        // 铺满主窗口客户区，遮罩压暗软件本体；主窗口不在（托盘里）才退回屏内居中
+        var owner = (Application.Current?.ApplicationLifetime as IClassicDesktopStyleApplicationLifetime)?.MainWindow;
+        if (owner is { IsVisible: true })
+        {
+            _groupPicker.FitTo(owner);
+            if (!_groupPicker.IsVisible) _groupPicker.Show(owner);
+        }
+        else
+        {
+            if (!_groupPicker.IsVisible)
+            {
+                PopupPlacement.CenterOnScreen(_groupPicker, 520, 616);
+                _groupPicker.Show();
+            }
+        }
+
         _groupPicker.Activate();
     }
 
