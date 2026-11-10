@@ -109,7 +109,19 @@ public abstract partial class DesktopZoneVm : ObservableObject
         {
             // 展开：内容立刻回来，由 Opacity 过渡做淡入
             ContentVisible = true;
+            // 展开即对齐一次真实状态，避免看到最多 30 秒前的旧读数（含温湿度）
+            Main.RequestZoneRefresh(includeMetrics: true);
         }
+    }
+
+    /// <summary>
+    /// 鼠标移入分区（视图层转发进来）：只在展开状态下补一拍状态。
+    /// 折叠的分区只剩标题栏、看不到设备，没必要为它发请求。
+    /// </summary>
+    public void OnPointerEnteredZone()
+    {
+        if (Collapsed) return;
+        Main.RequestZoneRefresh(includeMetrics: false);
     }
 
     partial void OnNameChanged(string value)

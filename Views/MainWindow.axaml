@@ -333,8 +333,12 @@
              遮罩已移入圆角内容面板内部（只盖内容区、随面板裁圆角，不盖侧栏/标题栏）；
              抽屉保留在根层，Grid.Row=1 + HorizontalAlignment=Right，滑入主体右侧。 -->
         <views:DeviceDrawerView x:Name="DeviceDrawerView" Grid.Row="1" ZIndex="100" />
-        <!-- ================= 自动化 / 场景编辑面板（写云端 AppSceneService/Edit） ================= -->
-        <views:SceneEditorView Grid.Row="1" ZIndex="110" />
+        <!-- ================= 自动化 / 场景编辑面板（写云端 AppSceneService/Edit） =================
+             桌面设备弹窗发起时会改用独立弹窗（SceneEditorWindow），主窗口里这份就整体隐去，
+             HostActive 同步关掉，避免一次点击弹出两份「触发条件 / 添加动作」子窗。 -->
+        <views:SceneEditorView Grid.Row="1" ZIndex="110"
+                               IsVisible="{Binding IsSceneEditorInline}"
+                               HostActive="{Binding IsSceneEditorInline}" />
         <!-- ================= 我的家庭：标题栏家庭胶囊唤出的切换浮层 ================= -->
         <!-- 三个胶囊浮层同宽同位，左沿各自对齐唤出按钮，共用 OverlayReveal 的同一套开合动画 -->
         <views:HomePanelView x:Name="HomePanelView" Grid.Row="1" ZIndex="120" />

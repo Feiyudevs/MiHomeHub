@@ -313,6 +313,7 @@ public static class DesktopHost
             CloseGroupDialogs(vm);
         }
         Groups.Clear();
+        NotifyGroupsChanged();
     }
 
     /// <summary>总开关：关掉只收起窗口，配置与分区内容保留。</summary>
@@ -321,8 +322,12 @@ public static class DesktopHost
         _layout.Enabled = on;
         if (on) ShowAll();
         else HideAll();
+        NotifyGroupsChanged();
         Save();
     }
+
+    /// <summary>桌面上分区增减后回调主视图模型：后台降频轮询要不要继续由它重新判定。</summary>
+    private static void NotifyGroupsChanged() => _main?.RecheckBackgroundPolling();
 
     public static void RemoveGroup(DesktopZoneVm vm)
     {
@@ -336,6 +341,7 @@ public static class DesktopHost
         if (vm is DesktopGroupVm group) group.Detach();
         // 这个分区开着的弹窗一起收掉，避免对着已解散的分区操作
         CloseGroupDialogs(vm);
+        NotifyGroupsChanged();
         Save();
     }
 

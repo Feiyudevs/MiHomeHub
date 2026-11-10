@@ -247,6 +247,12 @@ public partial class DesktopGroupView : UserControl
     // 媒体卡整张就是拖动面：按下落在按钮上时按钮自己吃掉事件，落到卡面空白/文字上才算拖动。
     // 这里刻意不做「点击折叠 / 双击改名」—— 没有标题栏就没有这两个动作。
 
+    /// <summary>鼠标移入分区：交给 VM 判定是否展开，展开时立刻补一拍设备状态。</summary>
+    private void OnZonePointerEntered(object? sender, PointerEventArgs e)
+    {
+        (DataContext as DesktopZoneVm)?.OnPointerEnteredZone();
+    }
+
     private void OnBodyPressed(object? sender, PointerPressedEventArgs e)
     {
         if (DataContext is not DesktopZoneVm { IsMedia: true }) return;

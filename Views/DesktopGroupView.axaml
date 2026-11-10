@@ -36,6 +36,7 @@
                 PointerPressed="OnBodyPressed"
                 PointerMoved="OnBodyMoved"
                 PointerReleased="OnBodyReleased"
+                PointerEntered="OnZonePointerEntered"
                 PointerCaptureLost="OnBodyCaptureLost">
             <Grid RowDefinitions="Auto,*">
 

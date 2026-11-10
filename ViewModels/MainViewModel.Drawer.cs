@@ -40,6 +40,9 @@ public partial class MainViewModel : ObservableObject
     [ObservableProperty] private bool _hasAdvancedActions;
     [ObservableProperty] private bool _isAdvancedExpanded;
 
+    /// <summary>抽屉「智能场景」：默认折叠，点标题展开（与高级设置同一套开合交互）。</summary>
+    [ObservableProperty] private bool _isSmartSceneExpanded;
+
     /// <summary>高级设置区是否有内容（属性组或动作任一存在）。</summary>
     public bool HasAdvanced => HasAdvancedPanel || HasAdvancedActions;
 
@@ -68,6 +71,8 @@ public partial class MainViewModel : ObservableObject
         if (device == null) return;
         DrawerDevice = device;
         IsDrawerOpen = true;
+        // 每次打开都回到默认折叠，不继承上一台设备的展开态
+        IsSmartSceneExpanded = false;
         BuildSpecPanel(device);
         AttachDrawerDetail(device);
         UpdateDrawerScenes();
@@ -92,6 +97,7 @@ public partial class MainViewModel : ObservableObject
         HasAdvancedPanel = false;
         HasAdvancedActions = false;
         IsAdvancedExpanded = false;
+        IsSmartSceneExpanded = false;
     }
 
     /// <summary>
@@ -472,6 +478,9 @@ public partial class MainViewModel : ObservableObject
 
     [RelayCommand]
     private void ToggleAdvanced() => IsAdvancedExpanded = !IsAdvancedExpanded;
+
+    [RelayCommand]
+    private void ToggleSmartScenes() => IsSmartSceneExpanded = !IsSmartSceneExpanded;
 
     [RelayCommand(AllowConcurrentExecutions = true)]
     private async Task ToggleSpecAsync(SpecPropVm? prop)

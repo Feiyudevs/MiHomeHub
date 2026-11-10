@@ -58,25 +58,18 @@ public class MijiaClient : IDisposable
     /// </summary>
     internal async Task<JsonElement> RequestRawAsync(string uri, object dataObj)
     {
-        var dataJson = JsonSerializer.Serialize(dataObj);
-        var nonce = MijiaCrypto.GenNonce();
-        var plain = new Dictionary<string, string> { ["data"] = dataJson };
-        var form = MijiaCrypto.BuildEncParams(uri, "POST", _auth.Auth.SSecurity, nonce, plain);
-
-        var content = new FormUrlEncodedContent(form);
-        var resp = await _http.PostAsync(ApiBase + uri, content);
-        var body = await resp.Content.ReadAsStringAsync();
+        var (bytes, nonce) = await PostSignedAsync(uri, dataObj);
 
         JsonElement ret;
         try
         {
-            ret = JsonSerializer.Deserialize<JsonElement>(body);
+            ret = JsonSerializer.Deserialize<JsonElement>(Encoding.UTF8.GetString(bytes));
         }
         catch
         {
             // 加密响应：RC4 解密（可能 gzip）
             var signedNonce = MijiaCrypto.SignedNonce(_auth.Auth.SSecurity, nonce);
-            var dec = MijiaCrypto.Rc4Decrypt(signedNonce, body.Trim());
+            var dec = MijiaCrypto.Rc4Decrypt(signedNonce, Encoding.UTF8.GetString(bytes).Trim());
             try
             {
                 var s = Encoding.UTF8.GetString(dec);
@@ -94,6 +87,18 @@ public class MijiaClient : IDisposable
         }
 
         return ret;
+    }
+
+    /// <summary>签名并 POST，返回原始响应字节与本次 nonce（解密要用同一个 nonce 推 signedNonce）。</summary>
+    internal async Task<(byte[] Bytes, string Nonce)> PostSignedAsync(string uri, object dataObj)
+    {
+        var dataJson = JsonSerializer.Serialize(dataObj);
+        var nonce = MijiaCrypto.GenNonce();
+        var plain = new Dictionary<string, string> { ["data"] = dataJson };
+        var form = MijiaCrypto.BuildEncParams(uri, "POST", _auth.Auth.SSecurity, nonce, plain);
+        var content = new FormUrlEncodedContent(form);
+        var resp = await _http.PostAsync(ApiBase + uri, content);
+        return (await resp.Content.ReadAsByteArrayAsync(), nonce);
     }
 
     /// <summary>业务请求：剥掉外层信封，code≠0 直接抛。</summary>

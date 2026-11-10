@@ -519,9 +519,10 @@
                                                                Increment="{Binding Primary.Step}"
                                                                FormatString="0.##"
                                                                Value="{Binding Primary.NumValue, Mode=TwoWay}" />
-                                                <ComboBox IsVisible="{Binding Primary.IsOption}" Width="140"
-                                                          ItemsSource="{Binding Primary.OptionNames}"
-                                                          SelectedIndex="{Binding Primary.OptionIndex, Mode=TwoWay}" />
+                                                <ctl:OptionPicker IsVisible="{Binding Primary.IsOption}" Width="140"
+                                                                  VerticalAlignment="Center"
+                                                                  Options="{Binding Primary.OptionItems}"
+                                                                  SelectedValue="{Binding Primary.OptionValue, Mode=TwoWay}" />
                                                 <TextBox IsVisible="{Binding Primary.IsText}" Width="140" Height="32"
                                                          Text="{Binding Primary.TextValue, Mode=TwoWay}" />
                                             </Panel>
@@ -552,9 +553,10 @@
                                                                            Minimum="{Binding Min}" Maximum="{Binding Max}"
                                                                            Increment="{Binding Step}" FormatString="0.##"
                                                                            Value="{Binding NumValue, Mode=TwoWay}" />
-                                                            <ComboBox IsVisible="{Binding IsOption}" Width="140"
-                                                                      ItemsSource="{Binding OptionNames}"
-                                                                      SelectedIndex="{Binding OptionIndex, Mode=TwoWay}" />
+                                                            <ctl:OptionPicker IsVisible="{Binding IsOption}" Width="140"
+                                                                              VerticalAlignment="Center"
+                                                                              Options="{Binding OptionItems}"
+                                                                              SelectedValue="{Binding OptionValue, Mode=TwoWay}" />
                                                             <TextBox IsVisible="{Binding IsText}" Width="140" Height="32"
                                                                      Text="{Binding TextValue, Mode=TwoWay}" />
                                                         </Panel>

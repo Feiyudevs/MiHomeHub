@@ -1,0 +1,29 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:views="clr-namespace:MiHome.Views"
+        xmlns:vm="clr-namespace:MiHome.ViewModels"
+        x:Class="MiHome.Views.SceneEditorWindow"
+        x:DataType="vm:MainViewModel"
+        Title="场景详情"
+        Width="740" Height="900"
+        SystemDecorations="None"
+        CanResize="False"
+        ShowInTaskbar="False"
+        Topmost="True"
+        WindowStartupLocation="Manual"
+        TransparencyLevelHint="Transparent"
+        Background="Transparent"
+        RenderOptions.TextRenderingMode="Antialias">
+    <!-- 场景详情的独立宿主：内容就是主窗口里那份 SceneEditorView（同一套视图模型命令），
+         只是不再嵌在主窗口 —— 从桌面分区的设备弹窗点「智能场景」时单独弹这一张卡，
+         不必把主程序唤到前面。卡片宽度 672，这里四周各留 34px 透明边。 -->
+    <Window.Styles>
+        <StyleInclude Source="avares://MiHome/Themes/MainWindowStyles.axaml" />
+    </Window.Styles>
+    <Window.Resources>
+        <!-- 独立窗自己不铺遮罩（桌面不该被压暗） -->
+        <SolidColorBrush x:Key="MaskBrush" Color="Transparent" />
+    </Window.Resources>
+
+    <views:SceneEditorView />
+</Window>

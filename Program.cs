@@ -89,6 +89,31 @@ internal sealed class Program
             return;
         }
 
+        // 播放状态真伪实验：读 → pause → 再读，确认这台设备的 playing-state 是否恒为 1。
+        var sp = Array.FindIndex(args, a => string.Equals(a, "--speaker-probe-pause", StringComparison.OrdinalIgnoreCase));
+        if (sp >= 0)
+        {
+            var did = sp + 1 < args.Length ? args[sp + 1] : "";
+            SpeakerProbe.RunPauseTestAsync(did).GetAwaiter().GetResult();
+            return;
+        }
+
+        // 设备级规格接口原始回包诊断：看 getspec 到底回了什么，导致 base64 解不开。
+        var ss = Array.FindIndex(args, a => string.Equals(a, "--speaker-probe-spec", StringComparison.OrdinalIgnoreCase));
+        if (ss >= 0)
+        {
+            var did = ss + 1 < args.Length ? args[ss + 1] : "";
+            SpeakerProbe.RunSpecRawAsync(did).GetAwaiter().GetResult();
+            return;
+        }
+
+        // 音箱播放状态只读探针：连读 playing-state / volume，落盘后退出。
+        if (args.Any(a => string.Equals(a, "--speaker-probe", StringComparison.OrdinalIgnoreCase)))
+        {
+            SpeakerProbe.RunAsync().GetAwaiter().GetResult();
+            return;
+        }
+
         // 单实例：已有常驻进程时唤起它的主界面，自己直接退出
         if (!SingleInstance.TryAcquire())
         {

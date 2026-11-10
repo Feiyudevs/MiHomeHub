@@ -370,6 +370,14 @@ public static class SceneTriggerCatalog
     /// 已有触发源的次级描述：属性触发显示「= 值」，事件触发显示筛选条件。
     /// 规格拿不到时退回 key 的原始形态，不至于空着。
     /// </summary>
+    /// <summary>
+    /// 安全取子节点：父节点不是对象时返回 null。
+    /// 云端个别触发源的 value_json / extra_json 直接给成字符串或数字，
+    /// 直接 ?["x"] 会抛 InvalidOperationException（"The node must be of type 'JsonObject'"）并崩进程。
+    /// </summary>
+    public static JsonNode? Sub(JsonNode? node, string key) =>
+        node is JsonObject obj && obj.TryGetPropertyValue(key, out var value) ? value : null;
+
     public static async Task<string> DescribeAsync(MijiaClient? client, MijiaDevice? device, JsonObject node)
     {
         var key = node["key"]?.ToString() ?? "";
@@ -388,7 +396,7 @@ public static class SceneTriggerCatalog
 
         if (parts[0] == "event" && int.TryParse(parts[1], out var siid) && int.TryParse(parts[2], out var eiid))
         {
-            var attrs = valueJson?["sub_props"]?["attr"] as JsonArray;
+            var attrs = Sub(Sub(valueJson, "sub_props"), "attr") as JsonArray;
             if (attrs == null || attrs.Count == 0) return "任意上报都触发";
             var labels = new List<string>();
             foreach (var a in attrs.OfType<JsonObject>())

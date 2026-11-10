@@ -55,10 +55,21 @@ public sealed partial class SceneEditActionRow : ObservableObject
     /// <summary>副标题（可随控件变化，例如场景开关的「执行后关闭」）。</summary>
     [ObservableProperty] private string _subtitle = "";
 
-    /// <summary>卡片副标题：真动作直接用 Subtitle，延时卡用实时算出来的说明。</summary>
-    public string Caption => IsVirtual ? DelayCaption : Subtitle;
+    /// <summary>
+    /// 卡片副标题：真动作直接用 Subtitle，延时卡用实时算出来的说明。
+    /// 设备属性卡优先用「房间 · 当前状态」（关闭 / 打开 / 亮度 50%），
+    /// 状态随右侧控件变化实时重算——不把「开关」这类属性标识文字摆到界面上。
+    /// </summary>
+    public string Caption => IsVirtual
+        ? DelayCaption
+        : HasValues && Primary is { } primary
+            ? (RoomName.Length > 0 ? $"{RoomName} · {primary.ActionText}" : primary.ActionText)
+            : Subtitle;
 
     partial void OnSubtitleChanged(string value) => OnPropertyChanged(nameof(Caption));
+
+    /// <summary>房间名（属性卡副标题的前半段），没有房间就留空。</summary>
+    public string RoomName { get; init; } = "";
 
     /// <summary>拖拽中的卡片半透明显示。</summary>
     [ObservableProperty] private bool _isDragging;
@@ -233,7 +244,15 @@ public sealed partial class SceneEditActionRow : ObservableObject
     private bool _ready;
 
     /// <summary>构造期间不写回节点；所有初始值填完后调用一次。</summary>
-    public void MarkReady() => _ready = true;
+    public void MarkReady()
+    {
+        _ready = true;
+        // 副标题里带着「打开 / 关闭」这类状态词，值一变就得跟着刷新
+        Primary?.PropertyChanged += OnPrimaryChanged;
+    }
+
+    private void OnPrimaryChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
+        => OnPropertyChanged(nameof(Caption));
 
     /// <summary>读一个可能来自 int / long / string 的整数字段。</summary>
     public static int IntOf(JsonNode? node)

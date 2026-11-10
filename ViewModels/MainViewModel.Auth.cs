@@ -286,8 +286,8 @@ public partial class MainViewModel : ObservableObject
     {
         _client?.Dispose();
         _client = null;
-        // 退出登录时暂停轮询，避免 _client=null 后 timer 仍每秒唤醒
-        PausePolling();
+        // 退出登录时硬停轮询（不要走桌面容错的降频路径），避免 _client=null 后 timer 仍空转唤醒
+        StopPolling();
         // 退出登录时释放跨会话常驻缓存：Skia 原生像素不计入托管堆，不 Dispose 会一直占内存
         MijiaIconService.Reset();
         DeviceSpecService.Clear();

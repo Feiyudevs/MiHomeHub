@@ -90,10 +90,11 @@
                                    Increment="{Binding DraftStep}"
                                    FormatString="0.##"
                                    Value="{Binding ActionDraftValue.NumValue, Mode=TwoWay}" />
-                    <ComboBox IsVisible="{Binding DraftIsOption}" Width="180"
-                              HorizontalAlignment="Left"
-                              ItemsSource="{Binding DraftOptionNames}"
-                              SelectedIndex="{Binding ActionDraftValue.OptionIndex, Mode=TwoWay}" />
+                    <!-- 枚举值也走自绘 OptionPicker，和面板里的下拉保持同一套外观 / 交互 -->
+                    <ctl:OptionPicker IsVisible="{Binding DraftIsOption}" Width="180"
+                                      HorizontalAlignment="Left" VerticalAlignment="Center"
+                                      Options="{Binding ActionDraftValue.OptionItems}"
+                                      SelectedValue="{Binding ActionDraftValue.OptionValue, Mode=TwoWay}" />
                     <TextBox IsVisible="{Binding DraftIsText}" Height="32"
                              Text="{Binding ActionDraftValue.TextValue, Mode=TwoWay}"
                              Watermark="要写入的文字" />

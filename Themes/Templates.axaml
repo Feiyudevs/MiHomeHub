@@ -341,10 +341,12 @@
             </ctl:DeviceCardButton>
         </DataTemplate>
 
-        <!-- 场景紧凑行：设备详情「相关场景」与场景页「按设备」共用 -->
+        <!-- 场景紧凑行：设备详情「智能场景」用；整行可点，走已有场景详情弹窗（OpenSceneEditorCommand） -->
         <DataTemplate x:Key="SceneDeviceRowTemplate" x:DataType="m:SceneCardItem">
-            <Border CornerRadius="12" Padding="11,9" Margin="0,0,0,6"
-                    Background="{DynamicResource CardBrush}">
+            <Button Classes="SmartSceneRow" Margin="0,0,0,6"
+                    ToolTip.Tip="打开场景详情"
+                    Command="{Binding $parent[UserControl].((vm:MainViewModel)DataContext).OpenSceneEditorCommand}"
+                    CommandParameter="{Binding}">
                 <Grid ColumnDefinitions="Auto,*,Auto,Auto,Auto">
                     <Border Width="28" Height="28" CornerRadius="9" Background="{Binding IconBgBrush}"
                             VerticalAlignment="Center">
@@ -362,6 +364,7 @@
                     </StackPanel>
                     <Border Grid.Column="2" CornerRadius="10" Padding="7,2" Margin="0,0,8,0"
                             VerticalAlignment="Center"
+                            ToolTip.Tip="触发：这台设备的状态变化会启动这条自动化 · 控制：这条场景会对这台设备下指令"
                             Background="{DynamicResource GreenSoftBrush}" IsVisible="{Binding HasRole}">
                         <TextBlock Text="{Binding RoleText}" FontSize="10.5" FontWeight="Bold"
                                    Foreground="{DynamicResource GreenBrush}" />
@@ -379,6 +382,6 @@
                             Command="{Binding $parent[UserControl].((vm:MainViewModel)DataContext).RunSceneCommand}"
                             CommandParameter="{Binding}" />
                 </Grid>
-            </Border>
+            </Button>
         </DataTemplate>
 </ResourceDictionary>

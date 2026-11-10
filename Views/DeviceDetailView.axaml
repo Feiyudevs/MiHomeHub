@@ -243,34 +243,69 @@
             <TextBlock Classes="Hint" Text="未获取到该空调的控制参数，暂无法调节"
                        IsVisible="{Binding DrawerDevice.AcSchema, Converter={x:Static ObjectConverters.IsNull}}" />
         </StackPanel>
-        <!-- 相关场景：本设备参与的自动化（触发）+ 会控制本设备的场景，点行尾立即执行 -->
-        <Border Classes="DrCard" IsVisible="{Binding HasDrawerScenes}">
-            <StackPanel Spacing="8">
-                <Grid ColumnDefinitions="*,Auto">
-                    <TextBlock Text="相关场景" FontSize="14" FontWeight="SemiBold"
-                               Foreground="{DynamicResource TextBrush}" />
-                    <TextBlock Grid.Column="1" FontSize="11.5" VerticalAlignment="Center"
-                               Foreground="{DynamicResource Text3Brush}"
-                               Text="{Binding DrawerScenes.Count, StringFormat='{}{0} 个'}" />
-                </Grid>
-                <ItemsControl ItemsSource="{Binding DrawerScenes}"
-                              ItemTemplate="{StaticResource SceneDeviceRowTemplate}" />
+        <!-- 智能场景：本设备参与的全部手动场景与自动化，默认折叠（标题行与高级设置同一套开合样式），
+             展开后按类型分组，点一行进已有的场景详情弹窗 -->
+        <Border Classes="DrCard">
+            <StackPanel Spacing="10">
+                <!-- 负边距 + 内边距：把可点区域从卡片内衬里撑出去，整张卡片（含四周留白）都能点 -->
+                <Button Classes="SectionHeader" Margin="-16,-15,-16,0" Padding="16,15,16,0"
+                        Command="{Binding ToggleSmartScenesCommand}">
+                    <Grid ColumnDefinitions="Auto,*,Auto">
+                        <TextBlock Text="智能场景" FontSize="14" FontWeight="SemiBold"
+                                   VerticalAlignment="Center"
+                                   Foreground="{DynamicResource TextBrush}" />
+                        <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="8"
+                                    HorizontalAlignment="Right" VerticalAlignment="Center">
+                            <TextBlock FontSize="11.5" Foreground="{DynamicResource Text3Brush}"
+                                       IsVisible="{Binding HasDrawerScenes}"
+                                       Text="{Binding DrawerSceneSummary}" />
+                            <Path Width="9" Height="9" Stretch="Uniform"
+                                  Stroke="{DynamicResource Text2Brush}" StrokeThickness="1.6"
+                                  VerticalAlignment="Center"
+                                  IsVisible="{Binding !IsSmartSceneExpanded}"
+                                  Data="M4,3 L8,7 L4,11" />
+                            <Path Width="9" Height="9" Stretch="Uniform"
+                                  Stroke="{DynamicResource Text2Brush}" StrokeThickness="1.6"
+                                  VerticalAlignment="Center"
+                                  IsVisible="{Binding IsSmartSceneExpanded}"
+                                  Data="M3,4 L7,8 L11,4" />
+                        </StackPanel>
+                    </Grid>
+                </Button>
+                <StackPanel Spacing="10" IsVisible="{Binding IsSmartSceneExpanded}">
+                    <!-- 手动场景 -->
+                    <StackPanel Spacing="6" IsVisible="{Binding HasDrawerSceneGroup}">
+                        <TextBlock Text="场景" FontSize="12" FontWeight="SemiBold"
+                                   Foreground="{DynamicResource Text3Brush}" />
+                        <ItemsControl ItemsSource="{Binding DrawerScenes}"
+                                      ItemTemplate="{StaticResource SceneDeviceRowTemplate}" />
+                    </StackPanel>
+                    <!-- 自动化 -->
+                    <StackPanel Spacing="6" IsVisible="{Binding HasDrawerAutomationGroup}">
+                        <TextBlock Text="自动化" FontSize="12" FontWeight="SemiBold"
+                                   Foreground="{DynamicResource Text3Brush}" />
+                        <ItemsControl ItemsSource="{Binding DrawerAutomations}"
+                                      ItemTemplate="{StaticResource SceneDeviceRowTemplate}" />
+                    </StackPanel>
+                    <TextBlock Classes="Hint" IsVisible="{Binding !HasDrawerScenes}"
+                               Text="此设备还没有关联的场景或自动化" />
+                </StackPanel>
             </StackPanel>
         </Border>
         <!-- 高级设置：常用控制卡之外的规格属性与低频动作，默认折叠，点击展开 -->
         <Border Classes="DrCard" IsVisible="{Binding HasAdvanced}">
             <StackPanel Spacing="8">
-                <Button Classes="BtnGhost" HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch"
-                        Command="{Binding ToggleAdvancedCommand}" Padding="0">
-                    <Grid ColumnDefinitions="*,Auto">
+                <Button Classes="SectionHeader" Margin="-16,-15,-16,0" Padding="16,15,16,0"
+                        Command="{Binding ToggleAdvancedCommand}">
+                    <Grid ColumnDefinitions="Auto,*,Auto">
                         <TextBlock Text="高级设置" FontSize="14" FontWeight="SemiBold"
                                    Foreground="{DynamicResource TextBrush}" VerticalAlignment="Center" />
-                        <Path Grid.Column="1" Width="9" Height="9" Stretch="Uniform" Margin="8,0,0,0"
+                        <Path Grid.Column="2" Width="9" Height="9" Stretch="Uniform" Margin="8,0,0,0"
                               Stroke="{DynamicResource Text2Brush}" StrokeThickness="1.6"
                               VerticalAlignment="Center"
                               IsVisible="{Binding !IsAdvancedExpanded}"
                               Data="M4,3 L8,7 L4,11" />
-                        <Path Grid.Column="1" Width="9" Height="9" Stretch="Uniform" Margin="8,0,0,0"
+                        <Path Grid.Column="2" Width="9" Height="9" Stretch="Uniform" Margin="8,0,0,0"
                               Stroke="{DynamicResource Text2Brush}" StrokeThickness="1.6"
                               VerticalAlignment="Center"
                               IsVisible="{Binding IsAdvancedExpanded}"

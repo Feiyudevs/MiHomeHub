@@ -331,6 +331,64 @@
             <Setter Property="Padding" Value="16,15" />
             <Setter Property="BoxShadow" Value="{DynamicResource CardShadow}" />
         </Style>
+        <!-- 详情卡片折叠标题行（智能场景 / 高级设置共用）：
+             文字靠左、箭头靠右。BtnGhost 的模板把内容钉在 Center，直接复用会整行居中，所以单开一套 -->
+        <Style Selector="Button.SectionHeader">
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="BorderThickness" Value="0" />
+            <Setter Property="Padding" Value="0" />
+            <Setter Property="HorizontalAlignment" Value="Stretch" />
+            <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="Focusable" Value="False" />
+            <Setter Property="Template">
+                <ControlTemplate>
+                    <!-- 根 Border 铺满按钮（Transparent 也参与命中测试），
+                         否则只有文字那一小段能点，卡片空白处点不开 -->
+                    <Border Name="Bd" Background="{TemplateBinding Background}"
+                            Padding="{TemplateBinding Padding}" CornerRadius="4">
+                        <ContentPresenter Content="{TemplateBinding Content}"
+                                          HorizontalAlignment="Stretch"
+                                          HorizontalContentAlignment="Stretch"
+                                          VerticalAlignment="Center" />
+                    </Border>
+                </ControlTemplate>
+            </Setter>
+        </Style>
+        <!-- 智能场景行：整行可点开已有场景详情弹窗；行内嵌着「仅本机 / 执行」两个小按钮，
+             内层按钮先处理点击，不会把外层详情一起带起来（与场景页整卡可点同一套做法） -->
+        <Style Selector="Button.SmartSceneRow">
+            <Setter Property="Background" Value="{DynamicResource Surface4Brush}" />
+            <Setter Property="BorderThickness" Value="0" />
+            <Setter Property="CornerRadius" Value="12" />
+            <Setter Property="Padding" Value="11,9" />
+            <Setter Property="HorizontalAlignment" Value="Stretch" />
+            <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="Focusable" Value="False" />
+            <Setter Property="Template">
+                <ControlTemplate>
+                    <Border Name="Bd" CornerRadius="{TemplateBinding CornerRadius}"
+                            Background="{TemplateBinding Background}"
+                            Padding="{TemplateBinding Padding}">
+                        <ContentPresenter Content="{TemplateBinding Content}"
+                                          HorizontalContentAlignment="{TemplateBinding HorizontalContentAlignment}"
+                                          VerticalAlignment="Center" />
+                    </Border>
+                </ControlTemplate>
+            </Setter>
+            <Setter Property="Transitions">
+                <Transitions>
+                    <BrushTransition Property="Background" Duration="0:0:0.15" />
+                </Transitions>
+            </Setter>
+        </Style>
+        <Style Selector="Button.SmartSceneRow:pointerover /template/ Border#Bd">
+            <Setter Property="Background" Value="{DynamicResource Surface5Brush}" />
+        </Style>
+        <Style Selector="Button.SmartSceneRow:pressed /template/ Border#Bd">
+            <Setter Property="Background" Value="{DynamicResource Surface5Brush}" />
+        </Style>
         <!-- 动作二次确认态：柔主色底 + 主色文字，跟普通幽灵按钮拉开 -->
         <Style Selector="Button.BtnGhost.confirming /template/ Border#Bd">
             <Setter Property="Background" Value="{DynamicResource AccentSoftBrush}" />

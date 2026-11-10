@@ -10,6 +10,8 @@ using System.Runtime;
 using System.Threading.Tasks;
 using System.Text.Json.Nodes;
 using Avalonia;
+using Avalonia.Controls;
+using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Media;
 using Avalonia.Media.Imaging;
 using Avalonia.Styling;
@@ -50,12 +52,18 @@ public partial class MainViewModel : ObservableObject
     /// <summary>搜索防抖：连续输入只在静默 250ms 后重滤一次，避免每键全量 Clear+Add。</summary>
     private IDisposable? _searchDebounce;
 
-    /// <summary>状态轮询：4 秒一拍，每 4 拍顺带刷新温湿度读数。</summary>
+    /// <summary>状态轮询：10 秒一拍，每 4 拍顺带刷新温湿度读数。</summary>
     private DispatcherTimer? _pollTimer;
     private bool _polling;
+    /// <summary>当前处于后台降频轮询（主窗口收起、桌面组件仍在桌面上）。</summary>
+    private bool _backgroundPolling;
     private int _pollTick;
     private long _lastPollErrorLogAt;
+    /// <summary>最近一次「悬停分区」的即时刷新时刻（TickCount64），用于 1 秒去重。</summary>
+    private long _lastHoverRefreshAt;
     private const int PollSeconds = 10;
+    /// <summary>主窗口收起、但桌面上还开着组件分区时的降频轮询间隔。</summary>
+    private const int BackgroundPollSeconds = 30;
     private const int SuppressMs = 5000;
 
     /// <summary>设备列表代次：切家庭/重载时递增，过期的规格解析结果直接丢弃。</summary>
@@ -222,8 +230,11 @@ public partial class MainViewModel : ObservableObject
     /// <summary>智能页展示用的自动化集合，规则同 <see cref="SceneViewItems"/>。</summary>
     public ObservableCollection<SceneCardItem> AutomationViewItems { get; } = new();
 
-    /// <summary>设备详情抽屉里的「相关场景」：会控制本设备的场景 + 被本设备触发的自动化。</summary>
+    /// <summary>设备详情「智能场景」里的手动场景：会控制本设备的场景。</summary>
     public ObservableCollection<SceneCardItem> DrawerScenes { get; } = new();
+
+    /// <summary>设备详情「智能场景」里的自动化：被本设备触发 / 会控制本设备的自动化。</summary>
+    public ObservableCollection<SceneCardItem> DrawerAutomations { get; } = new();
 
     /// <summary>场景页分段：0 场景 / 1 自动化。</summary>
     [ObservableProperty] private int _sceneTab;
@@ -234,8 +245,19 @@ public partial class MainViewModel : ObservableObject
     /// <summary>最近一次拉到的场景全集（手动 + 自动化）。</summary>
     private List<MijiaScene> _scenes = new();
 
+    /// <summary>场景索引是否已经拉过一次：桌面弹窗在没进过智能页时按需补拉。</summary>
+    private bool _scenesLoadedOnce;
+
     public bool HasAutomations => AutomationItems.Count > 0;
-    public bool HasDrawerScenes => DrawerScenes.Count > 0;
+
+    /// <summary>「智能场景」是否有关联项：场景与自动化任一命中。</summary>
+    public bool HasDrawerScenes => DrawerScenes.Count + DrawerAutomations.Count > 0;
+    public bool HasDrawerSceneGroup => DrawerScenes.Count > 0;
+    public bool HasDrawerAutomationGroup => DrawerAutomations.Count > 0;
+
+    /// <summary>标题右侧的构成概览：「2 个场景 · 3 个自动化」。</summary>
+    public string DrawerSceneSummary =>
+        $"{DrawerScenes.Count} 个场景 · {DrawerAutomations.Count} 个自动化";
 
     /// <summary>自动化分段空态：加载结束且一条都没有。</summary>
     public bool ShowAutomationEmpty => !SyncPending && !HasAutomations;
@@ -390,16 +412,53 @@ public partial class MainViewModel : ObservableObject
         _pollTimer.Start();
     }
 
-    /// <summary>暂停状态轮询（窗口最小化/收托盘时调用，减少后台网络与分配）。</summary>
+    /// <summary>
+    /// 状态轮询降级（窗口最小化/收托盘时调用）。
+    /// 桌面上还开着组件分区时不能停——否则组件上的开关/读数会定格；这种情形改为降频到
+    /// <see cref="BackgroundPollSeconds"/> 秒继续刷。桌面上没有组件才真正停掉，减少后台网络与分配。
+    /// </summary>
     public void PausePolling()
     {
+        if (_pollTimer is null) return;
+        if (DesktopHost.Enabled && DesktopHost.GroupCount > 0)
+        {
+            _pollTimer.Interval = TimeSpan.FromSeconds(BackgroundPollSeconds);
+            if (!_pollTimer.IsEnabled) _pollTimer.Start();
+            if (!_backgroundPolling) Log("主窗口已收起，桌面组件仍在桌面上：状态轮询降频到 30 秒");
+            _backgroundPolling = true;
+            return;
+        }
+        _backgroundPolling = false;
+        _pollTimer.Stop();
+    }
+
+    /// <summary>硬停轮询（退出登录等场景）：不看桌面组件，直接停。</summary>
+    public void StopPolling()
+    {
+        _backgroundPolling = false;
+        _pollTimer?.Stop();
+    }
+
+    /// <summary>
+    /// 桌面分区增减后回调：后台降频正在跑，但桌面上已经一块分区都不剩时，
+    /// 没必要继续每 30 秒唤醒一次，直接停掉。
+    /// </summary>
+    public void RecheckBackgroundPolling()
+    {
+        if (!_backgroundPolling) return;
+        if (DesktopHost.Enabled && DesktopHost.GroupCount > 0) return;
+        _backgroundPolling = false;
         _pollTimer?.Stop();
     }
 
     /// <summary>恢复状态轮询（窗口从托盘/最小化恢复时调用）。</summary>
     public void ResumePolling()
     {
-        if (_pollTimer is { IsEnabled: false }) _pollTimer.Start();
+        if (_pollTimer is null) return;
+        // 后台降频期间可能已改成 30 秒，回前台要还原成正常节奏
+        _backgroundPolling = false;
+        _pollTimer.Interval = TimeSpan.FromSeconds(PollSeconds);
+        if (!_pollTimer.IsEnabled) _pollTimer.Start();
         // 后台期间手机端可能改过启停，回到前台立刻对齐一次
         _ = SyncSceneEnableStatesAsync(force: true);
     }
@@ -415,6 +474,34 @@ public partial class MainViewModel : ObservableObject
             await RefreshStatesAsync(includeMetrics: _pollTick % 4 == 1);
             // 智能页/抽屉在前台时顺带对齐自动化启停态（最小间隔 30s，内部节流）
             if (IsSceneSurfaceActive) await SyncSceneEnableStatesAsync(force: false);
+        }
+        finally
+        {
+            _polling = false;
+        }
+    }
+
+    /// <summary>
+    /// 桌面分区的即时刷新：鼠标移入分区、分区展开时立刻补一拍，不用等最多 30 秒的定时器。
+    /// 悬停是高频动作，1 秒内的重复触发直接忽略（指针在子元素间移动会冒泡出多次 PointerEntered）；
+    /// 展开是用户刻意动作，不做去重。已有轮询在途时直接跳过，不叠加请求。
+    /// </summary>
+    public void RequestZoneRefresh(bool includeMetrics)
+    {
+        if (_client == null || !IsLoggedIn) return;
+        var now = Environment.TickCount64;
+        if (!includeMetrics && now - _lastHoverRefreshAt < 1000) return;
+        _lastHoverRefreshAt = now;
+        _ = RefreshOnDemandAsync(includeMetrics);
+    }
+
+    private async Task RefreshOnDemandAsync(bool includeMetrics)
+    {
+        if (_client == null || !IsLoggedIn || _polling) return;
+        _polling = true;
+        try
+        {
+            await RefreshStatesAsync(includeMetrics);
         }
         finally
         {
@@ -869,7 +956,7 @@ public partial class MainViewModel : ObservableObject
 
             // 音箱音量单独读，不依赖有没有电源属性（播放类设备常常没有 on/off）
             if (d.IsSpeaker && d.SpeakerVolumeSiid > 0) Add((did, d.SpeakerVolumeSiid, d.SpeakerVolumePiid));
-            // 播放状态：有 playing-state 属性时回读，播放/暂停图标跟着真实状态走
+            // 播放状态：规格里有 playing-state 就回读（云端值确实会变，pause 后实测由 1 变 2）
             if (d.IsSpeaker && d.PlayingStateSiid > 0) Add((did, d.PlayingStateSiid, d.PlayingStatePiid));
 
             if (d.Channels.Count > 0)
@@ -1146,6 +1233,7 @@ public partial class MainViewModel : ObservableObject
         }
 
         _sceneIndex.Rebuild(scenes);
+        _scenesLoadedOnce = true;
 
         await Dispatcher.UIThread.InvokeAsync(() =>
         {
@@ -1173,9 +1261,11 @@ public partial class MainViewModel : ObservableObject
     private static long Newness(MijiaScene s) =>
         long.TryParse(s.CreateTime, out var t) ? t : 0;
 
-    /// <summary>抽屉里的「相关场景」：命中内存索引，不发网络请求。</summary>
-    private void UpdateDrawerScenes()    {
+    /// <summary>设备详情「智能场景」：命中内存索引，不发网络请求。按场景 / 自动化分两组。</summary>
+    private void UpdateDrawerScenes()
+    {
         DrawerScenes.Clear();
+        DrawerAutomations.Clear();
         if (DrawerDevice is { } device)
         {
             var seed = 0;
@@ -1184,10 +1274,13 @@ public partial class MainViewModel : ObservableObject
                 var card = SceneCardItem.Wrap(r.Scene, seed++);
                 card.RoleText = r.RoleText;
                 card.TargetDid = device.TargetDid;
-                DrawerScenes.Add(card);
+                (r.Scene.IsAutomation ? DrawerAutomations : DrawerScenes).Add(card);
             }
         }
         OnPropertyChanged(nameof(HasDrawerScenes));
+        OnPropertyChanged(nameof(HasDrawerSceneGroup));
+        OnPropertyChanged(nameof(HasDrawerAutomationGroup));
+        OnPropertyChanged(nameof(DrawerSceneSummary));
     }
 
     private void RaiseSceneCounters()
@@ -1762,7 +1855,8 @@ public partial class MainViewModel : ObservableObject
                 }
 
                 // 卡片开关一律跟 Scene.Enable 对齐（含多份实例：列表 / 抽屉 / 按设备分组）
-                foreach (var card in SceneItems.Concat(AutomationItems).Concat(DrawerScenes))
+                foreach (var card in SceneItems.Concat(AutomationItems)
+                             .Concat(DrawerScenes).Concat(DrawerAutomations))
                 {
                     if (_togglingScenes.Contains(card.Scene.SceneId)) continue;
                     card.IsEnabled = card.Scene.Enable;
@@ -1787,6 +1881,9 @@ public partial class MainViewModel : ObservableObject
     public ObservableCollection<SceneEditActionRow> SceneEditRows { get; } = new();
 
     [ObservableProperty] private bool _isSceneEditorOpen;
+
+    /// <summary>场景详情是否嵌在主窗口里（false = 从桌面设备弹窗发起的独立弹窗，主窗口不参与）。</summary>
+    [ObservableProperty] private bool _isSceneEditorInline = true;
     [ObservableProperty] private string _sceneEditName = "";
     [ObservableProperty] private bool _sceneEditEnabled;
     [ObservableProperty] private string _sceneEditTrigger = "";
@@ -2268,18 +2365,30 @@ public partial class MainViewModel : ObservableObject
                 if (arr[i] is not JsonObject node) continue;
                 var src = node["src"]?.ToString() ?? "";
                 var name = node["name"]?.ToString() ?? "";
-                var did = node["extra_json"]?["did"]?.ToString() ?? "";
+                var extra = node["extra_json"];
+                var did = SceneTriggerCatalog.Sub(extra, "did")?.ToString() ?? "";
 
                 if (src == "device")
                 {
                     var dev = _allDevices.FirstOrDefault(d => MijiaScene.SameDid(d.Did, did));
                     var key = node["key"]?.ToString() ?? "";
-                    var desc = await SceneTriggerCatalog.DescribeAsync(_client, dev, node);
+                    // 云端个别触发源结构不规范（value_json 是字符串等），
+                    // 描述失败只让这一行退化成 key，绝不让整条编辑面板崩掉
+                    string desc;
+                    try
+                    {
+                        desc = await SceneTriggerCatalog.DescribeAsync(_client, dev, node);
+                    }
+                    catch (Exception ex)
+                    {
+                        desc = key;
+                        Log($"触发条件描述失败：{ex.Message}");
+                    }
                     SceneTriggerRows.Add(new SceneTriggerRow
                     {
                         Index = i,
                         Title = string.IsNullOrWhiteSpace(name) ? desc : name,
-                        Subtitle = $"{dev?.Name ?? node["extra_json"]?["device_name"]?.ToString() ?? "设备"} · {desc}",
+                        Subtitle = $"{dev?.Name ?? SceneTriggerCatalog.Sub(extra, "device_name")?.ToString() ?? "设备"} · {desc}",
                         KindLabel = key.StartsWith("event.", StringComparison.Ordinal) ? "事件" : "状态",
                         Editable = CanEditTrigger,
                         Node = node
@@ -2391,7 +2500,23 @@ public partial class MainViewModel : ObservableObject
             return;
         }
 
-        await OpenSceneEditorCoreAsync(scene, isNew: false);
+        // 宿主按入口分：主界面抽屉里点 → 还在主窗口内做浮层；桌面分区的设备弹窗是独立置顶窗，
+        // 从它进来就单独弹一个场景详情窗，不把主程序窗口唤到前面（点一下详情不该被拽回主界面）。
+        IsSceneEditorInline = !IsDevicePanelOpen;
+        if (!IsSceneEditorInline) SceneEditorHost.Open(this);
+
+        // 打开详情面板是异步命令，异常没人接就是进程级未处理异常（已踩过：云端某个触发源
+        // value_json 不是对象，DescribeAsync 直接抛 InvalidOperationException → 整个应用闪退）。
+        // 这里兜一层：面板关掉、原因写进日志，不把应用带走。
+        try
+        {
+            await OpenSceneEditorCoreAsync(scene, isNew: false);
+        }
+        catch (Exception ex)
+        {
+            IsSceneEditorOpen = false;
+            Log($"打开场景详情失败：{ex.GetType().Name} {ex.Message}");
+        }
     }
 
     /// <summary>新建：按当前分段造一条空白场景 / 自动化，直接进同一个编辑面板。</summary>
@@ -2767,18 +2892,19 @@ public partial class MainViewModel : ObservableObject
             var values = await BuildValueItemsAsync(action, payload, shown);
             if (values.Count > 0)
             {
+                var room = device?.RoomName is { Length: > 0 } r && r != "未分配房间" ? r : "";
                 var row = new SceneEditActionRow
                 {
                     Action = action,
                     Payload = payload,
                     Kind = SceneEditRowKind.DeviceProp,
                     Title = shown,
-                    // 副标题把房间和属性名并成一行，值控件就能跟标题同一行，省掉一整行高度
-                    Subtitle = string.Join(" · ", new[]
-                    {
-                        device?.RoomName is { Length: > 0 } r && r != "未分配房间" ? r : null,
-                        values[0].Title
-                    }.Where(x => !string.IsNullOrWhiteSpace(x))),
+                    // 副标题 = 房间 · 这一步把设备调到的状态（关闭 / 打开 / 亮度 50%），
+                    // 状态词跟着右侧控件实时变，不再显示「开关」这类属性标识
+                    RoomName = room,
+                    Subtitle = room.Length > 0 && values[0].DeviceText.Length > 0
+                        ? $"{room} · {values[0].ActionText}"
+                        : values[0].ActionText,
                     Values = values
                 };
                 return row;
@@ -3317,6 +3443,8 @@ public partial class MainViewModel : ObservableObject
     private void CloseSceneEditor()
     {
         IsSceneEditorOpen = false;
+        // 收起后回到「嵌在主窗口」的默认，免得下一次新建 / 抽屉入口因为残留的独立窗模式而看不见面板
+        IsSceneEditorInline = true;
         SceneEditConfirmDelete = false;
         SceneEditError = "";
         IsTriggerEditorOpen = false;

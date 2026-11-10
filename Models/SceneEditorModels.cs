@@ -48,6 +48,9 @@ public sealed partial class SceneActionEditItem : ObservableObject
     public List<string> OptionNames { get; } = new();
     public List<long> OptionValues { get; } = new();
 
+    /// <summary>枚举属性的下拉候选：走程序内自绘的 OptionPicker（原生 ComboBox 滚一下就会误选）。</summary>
+    public List<OptionItem> OptionItems { get; } = new();
+
     [ObservableProperty] private bool _boolValue;
     [ObservableProperty] private double _numValue;
     [ObservableProperty] private string _textValue = "";
@@ -63,17 +66,36 @@ public sealed partial class SceneActionEditItem : ObservableObject
     partial void OnNumValueChanged(double value) => Apply(() => Node["value"] = JsonValue.Create(Normalize(value)));
     partial void OnTextValueChanged(string value) => Apply(() => Node["value"] = JsonValue.Create(value));
 
-    partial void OnOptionIndexChanged(int value) => Apply(() =>
+    partial void OnOptionIndexChanged(int value)
     {
-        if (value < 0 || value >= OptionValues.Count) return;
-        Node["value"] = JsonValue.Create(OptionValues[value]);
-    });
+        OnPropertyChanged(nameof(OptionValue));
+        Apply(() =>
+        {
+            if (value < 0 || value >= OptionValues.Count) return;
+            Node["value"] = JsonValue.Create(OptionValues[value]);
+        });
+    }
+
+    /// <summary>
+    /// OptionPicker 的选中值（与 <see cref="OptionIndex"/> 双向镜像）：
+    /// 选中的枚举值本身，浮层里点一下就是它，不需要在外面再记一层下标。
+    /// </summary>
+    public long? OptionValue
+    {
+        get => OptionIndex >= 0 && OptionIndex < OptionValues.Count ? OptionValues[OptionIndex] : null;
+        set
+        {
+            var index = value is { } v ? OptionValues.IndexOf(v) : -1;
+            if (index >= 0) OptionIndex = index;
+        }
+    }
 
     private void Apply(Action write)
     {
         if (!_ready) return;
         try { write(); } catch { }
         OnPropertyChanged(nameof(Summary));
+        OnPropertyChanged(nameof(ActionText));
     }
 
     /// <summary>整数量程保持整数，避免 26 变成 26.0 被设备拒绝。</summary>
@@ -91,6 +113,26 @@ public sealed partial class SceneActionEditItem : ObservableObject
             : IsNumber
                 ? NumValue.ToString("0.##", CultureInfo.InvariantCulture) + (string.IsNullOrEmpty(Unit) ? "" : " " + Unit)
                 : TextValue;
+
+    /// <summary>
+    /// 把这一步说成「调整到什么状态」：开关类只给动词（打开 / 关闭），
+    /// 不再把属性名「开关」这种标识文字摆到界面上；数值类写成「亮度 50%」这种一眼能读懂的状态。
+    /// </summary>
+    public string ActionText
+    {
+        get
+        {
+            if (IsBool) return BoolValue ? "打开" : "关闭";
+            if (IsOption) return Summary;
+            if (IsNumber)
+            {
+                var v = NumValue.ToString("0.##", CultureInfo.InvariantCulture);
+                var text = string.IsNullOrEmpty(Unit) ? v : v + Unit;
+                return string.IsNullOrWhiteSpace(PropName) ? text : $"{PropName} {text}";
+            }
+            return Summary;
+        }
+    }
 
     /// <summary>
     /// 由原始写节点构造。规格可用时按规格决定控件类型，否则退回 JSON 值本身的类型。
@@ -125,8 +167,10 @@ public sealed partial class SceneActionEditItem : ObservableObject
         {
             foreach (var o in def.Options)
             {
-                item.OptionNames.Add(string.IsNullOrWhiteSpace(o.Label) ? o.Value.ToString() : o.Label);
+                var label = string.IsNullOrWhiteSpace(o.Label) ? o.Value.ToString() : o.Label;
+                item.OptionNames.Add(label);
                 item.OptionValues.Add(o.Value);
+                item.OptionItems.Add(new OptionItem { Label = label, Value = o.Value });
             }
         }
 

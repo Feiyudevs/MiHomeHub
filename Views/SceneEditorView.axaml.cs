@@ -25,12 +25,30 @@ public partial class SceneEditorView : UserControl
     /// <summary>当前已订阅「请求打开触发条件弹窗」的视图模型（换 DataContext / 卸载时解绑）。</summary>
     private MainViewModel? _triggerHostVm;
 
+    /// <summary>是否是当前生效的宿主：主窗口里的浮层和独立弹窗各有一份，
+    /// 只有生效的那份负责弹「触发条件 / 添加动作」子窗，否则一次点击会弹两个。</summary>
+    public static readonly StyledProperty<bool> HostActiveProperty =
+        AvaloniaProperty.Register<SceneEditorView, bool>(nameof(HostActive), true);
+
+    public bool HostActive
+    {
+        get => GetValue(HostActiveProperty);
+        set => SetValue(HostActiveProperty, value);
+    }
+
     public SceneEditorView()
     {
         InitializeComponent();
-        DataContextChanged += (_, _) => BindTriggerHost(DataContext as MainViewModel);
-        AttachedToVisualTree += (_, _) => BindTriggerHost(DataContext as MainViewModel);
+        DataContextChanged += (_, _) => BindTriggerHost(HostActive ? DataContext as MainViewModel : null);
+        AttachedToVisualTree += (_, _) => BindTriggerHost(HostActive ? DataContext as MainViewModel : null);
         DetachedFromVisualTree += (_, _) => BindTriggerHost(null);
+    }
+
+    protected override void OnPropertyChanged(AvaloniaPropertyChangedEventArgs change)
+    {
+        base.OnPropertyChanged(change);
+        if (change.Property == HostActiveProperty)
+            BindTriggerHost(HostActive ? DataContext as MainViewModel : null);
     }
 
     // ===== 触发条件：添加 / 编辑都走独立弹窗 =====

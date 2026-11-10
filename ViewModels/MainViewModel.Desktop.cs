@@ -86,8 +86,14 @@ public partial class MainViewModel : IDeviceCardHost
     {
         DrawerDevice = device;
         IsDevicePanelOpen = true;
+        IsSmartSceneExpanded = false;
         BuildSpecPanel(device);
         AttachDrawerDetail(device);
+        // 「智能场景」读的是内存索引：桌面弹窗不走 OpenDrawer，
+        // 少了这一步会一直显示上一次（或空）的清单，必须点一次主界面抽屉才有内容
+        UpdateDrawerScenes();
+        // 还没拉过场景（例如只在桌面分区里操作）就先补一次，索引回来后会自行重填清单
+        if (!_scenesLoadedOnce && _client != null) _ = LoadScenesAsync();
     }
 
     [RelayCommand]
