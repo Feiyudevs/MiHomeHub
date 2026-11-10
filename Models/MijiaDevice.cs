@@ -45,6 +45,12 @@ public partial class MijiaDevice : ObservableObject
     [JsonPropertyName("spec_type")] public string SpecType { get; set; } = "";
 
     /// <summary>
+    /// 设备组（did 形如 group.xxx）的成员 did，来自云端 extra.member_list.member_ship 的键。
+    /// 普通设备为空；落进 devices.json 缓存，重启后不用重新解析原始响应。
+    /// </summary>
+    [JsonPropertyName("groupMembers")] public List<string> GroupMembers { get; set; } = new();
+
+    /// <summary>
     /// 由房间归属填充，接口本身不带；带 JsonPropertyName 是为了 devices.json 本地缓存能还原房间。
     /// </summary>
     [JsonPropertyName("roomName")] public string RoomName { get; set; } = "未分配房间";

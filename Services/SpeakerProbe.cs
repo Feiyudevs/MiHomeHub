@@ -185,6 +185,22 @@ internal static class SpeakerProbe
     }
 
     /// <summary>
+    /// 单次读某台设备的 playing-state（3/1），用于核对下发后云端多久落定。
+    ///
+    /// 用法：MiHome.exe --speaker-state &lt;did&gt;
+    /// </summary>
+    public static async Task RunReadStateAsync(string did)
+    {
+        var auth = MijiaAuth.LoadOrEmpty();
+        if (string.IsNullOrEmpty(auth.Auth.ServiceToken)) { Console.WriteLine("!! 没有登录态"); return; }
+        if (!auth.HasValidAuth() && !await auth.RefreshServiceTokenAsync()) { Console.WriteLine("!! 续期失败"); return; }
+        var client = new MijiaClient(auth);
+        var map = await client.ReadPropsAsync(new List<(string, int, int)> { (did, 3, 1) });
+        var v = map.TryGetValue((did, 3, 1), out var val) ? Show(val) : "<null>";
+        Console.WriteLine($"{DateTime.Now:HH:mm:ss} playing-state={v}");
+    }
+
+    /// <summary>
     /// 设备级规格接口原始回包诊断：getspec 一直报 Base64 解不开，这里把原始字节头部落盘，
     /// 看它到底是 JSON / gzip / 被 RC4 加密的 base64，再决定怎么解。
     ///

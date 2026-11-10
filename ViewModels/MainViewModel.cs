@@ -61,9 +61,15 @@ public partial class MainViewModel : ObservableObject
     private long _lastPollErrorLogAt;
     /// <summary>最近一次「悬停分区」的即时刷新时刻（TickCount64），用于 1 秒去重。</summary>
     private long _lastHoverRefreshAt;
+    /// <summary>快节拍窗口的截止时刻（TickCount64）；0 表示不在快节拍里。</summary>
+    private long _fastPollUntil;
     private const int PollSeconds = 10;
     /// <summary>主窗口收起、但桌面上还开着组件分区时的降频轮询间隔。</summary>
     private const int BackgroundPollSeconds = 30;
+    /// <summary>刚下发播放/暂停后，把音箱状态快速拉齐的短节拍。</summary>
+    private const int FastPollSeconds = 2;
+    /// <summary>快节拍持续时长：云端 playing-state 有延迟，10 秒内每 2 秒读一次足够收敛。</summary>
+    private const long FastPollWindowMs = 10_000;
     private const int SuppressMs = 5000;
 
     /// <summary>设备列表代次：切家庭/重载时递增，过期的规格解析结果直接丢弃。</summary>
@@ -420,6 +426,7 @@ public partial class MainViewModel : ObservableObject
     public void PausePolling()
     {
         if (_pollTimer is null) return;
+        _fastPollUntil = 0;
         if (DesktopHost.Enabled && DesktopHost.GroupCount > 0)
         {
             _pollTimer.Interval = TimeSpan.FromSeconds(BackgroundPollSeconds);
@@ -436,6 +443,7 @@ public partial class MainViewModel : ObservableObject
     public void StopPolling()
     {
         _backgroundPolling = false;
+        _fastPollUntil = 0;
         _pollTimer?.Stop();
     }
 
@@ -457,6 +465,7 @@ public partial class MainViewModel : ObservableObject
         if (_pollTimer is null) return;
         // 后台降频期间可能已改成 30 秒，回前台要还原成正常节奏
         _backgroundPolling = false;
+        _fastPollUntil = 0;
         _pollTimer.Interval = TimeSpan.FromSeconds(PollSeconds);
         if (!_pollTimer.IsEnabled) _pollTimer.Start();
         // 后台期间手机端可能改过启停，回到前台立刻对齐一次
@@ -478,7 +487,33 @@ public partial class MainViewModel : ObservableObject
         finally
         {
             _polling = false;
+            RestoreNormalPollIntervalIfNeeded();
         }
+    }
+
+    private void RestoreNormalPollIntervalIfNeeded()
+    {
+        if (_fastPollUntil == 0 || _pollTimer is null) return;
+        if (Environment.TickCount64 < _fastPollUntil) return;
+        _fastPollUntil = 0;
+        // 快节拍结束：回到当前应处的节拍（后台降频中就是 30 秒，否则 10 秒）
+        _pollTimer.Interval = TimeSpan.FromSeconds(_backgroundPolling ? BackgroundPollSeconds : PollSeconds);
+    }
+
+    /// <summary>
+    /// 刚给音箱下发播放/暂停后调用：把轮询切到 2 秒一拍并持续 10 秒，立刻补一拍，
+    /// 让 playing-state 一落定界面就跟上，而不是等满一个 10 秒（后台时 30 秒）的节拍。
+    /// 该设备没有可读的 playing-state 时不折腾节拍。
+    /// </summary>
+    public void AccelerateSpeakerStateSync(MijiaDevice? device)
+    {
+        if (device is not { PlayingStateSiid: > 0 }) return;
+        if (_pollTimer is null) return;
+        _fastPollUntil = Environment.TickCount64 + FastPollWindowMs;
+        if (_pollTimer.Interval > TimeSpan.FromSeconds(FastPollSeconds))
+            _pollTimer.Interval = TimeSpan.FromSeconds(FastPollSeconds);
+        // 轮询已停（退出登录/无桌面组件的最小化）时由调用方自己触发刷新，这里不擅自启动计时器
+        if (_pollTimer.IsEnabled) _ = PollTickAsync();
     }
 
     /// <summary>
@@ -2796,12 +2831,22 @@ public partial class MainViewModel : ObservableObject
         var name = action["name"]?.ToString() ?? "";
         var deviceName = payload?["device_name"]?.ToString() ?? "";
 
+        // 执行 / 开关另一条场景（含自动化）时，云端会在动作里带一份 nested_scene_info，
+        // 那是唯一能认出「自动化 / 跨家庭场景」名字的地方——只查手动场景列表就会显示「未知场景」。
+        var nestedName = SceneTriggerCatalog.Sub(action["nested_scene_info"], "scene_name")?.ToString();
+        var nestedId = SceneTriggerCatalog.Sub(action["nested_scene_info"], "scene_id")?.ToString() ?? "";
+
         // 执行另一条场景
         if (type == 2)
         {
             var sid = payload?["scene_id"]?.ToString() ?? "";
+            if (string.IsNullOrEmpty(sid)) sid = nestedId;
             var option = sceneOptions.FirstOrDefault(o => Equals(o.Value, sid));
-            var display = option?.Label ?? QuotedName(name) ?? "未知场景";
+            var display = option?.Label
+                          ?? (string.IsNullOrWhiteSpace(nestedName) ? null : nestedName)
+                          ?? FindSceneName(sid)
+                          ?? QuotedName(name)
+                          ?? "未知场景";
 
             // 目标场景不在当前列表里（跨家庭/已删）：补一个占位项，避免下拉空着
             var options = sceneOptions;
@@ -2826,21 +2871,34 @@ public partial class MainViewModel : ObservableObject
             return row;
         }
 
-        // 开启 / 关闭另一条场景
+        // 开启 / 关闭另一条场景（也常用来开关自动化）
         if (type == 3)
         {
             var sid = payload?["scene_id"]?.ToString() ?? "";
+            if (string.IsNullOrEmpty(sid)) sid = nestedId;
+            var target = FindScene(sid);
+            // type=3 的 action.name 直接就是目标场景 / 自动化的名字（不带引号，例如「回家模式夜晚」），
+            // 之前只走 QuotedName(name) 抽引号，抽不到就整行落到「未知场景」。
+            var rawName = name.Trim();
+            var genericName = rawName.StartsWith("开关场景", StringComparison.Ordinal)
+                              || rawName.StartsWith("开关自动化", StringComparison.Ordinal);
             var display = sceneOptions.FirstOrDefault(o => Equals(o.Value, sid))?.Label
-                          ?? QuotedName(name) ?? "未知场景";
+                          ?? (string.IsNullOrWhiteSpace(nestedName) ? null : nestedName)
+                          ?? FindSceneName(sid)
+                          ?? (string.IsNullOrWhiteSpace(rawName) || genericName ? null : rawName)
+                          ?? QuotedName(name)
+                          ?? "未知场景";
             var enable = !IsFalse(payload?["enable"]);
+            var kindWord = target?.IsAutomation == true ? "自动化" : "场景";
 
             var row = new SceneEditActionRow
             {
                 Action = action,
                 Payload = payload,
                 Kind = SceneEditRowKind.SceneToggle,
-                Title = $"开关场景「{display}」",
-                Subtitle = enable ? "执行后开启该场景" : "执行后关闭该场景",
+                Title = $"开关{kindWord}「{display}」",
+                Subtitle = enable ? $"执行后开启该{kindWord}" : $"执行后关闭该{kindWord}",
+                ToggleNoun = kindWord,
                 ToggleEnabled = enable
             };
             return row;
@@ -2921,6 +2979,40 @@ public partial class MainViewModel : ObservableObject
             return actionRow;
         }
 
+        // 设备组动作（米家 App 的「打包控制」，例如「全屋照明（灯光和开关）」一键关灯）
+        // payload.command = special_command，真正的动作在 value.command_type，成员在 value.filter_dids
+        if (type == 4)
+        {
+            var groupName = payload?["device_name"]?.ToString().Trim();
+            if (string.IsNullOrWhiteSpace(groupName))
+                groupName = QuotedName(name) ?? "";
+
+            var cmdType = (payload?["value"] as JsonObject)?["command_type"]?.ToString()
+                          ?? payload?["command"]?.ToString()
+                          ?? "";
+
+            // command_type 形如 light-close / *_open，翻成状态词；认不出就用动作自带的 name（如「关闭」）
+            var actText = cmdType switch
+            {
+                string s when s.EndsWith("-close", StringComparison.OrdinalIgnoreCase) || s.EndsWith("close", StringComparison.OrdinalIgnoreCase) => "关闭",
+                string s when s.EndsWith("-open", StringComparison.OrdinalIgnoreCase) || s.EndsWith("open", StringComparison.OrdinalIgnoreCase) => "打开",
+                _ => string.IsNullOrWhiteSpace(name) ? "" : name
+            };
+
+            // 不显示台数：云端 filter_dids 只记了少部分设备（还可能含未展开的 group.xxx），
+            // 与米家 App 的「选中设备数」对不上，写死一个数字反而误导，只说明这是批量开关。
+            var subtitle = actText.Length > 0 ? $"批量{actText}设备" : "批量开关设备";
+            var groupRow = new SceneEditActionRow
+            {
+                Action = action,
+                Payload = payload,
+                Kind = SceneEditRowKind.DeviceGroup,
+                Title = string.IsNullOrWhiteSpace(groupName) ? "设备组" : groupName,
+                Subtitle = subtitle
+            };
+            return groupRow;
+        }
+
         var unknown = new SceneEditActionRow
         {
             Action = action,
@@ -2930,6 +3022,25 @@ public partial class MainViewModel : ObservableObject
             Subtitle = $"类型 {type}，本应用暂不支持编辑"
         };
         return unknown;
+    }
+
+    /// <summary>按 scene_id 找到场景本体（含自动化）；找不到返回 null。</summary>
+    private MijiaScene? FindScene(string sceneId)
+    {
+        if (string.IsNullOrEmpty(sceneId)) return null;
+        foreach (var s in _scenes)
+        {
+            if (!string.IsNullOrEmpty(s.SceneId) && string.Equals(s.SceneId, sceneId, StringComparison.Ordinal))
+                return s;
+        }
+        return null;
+    }
+
+    /// <summary>目标场景 / 自动化的显示名：先查全部场景，不认识就给 null。</summary>
+    private string? FindSceneName(string sceneId)
+    {
+        var scene = FindScene(sceneId);
+        return string.IsNullOrWhiteSpace(scene?.Name) ? null : scene!.Name;
     }
 
     /// <summary>set_properties 的 value 数组 → 可编辑的属性行（规格给控件类型与量程）。</summary>

@@ -275,6 +275,7 @@ public partial class MainViewModel : ObservableObject
             if (!sent) return;
             d.IsPlaying = play;
             d.PlayingState = play ? 1 : 2;   // 先按指令猜一态，下一拍 playing-state 回读会纠正
+            AccelerateSpeakerStateSync(d);
             Log($"{d.Name} → {(play ? "播放" : "暂停")}");
         }
         else Log($"{d.Name} 不支持播放控制");
@@ -327,6 +328,8 @@ public partial class MainViewModel : ObservableObject
                 return;
             }
             Log($"{d.Name} → {label}");
+            // 切歌可能让状态在 0/1/2 之间跳，跟着加速拉齐
+            AccelerateSpeakerStateSync(d);
         }
         catch (Exception ex)
         {

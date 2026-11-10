@@ -141,10 +141,52 @@ public class MijiaClient : IDisposable
         var list = r.TryGetProperty("device_info", out var d)
             ? d.Deserialize<List<MijiaDevice>>() ?? new()
             : new List<MijiaDevice>();
+
+        // 设备组（灯组等多设备虚拟设备）的成员 did 只出现在原始响应的
+        // extra.member_list.member_ship 里，DTO 不映射，这里补上：
+        // 场景里的组动作（type=4）要靠它把「1 个设备组」展开成真实设备数。
+        if (r.TryGetProperty("device_info", out var rawArr) && rawArr.ValueKind == JsonValueKind.Array)
+        {
+            var byDid = new Dictionary<string, MijiaDevice>(StringComparer.Ordinal);
+            foreach (var x in list)
+                if (!string.IsNullOrEmpty(x.Did)) byDid[x.Did] = x;
+
+            foreach (var el in rawArr.EnumerateArray())
+            {
+                if (el.ValueKind != JsonValueKind.Object) continue;
+                var did = el.TryGetProperty("did", out var de) ? de.ToString() : "";
+                if (!did.StartsWith("group.", StringComparison.OrdinalIgnoreCase)) continue;
+                if (!byDid.TryGetValue(did, out var dev)) continue;
+                if (!el.TryGetProperty("extra", out var extra) || extra.ValueKind != JsonValueKind.Object) continue;
+                if (!extra.TryGetProperty("member_list", out var ml) || ml.ValueKind != JsonValueKind.Object) continue;
+                if (!ml.TryGetProperty("member_ship", out var ms) || ms.ValueKind != JsonValueKind.Object) continue;
+
+                dev.GroupMembers.Clear();
+                foreach (var member in ms.EnumerateObject())
+                    if (!string.IsNullOrEmpty(member.Name)) dev.GroupMembers.Add(member.Name);
+            }
+        }
         foreach (var x in list) x.HomeId = home.Id;
         AssignRooms(home, list);
         return list;
     }
+
+    /// <summary>
+    /// 探针专用：设备列表的原始响应。DTO 只映射了常用字段，设备组（did 形如 group.xxx）
+    /// 的成员信息如果存在，只会出现在原始响应里。
+    /// </summary>
+    public async Task<JsonElement> GetRawHomeDeviceListAsync(MijiaHome home)
+        => await RequestAsync("/home/home_device_list", new
+        {
+            home_owner = home.Uid,
+            home_id = long.Parse(home.Id),
+            limit = 200,
+            start_did = "",
+            get_split_device = true,
+            support_smart_home = true,
+            get_cariot_device = true,
+            get_third_device = true
+        });
 
     public async Task<List<MijiaDevice>> GetAllDevicesAsync()
     {

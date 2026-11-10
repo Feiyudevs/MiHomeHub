@@ -28,6 +28,9 @@ public enum SceneEditRowKind
     /// <summary>type=1：给手机发通知。</summary>
     Notify,
 
+    /// <summary>type=4：设备组动作（米家里的「打包控制」，如全屋照明一键关灯），只展示。</summary>
+    DeviceGroup,
+
     /// <summary>延时：不是独立动作，而是下面若干动作共用的 delay_time，界面上单列一张卡。</summary>
     Delay,
 
@@ -93,6 +96,7 @@ public sealed partial class SceneEditActionRow : ObservableObject
     public bool IsSceneToggle => Kind == SceneEditRowKind.SceneToggle;
     public bool IsTts => Kind == SceneEditRowKind.Tts;
     public bool IsNotify => Kind == SceneEditRowKind.Notify;
+    public bool IsDeviceGroup => Kind == SceneEditRowKind.DeviceGroup;
     public bool IsUnknown => Kind == SceneEditRowKind.Unknown;
 
     /// <summary>设备属性写入项（set_properties 才有，通常是 1 条）。</summary>
@@ -199,11 +203,14 @@ public sealed partial class SceneEditActionRow : ObservableObject
 
     [ObservableProperty] private bool _toggleEnabled;
 
+    /// <summary>目标叫「场景」还是「自动化」：副标题里跟着它说人话。</summary>
+    public string ToggleNoun { get; init; } = "场景";
+
     partial void OnToggleEnabledChanged(bool value)
     {
         if (!_ready) return;
         try { if (Payload != null) Payload["enable"] = value; } catch { }
-        Subtitle = value ? "执行后开启该场景" : "执行后关闭该场景";
+        Subtitle = value ? $"执行后开启该{ToggleNoun}" : $"执行后关闭该{ToggleNoun}";
     }
 
     // ===== 播报 =====

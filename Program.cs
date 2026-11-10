@@ -20,6 +20,13 @@ internal sealed class Program
             return;
         }
 
+        // 设备组（group.xxx）成员信息探针：把设备列表原始响应落盘，确认组内成员从哪来。
+        if (args.Any(a => string.Equals(a, "--group-probe", StringComparison.OrdinalIgnoreCase)))
+        {
+            GroupProbe.RunAsync().GetAwaiter().GetResult();
+            return;
+        }
+
         // 启停接口探针：只做幂等写（把当前 enable 原样写回），确认接口名后再落业务代码。
         if (args.Any(a => string.Equals(a, "--scene-probe-enable", StringComparison.OrdinalIgnoreCase)))
         {
@@ -95,6 +102,15 @@ internal sealed class Program
         {
             var did = sp + 1 < args.Length ? args[sp + 1] : "";
             SpeakerProbe.RunPauseTestAsync(did).GetAwaiter().GetResult();
+            return;
+        }
+
+        // 单次读 playing-state：核对下发后云端多久落定。
+        var st = Array.FindIndex(args, a => string.Equals(a, "--speaker-state", StringComparison.OrdinalIgnoreCase));
+        if (st >= 0)
+        {
+            var did = st + 1 < args.Length ? args[st + 1] : "";
+            SpeakerProbe.RunReadStateAsync(did).GetAwaiter().GetResult();
             return;
         }
 

@@ -170,7 +170,9 @@ public sealed partial class SceneActionEditItem : ObservableObject
                 var label = string.IsNullOrWhiteSpace(o.Label) ? o.Value.ToString() : o.Label;
                 item.OptionNames.Add(label);
                 item.OptionValues.Add(o.Value);
-                item.OptionItems.Add(new OptionItem { Label = label, Value = o.Value });
+                // Value 统一成 long：OptionPicker 用 Equals 比对选中项，规格给的是 int，
+                // 类型不一致会导致「永远是未选中 → 触发器显示『选择』」。
+                item.OptionItems.Add(new OptionItem { Label = label, Value = (long)o.Value });
             }
         }
 
