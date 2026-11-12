@@ -191,11 +191,8 @@ package.cmd -SkipInstaller :: 只出单文件 exe
 ## 文档
 
 - [构建与打包](docs/一键编译与打包.md)
-- [透明窗口文字渲染修复经验](docs/透明窗口文字渲染修复经验.md)
 - [贡献指南](CONTRIBUTING.md)
 - [安全说明](SECURITY.md)
-
-`ui/mijia-panel.html` 是早期静态设计原型，含模拟数据，不代表当前实现。
 
 ## 致谢
 

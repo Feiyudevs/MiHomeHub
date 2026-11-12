@@ -31,6 +31,6 @@
         <!-- 注意：文字抗锯齿（RenderOptions.TextRenderingMode="Antialias"）不能在这里全局配置 ——
              11.3 的 RenderOptions 没有 backing AvaloniaProperty，Style Setter 编译不过（AVLN2000）。
              该属性只沿视觉树从各 Window 向下继承，因此每个透明窗口需各写一行（已加 11 个）。
-             将来升到带 TextOptions 的版本后可改成一处 Style。详见 docs/透明窗口文字渲染修复经验.md -->
+             将来升到带 TextOptions 的版本后可改成一处 Style。 -->
     </Application.Styles>
 </Application>
