@@ -7,6 +7,7 @@
 深色玻璃拟态 · 深浅双主题 · 全屋设备与场景尽在掌握 · 可视化自动化编辑 · 轻量常驻，后台仅几兆
 
 [![License](https://img.shields.io/badge/license-GPL--3.0--only-blue.svg)](LICENSE)
+[![Release](https://img.shields.io/github/v/release/Feiyudevs/MiHomeHub?color=27ae60&label=release)](https://github.com/Feiyudevs/MiHomeHub/releases/latest)
 [![.NET](https://img.shields.io/badge/.NET-10.0-512BD4.svg)](https://dotnet.microsoft.com)
 [![Avalonia](https://img.shields.io/badge/Avalonia-11.3-8B44D0.svg)](https://avaloniaui.net)
 [![Platform](https://img.shields.io/badge/platform-Windows%20x64-0078D4.svg)](#快速开始)
