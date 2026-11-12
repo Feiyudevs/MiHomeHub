@@ -107,6 +107,10 @@ Services
 
 ## 许可证
 
-GNU General Public License v3（`GPL-3.0-only`）。依据 GPL-3.0 第 6 节，
-分发可执行文件（单文件 exe、安装包）时必须同时提供该版本对应的完整源代码或有效书面报价。
-本项目不附加任何超出 GPL-3.0 的限制条款。
+GNU General Public License v3（`GPL-3.0-only`）。许可证全文见 [LICENSE](LICENSE)，
+移植代码来源与版权声明见 [NOTICE](NOTICE)。
+
+依据 GPL-3.0 第 6 节：分发本项目的可执行文件（单文件 exe、安装包）时，
+对应版本的完整源代码可通过仓库 https://github.com/Feiyudevs/MiHomeHub 获取，
+每个发布版本均以 Git 标签（如 `v1.0.0`）固定，标签上的源码即对应二进制的构建来源，
+标签与源码将长期保留。本项目不附加任何超出 GPL-3.0 的限制条款。
