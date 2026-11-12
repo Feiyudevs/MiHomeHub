@@ -1,4 +1,4 @@
-# MiHome-Avalonia
+# MiHomeHub
 
 基于 **Avalonia 11 + .NET 10** 的 Windows 桌面客户端，通过米家云端接口管理设备、场景与自动化。
 扫码登录即可使用；深色玻璃拟态卡片界面，支持托盘常驻与桌面分区卡片。
@@ -30,7 +30,7 @@
 ## 目录
 
 ```
-MiHome-Avalonia/
+MiHomeHub/
 ├── MiHome.csproj / Program.cs / App.axaml(.cs)
 ├── Assets/          # 矢量图标与程序图标
 ├── Controls/        # 自定义控件（虚拟化网格、拖拽排序、浮层等）
