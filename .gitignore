@@ -63,6 +63,9 @@ docs/透明窗口文字渲染修复经验.md
 # Early static design prototype (kept locally, not published)
 ui/
 
+# Local scratch screenshots (kept locally, not published)
+hero-preview.png
+
 # Test results
 [Tt]est[Rr]esult*/
 [Bb]uild[Ll]og.*
