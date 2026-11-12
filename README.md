@@ -192,6 +192,7 @@ package.cmd -SkipInstaller :: 只出单文件 exe
 
 - [构建与打包](docs/一键编译与打包.md)
 - [贡献指南](CONTRIBUTING.md)
+- [贡献者行为准则](CODE_OF_CONDUCT.md)
 - [安全说明](SECURITY.md)
 
 ## 致谢
