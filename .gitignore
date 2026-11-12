@@ -57,6 +57,12 @@ AGENTS.md
 # Internal competitive analysis / roadmap notes
 docs/功能对齐清单.md
 
+# Internal troubleshooting notes
+docs/透明窗口文字渲染修复经验.md
+
+# Early static design prototype (kept locally, not published)
+ui/
+
 # Test results
 [Tt]est[Rr]esult*/
 [Bb]uild[Ll]og.*
