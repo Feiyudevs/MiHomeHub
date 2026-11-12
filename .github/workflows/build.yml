@@ -21,6 +21,8 @@ jobs:
 
       - name: Restore
         run: dotnet restore MiHome.csproj -c Release
+        shell: cmd
 
       - name: Build (Release / win-x64)
         run: dotnet build MiHome.csproj -c Release --no-restore
+        shell: cmd
