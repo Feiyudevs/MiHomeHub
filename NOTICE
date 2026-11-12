@@ -1,0 +1,32 @@
+MiHome-Avalonia
+Copyright (C) 2026 Feiyu
+
+本程序是自由软件：你可以依据自由软件基金会发布的 GNU 通用公共许可证
+第 3 版（GPL-3.0-only）的条款重新分发和/或修改它。完整许可文本见仓库根目录
+的 LICENSE 文件。
+
+第三方代码来源与版权
+--------------------
+
+1. Services/MijiaCrypto.cs（米家云端请求 nonce / signed_nonce / RC4 / 签名）
+   与 Services/MijiaAuth.cs（扫码登录、passToken 续期 serviceToken 流程）
+   移植自 mijia-api 项目（Do1e/mijia-api 及其致谢的上游 janzlan/mijia-api、
+   米家 APP 抓包与加解密笔记、hass-xiaomi-miot）。
+
+   mijia-api 以 GNU GPL v3 发布，其版权归各自原作者所有。上述移植部分同样
+   依 GPL-3.0 提供；原作者的版权声明与许可条款一并保留。
+
+   上游仓库：
+   - https://github.com/Do1e/mijia-api
+   - https://gitee.com/janzlan/mijia-api
+
+2. 其余 NuGet 依赖及其许可证见 THIRD-PARTY-NOTICES.md。
+
+二进制分发说明
+--------------
+
+依据 GPL-3.0 第 6 节：分发本项目的可执行文件（含单文件 exe 与安装包）时，
+必须同时提供该版本对应的完整源代码，或提供有效的书面报价。发布 Release
+时请把对应 commit 的完整源码归档一并附上。
+
+本项目不附加任何超出 GPL-3.0 的限制条款。

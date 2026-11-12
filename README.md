@@ -1,69 +1,112 @@
-# HaPanel — Avalonia + HomeAssistant 桌面控制台
+# MiHome-Avalonia
 
-基于 Avalonia 11 + .NET 10，调用 HomeAssistant 官方 REST API + WebSocket，暗色圆角卡片风格。
+基于 **Avalonia 11 + .NET 10** 的 Windows 桌面客户端，通过米家云端接口管理设备、场景与自动化。
+扫码登录即可使用；深色玻璃拟态卡片界面，支持托盘常驻与桌面分区卡片。
 
-## 项目结构
+本项目以 **GPL-3.0-only** 开源，许可证全文见 [LICENSE](LICENSE)，移植代码来源与版权声明见
+[NOTICE](NOTICE)，第三方依赖见 [THIRD-PARTY-NOTICES.md](THIRD-PARTY-NOTICES.md)。
 
-```
-MiHomeWin/
-├── HaPanel.csproj
-├── Program.cs
-├── App.axaml(.cs)
-├── Models/
-│   ├── AppSettings.cs      # HA 地址/Token，自动持久化到 %APPDATA%/HaPanel/settings.json
-│   └── HaEntity.cs         # HA 实体（对应 /api/states 数组元素）
-├── Services/
-│   └── HaApiService.cs     # REST（Ping/States/CallService）+ WebSocket（state_changed 实时推送）
-├── ViewModels/
-│   └── MainViewModel.cs    # CommunityToolkit.Mvvm，RelayCommand 驱动
-└── Views/
-    └── MainWindow.axaml(.cs)
-```
+## 功能
 
-## 运行 / 打包
+- 扫码登录、免扫码一键登录（复用本地 `passToken`）、退出登录、多家庭切换
+- 设备列表 / 房间分组 / 全局搜索 / 设备详情抽屉
+- 灯、空调、窗帘、开关控制面板；按 MIoT 规格生成的通用属性控件（开关、滑杆、下拉、动作按钮）
+- 传感器读数、耗材提醒、环境概览、设备状态轮询
+- 手动场景执行、场景与自动化编辑、设备组与虚拟子设备控制
+- 小爱音箱：语音指令下发、音量与播放控制
+- 桌面分区卡片（多显示器）、托盘快捷菜单、深浅主题与外观设置
+- 本地缓存首屏、设备真机图标异步加载
 
-对齐 Zonex 流程，详见 `docs\一键编译与打包.md`：
+## 技术栈
 
-```powershell
-cd I:\AICode\MiHomeWin
+| 项目 | 内容 |
+| --- | --- |
+| UI | Avalonia 11.3.9（Themes.Fluent、Svg.Skia） |
+| 运行时 | .NET 10，`win-x64` 自包含单文件发布 |
+| MVVM | CommunityToolkit.Mvvm 8.4.0 |
+| 二维码 | QRCoder 1.6.0 |
+| 构建 / 打包 | `build.cmd`、`package.cmd`、Inno Setup 6 |
 
-# 编译 + 单文件发布 + 启动（只编译加 -NoRun）
-.\build.cmd
-
-# 按当前版本打包（exe + 安装包 + SHA256）
-.\package.cmd
-.\package.cmd -Bump patch
-```
-
-产物：`publish\sc-win-x64\MiHome.exe`（启动/回归固定路径）；`publish\release\<版本>\`（发版目录）。
-
-## 使用步骤
-
-1. 先在 HomeAssistant 里拿到长期访问令牌：
-   - HA 网页 → 左下角头像 → 安全 → 长期访问令牌 → 创建令牌
-2. 打开 HaPanel，填入 HA 地址（如 `http://192.168.1.10:8123`）和 Token。
-3. 点 **测试连接** → 点 **连接 + 加载**。
-4. 中间列表会列出所有实体；选中一个灯/开关，点右侧 **开/关 选中项** 下发指令。
-5. 连接成功后 WebSocket 自动订阅 `state_changed`，右侧日志区实时打印状态变化。
-
-## 关键链路
+## 目录
 
 ```
-Avalonia UI
-   ↓ HTTP /ws
-HaApiService（REST + WebSocket，Bearer Token）
-   ↓
-HomeAssistant 内置 8123 API
-   ↓ xiaomi_home / xiaomi_miot 集成
-米家中枢网关（本地优先）/ 小米云
-   ↓
-米家设备
+MiHome-Avalonia/
+├── MiHome.csproj / Program.cs / App.axaml(.cs)
+├── Assets/          # 矢量图标与程序图标
+├── Controls/        # 自定义控件（虚拟化网格、拖拽排序、浮层等）
+├── Converters/      # XAML 值转换器
+├── Themes/          # 画笔、模板与样式
+├── Models/          # 设备、场景、规格、设置等模型
+├── Services/        # 登录与加解密、云端 API、规格/图标、缓存、托盘与桌面钩子
+├── ViewModels/      # MVVM 视图模型（按功能拆分 partial）
+├── Views/           # AXAML 视图与 code-behind
+├── docs/            # 构建与技术文档
+├── installer/       # Inno Setup 脚本
+├── scripts/         # 编译、发布、打包与 GitHub Release 脚本
+└── .github/         # CI 与 issue 模板
 ```
 
-## 后续扩展方向
+## 快速开始
 
-- 按 domain 分组（light / switch / climate / sensor）做侧边栏过滤
-- 灯组件加亮度滑条（调用 `light.turn_on` + `brightness` 参数）
-- 温度传感器卡片化显示
-- WebSocket 接收后用 Dispatcher 强制切 UI 线程（当前 ObservableCollection 已自动 marshal）
-- 发布**不开** `PublishTrimmed`（残留 ReflectionBinding + 反射 JSON 会被裁坏）；体积约 46MB 自包含单文件
+环境：Windows x64、.NET 10 SDK（版本由 `global.json` 固定为 `10.0.301`，允许 `latestPatch`）。
+仅生成安装包时需要 Inno Setup 6。
+
+```bat
+build.cmd                  :: 编译 + 单文件发布 + 启动
+build.cmd -NoRun           :: 只编译
+package.cmd                :: 按当前版本打包（exe + 安装包 + SHA256）
+package.cmd -Bump patch    :: 升版本后打包
+package.cmd -SkipInstaller :: 只出单文件 exe
+```
+
+产物：`publish\sc-win-x64\MiHome.exe`（启动与回归的固定路径）、
+`publish\release\<版本>\`（发版目录）。完整流程见 [docs/一键编译与打包.md](docs/一键编译与打包.md)。
+
+> 只运行 publish 产物，不要运行 `bin\Release` 下的中间产物（裁剪与自包含行为不一致）。
+> 应用为托盘常驻，关闭窗口只收进托盘；发布脚本会精确结束占用发布 exe 的旧实例。
+
+等价的 PowerShell 入口：`.\scripts\build.ps1 [-NoRun]`、`.\scripts\release.ps1 [-Bump patch] [-SkipInstaller]`。
+
+## 使用
+
+1. 运行 `publish\sc-win-x64\MiHome.exe`。
+2. 首次在设置 → 账号中点「获取二维码」，用米家 App 扫码登录。
+3. 登录后自动同步家庭、房间、设备与场景；后续启动可一键登录。
+
+登录凭证保存在 `%APPDATA%\Feiyu\MiHome\auth.json`，**不要提交或分享**，
+详见 [SECURITY.md](SECURITY.md)。
+
+## 架构
+
+```
+Avalonia Views（AXAML + 编译绑定）
+        ↓  Commands / Bindings
+ViewModels（CommunityToolkit.Mvvm）
+        ↓
+Services
+├── MijiaAuth / MijiaCrypto   扫码登录、签名与请求加密
+├── MijiaClient               设备/家庭/场景/属性读写
+├── DeviceSpecService         MIoT 规格解析（miot-spec.org）
+├── MijiaIconService          设备真机图
+└── 缓存 / 托盘 / 桌面钩子
+        ↓ HTTPS
+米家云端接口 + miot-spec.org
+```
+
+设备能力以规格驱动为主：属性 `siid/piid`、取值范围与动作列表来自 MIoT 规格，
+控制面板据此生成，而非为单一型号写死分支。
+
+## 文档
+
+- [构建与打包](docs/一键编译与打包.md)
+- [透明窗口文字渲染修复经验](docs/透明窗口文字渲染修复经验.md)
+- [贡献指南](CONTRIBUTING.md)
+- [安全说明](SECURITY.md)
+
+`ui/mijia-panel.html` 是早期静态设计原型，含模拟数据，不代表当前实现。
+
+## 许可证
+
+GNU General Public License v3（`GPL-3.0-only`）。依据 GPL-3.0 第 6 节，
+分发可执行文件（单文件 exe、安装包）时必须同时提供该版本对应的完整源代码或有效书面报价。
+本项目不附加任何超出 GPL-3.0 的限制条款。

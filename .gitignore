@@ -4,7 +4,7 @@
 [Oo]ut/
 [Ll]og/
 [Ll]ogs/
-docs/
+*.log
 
 # User-specific files
 *.user
@@ -19,11 +19,31 @@ docs/
 .workbuddy/
 .screenshots/
 .ui/
+.trae-html-share-packages/
 _icon_debug/
 *.swp
 
 # Publish output
 publish/
+
+# Local runtime state: credentials, caches and probe dumps must never be committed
+auth.json
+app.json
+theme.json
+devices.json
+crash_*.txt
+rename_dbg.txt
+restore_diag.log
+artifacts/
+*.lnk
+*.checks
+*.done
+
+# Internal agent workflow notes (kept locally, not published)
+AGENTS.md
+
+# Internal competitive analysis / roadmap notes
+docs/功能对齐清单.md
 
 # Test results
 [Tt]est[Rr]esult*/
@@ -38,7 +58,6 @@ publish/
 
 # Rider/VS native build artifacts
 *.rsuser
-artifacts/
 
 # OS files
 Thumbs.db
