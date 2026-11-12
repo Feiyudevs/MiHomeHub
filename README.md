@@ -1,21 +1,96 @@
+<div align="center">
+
 # MiHomeHub
 
-基于 **Avalonia 11 + .NET 10** 的 Windows 桌面客户端，通过米家云端接口管理设备、场景与自动化。
-扫码登录即可使用；深色玻璃拟态卡片界面，支持托盘常驻与桌面分区卡片。
+**把米家设备管得又好看、又好用的 Windows 桌面控制中心**
 
-本项目以 **GPL-3.0-only** 开源，许可证全文见 [LICENSE](LICENSE)，移植代码来源与版权声明见
-[NOTICE](NOTICE)，第三方依赖见 [THIRD-PARTY-NOTICES.md](THIRD-PARTY-NOTICES.md)。
+深色玻璃拟态 · 深浅双主题 · 规格驱动的全屋控制 · 可视化自动化编辑
 
-## 功能
+[![License](https://img.shields.io/badge/license-GPL--3.0--only-blue.svg)](LICENSE)
+[![.NET](https://img.shields.io/badge/.NET-10.0-512BD4.svg)](https://dotnet.microsoft.com)
+[![Avalonia](https://img.shields.io/badge/Avalonia-11.3-8B44D0.svg)](https://avaloniaui.net)
+[![Platform](https://img.shields.io/badge/platform-Windows%20x64-0078D4.svg)](#快速开始)
+[![Build](https://github.com/Feiyudevs/MiHomeHub/actions/workflows/build.yml/badge.svg)](https://github.com/Feiyudevs/MiHomeHub/actions/workflows/build.yml)
 
-- 扫码登录、免扫码一键登录（复用本地 `passToken`）、退出登录、多家庭切换
-- 设备列表 / 房间分组 / 全局搜索 / 设备详情抽屉
-- 灯、空调、窗帘、开关控制面板；按 MIoT 规格生成的通用属性控件（开关、滑杆、下拉、动作按钮）
-- 传感器读数、耗材提醒、环境概览、设备状态轮询
-- 手动场景执行、场景与自动化编辑、设备组与虚拟子设备控制
-- 小爱音箱：语音指令下发、音量与播放控制
-- 桌面分区卡片（多显示器）、托盘快捷菜单、深浅主题与外观设置
-- 本地缓存首屏、设备真机图标异步加载
+基于 **Avalonia 11 + .NET 10** 原生构建，不是套壳、不是 Web 页面包装。
+扫码登录即可接管你的全部米家设备——灯、空调、窗帘、开关、传感器、音箱、场景与自动化。
+
+</div>
+
+<p align="center">
+  <img src="docs/screenshots/home-dark.png" alt="MiHomeHub 深色主题首页" width="880">
+  <br>
+  <sub>深色主题 · 首页总览：房间导航、环境读数、设备概览与场景快捷入口</sub>
+</p>
+
+## 为什么是 MiHomeHub
+
+市面上不缺米家第三方客户端，缺的是**既好看又能真的把设备管全**的那一个。
+MiHomeHub 的取舍很明确：视觉不将就，控制不打折。
+
+### 界面是设计出来的，不是拼出来的
+
+- **深色 / 浅色双主题共享同一套玻璃拟态语言**——半透明卡片、分层圆角、克制的光影，不是简单地反色，而是两套各自成体系的配色。
+- **无边框自绘窗口 + 自定义标题栏**，标题栏与内容区无缝衔接，没有系统灰边和丑陋的原生控件。
+- **每台设备自动拉取真机产品图**，矢量图标兜底：灯带、筒灯、磁吸格栅灯、网关、电视，一眼可辨，而不是清一色的通用图标。
+- **统一的动效与状态反馈**：场景卡悬停浮起、设备卡电源键由灰转紫、抽屉从右侧滑入，点哪里都有回应。
+- 场景卡按语义着色——电竞是紫、温馨是红、清洁是青，一眼扫过去就知道该点哪个。
+
+### 流畅靠架构，不靠祈祷
+
+- **编译绑定**（`AvaloniaUseCompiledBindingsByDefault`）把 XAML 绑定在编译期校验，运行时零反射查找。
+- **虚拟化自适应网格**：截图里客厅 51 台设备同屏铺开，滚动与重建卡片依然跟手；房间再多也不掉帧。
+- **本地缓存直出首屏**：启动先用上次的设备快照铺满界面，再在后台静默刷新——界面从不等网络转圈。
+- **真机图标异步加载、MIoT 规格按需解析**，重活全在后台线程，主线程只负责画。
+- **单文件自包含发布**：一个 exe，无 .NET 运行时安装、无依赖目录，双击即用。
+
+### 控制齐全，不挑型号
+
+- **常用品类做深**：灯的亮度 / 色温 / 模式，空调的模式 / 温度 / 风速 / 摆风，窗帘的开合 / 暂停 / 百分比，开关插座、传感器、环境读数、耗材寿命。
+- **冷门型号靠规格兜底**：控制面板由 MIoT 规格（`siid`/`piid`、取值范围、枚举、动作列表）自动生成——滑杆、下拉、开关、动作按钮该出什么出什么，**新设备即插即用，不为单一型号写死分支**。
+- **设备组与虚拟子设备**（灯组、开关组）统一控制，组内成员状态实时透传；单灯也能反查到自己所属灯组的场景与自动化。
+- **小爱音箱**：语音指令下发、音量与播放控制。
+
+### 功能强大，一直做到自动化编辑
+
+- **场景 / 自动化可视化编辑**：改名、启停、**拖拽调整执行顺序**、增删动作，改完直接写回米家云端，手机 App 同步生效——不是在本地做假动作。
+- **设备详情抽屉**：控制项与关联的智能场景、自动化清单同屏呈现，并标注「场景 / 控制 / 仅本机」来源，不用再回手机翻。
+- **全局搜索、房间分组、多家庭切换**，设备再多也能三步之内找到。
+- **桌面分区卡片**：把任意房间、设备或场景贴到桌面，多显示器独立布局，卡片可拖拽排序——不打开主界面也能控制。
+- **托盘常驻 + 快捷菜单 + 开机自启**，深浅主题与外观细节可调。
+
+## 界面
+
+<table>
+  <tr>
+    <td width="50%" align="center">
+      <img src="docs/screenshots/home-light.png" alt="浅色主题首页"><br>
+      <sub><b>浅色主题</b> · 同一套布局，完全不同的呼吸感</sub>
+    </td>
+    <td width="50%" align="center">
+      <img src="docs/screenshots/device-drawer.png" alt="设备控制抽屉"><br>
+      <sub><b>设备抽屉</b> · 亮度色温滑杆 + 关联场景清单</sub>
+    </td>
+  </tr>
+</table>
+
+<p align="center">
+  <img src="docs/screenshots/scene-editor.png" alt="场景编辑" width="880">
+  <br>
+  <sub><b>场景编辑</b> · 执行顺序可拖拽，逐条动作带设备图标，改完直写云端</sub>
+</p>
+
+## 功能一览
+
+| 分类 | 能力 |
+| --- | --- |
+| 账号 | 扫码登录、免扫码一键登录（复用本地 `passToken`）、退出登录、多家庭切换 |
+| 设备 | 房间分组、全局搜索、设备详情抽屉、状态轮询、离线标记、耗材与环境读数 |
+| 控制 | 灯 / 空调 / 窗帘 / 开关插座面板，MIoT 规格驱动的通用属性控件，设备组与虚拟子设备 |
+| 场景 | 手动执行、可视化编辑（启停 / 排序 / 增删动作）、与米家云端双向同步 |
+| 语音 | 小爱音箱语音指令、音量与播放控制 |
+| 桌面 | 多显示器分区卡片、拖拽排序、托盘快捷菜单、开机自启 |
+| 外观 | 深浅双主题、图标风格、布局密度等设置项，持久化到本地 |
 
 ## 技术栈
 
@@ -26,6 +101,13 @@
 | MVVM | CommunityToolkit.Mvvm 8.4.0 |
 | 二维码 | QRCoder 1.6.0 |
 | 构建 / 打包 | `build.cmd`、`package.cmd`、Inno Setup 6 |
+
+性能相关的几处关键设计：
+
+- 编译绑定 + 虚拟化网格（`VirtualizingAdaptiveGridPanel` / `RecyclingItemsControl`），复用卡片而非每次重建
+- 缓存优先渲染，网络请求异步补齐
+- 设备图标与 MIoT 规格分离加载，失败自动降级到矢量图标
+- 不开 `PublishTrimmed`：项目仍有 `ReflectionBinding` 与 `System.Text.Json` 反射序列化，裁剪会让绑定失效
 
 ## 目录
 
@@ -40,7 +122,7 @@ MiHomeHub/
 ├── Services/        # 登录与加解密、云端 API、规格/图标、缓存、托盘与桌面钩子
 ├── ViewModels/      # MVVM 视图模型（按功能拆分 partial）
 ├── Views/           # AXAML 视图与 code-behind
-├── docs/            # 构建与技术文档
+├── docs/            # 构建与技术文档、界面截图
 ├── installer/       # Inno Setup 脚本
 ├── scripts/         # 编译、发布、打包与 GitHub Release 脚本
 └── .github/         # CI 与 issue 模板
@@ -114,3 +196,9 @@ GNU General Public License v3（`GPL-3.0-only`）。许可证全文见 [LICENSE]
 对应版本的完整源代码可通过仓库 https://github.com/Feiyudevs/MiHomeHub 获取，
 每个发布版本均以 Git 标签（如 `v1.0.0`）固定，标签上的源码即对应二进制的构建来源，
 标签与源码将长期保留。本项目不附加任何超出 GPL-3.0 的限制条款。
+
+---
+
+<div align="center">
+<sub>本项目与小米科技无隶属关系，米家、小米为小米科技有限责任公司商标。</sub>
+</div>
