@@ -1,4 +1,7 @@
-﻿using Avalonia;
+﻿// Copyright (C) 2026 Feiyu
+// SPDX-License-Identifier: GPL-3.0-only
+
+using Avalonia;
 using Avalonia.Media;
 using MiHome.Services;
 using System;

@@ -1,3 +1,6 @@
+// Copyright (C) 2026 Feiyu
+// SPDX-License-Identifier: GPL-3.0-only
+
 using System.Collections.Generic;
 using Avalonia;
 using Avalonia.Media;

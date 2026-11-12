@@ -1,3 +1,6 @@
+// Copyright (C) 2026 Feiyu
+// SPDX-License-Identifier: GPL-3.0-only
+
 using System;
 using System.IO;
 using System.Net;
@@ -65,10 +68,28 @@ public class MijiaAuth
         var a = new MijiaAuth();
         try
         {
-            if (File.Exists(AuthPath))
+            if (!File.Exists(AuthPath)) return a;
+
+            var text = File.ReadAllText(AuthPath);
+            var legacyPlaintext = false;
+
+            if (DpapiStore.IsProtected(text))
             {
-                a.Auth = JsonSerializer.Deserialize<AuthData>(File.ReadAllText(AuthPath)) ?? new AuthData();
+                // DPAPI 加密文件：解密失败（换 Windows 账户 / 换机）按未登录处理
+                var json = DpapiStore.Unprotect(text);
+                if (json is null) return a;
+                a.Auth = JsonSerializer.Deserialize<AuthData>(json) ?? new AuthData();
             }
+            else
+            {
+                a.Auth = JsonSerializer.Deserialize<AuthData>(text) ?? new AuthData();
+                legacyPlaintext = true;
+            }
+
+            // 旧版本明文 auth.json：读入后立即改写为 DPAPI 加密，完成一次性迁移
+            if (legacyPlaintext
+                && (!string.IsNullOrEmpty(a.Auth.ServiceToken) || !string.IsNullOrEmpty(a.Auth.PassToken)))
+                a.Save();
         }
         catch { }
         return a;
@@ -101,7 +122,9 @@ public class MijiaAuth
     {
         var dir = Path.GetDirectoryName(AuthPath)!;
         Directory.CreateDirectory(dir);
-        File.WriteAllText(AuthPath, JsonSerializer.Serialize(Auth, new JsonSerializerOptions { WriteIndented = true }));
+        var json = JsonSerializer.Serialize(Auth, new JsonSerializerOptions { WriteIndented = true });
+        // DPAPI 加密落盘（仅当前 Windows 用户可解密）；加密不可用时回退明文，保证登录不中断
+        File.WriteAllText(AuthPath, DpapiStore.Protect(json) ?? json);
     }
 
     private string Ua => string.IsNullOrEmpty(Auth.UA)

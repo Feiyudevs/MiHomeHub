@@ -73,8 +73,8 @@ package.cmd -SkipInstaller :: 只出单文件 exe
 2. 首次在设置 → 账号中点「获取二维码」，用米家 App 扫码登录。
 3. 登录后自动同步家庭、房间、设备与场景；后续启动可一键登录。
 
-登录凭证保存在 `%APPDATA%\Feiyu\MiHome\auth.json`，**不要提交或分享**，
-详见 [SECURITY.md](SECURITY.md)。
+登录凭证保存在 `%APPDATA%\Feiyu\MiHome\auth.json`，以 Windows DPAPI 加密（仅当前用户可解密），
+**不要提交或分享**，详见 [SECURITY.md](SECURITY.md)。
 
 ## 架构
 

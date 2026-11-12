@@ -327,15 +327,12 @@
                             <StackPanel Grid.Column="1" Margin="12,0" VerticalAlignment="Center">
                                 <TextBlock Text="米家控制中心 for Windows" FontSize="13.5" FontWeight="SemiBold"
                                            Foreground="{DynamicResource TextBrush}" />
-                                <TextBlock Text="版本 1.0.0 · 直连米家云端 · by Feiyu" Classes="Hint Sub" Margin="0,2,0,0" />
+                                <TextBlock Text="{Binding AppVersionText}" Classes="Hint Sub" Margin="0,2,0,0" />
                             </StackPanel>
                         </Grid>
 
-                        <!-- 官网 / 开源仓库：占位按钮，链接填 MainViewModel 的 OfficialSiteUrl / RepoUrl 即生效 -->
+                        <!-- 开源仓库：源码即 GPL-3.0 第 6 节的源码提供途径 -->
                         <StackPanel Orientation="Horizontal" Spacing="10" Margin="0,4,0,0">
-                            <Button Classes="BtnGhost" Height="34" Content="官网"
-                                    Command="{Binding OpenUrlCommand}"
-                                    CommandParameter="{Binding OfficialSiteUrl}" />
                             <Button Classes="BtnGhost" Height="34" Content="开源仓库"
                                     Command="{Binding OpenUrlCommand}"
                                     CommandParameter="{Binding RepoUrl}" />

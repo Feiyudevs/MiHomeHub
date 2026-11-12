@@ -1,8 +1,11 @@
+// Copyright (C) 2026 Feiyu
+// SPDX-License-Identifier: GPL-3.0-only
+
 using System.Text.Json.Serialization;
 
 namespace MiHome.Models;
 
-/// <summary>登录凭证，持久化到 %APPDATA%/Feiyu/MiHome/auth.json</summary>
+/// <summary>登录凭证，持久化到 %APPDATA%/Feiyu/MiHome/auth.json（DPAPI 加密，仅当前 Windows 用户可解密）</summary>
 public class AuthData
 {
     [JsonPropertyName("ssecurity")] public string SSecurity { get; set; } = "";

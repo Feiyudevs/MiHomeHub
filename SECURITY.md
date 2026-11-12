@@ -2,13 +2,17 @@
 
 ## 本地登录凭证
 
-扫码登录后，凭证以明文 JSON 形式保存在用户目录：
+扫码登录后，凭证以 **Windows DPAPI（当前用户作用域）加密**的形式保存在用户目录：
 
 ```
 %APPDATA%\Feiyu\MiHome\auth.json
 ```
 
-其中包含 `serviceToken`、`passToken`、`ssecurity`、`userId`、`cUserId`、`deviceId`。
+文件内容为 `dpapi:<Base64>`，只有登录该 Windows 账户的用户可解密；复制到其他账户或
+其他机器无法使用。旧版本遗留的明文 `auth.json` 会在首次读取时自动改写为加密形式。
+若需要换机迁移登录态，请在新机器重新扫码，不要拷贝该文件。
+
+解密后的内容包括 `serviceToken`、`passToken`、`ssecurity`、`userId`、`cUserId`、`deviceId`。
 这些字段等同于账号的完整访问权限，**请勿**：
 
 - 将该文件或其所在目录提交到仓库、打包进附件、贴到 issue / 讨论区；

@@ -1,4 +1,7 @@
-﻿using System;
+﻿// Copyright (C) 2026 Feiyu
+// SPDX-License-Identifier: GPL-3.0-only
+
+using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.ComponentModel;
@@ -3782,11 +3785,12 @@ public partial class MainViewModel : ObservableObject
     /// <summary>日志只保留最近约 80 行，避免常驻托盘时 LogText 无限膨胀拖慢绑定。</summary>
     private const int MaxLogLines = 80;
 
-    /// <summary>关于页「官网」按钮占位链接，替换为真实地址即可生效。</summary>
-    public string OfficialSiteUrl { get; } = "https://example.com";
+    /// <summary>关于页版本号：取程序集版本，随 package.cmd -Bump 变化，避免手写常亮。</summary>
+    public string AppVersionText { get; } =
+        $"版本 {typeof(MainViewModel).Assembly.GetName().Version?.ToString(3) ?? "1.0.0"} · 直连米家云端 · by Feiyu";
 
-    /// <summary>关于页「开源仓库」按钮占位链接，替换为真实地址即可生效。</summary>
-    public string RepoUrl { get; } = "https://github.com/";
+    /// <summary>关于页「开源仓库」链接。</summary>
+    public string RepoUrl { get; } = "https://github.com/Feiyudevs/MiHomeHub";
 
     /// <summary>用系统默认浏览器打开外链（官网 / 开源仓库等）。</summary>
     [RelayCommand]

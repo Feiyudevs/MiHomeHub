@@ -8,7 +8,7 @@
 
 #define MyAppName "MiHome"
 #define MyAppVersion "1.0.0"
-#define MyAppPublisher "MiHome"
+#define MyAppPublisher "Feiyu"
 #define MyAppExeName "MiHome.exe"
 #define PublishDir "..\publish\sc-win-x64"
 

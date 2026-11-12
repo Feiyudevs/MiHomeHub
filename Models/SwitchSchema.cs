@@ -1,3 +1,6 @@
+// Copyright (C) 2026 Feiyu
+// SPDX-License-Identifier: GPL-3.0-only
+
 using System.Text.Json.Serialization;
 using CommunityToolkit.Mvvm.ComponentModel;
 

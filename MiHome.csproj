@@ -14,7 +14,7 @@
     <InformationalVersion>1.0.0</InformationalVersion>
     <Product>MiHome</Product>
     <AssemblyTitle>MiHome</AssemblyTitle>
-    <Company>MiHome</Company>
+    <Company>Feiyu</Company>
     <Description>MiHome — 米家桌面控制台</Description>
     <ApplicationIcon>Assets\logo.ico</ApplicationIcon>
     <!-- 编译绑定：XAML 绑定错误编译期暴露，运行时零反射查找（Zonex 经验 P0）。
