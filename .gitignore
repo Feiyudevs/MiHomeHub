@@ -14,7 +14,10 @@
 
 # VS / Rider / VS Code
 .vs/
+.vscode/
 .idea/
+.fleet/
+.history/
 .mimocode/
 .workbuddy/
 .screenshots/
@@ -22,6 +25,15 @@
 .trae-html-share-packages/
 _icon_debug/
 *.swp
+*.binlog
+
+# AI 编辑器 / Agent 本地状态
+.claude/
+.cursor/
+.aider*
+
+# 本机驱动残留目录（NVIDIA 崩溃日志 umdlogs）
+NVIDIA Corporation/
 
 # Publish output
 publish/
@@ -63,3 +75,8 @@ docs/功能对齐清单.md
 Thumbs.db
 desktop.ini
 .DS_Store
+
+# 编辑器/合并残留
+*.bak
+*.orig
+*.rej
