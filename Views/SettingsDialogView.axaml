@@ -325,7 +325,7 @@
                             <Image Width="34" Height="34" Source="{StaticResource LogoImage}"
                                    VerticalAlignment="Center" />
                             <StackPanel Grid.Column="1" Margin="12,0" VerticalAlignment="Center">
-                                <TextBlock Text="米家控制中心 for Windows" FontSize="13.5" FontWeight="SemiBold"
+                                <TextBlock Text="MiHomeHub" FontSize="13.5" FontWeight="SemiBold"
                                            Foreground="{DynamicResource TextBrush}" />
                                 <TextBlock Text="{Binding AppVersionText}" Classes="Hint Sub" Margin="0,2,0,0" />
                             </StackPanel>
@@ -336,6 +336,9 @@
                             <Button Classes="BtnGhost" Height="34" Content="开源仓库"
                                     Command="{Binding OpenUrlCommand}"
                                     CommandParameter="{Binding RepoUrl}" />
+                            <Button Classes="BtnGhost" Height="34" Content="作者网站"
+                                    Command="{Binding OpenUrlCommand}"
+                                    CommandParameter="{Binding AuthorUrl}" />
                         </StackPanel>
                     </StackPanel>
                 </Border>

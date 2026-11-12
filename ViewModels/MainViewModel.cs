@@ -3787,10 +3787,13 @@ public partial class MainViewModel : ObservableObject
 
     /// <summary>关于页版本号：取程序集版本，随 package.cmd -Bump 变化，避免手写常亮。</summary>
     public string AppVersionText { get; } =
-        $"版本 {typeof(MainViewModel).Assembly.GetName().Version?.ToString(3) ?? "1.0.0"} · 直连米家云端 · by Feiyu";
+        $"版本 {typeof(MainViewModel).Assembly.GetName().Version?.ToString(3) ?? "1.0.0"} · by Feiyu";
 
     /// <summary>关于页「开源仓库」链接。</summary>
     public string RepoUrl { get; } = "https://github.com/Feiyudevs/MiHomeHub";
+
+    /// <summary>关于页「作者网站」链接。</summary>
+    public string AuthorUrl { get; } = "https://feiyux.cn/";
 
     /// <summary>用系统默认浏览器打开外链（官网 / 开源仓库等）。</summary>
     [RelayCommand]
