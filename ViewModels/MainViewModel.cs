@@ -96,6 +96,12 @@ public partial class MainViewModel : ObservableObject
     /// <summary>true = 卡片带投影；false = 扁平无投影。</summary>
     [ObservableProperty] private bool _cardShadow = AppSettingsStore.CardShadow;
 
+    /// <summary>双击桌面空白处显示 / 隐藏所有桌面分区卡片。</summary>
+    [ObservableProperty] private bool _doubleClickDesktopToggles = AppSettingsStore.DoubleClickDesktopToggles;
+
+    /// <summary>鼠标移入折叠的桌面分区时自动展开。</summary>
+    [ObservableProperty] private bool _hoverExpand = AppSettingsStore.HoverExpandEnabled;
+
     /// <summary>设置弹窗当前 Tab：0 通用 / 1 桌面组件 / 2 账户 / 3 关于。</summary>
     [ObservableProperty] private int _settingsTab;
 
@@ -570,6 +576,18 @@ public partial class MainViewModel : ObservableObject
         CardShadowScope.Apply(value);
     }
 
+    partial void OnDoubleClickDesktopTogglesChanged(bool value)
+    {
+        AppSettingsStore.SetDoubleClickDesktopToggles(value);
+        Log(value ? "已开启双击桌面隐藏组件" : "已关闭双击桌面隐藏组件");
+    }
+
+    partial void OnHoverExpandChanged(bool value)
+    {
+        AppSettingsStore.SetHoverExpandEnabled(value);
+        Log(value ? "已开启移入自动展开" : "已关闭移入自动展开");
+    }
+
     partial void OnAutoStartChanged(bool value)
     {
         if (_revertingAutoStart) return;
@@ -713,6 +731,7 @@ public partial class MainViewModel : ObservableObject
         Dispatcher.UIThread.Post(() =>
         {
             _allDevices = cached;
+            SyncSceneGroups();
             RebuildRooms();
             ApplyFilter();
             RebuildHomeGroups();
@@ -744,6 +763,7 @@ public partial class MainViewModel : ObservableObject
                 SyncHomeOptions(homes);
                 // 复用已有实例（按 did 匹配），避免每轮刷新把整屏卡片重新绑定一遍
                 _allDevices = MergeDevices(_allDevices, fresh);
+                SyncSceneGroups();
                 RebuildRooms();
                 ApplyFilter();
                 RebuildHomeGroups();
@@ -856,6 +876,7 @@ public partial class MainViewModel : ObservableObject
                 HomeName = string.IsNullOrWhiteSpace(home.Name) ? "我的家" : home.Name.Trim();
                 // 同一 did 复用旧实例；换家庭时 did 不同，旧实例自然被丢弃
                 _allDevices = MergeDevices(_allDevices, fresh);
+                SyncSceneGroups();
                 RebuildRooms();
                 ApplyFilter();
                 RebuildHomeGroups();
@@ -1295,6 +1316,16 @@ public partial class MainViewModel : ObservableObject
     /// <summary>排序键：创建时间（unix 秒字符串），解析失败按 0（沉底）。</summary>
     private static long Newness(MijiaScene s) =>
         long.TryParse(s.CreateTime, out var t) ? t : 0;
+
+    /// <summary>
+    /// 设备列表换代后同步「灯组 ↔ 成员」关系到场景索引。
+    /// 桌面弹窗可能比主窗口更早打开，关系表到位后要立即重填一次清单。
+    /// </summary>
+    private void SyncSceneGroups()
+    {
+        _sceneIndex.SetDevices(_allDevices);
+        if (DrawerDevice != null) UpdateDrawerScenes();
+    }
 
     /// <summary>设备详情「智能场景」：命中内存索引，不发网络请求。按场景 / 自动化分两组。</summary>
     private void UpdateDrawerScenes()
@@ -2676,11 +2707,29 @@ public partial class MainViewModel : ObservableObject
         foreach (var action in actions.OfType<JsonObject>())
         {
             var row = await BuildSceneEditRowAsync(action, sceneOptions);
+            // 行首图标要用的设备对象：按 payload.did 找回，与标题/房间用的是同一台
+            row.Device = ResolveRowDevice(row);
             row.MarkReady();
             rows.Add(row);
         }
 
         return rows;
+    }
+
+    /// <summary>
+    /// 设备类动作按 payload.did 找回设备，供执行顺序卡片行首显示真机图 / 设备类型图标。
+    /// 场景、通知、延时这类动作没有 did，交给行图标转换器按动作类型给语义图标。
+    /// </summary>
+    private MijiaDevice? ResolveRowDevice(SceneEditActionRow row)
+    {
+        if (row.Kind is not (SceneEditRowKind.DeviceProp
+                             or SceneEditRowKind.DeviceAction
+                             or SceneEditRowKind.Tts)) return null;
+
+        var did = row.Payload?["did"]?.ToString();
+        return string.IsNullOrEmpty(did)
+            ? null
+            : _allDevices.FirstOrDefault(d => MijiaScene.SameDid(d.Did, did));
     }
 
     /// <summary>

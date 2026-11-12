@@ -8,9 +8,8 @@
     <!-- 右 16 内距 + 底 20 内距：右侧是给页面滚动条让出的空白（Carousel 右外距 6 + 16 = 原 22，正文宽度不变），
          底部留白只在滚到末尾时露出来，静止时不占版面 -->
     <StackPanel x:DataType="vm:MainViewModel" Margin="0,0,16,20">
-    <!-- 房间横幅 -->
-    <Border CornerRadius="20" Padding="22,20" Margin="0,0,0,18"
-            Background="{DynamicResource BannerBrush}">
+    <!-- 房间横幅：不铺底色，标题与统计直接落在页面背景上（不再用 BannerBrush） -->
+    <Border CornerRadius="20" Padding="22,20" Margin="0,0,0,18">
         <Grid ColumnDefinitions="*,Auto">
             <StackPanel VerticalAlignment="Center">
                 <TextBlock Text="{Binding BannerTitle}" FontSize="19" FontWeight="Bold"

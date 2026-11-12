@@ -11,6 +11,14 @@
             <CornerRadius x:Key="R">16</CornerRadius>
             <CornerRadius x:Key="RSm">12</CornerRadius>
             <CornerRadius x:Key="RCtl">10</CornerRadius>
+            <!-- ======== 全局 ToolTip：纯白胶囊 ========
+                 与滚动条那组一样，直接在应用资源顶层覆盖 Fluent 的同名键（优先级高于
+                 FluentTheme 的主题字典）。恒浅色、不随深浅主题漂移：白底 + 深字 + 极细边。
+                 外观（圆角 / 内距 / 字号 / 最大宽）在 Themes/ToolTipStyles.axaml 统一给；
+                 任何窗口要换色，就地覆盖这三个键即可，不必复制样式。 -->
+            <SolidColorBrush x:Key="ToolTipBackground" Color="#FFFFFF"/>
+            <SolidColorBrush x:Key="ToolTipForeground" Color="#1A1F2C"/>
+            <SolidColorBrush x:Key="ToolTipBorderBrush" Color="#140F172A"/>
             <!-- ======== 滑动条：轨道从 Fluent 默认 2px 加高到 8px ======== -->
             <x:Double x:Key="SliderTrackThemeHeight">8</x:Double>
             <!-- ======== 滚动条：主题自带的轨道/箭头画刷一律置空，只留胶囊滑块 ======== -->
@@ -65,7 +73,10 @@
                     <SolidColorBrush x:Key="PlayHoverFromBrush" Color="#00282F42"/>
                     <SolidColorBrush x:Key="LineBrush" Color="#12FFFFFF"/>
                     <!-- 主窗口卡片外轮廓：比全局 LineBrush 深一档，窗口贴在桌面上时才立得住 -->
-                    <SolidColorBrush x:Key="WindowLineBrush" Color="#1AFFFFFF"/>
+                    <SolidColorBrush x:Key="WindowLineBrush" Color="#26FFFFFF"/>
+                    <!-- 桌面分区卡片外轮廓：比全局 LineBrush 重一档、仍轻于主窗口，透出壁纸时轮廓才立得住。
+                         分区窗固定 Dark 主题，实际只走深色字典；浅色那份只为资源完整性。 -->
+                    <SolidColorBrush x:Key="ZoneLineBrush" Color="#1FFFFFFF"/>
                     <!-- 可点胶囊的悬停描边：比 LineBrush 亮一档，让静止/悬停/展开三态成色阶 -->
                     <SolidColorBrush x:Key="LineStrongBrush" Color="#22FFFFFF"/>
                     <SolidColorBrush x:Key="TextBrush" Color="#EEF1F6"/>
@@ -271,7 +282,8 @@
                     <SolidColorBrush x:Key="PlayHoverFromBrush" Color="#00E8EDF5"/>
                     <SolidColorBrush x:Key="LineBrush" Color="#140F172A"/>
                     <!-- 主窗口卡片外轮廓：比全局 LineBrush 深一档，窗口贴在桌面上时才立得住 -->
-                    <SolidColorBrush x:Key="WindowLineBrush" Color="#1A0F172A"/>
+                    <SolidColorBrush x:Key="WindowLineBrush" Color="#260F172A"/>
+                    <SolidColorBrush x:Key="ZoneLineBrush" Color="#1F0F172A"/>
                     <!-- 可点胶囊的悬停描边：比 LineBrush 深一档，让静止/悬停/展开三态成色阶 -->
                     <SolidColorBrush x:Key="LineStrongBrush" Color="#240F172A"/>
                     <SolidColorBrush x:Key="TextBrush" Color="#0F172A"/>

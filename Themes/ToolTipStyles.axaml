@@ -1,0 +1,29 @@
+<Styles
+    xmlns="https://github.com/avaloniaui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+    <!-- ======== 全局 ToolTip 组件：纯白胶囊 ========
+         全应用（主窗口、桌面分区窗、各独立浮层窗）共用这一份，不再在每个 Window 里重复写。
+
+         配色契约（默认值定义在 Themes/Brushes.axaml 顶层，即 Application.Resources）：
+             ToolTipBackground / ToolTipForeground / ToolTipBorderBrush
+         这里只负责形状与排版。要局部换色，在目标 Window / UserControl 的 Resources 里
+         覆盖这三个键即可（Popup 的逻辑父级是触发控件，资源沿逻辑树回溯能取到），样式不用复制。
+
+         刻意不重写 ControlTemplate：继续用 Fluent 11.3 自带的那份（Background / Border /
+         CornerRadius / Padding / MaxWidth 都是 TemplateBinding），它自带的 :open 淡入动画、
+         ContentPresenter 的文字自动换行都保留，任意 ToolTip 内容都能正常显示。
+         本 StyleInclude 必须排在 FluentTheme 之后，才能压过 Fluent ControlTheme 的同名 Setter。 -->
+    <Style Selector="ToolTip">
+        <Setter Property="Background" Value="{DynamicResource ToolTipBackground}" />
+        <Setter Property="Foreground" Value="{DynamicResource ToolTipForeground}" />
+        <Setter Property="BorderBrush" Value="{DynamicResource ToolTipBorderBrush}" />
+        <Setter Property="BorderThickness" Value="1" />
+        <!-- 999 = 两头全圆：两字和长句都收成胶囊 -->
+        <Setter Property="CornerRadius" Value="999" />
+        <Setter Property="Padding" Value="11,5" />
+        <Setter Property="FontSize" Value="11.5" />
+        <Setter Property="MaxWidth" Value="260" />
+    </Style>
+
+</Styles>

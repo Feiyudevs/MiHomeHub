@@ -30,7 +30,7 @@
              媒体分区没有标题栏，整张卡就是拖动面（按下落在按钮上时由按钮自己吃掉事件） -->
         <Border Name="Card" CornerRadius="8"
                 Background="{Binding CardBrush}"
-                BorderBrush="{DynamicResource LineBrush}"
+                BorderBrush="{DynamicResource ZoneLineBrush}"
                 BorderThickness="1"
                 ClipToBounds="True"
                 PointerPressed="OnBodyPressed"

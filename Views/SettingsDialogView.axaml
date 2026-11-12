@@ -150,6 +150,32 @@
                             <ToggleButton Grid.Column="2" Classes="Switch" VerticalAlignment="Center"
                                           IsChecked="{Binding DesktopMediaZone}" />
                         </Grid>
+                        <Grid ColumnDefinitions="Auto,*,Auto">
+                            <Border Classes="SetIc" Background="{DynamicResource GreenSoftBrush}">
+                                <Path Stroke="{DynamicResource GreenBrush}" Data="{StaticResource GeoMax}" />
+                            </Border>
+                            <StackPanel Grid.Column="1" Margin="12,0" VerticalAlignment="Center">
+                                <TextBlock Text="双击桌面隐藏组件" FontSize="13.5" FontWeight="SemiBold"
+                                           Foreground="{DynamicResource TextBrush}" />
+                                <TextBlock Text="双击桌面空白处，快速收起 / 恢复所有桌面卡片"
+                                           Classes="Hint Sub" Margin="0,2,0,0" TextWrapping="Wrap" />
+                            </StackPanel>
+                            <ToggleButton Grid.Column="2" Classes="Switch" VerticalAlignment="Center"
+                                          IsChecked="{Binding DoubleClickDesktopToggles}" />
+                        </Grid>
+                        <Grid ColumnDefinitions="Auto,*,Auto">
+                            <Border Classes="SetIc" Background="{DynamicResource PurpleSoftBrush}">
+                                <Path Stroke="{DynamicResource PurpleBrush}" Data="{StaticResource GeoGrid}" />
+                            </Border>
+                            <StackPanel Grid.Column="1" Margin="12,0" VerticalAlignment="Center">
+                                <TextBlock Text="移入自动展开" FontSize="13.5" FontWeight="SemiBold"
+                                           Foreground="{DynamicResource TextBrush}" />
+                                <TextBlock Text="鼠标移入折叠的分区时自动展开，移出后自动收起"
+                                           Classes="Hint Sub" Margin="0,2,0,0" TextWrapping="Wrap" />
+                            </StackPanel>
+                            <ToggleButton Grid.Column="2" Classes="Switch" VerticalAlignment="Center"
+                                          IsChecked="{Binding HoverExpand}" />
+                        </Grid>
                     </StackPanel>
                 </Border>
 

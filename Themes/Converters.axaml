@@ -10,4 +10,6 @@
             <conv:NavSvgConverter x:Key="NavSvg" />
             <conv:NavLineConverter x:Key="NavLine" />
             <conv:DeviceIconConverter x:Key="DeviceIcon" />
+            <!-- 场景编辑：执行顺序卡片行首图标（设备沿用设备卡同款，其余按动作类型取语义图标） -->
+            <conv:SceneRowIconConverter x:Key="SceneRowIcon" />
 </ResourceDictionary>

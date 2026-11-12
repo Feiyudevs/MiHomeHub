@@ -364,7 +364,7 @@
                     </StackPanel>
                     <Border Grid.Column="2" CornerRadius="10" Padding="7,2" Margin="0,0,8,0"
                             VerticalAlignment="Center"
-                            ToolTip.Tip="触发：这台设备的状态变化会启动这条自动化 · 控制：这条场景会对这台设备下指令"
+                            ToolTip.Tip="触发：这台设备的状态变化会启动这条自动化 · 控制：这条场景会对这台设备下指令 · 带「灯组」：作用在包含本设备的灯组上"
                             Background="{DynamicResource GreenSoftBrush}" IsVisible="{Binding HasRole}">
                         <TextBlock Text="{Binding RoleText}" FontSize="10.5" FontWeight="Bold"
                                    Foreground="{DynamicResource GreenBrush}" />

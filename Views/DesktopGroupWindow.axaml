@@ -18,5 +18,10 @@
         WindowStartupLocation="Manual"
         RequestedThemeVariant="Dark"
         RenderOptions.TextRenderingMode="Antialias">
+
+    <!-- 提示条统一走全局组件 Themes/ToolTipStyles.axaml（纯白胶囊），
+         本窗口不再单独定义 ToolTip 样式/资源；要换色只在本地覆盖 ToolTipBackground 等三个键。 -->
+
     <views:DesktopGroupView x:Name="Root" />
+
 </Window>

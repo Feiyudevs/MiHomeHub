@@ -74,6 +74,13 @@ public sealed partial class SceneEditActionRow : ObservableObject
     /// <summary>房间名（属性卡副标题的前半段），没有房间就留空。</summary>
     public string RoomName { get; init; } = "";
 
+    /// <summary>
+    /// 这条动作对应的设备（按 payload.did 匹配）。卡片行首图标直接复用设备卡那一套：
+    /// 有真机图就显示 <see cref="MijiaDevice.Icon"/>，没有则按 <see cref="MijiaDevice.IconKey"/>
+    /// 退回线性图标。场景 / 通知 / 延时这类非设备动作为 null，由行图标转换器给语义图标。
+    /// </summary>
+    public MijiaDevice? Device { get; set; }
+
     /// <summary>拖拽中的卡片半透明显示。</summary>
     [ObservableProperty] private bool _isDragging;
 

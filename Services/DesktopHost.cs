@@ -24,6 +24,12 @@ public static class DesktopHost
     private static MainViewModel? _main;
     private static bool _initialized;
 
+    /// <summary>
+    /// 运行期临时隐藏（双击桌面切换）：与设置里的总开关分开，
+    /// 不写回 desktop.json，下次启动仍按 <see cref="DesktopLayout.Enabled"/> 显示。
+    /// </summary>
+    private static bool _hiddenByUser;
+
     private static DesktopPickerWindow? _picker;
     private static DesktopGroupPickWindow? _groupPicker;
     private static DesktopAppearanceWindow? _appearance;
@@ -39,6 +45,9 @@ public static class DesktopHost
 
     public static bool Enabled => _layout.Enabled;
 
+    /// <summary>双击桌面临时收起中（不代表设置里的总开关）。</summary>
+    public static bool HiddenByUser => _hiddenByUser;
+
     public static int GroupCount => Groups.Count;
 
     public static IReadOnlyList<DesktopZoneVm> GroupList => Groups;
@@ -52,6 +61,9 @@ public static class DesktopHost
         _layout = DesktopGroupStore.Load();
         main.DevicesReloaded += SyncDevices;
         DisplayWatcher.Changed += OnDisplayChanged;
+
+        // 双击桌面空白处切换所有分区显隐（设置里可关；钩子常驻，回调里读开关）
+        DesktopDoubleClickHook.Install();
 
         // 上次退出时开着的分区，这次启动直接贴回桌面
         if (_layout.Enabled)
@@ -319,11 +331,50 @@ public static class DesktopHost
     /// <summary>总开关：关掉只收起窗口，配置与分区内容保留。</summary>
     public static void SetEnabled(bool on)
     {
+        // 设置页重新打开时清掉「双击临时隐藏」，让开关与真实可见性重新对齐
+        _hiddenByUser = false;
         _layout.Enabled = on;
         if (on) ShowAll();
         else HideAll();
         NotifyGroupsChanged();
         Save();
+    }
+
+    /// <summary>
+    /// 双击桌面空白：显示 / 隐藏所有分区。
+    /// 只改运行期状态，不动配置里的总开关；总开关关着时没有可切换的内容。
+    /// </summary>
+    public static void ToggleVisibilityFromDesktop()
+    {
+        if (_main == null || !_layout.Enabled) return;
+
+        if (_hiddenByUser)
+        {
+            _hiddenByUser = false;
+            ShowAll();
+            _main.AppendLog("桌面组件已显示");
+        }
+        else
+        {
+            _hiddenByUser = true;
+            HideAll();
+            _main.AppendLog("桌面组件已隐藏");
+        }
+    }
+
+    /// <summary>光标是否落在任意一块桌面分区窗里（双击桌面的空白判定要排除它们）。</summary>
+    public static bool IsPointOnDesktopWidget(int x, int y)
+    {
+        foreach (var win in Windows.Values)
+        {
+            var h = win.Handle;
+            if (h == nint.Zero) continue;
+            if (DesktopNative.GetWindowRect(h, out var rect)
+                && x >= rect.Left && x < rect.Right
+                && y >= rect.Top && y < rect.Bottom)
+                return true;
+        }
+        return false;
     }
 
     /// <summary>桌面上分区增减后回调主视图模型：后台降频轮询要不要继续由它重新判定。</summary>
@@ -561,6 +612,14 @@ public static class DesktopHost
 
         _deviceWindow.ShowFor(anchor);
     }
+
+    /// <summary>
+    /// 这块分区的自绘菜单是否正开着。菜单浮层在分区窗口矩形之外，
+    /// 悬停展开的看门狗会把「光标移到菜单上」误判成移出，必须在菜单关闭前按住不收起
+    ///（对齐 Zonex 的 _fenceMenuOpen 保护）。
+    /// </summary>
+    public static bool IsMenuOpenFor(DesktopZoneVm vm)
+        => _groupMenu is { IsVisible: true } m && ReferenceEquals(m.Target, vm);
 
     /// <summary>分区「⋯」菜单：贴在按钮下方弹出（下方放不下才翻到上方），再点一次（或失焦）收起。</summary>
     public static void OpenGroupMenu(DesktopZoneVm vm, PixelRect anchor)

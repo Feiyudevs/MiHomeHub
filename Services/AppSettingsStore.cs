@@ -25,6 +25,12 @@ public static class AppSettingsStore
     /// <summary>true = 卡片带投影；false = 扁平无投影。</summary>
     public static bool CardShadow { get; private set; } = true;
 
+    /// <summary>双击桌面空白处：显示 / 隐藏所有桌面分区卡片（运行期状态，不写回分区总开关）。</summary>
+    public static bool DoubleClickDesktopToggles { get; private set; } = true;
+
+    /// <summary>鼠标移入折叠的桌面分区时自动展开；移出后自动收起。</summary>
+    public static bool HoverExpandEnabled { get; private set; } = true;
+
     static AppSettingsStore()
     {
         try
@@ -42,6 +48,10 @@ public static class AppSettingsStore
                 DefaultSpeakerDid = s.GetString() ?? "";
             if (root.TryGetProperty("cardShadow", out var d))
                 CardShadow = d.ValueKind != JsonValueKind.False;
+            if (root.TryGetProperty("doubleClickDesktopToggles", out var dc))
+                DoubleClickDesktopToggles = dc.ValueKind != JsonValueKind.False;
+            if (root.TryGetProperty("hoverExpand", out var he))
+                HoverExpandEnabled = he.ValueKind != JsonValueKind.False;
         }
         catch
         {
@@ -79,6 +89,18 @@ public static class AppSettingsStore
         Save();
     }
 
+    public static void SetDoubleClickDesktopToggles(bool on)
+    {
+        DoubleClickDesktopToggles = on;
+        Save();
+    }
+
+    public static void SetHoverExpandEnabled(bool on)
+    {
+        HoverExpandEnabled = on;
+        Save();
+    }
+
     private static void Save()
     {
         var payload = JsonSerializer.Serialize(new
@@ -87,7 +109,9 @@ public static class AppSettingsStore
             closeToTray = CloseToTray,
             showMainWindowOnStartup = ShowMainWindowOnStartup,
             defaultSpeakerDid = DefaultSpeakerDid,
-            cardShadow = CardShadow
+            cardShadow = CardShadow,
+            doubleClickDesktopToggles = DoubleClickDesktopToggles,
+            hoverExpand = HoverExpandEnabled
         });
         // 写盘出 UI 线程；进程被强杀时可能丢最后一次偏好，可接受
         _ = Task.Run(() =>

@@ -195,6 +195,12 @@ public class SceneActionItem
     /// <summary>写给设备的属性列表（set_properties 才有）。</summary>
     [JsonIgnore] public IReadOnlyList<ScenePropWrite> Writes => Payload?.PropWrites ?? Array.Empty<ScenePropWrite>();
 
+    /// <summary>
+    /// 设备组批量动作（type=4「全屋照明」一类）不写 payload.did，只在 value.filter_dids
+    /// 里点名参与的设备；这些也是本条场景的控制对象，建索引时要一起算上。
+    /// </summary>
+    [JsonIgnore] public IReadOnlyList<string> FilterDids => Payload?.FilterDids ?? Array.Empty<string>();
+
     /// <summary>一句话描述，用于卡片摘要与设备详情列表。</summary>
     [JsonIgnore]
     public string DisplayText
@@ -252,7 +258,50 @@ public class SceneActionPayload
 
     [JsonPropertyName("value")] public JsonElement? Value { get; set; }
     [JsonPropertyName("value_json")] public JsonElement? ValueJson { get; set; }
-    [JsonPropertyName("filter_dids")] public JsonElement? FilterDids { get; set; }
+    [JsonPropertyName("filter_dids")] public JsonElement? RawFilterDids { get; set; }
+
+    /// <summary>批量动作点名的设备 did：顶层 filter_dids 与 value / value_json 里的都收。</summary>
+    [JsonIgnore]
+    public IReadOnlyList<string> FilterDids
+    {
+        get
+        {
+            if (_filterDids != null) return _filterDids;
+            var set = new HashSet<string>(StringComparer.Ordinal);
+            ReadDids(set, RawFilterDids);
+            if (Value is { ValueKind: JsonValueKind.Object } v &&
+                v.TryGetProperty("filter_dids", out var nested)) ReadDids(set, nested);
+            if (ValueJson is { ValueKind: JsonValueKind.Object } vj &&
+                vj.TryGetProperty("filter_dids", out var nested2)) ReadDids(set, nested2);
+            return _filterDids = set.ToList();
+        }
+    }
+
+    private List<string>? _filterDids;
+
+    /// <summary>filter_dids 可能是数组，也可能是以 did 为键的对象；两种都收成纯字符串。</summary>
+    private static void ReadDids(HashSet<string> set, JsonElement? el)
+    {
+        if (el is not { } e) return;
+        if (e.ValueKind == JsonValueKind.Array)
+        {
+            foreach (var item in e.EnumerateArray())
+            {
+                var s = item.ValueKind == JsonValueKind.String ? item.GetString() : item.ToString();
+                if (!string.IsNullOrWhiteSpace(s)) set.Add(s);
+            }
+        }
+        else if (e.ValueKind == JsonValueKind.Object)
+        {
+            foreach (var p in e.EnumerateObject())
+                if (!string.IsNullOrWhiteSpace(p.Name)) set.Add(p.Name);
+        }
+        else if (e.ValueKind == JsonValueKind.String)
+        {
+            var s = e.GetString();
+            if (!string.IsNullOrWhiteSpace(s)) set.Add(s);
+        }
+    }
 
     [JsonIgnore] private List<ScenePropWrite>? _writes;
 

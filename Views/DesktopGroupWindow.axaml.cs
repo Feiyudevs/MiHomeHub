@@ -45,6 +45,19 @@ public partial class DesktopGroupWindow : Window
     private nint _originalWndProc;
     private nint _wndProcPtr;
 
+    // ===== 折叠 / 展开高度动画 =====
+    // 折叠后只剩标题栏 + 卡片 1px 描边：44 + 2。
+    private const double CollapsedChromeHeight = 46;
+    // 高度动画时长与帧间隔：easeOutCubic，180ms 收放更顺滑，不会像瞬间跳变。
+    private const int HeightAnimationMs = 180;
+    private const int HeightAnimationTickMs = 15;
+
+    private DispatcherTimer? _heightTimer;
+    private double _heightFrom;
+    private double _heightTo;
+    private double _heightElapsed;
+    private int _heightRequest;
+
     // 拖动 / 拉伸状态
     private bool _dragging;
     private bool _resizing;
@@ -73,6 +86,9 @@ public partial class DesktopGroupWindow : Window
     }
 
     public DesktopZoneVm ViewModel => _vm;
+
+    /// <summary>正在拖动 / 拉伸：此时禁止悬停自动展开与移出自动收起，对齐 Zonex 的交互保护。</summary>
+    public bool IsManipulating => _dragging || _resizing;
 
     /// <summary>窗口句柄（贴桌面层级操作时使用）。</summary>
     public nint Handle => Hwnd;
@@ -425,6 +441,7 @@ public partial class DesktopGroupWindow : Window
         _guard?.Stop();
         _chromeTimer?.Stop();
         _settleTimer?.Stop();
+        StopHeightAnimation();
         RestoreWndProc();
         if (_hwnd != nint.Zero) DesktopEmbed.ClearAcrylic(_hwnd);
     }
@@ -508,13 +525,128 @@ public partial class DesktopGroupWindow : Window
                 ScheduleChrome();
                 break;
             case nameof(DesktopZoneVm.Collapsed):
+                BeginHeightAnimation();
+                ScheduleChrome();
+                break;
             case nameof(DesktopZoneVm.ContentVisible):
+                // 展开时内容先挂回树，SizeToContent=Height 会在下一帧把窗口直接撑到全高，
+                // 抢在高度动画前面就成了「瞬间弹开」。先在 ContentVisible 这一拍把高度锁在折叠高度，
+                // 紧接着的 Collapsed 回调再从 46 逐帧长到自然高度，全程平滑无跳变。
+                if (!_vm.Collapsed && SizeToContent != SizeToContent.Manual)
+                {
+                    SizeToContent = SizeToContent.Manual;
+                    Height = CollapsedChromeHeight;
+                }
                 ScheduleChrome();
                 break;
             case nameof(DesktopZoneVm.IsTopmost):
                 ApplyTopmost(_vm.IsTopmost);
                 break;
         }
+    }
+
+    // ================= 高度展开 / 收起动画 =================
+
+    /// <summary>
+    /// 折叠 / 展开：把窗口从当前高度缓出到目标高度。
+    /// 展开时先维持折叠高度，等内容挂上后量一次自然高度再开始长高，
+    /// 这样既不会先闪成全高，也不会把内容压扁（窗口只做裁剪，内容按原尺寸淡入）。
+    /// </summary>
+    private void BeginHeightAnimation()
+    {
+        var request = ++_heightRequest;
+        var expanding = !_vm.Collapsed;
+
+        // 展开：起点就是刚锁定的折叠高度（不读 Bounds —— 内容挂上后它可能已被撑到全高，
+        // 那样动画会从全高走到全高，看着仍像瞬间弹开）。
+        // 收起 / 中途反向：从窗口当前实际高度续接，不回跳。
+        var start = expanding
+            ? (double.IsNaN(Height) ? CollapsedChromeHeight : Height)
+            : (Bounds.Height > 1
+                ? Bounds.Height
+                : (double.IsNaN(Height) ? CollapsedChromeHeight : Height));
+
+        // 动画期间由本类接管高度；展开落定后再交回 SizeToContent 自动高度
+        SizeToContent = SizeToContent.Manual;
+        Height = Math.Max(CollapsedChromeHeight, start);
+
+        if (expanding)
+        {
+            Dispatcher.UIThread.Post(() =>
+            {
+                if (request != _heightRequest || _vm.Collapsed) return;
+                StartHeightTween(MeasureNaturalHeight());
+            }, DispatcherPriority.Loaded);
+            return;
+        }
+
+        StartHeightTween(CollapsedChromeHeight);
+    }
+
+    /// <summary>
+    /// 量出展开后的自然高度：给根视图无限高度，Grid 里的星号行在无限约束下按 Auto 处理，
+    /// 量到的就是「标题栏 + 当前内容」应有的高度。
+    /// </summary>
+    private double MeasureNaturalHeight()
+    {
+        Root.Measure(new Size(Width, double.PositiveInfinity));
+        return Math.Max(CollapsedChromeHeight, Root.DesiredSize.Height);
+    }
+
+    private void StartHeightTween(double target)
+    {
+        _heightFrom = Height;
+        _heightTo = Math.Max(CollapsedChromeHeight, target);
+        _heightElapsed = 0;
+
+        if (Math.Abs(_heightTo - _heightFrom) < 0.5)
+        {
+            Height = _heightTo;
+            FinishHeightAnimation();
+            return;
+        }
+
+        if (_heightTimer == null)
+        {
+            _heightTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(HeightAnimationTickMs) };
+            _heightTimer.Tick += OnHeightAnimationTick;
+        }
+        if (!_heightTimer.IsEnabled) _heightTimer.Start();
+    }
+
+    private void OnHeightAnimationTick(object? sender, EventArgs e)
+    {
+        _heightElapsed += HeightAnimationTickMs;
+        var t = Math.Min(1.0, _heightElapsed / (double)HeightAnimationMs);
+        var eased = 1 - Math.Pow(1 - t, 3); // easeOutCubic
+        Height = _heightFrom + (_heightTo - _heightFrom) * eased;
+
+        if (t < 1) return;
+        FinishHeightAnimation();
+    }
+
+    private void FinishHeightAnimation()
+    {
+        StopHeightAnimation();
+        Height = _heightTo;
+
+        // 展开落定后交回自动高度，之后往分区里加设备仍能随内容长高；
+        // 折叠保持 Manual，等 VM 卸载内容时不会先弹回全高。
+        if (!_vm.Collapsed)
+        {
+            SizeToContent = SizeToContent.Height;
+            Height = double.NaN;
+        }
+
+        ScheduleChrome();
+    }
+
+    private void StopHeightAnimation()
+    {
+        if (_heightTimer is not { } timer) return;
+        timer.Stop();
+        timer.Tick -= OnHeightAnimationTick;
+        _heightTimer = null;
     }
 
     /// <summary>

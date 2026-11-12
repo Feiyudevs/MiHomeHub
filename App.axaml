@@ -25,6 +25,9 @@
         <!-- 基础控件模板来源：缺了它 TextBox / ItemsControl / ScrollViewer 都没有可视模板 -->
         <FluentTheme />
         <StyleInclude Source="avares://MiHome/Themes/ControlStyles.axaml" />
+        <!-- 全局 ToolTip 胶囊：放在 FluentTheme 之后，压过 Fluent ControlTheme 的同名 Setter；
+             配色键在 Themes/Brushes.axaml 顶层，窗口可就地覆盖。见 Themes/ToolTipStyles.axaml -->
+        <StyleInclude Source="avares://MiHome/Themes/ToolTipStyles.axaml" />
         <!-- 注意：文字抗锯齿（RenderOptions.TextRenderingMode="Antialias"）不能在这里全局配置 ——
              11.3 的 RenderOptions 没有 backing AvaloniaProperty，Style Setter 编译不过（AVLN2000）。
              该属性只沿视觉树从各 Window 向下继承，因此每个透明窗口需各写一行（已加 11 个）。

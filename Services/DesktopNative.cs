@@ -240,6 +240,102 @@ internal static class DesktopNative
         public int Y;
     }
 
+    // ---- 全局鼠标钩子（桌面空白双击切换分区显隐） ----
+
+    public const int WH_MOUSE_LL = 14;
+    public const int WM_LBUTTONDOWN = 0x0201;
+    public const int WM_LBUTTONDBLCLK = 0x0203;
+    public const int SM_CXDOUBLECLK = 36;
+    public const int SM_CYDOUBLECLK = 37;
+    public const uint GA_ROOT = 2;
+
+    public const uint LVM_HITTEST = 0x1000 + 18;
+    public const uint LVHT_ONITEM = 0x000E;
+
+    public const uint PROCESS_VM_OPERATION = 0x0008;
+    public const uint PROCESS_VM_READ = 0x0010;
+    public const uint PROCESS_VM_WRITE = 0x0020;
+    public const uint MEM_COMMIT = 0x1000;
+    public const uint MEM_RESERVE = 0x2000;
+    public const uint MEM_RELEASE = 0x8000;
+    public const uint PAGE_READWRITE = 0x04;
+    public const uint SMTO_ABORTIFHUNG = 0x0002;
+
+    [StructLayout(LayoutKind.Sequential)]
+    public struct MSLLHOOKSTRUCT
+    {
+        public POINT pt;
+        public uint mouseData;
+        public uint flags;
+        public uint time;
+        public nint dwExtraInfo;
+    }
+
+    [StructLayout(LayoutKind.Sequential)]
+    public struct LVHITTESTINFO
+    {
+        public POINT pt;
+        public uint flags;
+        public int iItem;
+    }
+
+    public delegate nint LowLevelMouseProc(int nCode, nint wParam, nint lParam);
+
+    [DllImport("user32.dll", SetLastError = true)]
+    public static extern nint SetWindowsHookExW(int idHook, LowLevelMouseProc lpfn, nint hMod, uint dwThreadId);
+
+    [DllImport("user32.dll", SetLastError = true)]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    public static extern bool UnhookWindowsHookEx(nint hhk);
+
+    [DllImport("user32.dll")]
+    public static extern nint CallNextHookEx(nint hhk, int nCode, nint wParam, nint lParam);
+
+    [DllImport("user32.dll")]
+    public static extern nint WindowFromPoint(POINT point);
+
+    [DllImport("user32.dll", CharSet = CharSet.Unicode)]
+    public static extern int GetClassNameW(nint hWnd, System.Text.StringBuilder lpClassName, int nMaxCount);
+
+    [DllImport("user32.dll")]
+    public static extern nint GetAncestor(nint hwnd, uint gaFlags);
+
+    [DllImport("user32.dll")]
+    public static extern int MapWindowPoints(nint hWndFrom, nint hWndTo, ref POINT lpPoints, uint cPoints);
+
+    [DllImport("user32.dll")]
+    public static extern uint GetWindowThreadProcessId(nint hWnd, out uint lpdwProcessId);
+
+    [DllImport("user32.dll", CharSet = CharSet.Unicode)]
+    public static extern nint SendMessageTimeoutW(nint hWnd, uint msg, nint wParam, nint lParam,
+        uint fuFlags, uint uTimeout, out nint lpdwResult);
+
+    [DllImport("kernel32.dll", SetLastError = true)]
+    public static extern nint OpenProcess(uint dwDesiredAccess,
+        [MarshalAs(UnmanagedType.Bool)] bool bInheritHandle, uint dwProcessId);
+
+    [DllImport("kernel32.dll", SetLastError = true)]
+    public static extern nint VirtualAllocEx(nint hProcess, nint lpAddress, nuint dwSize,
+        uint flAllocationType, uint flProtect);
+
+    [DllImport("kernel32.dll", SetLastError = true)]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    public static extern bool VirtualFreeEx(nint hProcess, nint lpAddress, nuint dwSize, uint dwFreeType);
+
+    [DllImport("kernel32.dll", SetLastError = true)]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    public static extern bool WriteProcessMemory(nint hProcess, nint lpBaseAddress, nint lpBuffer,
+        nuint nSize, out nuint lpNumberOfBytesWritten);
+
+    [DllImport("kernel32.dll", SetLastError = true)]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    public static extern bool ReadProcessMemory(nint hProcess, nint lpBaseAddress, nint lpBuffer,
+        nuint nSize, out nuint lpNumberOfBytesRead);
+
+    [DllImport("kernel32.dll", SetLastError = true)]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    public static extern bool CloseHandle(nint hObject);
+
     /// <summary>MONITORINFOEXW：边界 + 工作区 + 设备名（\\.\DISPLAYn）。</summary>
     [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Unicode)]
     public struct MONITORINFOEX

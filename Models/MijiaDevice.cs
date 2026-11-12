@@ -286,6 +286,14 @@ public partial class MijiaDevice : ObservableObject
         if (!string.Equals(SpecType, other.SpecType, StringComparison.Ordinal))
             SpecType = other.SpecType;
 
+        // 灯组成员来自设备列表的原始响应（DTO 不映射），刷新时复用旧实例，
+        // 不在这里同步就会把成员表清空，单灯再也反查不到「只写了 group.xxx」的场景。
+        if (!GroupMembers.SequenceEqual(other.GroupMembers))
+        {
+            GroupMembers.Clear();
+            GroupMembers.AddRange(other.GroupMembers);
+        }
+
         if (!string.Equals(RoomName, other.RoomName, StringComparison.Ordinal))
         {
             RoomName = other.RoomName;

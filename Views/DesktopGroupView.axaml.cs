@@ -48,6 +48,22 @@ public partial class DesktopGroupView : UserControl
     private DesktopZoneVm? _zone;
     private bool _contentAttached;
 
+    // ===== 移入自动展开：悬停 300ms 展开，移出 250ms 后自动收起 =====
+    private const int HoverExpandDelayMs = 300;
+    private const int HoverCollapseDelayMs = 250;
+    private const int HoverWatchdogMs = 80;
+    /// <summary>悬停自动展开后的短窗口：这期间点标题栏不折叠，避免刚展开就被误点收起（对齐 Zonex）。</summary>
+    private const int HoverExpandClickGuardMs = 600;
+    private DispatcherTimer? _hoverExpandTimer;
+    private DispatcherTimer? _hoverWatchdog;
+    /// <summary>本次展开由悬停触发：只有它才允许移出后自动收起。</summary>
+    private bool _expandedByHover;
+    /// <summary>指针还在分区里时被手动折叠：抑制悬停展开，直到指针真正移出。</summary>
+    private bool _hoverExpandSuppressed;
+    private DateTime _pointerLeftAtUtc;
+    /// <summary>上次由悬停自动展开的时刻，default = 无。</summary>
+    private DateTime _hoverExpandedAtUtc;
+
     // 多个分区同时折叠/关闭时合并回收；静态回调不捕获被卸载的 View 或设备树。
     private static IDisposable? _contentReleaseTrim;
 
@@ -89,6 +105,11 @@ public partial class DesktopGroupView : UserControl
     {
         _contentAttached = false;
         CancelPendingClick();
+        StopHoverExpandTimer();
+        StopHoverWatchdog();
+        _expandedByHover = false;
+        _hoverExpandSuppressed = false;
+        _hoverExpandedAtUtc = default;
         BindZone(null);
     }
 
@@ -247,10 +268,188 @@ public partial class DesktopGroupView : UserControl
     // 媒体卡整张就是拖动面：按下落在按钮上时按钮自己吃掉事件，落到卡面空白/文字上才算拖动。
     // 这里刻意不做「点击折叠 / 双击改名」—— 没有标题栏就没有这两个动作。
 
-    /// <summary>鼠标移入分区：交给 VM 判定是否展开，展开时立刻补一拍设备状态。</summary>
+    /// <summary>鼠标移入分区：折叠时按设置安排自动展开，并交给 VM 补一拍设备状态。</summary>
     private void OnZonePointerEntered(object? sender, PointerEventArgs e)
     {
-        (DataContext as DesktopZoneVm)?.OnPointerEnteredZone();
+        if (DataContext is not DesktopZoneVm vm) return;
+
+        if (AppSettingsStore.HoverExpandEnabled && vm.Collapsed && !_hoverExpandSuppressed)
+            StartHoverExpandTimer();
+
+        // 即使不自动展开，也要用看门狗在「指针移出」时解除手动折叠抑制
+        StartHoverWatchdog();
+        vm.OnPointerEnteredZone();
+    }
+
+    /// <summary>折叠分区被悬停满 300ms 后自动展开；划过不触发。</summary>
+    private void StartHoverExpandTimer()
+    {
+        if (!AppSettingsStore.HoverExpandEnabled || _hoverExpandSuppressed) return;
+        if (DataContext is not DesktopZoneVm { Collapsed: true }) return;
+        // 拖动 / 拉伸分区时按在卡片上会触发 PointerEntered，300ms 后不能自己弹开
+        if (Host?.IsManipulating == true)
+        {
+            StopHoverExpandTimer();
+            return;
+        }
+        if (_hoverExpandTimer is { IsEnabled: true }) return;
+        _hoverExpandTimer ??= new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(HoverExpandDelayMs) };
+        _hoverExpandTimer.Tick += OnHoverExpandTick;
+        _hoverExpandTimer.Start();
+    }
+
+    private void StopHoverExpandTimer()
+    {
+        if (_hoverExpandTimer is not { } timer) return;
+        timer.Stop();
+        timer.Tick -= OnHoverExpandTick;
+        _hoverExpandTimer = null;
+    }
+
+    private void OnHoverExpandTick(object? sender, EventArgs e)
+    {
+        StopHoverExpandTimer();
+        // 双重保险：计时器排队后才开始的拖动，也不能在 tick 这一刻把它弹开
+        if (Host?.IsManipulating == true) return;
+        if (!AppSettingsStore.HoverExpandEnabled || _hoverExpandSuppressed) return;
+        if (DataContext is not DesktopZoneVm { Collapsed: true } vm) return;
+        if (!IsCursorInsideZone()) return;
+
+        vm.Collapsed = false;
+        _expandedByHover = true;
+        _hoverExpandedAtUtc = DateTime.UtcNow;
+        _pointerLeftAtUtc = default;
+        StartHoverWatchdog();
+    }
+
+    /// <summary>
+    /// 贴桌面窗是 NOACTIVATE，PointerExited 不一定可靠；
+    /// 用 80ms 看门狗按系统光标位置判断指针是否还在分区窗口矩形内。
+    /// </summary>
+    private void StartHoverWatchdog()
+    {
+        if (!AppSettingsStore.HoverExpandEnabled) return;
+        if (_hoverWatchdog is { IsEnabled: true }) return;
+        _hoverWatchdog ??= new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(HoverWatchdogMs) };
+        _hoverWatchdog.Tick += OnHoverWatchdogTick;
+        _hoverWatchdog.Start();
+    }
+
+    private void StopHoverWatchdog()
+    {
+        if (_hoverWatchdog is not { } timer) return;
+        timer.Stop();
+        timer.Tick -= OnHoverWatchdogTick;
+        _hoverWatchdog = null;
+        _pointerLeftAtUtc = default;
+    }
+
+    private void OnHoverWatchdogTick(object? sender, EventArgs e)
+    {
+        if (!AppSettingsStore.HoverExpandEnabled || (!_expandedByHover && !_hoverExpandSuppressed))
+        {
+            StopHoverWatchdog();
+            return;
+        }
+
+        // 分区菜单是贴在窗口外的独立浮层：光标移到菜单上不算移出，菜单关掉后再重新计收起延时
+        if (DataContext is DesktopZoneVm zone && DesktopHost.IsMenuOpenFor(zone))
+        {
+            _pointerLeftAtUtc = default;
+            return;
+        }
+
+        if (IsCursorInsideZone())
+        {
+            _pointerLeftAtUtc = default;
+            return;
+        }
+
+        var now = DateTime.UtcNow;
+        if (_pointerLeftAtUtc == default)
+        {
+            _pointerLeftAtUtc = now;
+            return;
+        }
+        if ((now - _pointerLeftAtUtc).TotalMilliseconds < HoverCollapseDelayMs) return;
+
+        // 正在拖动 / 拉伸：先别收起，等手松开后由下一轮看门狗再判
+        if (Host?.IsManipulating == true)
+        {
+            _pointerLeftAtUtc = default;
+            return;
+        }
+
+        // 指针已真正移出：解除手动折叠抑制，下次移入照常展开
+        _hoverExpandSuppressed = false;
+        StopHoverWatchdog();
+        if (!_expandedByHover) return;
+
+        _expandedByHover = false;
+        _hoverExpandedAtUtc = default;
+        if (DataContext is DesktopZoneVm { Collapsed: false } vm)
+            vm.Collapsed = true;
+    }
+
+    /// <summary>指针是否落在本分区窗口矩形内（物理像素）。</summary>
+    private bool IsCursorInsideZone()
+    {
+        var h = Host?.Handle ?? nint.Zero;
+        if (h == nint.Zero) return false;
+        if (!DesktopNative.GetCursorPos(out var pt)) return false;
+        if (!DesktopNative.GetWindowRect(h, out var rect)) return false;
+        return pt.X >= rect.Left && pt.X < rect.Right
+               && pt.Y >= rect.Top && pt.Y < rect.Bottom;
+    }
+
+    /// <summary>
+    /// 手动折叠且指针仍停在分区里：抑制悬停展开，避免 300ms 后自己又弹开。
+    /// 抑制由看门狗在指针真正移出后解除。
+    /// </summary>
+    private void SuppressHoverExpandAfterManualCollapse()
+    {
+        _expandedByHover = false;
+        _hoverExpandedAtUtc = default;
+        _pointerLeftAtUtc = default;
+        StopHoverExpandTimer();
+
+        // 开关已关：看门狗不会跑，抑制标记必须当场清掉，
+        // 否则以后重新开启「移入自动展开」时这块分区会一直不响应
+        if (!AppSettingsStore.HoverExpandEnabled)
+        {
+            _hoverExpandSuppressed = false;
+            StopHoverWatchdog();
+            return;
+        }
+
+        if (IsCursorInsideZone())
+        {
+            _hoverExpandSuppressed = true;
+            StartHoverWatchdog();
+        }
+        else
+        {
+            _hoverExpandSuppressed = false;
+            StopHoverWatchdog();
+        }
+    }
+
+    /// <summary>
+    /// 悬停刚自动展开的 600ms 内，忽略标题栏 / 收起按钮的折叠点击：
+    /// 鼠标移入即展开、紧接着点一下又把刚展开的分区关掉，体验上像误触。
+    /// 只拦「折叠」方向，窗口过期或分区本来就是折叠态时不拦。
+    /// </summary>
+    private bool IsHoverExpandClickGuarded(DesktopZoneVm vm)
+        => !vm.Collapsed
+           && _hoverExpandedAtUtc != default
+           && (DateTime.UtcNow - _hoverExpandedAtUtc).TotalMilliseconds < HoverExpandClickGuardMs;
+
+    /// <summary>所有用户主动折叠入口共用这一条，保证抑制与点击保护不漏。</summary>
+    private void ToggleCollapseFromUser(DesktopZoneVm vm)
+    {
+        if (IsHoverExpandClickGuarded(vm)) return;
+        if (!vm.Collapsed) SuppressHoverExpandAfterManualCollapse();
+        vm.Collapsed = !vm.Collapsed;
     }
 
     private void OnBodyPressed(object? sender, PointerPressedEventArgs e)
@@ -312,10 +511,7 @@ public partial class DesktopGroupView : UserControl
         if (DesktopHost.IsRenaming(vm)) return;
 
         if (_pressOnName) ScheduleToggle();
-        else
-        {
-            vm.Collapsed = !vm.Collapsed;
-        }
+        else ToggleCollapseFromUser(vm);
     }
 
     private void ScheduleToggle()
@@ -327,7 +523,8 @@ public partial class DesktopGroupView : UserControl
         _clickTimer = DispatcherTimer.RunOnce(() =>
         {
             _clickTimer = null;
-            if (target != null && !DesktopHost.IsRenaming(target)) target.Collapsed = !target.Collapsed;
+            if (target == null || DesktopHost.IsRenaming(target)) return;
+            ToggleCollapseFromUser(target);
         }, TimeSpan.FromMilliseconds(ms));
     }
 
@@ -340,10 +537,7 @@ public partial class DesktopGroupView : UserControl
     private void OnCollapseClick(object? sender, RoutedEventArgs e)
     {
         CancelPendingClick();
-        if (DataContext is DesktopZoneVm vm)
-        {
-            vm.Collapsed = !vm.Collapsed;
-        }
+        if (DataContext is DesktopZoneVm vm) ToggleCollapseFromUser(vm);
     }
 
     /// <summary>标题栏「＋」：把设备加进这个分区（媒体分区没有这个按钮，换音箱走卡片里那一行）。</summary>

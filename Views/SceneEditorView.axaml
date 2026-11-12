@@ -70,6 +70,25 @@
             <Setter Property="Foreground" Value="{DynamicResource DangerBrush}" />
         </Style>
 
+        <!-- 执行顺序卡片的行首图标：有真机图直接摆图，没有就垫一枚淡底圆角方片画矢量图标。
+             与设备卡共用同一套图标语义（DeviceIconConverter / SceneRowIconConverter），
+             深浅主题都靠 DynamicResource，不写死颜色。 -->
+        <Style Selector="Border.RowIco">
+            <Setter Property="Width" Value="34" />
+            <Setter Property="Height" Value="34" />
+            <Setter Property="CornerRadius" Value="10" />
+            <Setter Property="Background" Value="{DynamicResource Surface4Brush}" />
+            <Setter Property="BorderBrush" Value="{DynamicResource LineBrush}" />
+            <Setter Property="BorderThickness" Value="1" />
+        </Style>
+        <Style Selector="Path.RowIco">
+            <Setter Property="Stroke" Value="{DynamicResource Text2Brush}" />
+        </Style>
+        <!-- 延时卡的时钟跟左侧琥珀标线、标题保持同一套警示色 -->
+        <Style Selector="Path.RowIco.amber">
+            <Setter Property="Stroke" Value="{DynamicResource AmberBrush}" />
+        </Style>
+
         <!-- 三级选择器容器：比卡片更浅一档的内嵌面板 -->
         <!-- 执行顺序标题：整行可点折叠，不铺悬停底色（折叠是次要操作，别让整行闪） -->
         <Style Selector="Button.OrderHeader">
@@ -422,7 +441,7 @@
                                     <Border Classes="DelayBar" />
                                     <!-- 内距放在内容 Grid 上：Panel 才能占满整张卡的物理边界，
                                          贴 Top / Bottom 的插入线才不会落进文字区 -->
-                                    <Grid ColumnDefinitions="Auto,*,Auto" Margin="4,10,12,10">
+                                    <Grid ColumnDefinitions="Auto,Auto,*,Auto" Margin="4,10,12,10">
                                     <!-- 拖拽手柄：2×3 点阵，所有卡片都能拖，延时卡也是独立一步 -->
                                     <Border Width="18" Background="Transparent" Cursor="SizeAll"
                                             PointerPressed="OnRowGripPressed">
@@ -441,7 +460,29 @@
                                         </StackPanel>
                                     </Border>
 
-                                    <StackPanel Grid.Column="1" Spacing="8" Margin="2,0,0,0">
+                                    <!-- 行首设备图标：优先真机图（与设备卡同一张 Bitmap），
+                                         没取到产品图时按设备类型画线性图标；场景/通知/延时等
+                                         非设备动作由 SceneRowIcon 给出语义图标。
+                                         Device.Icon 会随产品图异步加载刷新，故可见性直接绑它。 -->
+                                    <Border Grid.Column="1" Width="34" Height="34" Margin="6,0,0,0"
+                                            VerticalAlignment="Center">
+                                        <Panel>
+                                            <Border Classes="RowIco"
+                                                    IsVisible="{Binding Device.Icon, Converter={x:Static ObjectConverters.IsNull}}">
+                                                <Path Classes="RowIco" Classes.amber="{Binding IsDelay}"
+                                                      Width="19" Height="19" Stretch="Uniform"
+                                                      HorizontalAlignment="Center" VerticalAlignment="Center"
+                                                      StrokeThickness="1.6" StrokeLineCap="Round" StrokeJoin="Round"
+                                                      Data="{Binding Converter={StaticResource SceneRowIcon}}" />
+                                            </Border>
+                                            <Image Width="34" Height="34" Stretch="Uniform"
+                                                   Source="{Binding Device.Icon}"
+                                                   IsVisible="{Binding Device.Icon, Converter={x:Static ObjectConverters.IsNotNull}}"
+                                                   RenderOptions.BitmapInterpolationMode="MediumQuality" />
+                                        </Panel>
+                                    </Border>
+
+                                    <StackPanel Grid.Column="2" Spacing="8" Margin="10,0,0,0">
                                         <!-- 标题行：设备/场景名 + 副标题，右取值控件 -->
                                         <Grid ColumnDefinitions="*,Auto">
                                             <StackPanel Spacing="2" VerticalAlignment="Center"
@@ -580,7 +621,7 @@
                                     </StackPanel>
 
                                     <!-- 行尾删除：弱确认（第一次点标红、再点一次真删） -->
-                                    <Button Grid.Column="2" Classes="TrigDel"
+                                    <Button Grid.Column="3" Classes="TrigDel"
                                             Classes.confirm="{Binding PendingRemove}"
                                             VerticalAlignment="Center"
                                             Margin="6,0,0,0"
