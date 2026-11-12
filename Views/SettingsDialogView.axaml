@@ -325,7 +325,7 @@
                             <Image Width="34" Height="34" Source="{StaticResource LogoImage}"
                                    VerticalAlignment="Center" />
                             <StackPanel Grid.Column="1" Margin="12,0" VerticalAlignment="Center">
-                                <TextBlock Text="MiHomeHub" FontSize="13.5" FontWeight="SemiBold"
+                                <TextBlock Text="米家控制中心 MiHomeHub" FontSize="13.5" FontWeight="SemiBold"
                                            Foreground="{DynamicResource TextBrush}" />
                                 <TextBlock Text="{Binding AppVersionText}" Classes="Hint Sub" Margin="0,2,0,0" />
                             </StackPanel>
