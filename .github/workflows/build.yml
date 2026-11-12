@@ -20,7 +20,7 @@ jobs:
           dotnet-version: '10.0.301'
 
       - name: Restore
-        run: dotnet restore MiHome.csproj -c Release
+        run: dotnet restore MiHome.csproj -p:Configuration=Release
         shell: cmd
 
       - name: Build (Release / win-x64)
