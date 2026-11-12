@@ -161,7 +161,10 @@ MiHomeHub/
 
 ## 快速开始
 
-环境：Windows x64、.NET 10 SDK（版本由 `global.json` 固定为 `10.0.301`，允许 `latestPatch`）。
+不愿编译的话，直接下载现成的：**[最新版单文件 exe](https://github.com/Feiyudevs/MiHomeHub/releases/latest)**
+（约 46 MB，双击即用，不需要安装 .NET 运行时）。下载后可对照 Release 说明核对 SHA256。
+
+想自己编译：Windows x64、.NET 10 SDK（版本由 `global.json` 固定为 `10.0.301`，允许 `latestPatch`）。
 仅生成安装包时需要 Inno Setup 6。
 
 ```bat
