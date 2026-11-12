@@ -73,7 +73,7 @@ public partial class DesktopRenameWindow : Window
         }, DispatcherPriority.Input);
 
         // 布局真正跑完后，用卡片实测到的屏幕位置做一次校正
-        Dispatcher.UIThread.Post(LogGeometry, DispatcherPriority.Loaded);
+        Dispatcher.UIThread.Post(CorrectAfterLayout, DispatcherPriority.Loaded);
     }
 
     /// <summary>
@@ -96,24 +96,16 @@ public partial class DesktopRenameWindow : Window
             Position.Y + target.Y - cardOnScreen.Y);
     }
 
-    private void LogGeometry()
+    private void CorrectAfterLayout()
     {
         CorrectOntoAnchor();
 
-        try
-        {
-            var scale = RenderScaling > 0 ? RenderScaling : 1;
-            var cardOnScreen = Card.PointToScreen(new Point(0, 0));
-            var line = $"anchor=({_anchor.X},{_anchor.Y},{_anchor.Width},{_anchor.Height}) " +
-                       $"pos=({Position.X},{Position.Y}) winBounds=({Bounds.X},{Bounds.Y},{Bounds.Width},{Bounds.Height}) " +
-                       $"win.Height={Height} cardH={Card.Bounds.Height} cardOnScreen=({cardOnScreen.X},{cardOnScreen.Y}) " +
-                       $"boxH={NameBox.Bounds.Height} scale={scale}\n";
-            System.IO.File.AppendAllText(@"I:\AICode\MiHomeWin\rename_dbg.txt", line);
-        }
-        catch (Exception ex)
-        {
-            System.IO.File.AppendAllText(@"I:\AICode\MiHomeWin\rename_dbg.txt", "ERR " + ex + "\n");
-        }
+        if (!Services.DesktopLog.Enabled) return;
+        var scale = RenderScaling > 0 ? RenderScaling : 1;
+        var cardOnScreen = Card.PointToScreen(new Point(0, 0));
+        Services.DesktopLog.Write(
+            $"rename anchor=({_anchor.X},{_anchor.Y},{_anchor.Width},{_anchor.Height}) " +
+            $"pos=({Position.X},{Position.Y}) cardOnScreen=({cardOnScreen.X},{cardOnScreen.Y}) scale={scale}");
     }
 
     protected override void OnKeyDown(KeyEventArgs e)
