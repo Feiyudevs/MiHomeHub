@@ -79,13 +79,15 @@ public partial class ActionEditorWindow : Window
         _devicePickerOpen = true;
         try
         {
-            var picker = new TriggerDevicePickerWindow();
-            picker.SetContext("点一台设备选中，确定后写入动作",
-                              "确定后回到添加动作，继续选属性和值");
-            picker.Load(_vm.TriggerDeviceCandidates, _vm.SelectedActionDeviceValue?.ToString());
+            var picker = new TargetPickerWindow();
+            picker.ConfigureSingleDevice(_vm.TriggerDeviceCandidates,
+                _vm.SelectedActionDeviceValue?.ToString(),
+                "点一台设备选中，确定后写入动作",
+                "确定后回到添加动作，继续选属性和值");
             picker.FitTo(this);
 
-            if (await picker.ShowDialog<MijiaDevice?>(this) is { } device)
+            await picker.ShowDialog(this);
+            if (picker.SelectedDevice is { } device)
                 _vm.SelectedActionDeviceValue = device.Did;
         }
         catch (Exception ex)

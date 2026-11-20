@@ -114,5 +114,10 @@ public partial class MainViewModel : IDeviceCardHost
     }
 
     /// <summary>设备列表换代后触发一次（由 UpdateStats 统一出口调用）。</summary>
-    private void RaiseDevicesReloaded() => DevicesReloaded?.Invoke();
+    private void RaiseDevicesReloaded()
+    {
+        // 快捷键行里的设备名 / 在线态 / 开关态跟着设备列表一起刷新
+        RefreshHotkeyViews();
+        DevicesReloaded?.Invoke();
+    }
 }

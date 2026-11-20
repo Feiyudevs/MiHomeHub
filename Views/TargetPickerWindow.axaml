@@ -1,10 +1,10 @@
 <Window xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:vm="clr-namespace:MiHome.ViewModels"
-        x:Class="MiHome.Views.TriggerDevicePickerWindow"
-        x:DataType="vm:TriggerDevicePickerVm"
+        x:Class="MiHome.Views.TargetPickerWindow"
+        x:DataType="vm:TargetPickerVm"
         Title="选择设备"
-        Width="956" Height="696"
+        Width="956" Height="736"
         SystemDecorations="None"
         CanResize="False"
         ShowInTaskbar="False"
@@ -13,12 +13,10 @@
         TransparencyLevelHint="Transparent"
         Background="Transparent"
         RenderOptions.TextRenderingMode="Antialias">
-    <!-- 触发条件的设备选择：布局与样式照搬桌面组件的「添加设备 / 场景」弹窗
-         （房间胶囊筛选 + 搜索 + 卡片网格），只改成单选并在底部加「确定」。
-         尺寸由 FitTo 按父窗口收，小窗口下也不会顶出屏幕。 -->
+
     <Window.Styles>
-        <!-- 设备卡片：与桌面组件添加弹窗完全同一套（底色画在 ContentPresenter 上，
-             Fluent 悬停态也是改这里，画在 Button.Background 上会被压掉） -->
+        <!-- 设备卡片：一整块有底色的卡；选中态「极淡紫底 + 1px 淡紫描边 + 主色名称」。
+             底色一律画在 ContentPresenter 上（Fluent 的悬停态也是改这里，画在 Button.Background 上会被压掉） -->
         <Style Selector="Button.PickCard">
             <Setter Property="Width" Value="244" />
             <Setter Property="Height" Value="58" />
@@ -82,7 +80,7 @@
             <Setter Property="Background" Value="{DynamicResource HoverBrush}" />
         </Style>
 
-        <!-- 搜索输入框：外层 Border 已画底色与描边，内层 TextBox 模板自带的边框要全压掉 -->
+        <!-- 搜索输入框：外层 Border 画底色与描边，内层 TextBox 模板的边框（含聚焦高亮）全部压掉 -->
         <Style Selector="TextBox.Flat">
             <Setter Property="Background" Value="Transparent" />
             <Setter Property="BorderThickness" Value="0" />
@@ -106,7 +104,7 @@
             <Setter Property="BorderBrush" Value="{DynamicResource AccentBrush}" />
         </Style>
 
-        <!-- 房间直达条：一枚胶囊一个房间 -->
+        <!-- 分类胶囊：单选，选中铺实心主色 -->
         <Style Selector="Button.RoomTab">
             <Setter Property="Height" Value="28" />
             <Setter Property="Padding" Value="13,0" />
@@ -163,19 +161,20 @@
     </Window.Styles>
 
     <Panel>
-        <!-- 外面已经是模态暗底，这层只负责「点空白关掉」，窗体多出的 58 圈留给卡片投影 -->
+        <!-- 遮罩：窗口透明，只负责「点外面关掉」；窗体比卡片四周各多 58，那圈透明带留给卡片投影 -->
         <Border Name="Mask" Background="Transparent" PointerPressed="OnMaskPressed" />
 
-        <Border x:Name="Card" Classes="DialogCard" Width="840" Height="580"
+        <!-- 尺寸固定：切分类只换内容，卡片不能跟着内容多少忽高忽低；
+             小屏 / 高分屏下由 FitToWorkArea / FitTo 按工作区收 -->
+        <Border x:Name="PickerCard" Classes="DialogCard" Width="840" Height="620"
                 HorizontalAlignment="Center" VerticalAlignment="Center">
-            <!-- 裁切挂这层：DialogCard 上的投影不能带 ClipToBounds，否则被自己边界裁光 -->
             <Grid RowDefinitions="Auto,Auto,Auto,*,Auto" ClipToBounds="True">
 
                 <!-- ===== 标题栏（可拖动）+ 关闭 ===== -->
                 <Panel Name="Header" Grid.Row="0" Background="Transparent"
                        Margin="28,20,22,0" PointerPressed="OnHeaderPressed">
                     <StackPanel>
-                        <TextBlock Text="选择设备" FontSize="19" FontWeight="Bold"
+                        <TextBlock Text="{Binding Title}" FontSize="19" FontWeight="Bold"
                                    Foreground="{DynamicResource TextBrush}" />
                         <TextBlock Margin="0,5,0,0" Text="{Binding Subtitle}" FontSize="12"
                                    Foreground="{DynamicResource Text2Brush}" />
@@ -189,7 +188,7 @@
                     </Button>
                 </Panel>
 
-                <!-- ===== 房间筛选条：点哪个只显示那一组 ===== -->
+                <!-- ===== 分类筛选条 ===== -->
                 <ScrollViewer Grid.Row="1" Margin="28,14,22,0"
                               HorizontalScrollBarVisibility="Hidden"
                               VerticalScrollBarVisibility="Disabled">
@@ -209,42 +208,49 @@
                     </ItemsControl>
                 </ScrollViewer>
 
-                <!-- ===== 搜索框 ===== -->
-                <Border Grid.Row="2" Classes="SearchBox" Height="40" CornerRadius="12" Margin="28,14,22,0"
-                        Background="{DynamicResource SearchBgBrush}"
-                        BorderThickness="1" BorderBrush="{DynamicResource SearchLineBrush}">
-                    <Grid ColumnDefinitions="Auto,*,Auto" Margin="12,0,6,0">
-                        <Path Grid.Column="0" Width="15" Height="15" Stretch="Uniform"
-                              StrokeThickness="1.7" StrokeLineCap="Round" StrokeJoin="Round"
-                              VerticalAlignment="Center"
-                              Stroke="{DynamicResource Text2Brush}"
-                              Data="{StaticResource GeoSearch}" />
-                        <Grid Grid.Column="1">
-                            <TextBox Name="SearchBox" Classes="Flat"
-                                     Foreground="{DynamicResource TextBrush}"
-                                     CaretBrush="{DynamicResource AccentBrush}"
-                                     Text="{Binding SearchText, Mode=TwoWay}" />
-                            <TextBlock Text="搜索设备或房间…" FontSize="13" FontWeight="Normal"
-                                       Margin="9,0,0,0"
-                                       VerticalAlignment="Center"
-                                       Foreground="{DynamicResource Text3Brush}"
-                                       Opacity="0.72"
-                                       IsHitTestVisible="False"
-                                       IsVisible="{Binding !HasQuery}" />
+                <!-- ===== 工具条：搜索框 + 全部移出（仅即时提交模式） ===== -->
+                <Grid Grid.Row="2" ColumnDefinitions="*,Auto" Margin="28,14,22,0">
+                    <Border Name="SearchBoxHost" Classes="SearchBox" Height="40" CornerRadius="12"
+                            Background="{DynamicResource SearchBgBrush}"
+                            BorderThickness="1" BorderBrush="{DynamicResource SearchLineBrush}">
+                        <Grid ColumnDefinitions="Auto,*,Auto" Margin="12,0,6,0">
+                            <Path Grid.Column="0" Width="15" Height="15" Stretch="Uniform"
+                                  StrokeThickness="1.7" StrokeLineCap="Round" StrokeJoin="Round"
+                                  VerticalAlignment="Center"
+                                  Stroke="{DynamicResource Text2Brush}"
+                                  Data="{StaticResource GeoSearch}" />
+                            <Grid Grid.Column="1">
+                                <TextBox Name="SearchBox" Classes="Flat"
+                                         Foreground="{DynamicResource TextBrush}"
+                                         CaretBrush="{DynamicResource AccentBrush}"
+                                         Text="{Binding SearchText, Mode=TwoWay}" />
+                                <TextBlock Text="搜索设备、场景或房间…" FontSize="13" FontWeight="Normal"
+                                           Margin="9,0,0,0"
+                                           VerticalAlignment="Center"
+                                           Foreground="{DynamicResource Text3Brush}"
+                                           Opacity="0.72"
+                                           IsHitTestVisible="False"
+                                           IsVisible="{Binding !HasQuery}" />
+                            </Grid>
+                            <Button Grid.Column="2" Classes="TopIcon" Width="24" Height="24"
+                                    Command="{Binding ClearSearchCommand}"
+                                    IsVisible="{Binding HasQuery}" ToolTip.Tip="清除">
+                                <Path Width="9" Height="9" Stretch="Uniform" StrokeThickness="1.2"
+                                      StrokeLineCap="Round"
+                                      Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}"
+                                      Data="{StaticResource GeoClose}" />
+                            </Button>
                         </Grid>
-                        <Button Grid.Column="2" Classes="TopIcon" Width="24" Height="24"
-                                Command="{Binding ClearSearchCommand}"
-                                IsVisible="{Binding HasQuery}" ToolTip.Tip="清除">
-                            <Path Width="9" Height="9" Stretch="Uniform" StrokeThickness="1.2"
-                                  StrokeLineCap="Round"
-                                  Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}"
-                                  Data="{StaticResource GeoClose}" />
-                        </Button>
-                    </Grid>
-                </Border>
+                    </Border>
 
-                <!-- ===== 按房间分组 + 卡片网格（单选） ===== -->
-                <ScrollViewer Name="BodyScroll" Grid.Row="3" Margin="28,14,6,6"
+                    <Button Grid.Column="1" Classes="BtnGhost" Content="全部移出"
+                            Height="36" Padding="14,0" FontSize="12.5" Margin="10,0,0,0"
+                            IsVisible="{Binding ShowClearAll}"
+                            Command="{Binding ClearAllCommand}" />
+                </Grid>
+
+                <!-- ===== 按房间 / 场景 / 自动化分组 + 网格卡片 ===== -->
+                <ScrollViewer Name="BodyScroll" Grid.Row="3" Margin="28,14,6,10"
                               ClipToBounds="True"
                               VerticalScrollBarVisibility="Auto"
                               HorizontalScrollBarVisibility="Disabled">
@@ -273,7 +279,7 @@
                                             <ItemsControl.ItemTemplate>
                                                 <DataTemplate x:DataType="vm:PickerItem">
                                                     <Button Classes="PickCard" Classes.in="{Binding IsIn}"
-                                                            Command="{Binding $parent[Window].((vm:TriggerDevicePickerVm)DataContext).SelectCommand}"
+                                                            Command="{Binding $parent[Window].((vm:TargetPickerVm)DataContext).ToggleCommand}"
                                                             CommandParameter="{Binding}">
                                                         <Grid ColumnDefinitions="Auto,*">
                                                             <Panel Width="32" Height="32" VerticalAlignment="Center">
@@ -287,6 +293,11 @@
                                                                        Stretch="Uniform"
                                                                        RenderOptions.BitmapInterpolationMode="MediumQuality"
                                                                        IsVisible="{Binding HasPhoto}" />
+                                                                <!-- 场景 / 自动化用自带线性图标，和设备同一套描边色 -->
+                                                                <Path Classes="PickIc" Width="18" Height="18" Stretch="Uniform"
+                                                                      StrokeThickness="1.6" StrokeLineCap="Round" StrokeJoin="Round"
+                                                                      VerticalAlignment="Center" HorizontalAlignment="Center"
+                                                                      Data="{Binding Scene.Icon}" IsVisible="{Binding IsScene}" />
                                                             </Panel>
                                                             <StackPanel Grid.Column="1" Margin="10,0,4,0"
                                                                         VerticalAlignment="Center" Spacing="2">
@@ -312,18 +323,36 @@
                     </StackPanel>
                 </ScrollViewer>
 
-                <!-- ===== 底部：取消 / 确定（桌面组件那边是勾选即生效，这里多一步确认） ===== -->
+                <!-- 列表底部渐隐，避免滚动时被卡片边缘一刀截断 -->
+                <Border Grid.Row="3" Height="20" VerticalAlignment="Bottom"
+                        Margin="28,0,6,10"
+                        IsHitTestVisible="False"
+                        Background="{DynamicResource DrawerBgBrush}">
+                    <Border.OpacityMask>
+                        <LinearGradientBrush StartPoint="0%,0%" EndPoint="0%,100%">
+                            <GradientStop Offset="0" Color="#00FFFFFF" />
+                            <GradientStop Offset="0.6" Color="#99FFFFFF" />
+                            <GradientStop Offset="1" Color="#FFFFFFFF" />
+                        </LinearGradientBrush>
+                    </Border.OpacityMask>
+                </Border>
+
+                <!-- ===== 底部：取消 / 确定（只在单选与多选模式出现） ===== -->
                 <Border Grid.Row="4" BorderBrush="{DynamicResource LineBrush}" BorderThickness="0,1,0,0"
-                        Padding="0,12,16,0" Margin="28,0,22,18">
-                    <Grid ColumnDefinitions="*,Auto,Auto">
+                        Padding="0,12,16,0" Margin="28,0,22,18"
+                        IsVisible="{Binding ShowConfirm}">
+                    <Grid ColumnDefinitions="*,Auto,Auto,Auto">
                         <TextBlock Text="{Binding FooterHint}" FontSize="11"
-                                   VerticalAlignment="Center"
+                                   VerticalAlignment="Center" TextTrimming="CharacterEllipsis"
                                    Foreground="{DynamicResource Text3Brush}" />
-                        <Button Grid.Column="1" Classes="BtnGhost" Content="取消" Margin="0,0,8,0"
+                        <TextBlock Grid.Column="1" Text="{Binding SelectionText}" FontSize="11.5"
+                                   FontWeight="SemiBold" VerticalAlignment="Center" Margin="0,0,12,0"
+                                   Foreground="{DynamicResource Accent2Brush}" />
+                        <Button Grid.Column="2" Classes="BtnGhost" Content="取消" Margin="0,0,8,0"
                                 Click="OnCancelClick" />
-                        <Button Grid.Column="2" Classes="BtnPrimary" Content="确定"
+                        <Button Grid.Column="3" Classes="BtnPrimary" Content="{Binding ConfirmText}"
                                 Click="OnConfirmClick"
-                                IsEnabled="{Binding HasSelection}" />
+                                IsEnabled="{Binding CanConfirm}" />
                     </Grid>
                 </Border>
             </Grid>

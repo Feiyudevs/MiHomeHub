@@ -64,7 +64,7 @@
         </Style>
         <!-- ======== 浮层：闭合态写在基础样式里，展开态由 .open 覆盖（局部值会压过样式，别写在这儿） ======== -->
         <Style Selector="Border.PickPanel">
-            <Setter Property="Background" Value="{DynamicResource CardBrush}" />
+            <Setter Property="Background" Value="{DynamicResource CardSolidBrush}" />
             <Setter Property="BorderBrush" Value="{DynamicResource LineBrush}" />
             <Setter Property="BorderThickness" Value="1" />
             <Setter Property="CornerRadius" Value="12" />

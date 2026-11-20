@@ -453,6 +453,11 @@ public partial class MainWindow : CustomWindow
         if (Vm != null) Vm.SelectedNavIndex = 2;
     }
 
+    private void OnGotoHotkeys(object? sender, RoutedEventArgs e)
+    {
+        if (Vm != null) Vm.SelectedNavIndex = 3;
+    }
+
     private void OnGotoSettings(object? sender, RoutedEventArgs e)
     {
         Vm?.OpenSettingsCommand.Execute(null);

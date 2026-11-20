@@ -1511,6 +1511,85 @@
             <Setter Property="Background" Value="Transparent" />
         </Style>
 
+        <!-- ======== 胶囊滑杆（灯光亮度 / 色温） ======== -->
+        <!-- 一条 12 高的整根胶囊轨道 + 白圆钮，没有「底轨 + 已填段」两段拼接：
+             色温直接把渐变刷在轨道上（Foreground 置 Transparent，已填段不参与绘制），
+             亮度则用纯色已填段（Foreground = PillFillBrush），靠长度表达档位。 -->
+        <Style Selector="Slider.PillSlider">
+            <Setter Property="Height" Value="34" />
+            <Setter Property="Background" Value="{DynamicResource TrackBrush}" />
+            <Setter Property="Foreground" Value="{DynamicResource PillFillBrush}" />
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="Template">
+                <ControlTemplate>
+                    <Grid Background="Transparent" VerticalAlignment="Center" Height="34">
+                        <!-- 整根胶囊轨道：色温暖轨、亮度底轨都画在这一层 -->
+                        <Border Height="12" CornerRadius="6" VerticalAlignment="Center"
+                                HorizontalAlignment="Stretch"
+                                Background="{TemplateBinding Background}"
+                                BoxShadow="0 1 2 #20000000" />
+                        <Track Name="PART_Track"
+                               Minimum="{TemplateBinding Minimum}"
+                               Maximum="{TemplateBinding Maximum}"
+                               Value="{TemplateBinding Value, Mode=TwoWay}"
+                               IsDirectionReversed="False"
+                               Orientation="Horizontal"
+                               VerticalAlignment="Center" Height="12">
+                            <Track.DecreaseButton>
+                                <RepeatButton Name="PART_DecreaseButton"
+                                              Background="Transparent" BorderThickness="0" Focusable="False"
+                                              HorizontalAlignment="Stretch" VerticalAlignment="Stretch"
+                                              Padding="0" Margin="0">
+                                    <RepeatButton.Template>
+                                        <ControlTemplate>
+                                            <!-- 已填段：盖在轨道上表达档位；色温把 Foreground 设成透明就露不出这一段 -->
+                                            <Border Height="12" CornerRadius="6"
+                                                    HorizontalAlignment="Stretch" VerticalAlignment="Center"
+                                                    Background="{Binding $parent[Slider].Foreground}" />
+                                            <Border Background="Transparent" />
+                                        </ControlTemplate>
+                                    </RepeatButton.Template>
+                                </RepeatButton>
+                            </Track.DecreaseButton>
+                            <Track.Thumb>
+                                <Thumb Name="PART_Thumb" Width="20" Height="20" Focusable="True">
+                                    <Thumb.Template>
+                                        <ControlTemplate>
+                                            <Border Width="20" Height="20" CornerRadius="10"
+                                                    Background="{DynamicResource SliderThumbBackground}"
+                                                    BoxShadow="0 1 5 #33000000" />
+                                        </ControlTemplate>
+                                    </Thumb.Template>
+                                </Thumb>
+                            </Track.Thumb>
+                            <Track.IncreaseButton>
+                                <RepeatButton Name="PART_IncreaseButton"
+                                              Background="Transparent" BorderThickness="0" Focusable="False"
+                                              HorizontalAlignment="Stretch" VerticalAlignment="Stretch"
+                                              Padding="0" Margin="0">
+                                    <RepeatButton.Template>
+                                        <ControlTemplate>
+                                            <Border Background="Transparent" />
+                                        </ControlTemplate>
+                                    </RepeatButton.Template>
+                                </RepeatButton>
+                            </Track.IncreaseButton>
+                        </Track>
+                    </Grid>
+                </ControlTemplate>
+            </Setter>
+        </Style>
+        <!-- 同样压掉 Fluent 的 hover/pressed 灰底，轨道上只留我们画的胶囊 -->
+        <Style Selector="Slider.PillSlider /template/ RepeatButton#PART_IncreaseButton">
+            <Setter Property="Background" Value="Transparent" />
+        </Style>
+        <Style Selector="Slider.PillSlider /template/ RepeatButton#PART_IncreaseButton:pointerover">
+            <Setter Property="Background" Value="Transparent" />
+        </Style>
+        <Style Selector="Slider.PillSlider /template/ RepeatButton#PART_IncreaseButton:pressed">
+            <Setter Property="Background" Value="Transparent" />
+        </Style>
+
         <!-- ======== 桌面分区图标按钮 ======== -->
         <!-- 贴桌面的分区窗与它的浮层都是独立 Window，取不到视图内的局部样式，
              所以标题栏/播放键那套 24×24 圆角图标按钮定义在这里 -->

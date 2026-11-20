@@ -1,0 +1,26 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="24" height="24">
+<defs>
+  <linearGradient id="gA" x1="0" y1="0" x2="0.38" y2="1"><stop offset="0" stop-color="#A78BFA"/><stop offset="1" stop-color="#7C5CFC"/></linearGradient>
+  <linearGradient id="gW" x1="0" y1="0" x2="0.38" y2="1"><stop offset="0" stop-color="#FFFFFF"/><stop offset="1" stop-color="#E8EAF0"/></linearGradient>
+  <linearGradient id="sheen" x1="0" y1="0" x2="0.62" y2="1">
+    <stop offset="0" stop-color="#FFFFFF" stop-opacity=".5"/>
+    <stop offset=".42" stop-color="#FFFFFF" stop-opacity=".07"/>
+    <stop offset="1" stop-color="#FFFFFF" stop-opacity="0"/>
+  </linearGradient>
+  <linearGradient id="deep" x1="1" y1="1" x2="0.3" y2="0">
+    <stop offset="0" stop-color="#0B1020" stop-opacity=".26"/>
+    <stop offset=".55" stop-color="#0B1020" stop-opacity="0"/>
+  </linearGradient>
+  <radialGradient id="soft">
+    <stop offset="0" stop-color="#0B1020" stop-opacity=".55"/>
+    <stop offset="1" stop-color="#0B1020" stop-opacity="0"/>
+  </radialGradient>
+  <clipPath id="c1"><path d="M7,8.4H11.4A4.4,4.4 0 0 1 15.8,12.8V17A4.4,4.4 0 0 1 11.4,21.4H7A4.4,4.4 0 0 1 2.6,17V12.8A4.4,4.4 0 0 1 7,8.4Z"/></clipPath>
+  <clipPath id="c2"><path d="M15.4,2.6H18.2A3.2,3.2 0 0 1 21.4,5.8V9.4A3.2,3.2 0 0 1 18.2,12.6H15.4A3.2,3.2 0 0 1 12.2,9.4V5.8A3.2,3.2 0 0 1 15.4,2.6Z"/></clipPath>
+</defs>
+<path d="M15.4,2.6H18.2A3.2,3.2 0 0 1 21.4,5.8V9.4A3.2,3.2 0 0 1 18.2,12.6H15.4A3.2,3.2 0 0 1 12.2,9.4V5.8A3.2,3.2 0 0 1 15.4,2.6Z" fill="url(#gW)" fill-opacity="0.95"/>
+<g clip-path="url(#c2)"><rect x="12" y="2.4" width="9.6" height="9.6" fill="url(#soft)" opacity=".45"/></g>
+<path d="M7,8.4H11.4A4.4,4.4 0 0 1 15.8,12.8V17A4.4,4.4 0 0 1 11.4,21.4H7A4.4,4.4 0 0 1 2.6,17V12.8A4.4,4.4 0 0 1 7,8.4Z" fill="url(#gA)" fill-opacity="0.95"/>
+<g clip-path="url(#c1)"><rect x="2.6" y="12.4" width="13.4" height="13.4" fill="url(#soft)" opacity=".45"/></g>
+<path d="M7.7,13.4H9.9A1.5,1.5 0 0 1 11.4,14.9A1.5,1.5 0 0 1 9.9,16.4H7.7A1.5,1.5 0 0 1 6.2,14.9A1.5,1.5 0 0 1 7.7,13.4Z" fill="url(#gW)" fill-opacity="0.92"/>
+</svg>

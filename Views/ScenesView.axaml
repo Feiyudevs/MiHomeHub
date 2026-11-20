@@ -8,14 +8,20 @@
          底部留白只在滚到末尾时露出来，静止时不占版面 -->
     <StackPanel x:DataType="vm:MainViewModel" Margin="0,0,16,20">
         <!-- 页头：图标徽章 + 标题说明，右侧「点击卡片可编辑」提示（无底无边）+ 刷新 -->
-        <Grid ColumnDefinitions="*,Auto,Auto" Margin="0,0,0,16">
+        <Grid ColumnDefinitions="*,Auto,Auto,Auto" Margin="0,0,0,16">
             <StackPanel Orientation="Horizontal" Spacing="12">
+                <!-- 徽章图标：几何按 24 网格画好交给 Viewbox 等比缩放居中。Path 单独用 Stretch=Uniform 时
+                     贴的是盒子左上角而不是正中，闪电包围盒 15×20 非正方形，直接缩会在徽章里整体偏左 -->
                 <Border Width="42" Height="42" CornerRadius="14" VerticalAlignment="Center"
                         Background="{DynamicResource AccentSoftBrush}">
-                    <Path Width="21" Height="21" Stretch="Uniform"
-                          StrokeThickness="1.7" StrokeLineCap="Round" StrokeJoin="Round"
-                          Stroke="{DynamicResource Accent2Brush}"
-                          Data="{StaticResource GeoBolt}" />
+                    <Viewbox Width="22" Height="22"
+                             HorizontalAlignment="Center" VerticalAlignment="Center">
+                        <Panel Width="24" Height="24">
+                            <Path StrokeThickness="1.9" StrokeLineCap="Round" StrokeJoin="Round"
+                                  Stroke="{DynamicResource Accent2Brush}"
+                                  Data="{StaticResource GeoBolt}" />
+                        </Panel>
+                    </Viewbox>
                 </Border>
                 <StackPanel VerticalAlignment="Center" Spacing="3">
                     <TextBlock Text="智能" FontSize="19" FontWeight="Bold"
@@ -34,7 +40,22 @@
                 <TextBlock Text="点击卡片可编辑" FontSize="11.5"
                            Foreground="{DynamicResource Text3Brush}" />
             </StackPanel>
-            <Button Grid.Column="2" Classes="BtnGhost" VerticalAlignment="Center"
+            <Button Grid.Column="2" Classes="BtnGhost" Margin="0,0,8,0" VerticalAlignment="Center"
+                    Command="{Binding OpenHotkeysPageCommand}"
+                    ToolTip.Tip="到快捷键控制区，用全局组合键控制设备与场景">
+                <StackPanel Orientation="Horizontal" Spacing="6">
+                    <!-- 13px 用单键帽 GeoKeycap：整键盘在这个尺寸上键位会糊成一团 -->
+                    <Viewbox Width="13" Height="13" VerticalAlignment="Center">
+                        <Panel Width="24" Height="24">
+                            <Path StrokeThickness="2.2" StrokeLineCap="Round" StrokeJoin="Round"
+                                  Stroke="{DynamicResource Text3Brush}"
+                                  Data="{StaticResource GeoKeycap}" />
+                        </Panel>
+                    </Viewbox>
+                    <TextBlock Text="快捷键" FontSize="12" FontWeight="Normal" />
+                </StackPanel>
+            </Button>
+            <Button Grid.Column="3" Classes="BtnGhost" VerticalAlignment="Center"
                     Command="{Binding LoadDevicesCommand}" IsEnabled="{Binding !IsLoading}"
                     ToolTip.Tip="重新拉取场景与自动化">
                 <StackPanel Orientation="Horizontal" Spacing="6">

@@ -87,11 +87,15 @@ public partial class TriggerEditorWindow : Window
         _devicePickerOpen = true;
         try
         {
-            var picker = new TriggerDevicePickerWindow();
-            picker.Load(_vm.TriggerDeviceCandidates, _vm.SelectedTriggerDeviceValue?.ToString());
+            var picker = new TargetPickerWindow();
+            picker.ConfigureSingleDevice(_vm.TriggerDeviceCandidates,
+                _vm.SelectedTriggerDeviceValue?.ToString(),
+                "点一台设备选中，确定后设置触发条件",
+                "确定后回到触发条件，继续选事件或状态");
             picker.FitTo(this);
 
-            if (await picker.ShowDialog<MijiaDevice?>(this) is { } device)
+            await picker.ShowDialog(this);
+            if (picker.SelectedDevice is { } device)
                 _vm.SelectedTriggerDeviceValue = device.Did;
         }
         catch (Exception ex)

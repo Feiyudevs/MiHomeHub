@@ -17,7 +17,7 @@ public static class NavIcons
     /// <summary>已生成玻璃 SVG 的 key，与 Assets/Nav/&lt;key&gt;.svg 同名。</summary>
     public static readonly HashSet<string> Glass = new()
     {
-        "home", "scene", "house", "sofa", "bed", "pot", "dining", "shower", "sink", "washer",
+        "home", "scene", "hotkey", "house", "sofa", "bed", "pot", "dining", "shower", "sink", "washer",
         "book", "window", "hanger", "screen", "plant", "door", "box", "cup",
         "tub", "stairs", "dumbbell", "car"
     };
@@ -27,6 +27,8 @@ public static class NavIcons
     {
         ["home"] = "M6,3.5 H9 Q11.5,3.5 11.5,6 V9 Q11.5,11.5 9,11.5 H6 Q3.5,11.5 3.5,9 V6 Q3.5,3.5 6,3.5 Z M15,3.5 H18 Q20.5,3.5 20.5,6 V9 Q20.5,11.5 18,11.5 H15 Q12.5,11.5 12.5,9 V6 Q12.5,3.5 15,3.5 Z M6,12.5 H9 Q11.5,12.5 11.5,15 V18 Q11.5,20.5 9,20.5 H6 Q3.5,20.5 3.5,18 V15 Q3.5,12.5 6,12.5 Z M15,12.5 H18 Q20.5,12.5 20.5,15 V18 Q20.5,20.5 18,20.5 H15 Q12.5,20.5 12.5,18 V15 Q12.5,12.5 15,12.5 Z",
         ["scene"] = "M9,5.5 L10.8,11.2 L16.5,13 L10.8,14.8 L9,20.5 L7.2,14.8 L1.5,13 L7.2,11.2 Z M18,2.3 L18.9,4.6 L21.2,5.5 L18.9,6.4 L18,8.7 L17.1,6.4 L14.8,5.5 L17.1,4.6 Z",
+        // 快捷键：与 Icons.axaml 的 GeoKeycap 同形（键帽 + 键位短横），玻璃版见 Assets/Nav/hotkey.svg
+        ["hotkey"] = "M5.2,6 H18.8 A2.6,2.6 0 0 1 21.4,8.6 V15.4 A2.6,2.6 0 0 1 18.8,18 H5.2 A2.6,2.6 0 0 1 2.6,15.4 V8.6 A2.6,2.6 0 0 1 5.2,6 Z M8.6,12 H15.4",
         ["house"] = "M4 10.8 L12 4 L20 10.8 V19 A1.6 1.6 0 0 1 18.4 20.6 H5.6 A1.6 1.6 0 0 1 4 19 Z M9.8 20.6 V14.4 A0.9 0.9 0 0 1 10.7 13.5 H13.3 A0.9 0.9 0 0 1 14.2 14.4 V20.6",
         ["sofa"] = "M6.5 12.5 V9.5 A1.5 1.5 0 0 1 8 8 H16 A1.5 1.5 0 0 1 17.5 9.5 V12.5 M3 12.5 A1.5 1.5 0 0 1 4.5 11 H19.5 A1.5 1.5 0 0 1 21 12.5 V16.5 A1.5 1.5 0 0 1 19.5 18 H4.5 A1.5 1.5 0 0 1 3 16.5 Z M9.5 13 V17 M14.5 13 V17 M6 18 V20 M18 18 V20",
         ["bed"] = "M3.5 20 V6.5 M3.5 14 H20.5 V17.5 H3.5 M6 17.5 V20 M18 17.5 V20 M7 14 V11 A1.5 1.5 0 0 1 8.5 9.5 H12 A1.5 1.5 0 0 1 13.5 11 V14",

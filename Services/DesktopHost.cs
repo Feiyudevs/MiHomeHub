@@ -33,7 +33,7 @@ public static class DesktopHost
     /// </summary>
     private static bool _hiddenByUser;
 
-    private static DesktopPickerWindow? _picker;
+    private static TargetPickerWindow? _picker;
     private static DesktopGroupPickWindow? _groupPicker;
     private static DesktopAppearanceWindow? _appearance;
     private static DeviceControlWindow? _deviceWindow;
@@ -586,10 +586,10 @@ public static class DesktopHost
     {
         if (_picker == null)
         {
-            _picker = new DesktopPickerWindow();
+            _picker = new TargetPickerWindow();
             _picker.Closed += (_, _) => _picker = null;
         }
-        _picker.Bind(vm);
+        _picker.ConfigureForGroup(vm);
         // 先按工作区收尺寸（小屏 / 高缩放下 956×736 会顶出屏幕，底部内容就滚不到），再定位
         _picker.FitToWorkArea();
         // 在当前屏幕工作区居中弹出（多屏时按光标所在的那块屏）

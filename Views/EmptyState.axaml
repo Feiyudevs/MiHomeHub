@@ -11,11 +11,16 @@
             <Border Width="48" Height="48" CornerRadius="15"
                     Background="{DynamicResource AccentSoftBrush}"
                     HorizontalAlignment="Center" VerticalAlignment="Center">
-                <Path Width="22" Height="22" Stretch="Uniform"
-                      HorizontalAlignment="Center" VerticalAlignment="Center"
-                      Stroke="{DynamicResource Accent2Brush}" StrokeThickness="1.6"
-                      StrokeLineCap="Round" StrokeJoin="Round"
-                      Data="{Binding #Root.Icon}" />
+                <!-- 图标交给 Viewbox 缩放：Path 单独用 Stretch 时按几何包围盒贴框左上角，
+                     非正方形几何（键盘 18×14、闪电 15×20）都会在圆底里偏左上 -->
+                <Viewbox Width="22" Height="22"
+                         HorizontalAlignment="Center" VerticalAlignment="Center">
+                    <Panel Width="24" Height="24">
+                        <Path Stroke="{DynamicResource Accent2Brush}" StrokeThickness="1.9"
+                              StrokeLineCap="Round" StrokeJoin="Round"
+                              Data="{Binding #Root.Icon}" />
+                    </Panel>
+                </Viewbox>
             </Border>
         </Panel>
         <TextBlock Text="{Binding #Root.Title}" FontSize="15" FontWeight="SemiBold"

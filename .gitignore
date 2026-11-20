@@ -54,11 +54,12 @@ artifacts/
 # Internal agent workflow notes (kept locally, not published)
 AGENTS.md
 
-# Internal competitive analysis / roadmap notes
-docs/功能对齐清单.md
+# 本地文档（卖点/视频脚本/宣传片等，不发布；已跟踪的截图与构建文档保留）
+docs/
 
-# Internal troubleshooting notes
-docs/透明窗口文字渲染修复经验.md
+# 本地草稿与展示工程
+scratch/
+showreel/
 
 # Early static design prototype (kept locally, not published)
 ui/

@@ -155,6 +155,8 @@ public partial class MainWindow
         {
             Dispatcher.UIThread.Post(() =>
             {
+                // 快捷键页不该留着展开的搜索框（离开时也不该把关键词带回去）
+                if (Vm?.SelectedNavIndex == 3 && _searchOpen) SetSearchOpen(false);
                 SyncNavSlider(true);
                 PlayPageEnter(Vm?.SelectedNavIndex ?? 0);
             }, DispatcherPriority.Background);

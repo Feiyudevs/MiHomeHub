@@ -153,7 +153,7 @@
     <!-- 外边距留给阴影，改动前先确认阴影扩散不会顶到窗口边缘 -->
     <Grid Margin="20">
         <Border x:Name="Card" CornerRadius="16"
-                Background="{DynamicResource CardBrush}"
+                Background="{DynamicResource CardSolidBrush}"
                 BorderBrush="{DynamicResource LineBrush}" BorderThickness="1"
                 BoxShadow="0 8 20 0 #59000000">
             <StackPanel Margin="7" Spacing="1">

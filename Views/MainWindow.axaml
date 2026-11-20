@@ -161,6 +161,7 @@
             <!-- 搜索：圆形按钮本身就地展开成输入框，点击时宽度从 32 长到 252 -->
             <Border Grid.Column="3" x:Name="SearchBox" Classes="SearchBox" Margin="12,0,0,0"
                     Focusable="True" IsTabStop="False"
+                    IsVisible="{Binding ShowSearchBox}"
                     PointerPressed="OnSearchBoxPressed">
                 <Grid ColumnDefinitions="30,*">
                     <!-- 放大镜固定在左端 30px 内圈正中：24 栅格原坐标 + Viewbox 等比缩放，
@@ -253,6 +254,8 @@
                                 Content="首页" Click="OnGotoHome" />
                         <Button Classes="NavRow" Classes.on="{Binding SelectedNavIndex, Converter={StaticResource IntEq}, ConverterParameter=2}" Tag="scene"
                                 Content="智能" Click="OnGotoScenes" />
+                        <Button Classes="NavRow" Classes.on="{Binding SelectedNavIndex, Converter={StaticResource IntEq}, ConverterParameter=3}" Tag="hotkey"
+                                Content="快捷键" Click="OnGotoHotkeys" />
                     </StackPanel>
                     <TextBlock DockPanel.Dock="Top" Classes="NavCaption" Text="{Binding RoomCount, StringFormat='房间 · {0}'}" />
                     <!-- 所有房间 -->
@@ -314,6 +317,9 @@
                         </ScrollViewer>
                         <ScrollViewer HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Auto">
                             <views:ScenesView />
+                        </ScrollViewer>
+                        <ScrollViewer HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Auto">
+                            <views:HotkeysView />
                         </ScrollViewer>
                     </Carousel>
                     <!-- ================= 设备遮罩（只盖圆角内容面板，不盖侧栏/标题栏；由外层 Border 裁出圆角） ================= -->

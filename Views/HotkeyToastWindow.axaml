@@ -1,0 +1,74 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        x:Class="MiHome.Views.HotkeyToastWindow"
+        Title="MiHomeHotkeyToast"
+        Width="342"
+        SizeToContent="Height"
+        ShowInTaskbar="False"
+        ShowActivated="False"
+        Topmost="True"
+        CanResize="False"
+        Focusable="False"
+        IsHitTestVisible="False"
+        SystemDecorations="None"
+        WindowStartupLocation="Manual"
+        TransparencyLevelHint="Transparent"
+        Background="Transparent"
+        RenderOptions.TextRenderingMode="Antialias">
+
+    <Window.Styles>
+        <!-- 桌面通知卡：和弹窗同一套 DrawerBgBrush + LineBrush，右下角轻投影 -->
+        <Style Selector="Border.TCard">
+            <Setter Property="Background" Value="{DynamicResource DrawerBgBrush}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource LineBrush}"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="CornerRadius" Value="16"/>
+            <Setter Property="BoxShadow" Value="0 10 26 0 #40000000"/>
+            <Setter Property="Padding" Value="14,12"/>
+            <Setter Property="Margin" Value="14,14,14,18"/>
+        </Style>
+        <Style Selector="Border.TIc">
+            <Setter Property="Width" Value="36"/>
+            <Setter Property="Height" Value="36"/>
+            <Setter Property="CornerRadius" Value="11"/>
+            <Setter Property="Background" Value="{DynamicResource AccentSoftBrush}"/>
+            <Setter Property="VerticalAlignment" Value="Top"/>
+        </Style>
+        <Style Selector="Path.TIc">
+            <Setter Property="Width" Value="16"/>
+            <Setter Property="Height" Value="16"/>
+            <Setter Property="Stretch" Value="Uniform"/>
+            <Setter Property="StrokeThickness" Value="1.7"/>
+            <Setter Property="StrokeLineCap" Value="Round"/>
+            <Setter Property="StrokeJoin" Value="Round"/>
+            <Setter Property="Stroke" Value="{DynamicResource Accent2Brush}"/>
+            <Setter Property="HorizontalAlignment" Value="Center"/>
+            <Setter Property="VerticalAlignment" Value="Center"/>
+        </Style>
+        <Style Selector="TextBlock.THead">
+            <Setter Property="FontSize" Value="13"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="Foreground" Value="{DynamicResource TextBrush}"/>
+            <Setter Property="TextTrimming" Value="CharacterEllipsis"/>
+        </Style>
+        <Style Selector="TextBlock.TBody">
+            <Setter Property="FontSize" Value="11.5"/>
+            <Setter Property="Foreground" Value="{DynamicResource Text3Brush}"/>
+            <Setter Property="TextWrapping" Value="Wrap"/>
+            <Setter Property="MaxLines" Value="2"/>
+        </Style>
+    </Window.Styles>
+
+    <Border Classes="TCard">
+        <Grid ColumnDefinitions="Auto,*">
+            <Border Classes="TIc">
+                <Path Classes="TIc" Data="{StaticResource GeoBolt}"/>
+            </Border>
+
+            <StackPanel Grid.Column="1" Margin="11,1,0,0" Spacing="3" VerticalAlignment="Center">
+                <TextBlock x:Name="HeadText" Classes="THead" Text="快捷键"/>
+                <TextBlock x:Name="BodyText" Classes="TBody" Text="已执行"/>
+            </StackPanel>
+        </Grid>
+    </Border>
+</Window>

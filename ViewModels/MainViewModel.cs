@@ -378,7 +378,15 @@ public partial class MainViewModel : ObservableObject
     public bool ShowAutomationNoMatch => !SyncPending && AutomationViewItems.Count == 0 && AutomationItems.Count > 0;
 
     /// <summary>标题栏搜索框水印：明说这一页搜的是什么，搜索跟着当前页走。</summary>
-    public string SearchWatermark => SelectedNavIndex == 2 ? "搜索场景、自动化…" : "搜索设备、房间…";
+    public string SearchWatermark => SelectedNavIndex switch
+    {
+        2 => "搜索场景、自动化…",
+        3 => "搜索已绑定的快捷键…",
+        _ => "搜索设备、房间…",
+    };
+
+    /// <summary>快捷键页没有标题栏可筛的列表，搜索胶囊整体收起。</summary>
+    public bool ShowSearchBox => SelectedNavIndex != 3;
 
     /// <summary>搜索框里有内容：标题栏右端显示一键清空钮。</summary>
     public bool HasSearchText => !string.IsNullOrEmpty(SearchText);
@@ -425,6 +433,9 @@ public partial class MainViewModel : ObservableObject
         _pollTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(PollSeconds) };
         _pollTimer.Tick += (_, _) => _ = PollTickAsync();
         _pollTimer.Start();
+
+        // 全局快捷键：装载 hotkeys.json、安装键盘钩子（窗口收起进托盘也常驻）
+        InitHotkeys();
     }
 
     /// <summary>
@@ -558,6 +569,9 @@ public partial class MainViewModel : ObservableObject
         SyncRoomChips();
         // 水印跟着页走：首页/房间搜设备，智能页搜场景与自动化
         OnPropertyChanged(nameof(SearchWatermark));
+        // 快捷键页没有可搜列表，整颗搜索胶囊收起
+        OnPropertyChanged(nameof(ShowSearchBox));
+        if (value == 3 && !string.IsNullOrEmpty(SearchText)) SearchText = "";
         // 切到智能页：立刻对齐一次启停态，避免看到手机端已改过的旧状态
         if (value == 2) _ = SyncSceneEnableStatesAsync(force: true);
     }
@@ -1254,6 +1268,8 @@ public partial class MainViewModel : ObservableObject
                     await Dispatcher.UIThread.InvokeAsync(() =>
                     {
                         foreach (var d in g) d.Icon = bmp;
+                        // 编辑弹窗开着时同步刷新卡片图标（打开时可能还没取到产品图）
+                        if (IsHotkeyEditorOpen) RefreshDraftStepDetails();
                     });
                 }
                 finally
@@ -1313,6 +1329,8 @@ public partial class MainViewModel : ObservableObject
             // 场景列表刚换过：展示集合同步套一次当前关键词
             ApplySceneFilter();
             UpdateStats();
+            // 快捷键的目标名 / 自动化启停态跟着场景一起刷新
+            RefreshHotkeyViews();
         });
     }
 

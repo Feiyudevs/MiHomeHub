@@ -140,27 +140,33 @@
         <!-- 灯光：亮度 + 色温（拖动松手后生效） -->
         <StackPanel Spacing="12" IsVisible="{Binding DrawerDevice.IsLight}">
             <Border Classes="DrCard">
-                <StackPanel Spacing="7">
+                <StackPanel Spacing="9">
                     <Grid ColumnDefinitions="*,Auto">
-                        <TextBlock Text="亮度" FontSize="12.5" Foreground="{DynamicResource Text2Brush}" />
-                        <TextBlock Grid.Column="1" FontSize="12.5" FontWeight="SemiBold"
-                                   Foreground="{DynamicResource Accent2Brush}"
+                        <TextBlock Text="亮度" FontSize="12.5" VerticalAlignment="Center"
+                                   Foreground="{DynamicResource Text2Brush}" />
+                        <TextBlock Grid.Column="1" FontSize="15" FontWeight="Bold"
+                                   Foreground="{DynamicResource TextBrush}"
                                    Text="{Binding DrawerDevice.Brightness, StringFormat='{}{0}%'}" />
                     </Grid>
-                    <Slider Classes="DrSlider" Minimum="1" Maximum="100"
+                    <!-- 与色温同一套胶囊滑杆，只是轨道去掉渐变、用纯色已填段表达档位 -->
+                    <Slider Classes="PillSlider" Minimum="1" Maximum="100"
                             Value="{Binding DrawerDevice.Brightness, Mode=TwoWay}"
                             IsEnabled="{Binding DrawerDevice.IsOnline}" />
                 </StackPanel>
             </Border>
             <Border Classes="DrCard">
-                <StackPanel Spacing="7">
+                <StackPanel Spacing="9">
                     <Grid ColumnDefinitions="*,Auto">
-                        <TextBlock Text="色温" FontSize="12.5" Foreground="{DynamicResource Text2Brush}" />
-                        <TextBlock Grid.Column="1" FontSize="12.5" FontWeight="SemiBold"
-                                   Foreground="{DynamicResource Accent2Brush}"
+                        <TextBlock Text="色温" FontSize="12.5" VerticalAlignment="Center"
+                                   Foreground="{DynamicResource Text2Brush}" />
+                        <TextBlock Grid.Column="1" FontSize="15" FontWeight="Bold"
+                                   Foreground="{DynamicResource TextBrush}"
                                    Text="{Binding DrawerDevice.ColorTemp, StringFormat='{}{0}K'}" />
                     </Grid>
-                    <Slider Classes="DrSlider" Minimum="2700" Maximum="6500" TickFrequency="100"
+                    <!-- 整根轨道就是色温光谱；Foreground 透明把已填段藏掉，滑块只落在渐变上 -->
+                    <Slider Classes="PillSlider" Minimum="2700" Maximum="6500" TickFrequency="100"
+                            Background="{DynamicResource ColorTempTrackBrush}"
+                            Foreground="Transparent"
                             Value="{Binding DrawerDevice.ColorTemp, Mode=TwoWay}"
                             IsEnabled="{Binding DrawerDevice.IsOnline}" />
                 </StackPanel>
