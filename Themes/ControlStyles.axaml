@@ -1539,14 +1539,17 @@
                                 <RepeatButton Name="PART_DecreaseButton"
                                               Background="Transparent" BorderThickness="0" Focusable="False"
                                               HorizontalAlignment="Stretch" VerticalAlignment="Stretch"
+                                              ClipToBounds="False"
                                               Padding="0" Margin="0">
                                     <RepeatButton.Template>
                                         <ControlTemplate>
-                                            <!-- 已填段：盖在轨道上表达档位；色温把 Foreground 设成透明就露不出这一段 -->
-                                            <Border Height="12" CornerRadius="6"
-                                                    HorizontalAlignment="Stretch" VerticalAlignment="Center"
-                                                    Background="{Binding $parent[Slider].Foreground}" />
-                                            <Border Background="Transparent" />
+                                            <!-- 已填段：盖在轨道上表达档位；色温把 Foreground 设成透明就露不出这一段。
+                                                 右端负边距 = 圆点半径，让进度条穿过圆点圆心而不是停在它左边 -->
+                                            <Grid Background="Transparent">
+                                                <Border Height="12" CornerRadius="6,0,0,6" Margin="0,0,-10,0"
+                                                        HorizontalAlignment="Stretch" VerticalAlignment="Center"
+                                                        Background="{Binding $parent[Slider].Foreground}" />
+                                            </Grid>
                                         </ControlTemplate>
                                     </RepeatButton.Template>
                                 </RepeatButton>

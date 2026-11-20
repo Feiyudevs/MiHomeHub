@@ -162,14 +162,14 @@
                     <SolidColorBrush x:Key="SliderThumbBackground" Color="#FFFFFF"/>
                     <SolidColorBrush x:Key="SliderThumbBackgroundPointerOver" Color="#FFFFFF"/>
                     <SolidColorBrush x:Key="SliderThumbBackgroundPressed" Color="#EDEFF6"/>
-                    <!-- 胶囊滑杆（深色）：色温轨道走一整条蓝→中性→暖的渐变，
+                    <!-- 胶囊滑杆（深色）：色温轨道走一整条冷→暖的渐变（百分比单位，普通数字会按像素解析导致整条只剩末端色），
                          亮度轨道只用纯色（不带渐变），靠已填段长度表达档位 -->
-                    <LinearGradientBrush x:Key="ColorTempTrackBrush" StartPoint="0,0" EndPoint="1,0">
-                        <GradientStop Color="#3B5FE0" Offset="0"/>
-                        <GradientStop Color="#6E79D6" Offset="0.28"/>
-                        <GradientStop Color="#A38BB4" Offset="0.55"/>
-                        <GradientStop Color="#C58C4A" Offset="0.8"/>
-                        <GradientStop Color="#AE7222" Offset="1"/>
+                    <LinearGradientBrush x:Key="ColorTempTrackBrush" StartPoint="0%,0%" EndPoint="100%,0%">
+                        <GradientStop Color="#3B63E2" Offset="0"/>
+                        <GradientStop Color="#7585DE" Offset="0.3"/>
+                        <GradientStop Color="#B49AB2" Offset="0.55"/>
+                        <GradientStop Color="#CE9550" Offset="0.78"/>
+                        <GradientStop Color="#C27A1B" Offset="1"/>
                     </LinearGradientBrush>
                     <SolidColorBrush x:Key="PillFillBrush" Color="#8B7CFF"/>
                     <SolidColorBrush x:Key="MaskBrush" Color="#4A000000"/>
@@ -375,13 +375,13 @@
                     <SolidColorBrush x:Key="SliderThumbBackground" Color="#FFFFFF"/>
                     <SolidColorBrush x:Key="SliderThumbBackgroundPointerOver" Color="#FFFFFF"/>
                     <SolidColorBrush x:Key="SliderThumbBackgroundPressed" Color="#EDEFF6"/>
-                    <!-- 胶囊滑杆（浅色）：同一套色温渐变，端点压深一点保证浅底可辨 -->
-                    <LinearGradientBrush x:Key="ColorTempTrackBrush" StartPoint="0,0" EndPoint="1,0">
+                    <!-- 胶囊滑杆（浅色）：同一套冷→暖渐变，端点压深一点保证浅底可辨 -->
+                    <LinearGradientBrush x:Key="ColorTempTrackBrush" StartPoint="0%,0%" EndPoint="100%,0%">
                         <GradientStop Color="#2F55D4" Offset="0"/>
-                        <GradientStop Color="#5F6FCE" Offset="0.28"/>
-                        <GradientStop Color="#9880AC" Offset="0.55"/>
-                        <GradientStop Color="#BC7C38" Offset="0.8"/>
-                        <GradientStop Color="#9E6418" Offset="1"/>
+                        <GradientStop Color="#5F72CC" Offset="0.3"/>
+                        <GradientStop Color="#94799F" Offset="0.55"/>
+                        <GradientStop Color="#B7772E" Offset="0.78"/>
+                        <GradientStop Color="#A86714" Offset="1"/>
                     </LinearGradientBrush>
                     <SolidColorBrush x:Key="PillFillBrush" Color="#6D5BE3"/>
                     <SolidColorBrush x:Key="MaskBrush" Color="#340F172A"/>
