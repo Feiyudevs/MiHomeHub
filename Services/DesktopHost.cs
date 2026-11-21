@@ -51,6 +51,9 @@ public static class DesktopHost
     /// <summary>双击桌面临时收起中（不代表设置里的总开关）。</summary>
     public static bool HiddenByUser => _hiddenByUser;
 
+    /// <summary>此刻桌面上是否真有分区在显示（总开关开着且没被临时收起）。</summary>
+    public static bool WidgetsVisible => _layout.Enabled && !_hiddenByUser;
+
     public static int GroupCount => Groups.Count;
 
     public static IReadOnlyList<DesktopZoneVm> GroupList => Groups;
@@ -363,6 +366,21 @@ public static class DesktopHost
             HideAll();
             _main.AppendLog("桌面组件已隐藏");
         }
+    }
+
+    /// <summary>
+    /// 托盘菜单的「显示 / 隐藏桌面组件」：总开关关着时先把桌面组件打开（托盘本身就是快捷入口），
+    /// 开着则走和双击桌面同一套运行期切换，不写回配置里的总开关。
+    /// </summary>
+    public static void ToggleFromTray()
+    {
+        if (_main == null) return;
+        if (!_layout.Enabled)
+        {
+            _main.DesktopWidgetsEnabled = true;
+            return;
+        }
+        ToggleVisibilityFromDesktop();
     }
 
     /// <summary>光标是否落在任意一块桌面分区窗里（双击桌面的空白判定要排除它们）。</summary>

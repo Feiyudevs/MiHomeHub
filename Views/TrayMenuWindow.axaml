@@ -5,7 +5,7 @@
         x:Class="MiHome.Views.TrayMenuWindow"
         x:DataType="vm:MainViewModel"
         Title="米家 · 控制中心"
-        Width="272" Height="259"
+        Width="272" Height="300"
         SystemDecorations="None"
         CanResize="False"
         ShowInTaskbar="False"
@@ -233,6 +233,16 @@
                             </Path>
                         </Border>
                         <TextBlock Grid.Column="1" Text="显示主界面" Margin="6,0,0,0" />
+                    </Grid>
+                </Button>
+
+                <Button Classes="TrayItem" Click="OnToggleDesktopClick">
+                    <Grid ColumnDefinitions="20,*">
+                        <Border Width="20" Height="40" Grid.Column="0">
+                            <Path Width="14" Height="14" Stretch="Uniform" HorizontalAlignment="Center" VerticalAlignment="Center"
+                                  Data="{StaticResource GeoGrid}" />
+                        </Border>
+                        <TextBlock Grid.Column="1" x:Name="DesktopText" Text="隐藏桌面组件" Margin="6,0,0,0" />
                     </Grid>
                 </Button>
 

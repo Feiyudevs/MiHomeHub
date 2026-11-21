@@ -97,6 +97,7 @@ public partial class App : Application
     {
         _trayMenu = new TrayMenuWindow((MainViewModel)main.DataContext!);
         _trayMenu.ShowMainRequested += () => ShowMainWindow(main);
+        _trayMenu.ToggleDesktopWidgetsRequested += Services.DesktopHost.ToggleFromTray;
         _trayMenu.ToggleThemeRequested += () => ToggleTheme(main);
         _trayMenu.RestartRequested += () => RestartApplication(main);
         _trayMenu.ExitRequested += main.ExitApplication;

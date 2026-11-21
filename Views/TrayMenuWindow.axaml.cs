@@ -28,8 +28,9 @@ public partial class TrayMenuWindow : Window
 
     // 有音箱时多出的媒体块高度（下拉 32 + 间距 + 三键 34 + 上下留白 + 分隔线）
     private const double MediaBlockHeight = 94;
-    // 基础高度含顶部「米家控制中心」标题行（26 + 与下一项的 1px 间距）
-    private const double BaseHeight = 259;
+    // 基础高度含顶部「米家控制中心」标题行（26 + 与下一项的 1px 间距），
+    // 以及显示主界面 / 显示隐藏桌面组件 / 切换主题 / 重新启动 / 退出 五行菜单
+    private const double BaseHeight = 300;
 
     private readonly MainViewModel _vm;
     private readonly ScaleTransform _scale = new(1, 1);
@@ -43,6 +44,7 @@ public partial class TrayMenuWindow : Window
     private long _hiddenAt;
 
     public event Action? ShowMainRequested;
+    public event Action? ToggleDesktopWidgetsRequested;
     public event Action? ToggleThemeRequested;
     public event Action? RestartRequested;
     public event Action? ExitRequested;
@@ -117,6 +119,7 @@ public partial class TrayMenuWindow : Window
         _anchor = anchor;
         Height = _vm.TrayMediaSlot ? BaseHeight + MediaBlockHeight : BaseHeight;
         RefreshThemeEntry();
+        RefreshDesktopEntry();
         PlaceNear(screen, anchor);
         Show();
         Activate();
@@ -129,6 +132,14 @@ public partial class TrayMenuWindow : Window
         ThemeText.Text = light ? "切换深色主题" : "切换浅色主题";
         SunIcon.IsVisible = !light;
         MoonIcon.IsVisible = light;
+    }
+
+    /// <summary>菜单项按此刻桌面上的真实状态显示：看得见就是「隐藏」，看不见就是「显示」。</summary>
+    private void RefreshDesktopEntry()
+    {
+        // 总开关关着时桌面上没有分区，点它就是重新打开
+        var visible = DesktopHost.WidgetsVisible;
+        DesktopText.Text = visible ? "隐藏桌面组件" : "显示桌面组件";
     }
 
     private void AnimateIn()
@@ -163,6 +174,12 @@ public partial class TrayMenuWindow : Window
     {
         Dismiss();
         ShowMainRequested?.Invoke();
+    }
+
+    private void OnToggleDesktopClick(object? sender, RoutedEventArgs e)
+    {
+        Dismiss();
+        ToggleDesktopWidgetsRequested?.Invoke();
     }
 
     private void OnToggleThemeClick(object? sender, RoutedEventArgs e)
