@@ -35,6 +35,18 @@ function Write-FileText([string]$path, [string]$text) {
     [System.IO.File]::WriteAllText($path, $text, $encoding)
 }
 
+function Get-Sha256([string]$path) {
+    $sha = [System.Security.Cryptography.SHA256]::Create()
+    $stream = [System.IO.File]::OpenRead($path)
+    try {
+        $bytes = $sha.ComputeHash($stream)
+    } finally {
+        $stream.Dispose()
+        $sha.Dispose()
+    }
+    return ([System.BitConverter]::ToString($bytes) -replace "-", "").ToLowerInvariant()
+}
+
 function Read-ProjectVersion([string]$path) {
     $text = Read-FileText $path
     $m = [regex]::Match($text, '<Version>([^<]+)</Version>')
@@ -105,13 +117,14 @@ function Stop-PublishInstance([string]$exePath) {
     $target = [System.IO.Path]::GetFullPath($exePath)
     $publishRoot = [System.IO.Path]::GetFullPath((Join-Path (Split-Path -Parent (Split-Path -Parent $exePath)) ""))
     # 同时杀 sc-win-x64 与 release\<ver>\ 下的 MiHome.exe：后者可能是硬链接残留实例，会锁住归档文件
-    $running = @(Get-CimInstance Win32_Process -ErrorAction SilentlyContinue | Where-Object {
-        $_.ExecutablePath -and $(
-            $p = [System.IO.Path]::GetFullPath($_.ExecutablePath)
-            ($p -ieq $target) -or
-            ($_.Name -ieq "MiHome.exe" -and $p.StartsWith($publishRoot, [StringComparison]::OrdinalIgnoreCase))
-        )
-    })
+    $running = @()
+    foreach ($proc in (Get-CimInstance Win32_Process -ErrorAction SilentlyContinue)) {
+        if (-not $proc.ExecutablePath) { continue }
+        $full = [System.IO.Path]::GetFullPath($proc.ExecutablePath)
+        $isTarget = ($full -ieq $target)
+        $isProjectExe = (($proc.Name -ieq "MiHome.exe") -and $full.StartsWith($publishRoot, [StringComparison]::OrdinalIgnoreCase))
+        if ($isTarget -or $isProjectExe) { $running += $proc }
+    }
     if ($running.Count -eq 0) { return }
 
     $ids = ($running | ForEach-Object { $_.ProcessId }) -join ", "
@@ -201,7 +214,7 @@ if ($setupPath) { $artifacts += $setupPath }
 
 $hashLines = @()
 foreach ($file in $artifacts) {
-    $hash = (Get-FileHash -Algorithm SHA256 -LiteralPath $file).Hash.ToLowerInvariant()
+    $hash = Get-Sha256 $file
     $hashLines += ("{0}  {1}" -f $hash, (Split-Path -Leaf $file))
 }
 [System.IO.File]::WriteAllLines(
