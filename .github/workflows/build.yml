@@ -1,15 +1,25 @@
-name: build
+name: package
 
 on:
   push:
     branches: [main]
+    tags: ['v*']
   pull_request:
     branches: [main]
   workflow_dispatch:
 
+concurrency:
+  group: package-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  RID: win-x64
+
 jobs:
-  build:
+  package:
     runs-on: windows-latest
+    permissions:
+      contents: write
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -19,10 +29,80 @@ jobs:
         with:
           dotnet-version: '10.0.301'
 
+      - name: Resolve version
+        id: ver
+        shell: pwsh
+        run: |
+          $v = [regex]::Match((Get-Content MiHome.csproj -Raw), '<Version>([^<]+)</Version>').Groups[1].Value.Trim()
+          "version=$v" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
+          Write-Host "version = $v"
+
       - name: Restore
         run: dotnet restore MiHome.csproj -p:Configuration=Release
-        shell: cmd
+        shell: pwsh
 
-      - name: Build (Release / win-x64)
-        run: dotnet build MiHome.csproj -c Release --no-restore
-        shell: cmd
+      - name: Publish single-file exe
+        shell: pwsh
+        run: |
+          if (-not $env:ProgramFiles) { $env:ProgramFiles = "C:\Program Files" }
+          if (-not $env:ProgramW6432) { $env:ProgramW6432 = "C:\Program Files" }
+          if (-not ${env:ProgramFiles(x86)}) { ${env:ProgramFiles(x86)} = "C:\Program Files (x86)" }
+          .\scripts\publish-sc.ps1 -Rid $env:RID -Configuration Release
+
+      - name: Install Inno Setup 6
+        shell: pwsh
+        run: choco install innosetup --no-progress -y
+
+      - name: Build installer
+        shell: pwsh
+        run: |
+          $iscc = @(
+            "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe",
+            "$env:ProgramFiles\Inno Setup 6\ISCC.exe",
+            "$env:LOCALAPPDATA\Programs\Inno Setup 6\ISCC.exe"
+          ) | Where-Object { Test-Path -LiteralPath $_ } | Select-Object -First 1
+          if (-not $iscc) { throw "ISCC.exe not found" }
+          & $iscc installer\MiHome.iss
+          if ($LASTEXITCODE -ne 0) { throw "ISCC failed with exit code $LASTEXITCODE" }
+
+      - name: Collect artifacts + SHA256
+        shell: pwsh
+        run: |
+          $v = "${{ steps.ver.outputs.version }}"
+          $releaseDir = Join-Path $PWD "publish\release\$v"
+          $exe = Join-Path $PWD "publish\sc-$env:RID\MiHome.exe"
+          $setup = Join-Path $releaseDir "MiHome-Setup-$v-win-x64.exe"
+          if (-not (Test-Path -LiteralPath $exe)) { throw "published exe not found: $exe" }
+          if (-not (Test-Path -LiteralPath $setup)) { throw "installer not found: $setup" }
+
+          Copy-Item -LiteralPath $exe -Destination (Join-Path $releaseDir "MiHome.exe") -Force
+          $lines = @()
+          foreach ($f in @((Join-Path $releaseDir "MiHome.exe"), $setup)) {
+            $h = (Get-FileHash -Algorithm SHA256 -LiteralPath $f).Hash.ToLowerInvariant()
+            $lines += ("{0}  {1}" -f $h, (Split-Path -Leaf $f))
+          }
+          [System.IO.File]::WriteAllLines(
+            (Join-Path $releaseDir "SHA256SUMS.txt"),
+            [string[]]$lines,
+            (New-Object System.Text.UTF8Encoding($false))
+          )
+          Get-ChildItem -LiteralPath $releaseDir -File |
+            ForEach-Object { Write-Host ("{0}  {1} MB" -f $_.Name, [math]::Round($_.Length / 1MB, 2)) }
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: MiHome-${{ steps.ver.outputs.version }}-${{ env.RID }}
+          path: publish/release/${{ steps.ver.outputs.version }}/
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Create GitHub Release (tags only)
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            publish/release/${{ steps.ver.outputs.version }}/MiHome.exe
+            publish/release/${{ steps.ver.outputs.version }}/MiHome-Setup-${{ steps.ver.outputs.version }}-${{ env.RID }}.exe
+            publish/release/${{ steps.ver.outputs.version }}/SHA256SUMS.txt
+          generate_release_notes: true
