@@ -1,0 +1,35 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="clr-namespace:MiHome.ViewModels"
+             xmlns:ctl="clr-namespace:MiHome.Controls"
+             x:Class="MiHome.Views.UpdateRequiredDialogView"
+             x:DataType="vm:MainViewModel">
+    <!-- 强制更新：后台 force=true 时唯一允许的模态提示，只能升级或退出，不给跳过 -->
+    <ctl:DialogPopup CardWidth="520" Title="需要更新后才能继续使用"
+                     Subtitle="此版本已被标记为必须升级"
+                     IsOpen="{Binding IsForceUpdateOpen}">
+        <ctl:DialogPopup.Footer>
+            <Border BorderBrush="{DynamicResource LineBrush}" BorderThickness="0,1,0,0"
+                    Padding="0,14,0,0" Margin="28,0,22,20">
+                <Grid ColumnDefinitions="*,Auto,Auto">
+                    <TextBlock Text="升级会保留设置与登录态" FontSize="11"
+                               Foreground="{DynamicResource TextSubBrush}" VerticalAlignment="Center" />
+                    <Button Grid.Column="1" Classes="BtnGhost" Height="34" Content="退出"
+                            Command="{Binding ExitAppCommand}" />
+                    <Button Grid.Column="2" Classes="BtnPrimary" Height="34" Margin="8,0,0,0"
+                            Content="立即更新" Command="{Binding InstallUpdateCommand}" />
+                </Grid>
+            </Border>
+        </ctl:DialogPopup.Footer>
+        <StackPanel Spacing="12">
+            <TextBlock Text="{Binding UpdateStatusText}" FontSize="13.5" FontWeight="SemiBold"
+                       Foreground="{DynamicResource TextBrush}" TextWrapping="Wrap" />
+            <ScrollViewer MaxHeight="220" VerticalScrollBarVisibility="Auto"
+                          IsVisible="{Binding UpdateNotes, Converter={x:Static StringConverters.IsNotNullOrEmpty}}">
+                <TextBlock Text="{Binding UpdateNotes}" Classes="Hint Sub" TextWrapping="Wrap" />
+            </ScrollViewer>
+            <ProgressBar Height="4" Minimum="0" Maximum="1"
+                         Value="{Binding UpdateProgress}" IsVisible="{Binding IsUpdateBusy}" />
+        </StackPanel>
+    </ctl:DialogPopup>
+</UserControl>

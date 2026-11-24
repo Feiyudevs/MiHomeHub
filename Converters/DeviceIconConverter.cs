@@ -21,6 +21,10 @@ public sealed class DeviceIconConverter : IValueConverter
     private const string Socket = "M6.5,12 A5.5,5.5 0 0 1 17.5,12 A5.5,5.5 0 0 1 6.5,12 Z M10,9.6 V14.4 M14,9.6 V14.4";
     private const string Curtain = "M3.5,6 H20.5 M7,6 V17.5 M17,6 V17.5 M3.5,20 H20.5";
     private const string AirCon = "M4,5 H20 V11.5 H4 Z M7.5,15.5 H13.5 M10.5,19 H16.5";
+    // 风扇：中心轮毂 + 三片桨叶 + 立柱底座，缩到 15px 也能看出是风扇
+    private const string Fan = "M9.6,12 A2.4,2.4 0 0 1 14.4,12 A2.4,2.4 0 0 1 9.6,12 M12,9.6 V5.4 M14.2,13.3 L17.9,15.4 M9.8,13.3 L6.1,15.4 M12,16.4 V19.4 M8.4,19.4 H15.6";
+    // 摄像头：机身 + 镜头圆 + 顶部支架，一眼能和音箱/插座区分
+    private const string Camera = "M5,9 H19 A1.5,1.5 0 0 1 20.5,10.5 V15 A1.5,1.5 0 0 1 19,16.5 H5 A1.5,1.5 0 0 1 3.5,15 V10.5 A1.5,1.5 0 0 1 5,9 Z M9.5,12.8 A2.8,2.8 0 0 1 15.1,12.8 A2.8,2.8 0 0 1 9.5,12.8 Z M8,9 V7.5 A1.5,1.5 0 0 1 9.5,6 H15";
     private const string Device = "M6,5.5 H18 V18.5 H6 Z M10.5,12 H13.5";
 
     // 图标形状固定，所有卡片只读共享，避免滚动重新绑定时重复解析和分配原生路径。
@@ -29,6 +33,8 @@ public sealed class DeviceIconConverter : IValueConverter
     private static readonly Geometry SocketGeometry = Geometry.Parse(Socket);
     private static readonly Geometry CurtainGeometry = Geometry.Parse(Curtain);
     private static readonly Geometry AirConGeometry = Geometry.Parse(AirCon);
+    private static readonly Geometry FanGeometry = Geometry.Parse(Fan);
+    private static readonly Geometry CameraGeometry = Geometry.Parse(Camera);
     private static readonly Geometry DeviceGeometry = Geometry.Parse(Device);
 
     public static readonly DeviceIconConverter Instance = new();
@@ -52,6 +58,8 @@ public sealed class DeviceIconConverter : IValueConverter
         "socket" => SocketGeometry,
         "curtain" => CurtainGeometry,
         "ac" => AirConGeometry,
+        "fan" => FanGeometry,
+        "camera" => CameraGeometry,
         _ => DeviceGeometry
     };
 

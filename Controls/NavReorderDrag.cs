@@ -15,7 +15,7 @@ namespace MiHome.Controls;
 /// <summary>
 /// 侧栏房间行的拖拽排序，两种入口：
 /// ① 在房间行上按住约 0.3 秒（长按）进入拖动；按住后直接上下拖也算，移动超过阈值就进拖动，
-/// ② 鼠标悬停时卡片内右侧浮出一个六点抓手（模板里的 Border#Grip），按住抓手立即拖动，不必等长按。
+/// ② 鼠标悬停时行左缘（选中竖条的同一槽位）淡淡浮出一个六点抓手（模板里的 Border#Grip），按住抓手立即拖动，不必等长按。
 ///
 /// 拖动中的反馈（都在 NavDragLayer 这层纯视觉画布上）：
 /// · 一张跟着指针走的浮卡，写着正在拖的房间名；
@@ -37,7 +37,7 @@ public sealed class NavReorderDrag
     private const double EdgeStep = 9;
 
     /// <summary>落点线高度的一半：线中心压在插入缝上。</summary>
-    private const double BarHalf = 1.5;
+    private const double BarHalf = 1;
 
     /// <summary>行卡片相对容器矩形的内缩，与模板里 Border#Bg 的 Margin="10,3,10,3" 对齐。</summary>
     private const double CardInsetX = 10;

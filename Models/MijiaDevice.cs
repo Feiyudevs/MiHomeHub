@@ -184,6 +184,36 @@ public partial class MijiaDevice : ObservableObject
     /// <summary>是否窗帘（决定抽屉显示打开/暂停/关闭面板）。</summary>
     [JsonIgnore] public bool IsCurtain => Category == "curtain";
 
+    /// <summary>
+    /// 是否风扇类（落地扇 / 循环扇 / 塔扇 / 吊扇）：抽屉里按规格显示档位、摆风、模式。
+    /// 大类写 fan 或带 fan 的都算；个别型号 spec_type 缺失时按 model 兜底（dmaker.fan / zhimi.fan）。
+    /// </summary>
+    [JsonIgnore]
+    public bool IsFan
+    {
+        get
+        {
+            if (Category.Contains("fan", StringComparison.Ordinal)) return true;
+            var m = Model.ToLowerInvariant();
+            return Category.Length == 0 && (m.Contains(".fan.") || m.StartsWith("dmaker.fan", StringComparison.Ordinal));
+        }
+    }
+
+    /// <summary>
+    /// 是否摄像头 / 可视门铃：抽屉里给「监控画面」入口。
+    /// 米家云端接口不提供画面（画面要本地 P2P 拉流），入口接的是本地 go2rtc 桥接，见 CameraBridge。
+    /// </summary>
+    [JsonIgnore]
+    public bool IsCamera
+    {
+        get
+        {
+            if (Category.Contains("camera", StringComparison.Ordinal)) return true;
+            var m = Model.ToLowerInvariant();
+            return m.Contains(".camera.") || m.Contains(".ipc") || m.Contains(".doorbell");
+        }
+    }
+
     /// <summary>抽屉里的整机电源开关卡片（开关类走多路通道卡片，不重复显示）。</summary>
     [JsonIgnore] public bool IsPower => HasPower;
 
@@ -221,6 +251,38 @@ public partial class MijiaDevice : ObservableObject
         foreach (var o in _acSchema.Fans) o.IsSelected = o.Value == value;
     }
 
+    // ===== 风扇：档位 / 摆风 / 模式（siid/piid 由设备规格解析） =====
+
+    /// <summary>该风扇的控制参数（按设备规格解析），决定抽屉里档位/摆风/模式的显示与下发。</summary>
+    [property: JsonIgnore] [ObservableProperty] private FanControlSchema? _fanSchema;
+
+    /// <summary>风扇档位当前值（枚举档或连续量程都落在这里）。</summary>
+    [property: JsonIgnore] [ObservableProperty] private int _fanLevel;
+
+    /// <summary>无级调速当前值（speed-level，1–100；0 表示该型号没有这条属性）。</summary>
+    [property: JsonIgnore] [ObservableProperty] private int _fanSpeed;
+
+    /// <summary>风扇模式当前值（0 表示该型号没有模式属性）。</summary>
+    [property: JsonIgnore] [ObservableProperty] private int _fanMode;
+
+    /// <summary>左右摆风是否开启。</summary>
+    [property: JsonIgnore] [ObservableProperty] private bool _swingHOn;
+
+    /// <summary>上下摆风是否开启。</summary>
+    [property: JsonIgnore] [ObservableProperty] private bool _swingVOn;
+
+    partial void OnFanLevelChanged(int value)
+    {
+        if (_fanSchema == null) return;
+        foreach (var o in _fanSchema.Levels) o.IsSelected = o.Value == value;
+    }
+
+    partial void OnFanModeChanged(int value)
+    {
+        if (_fanSchema == null) return;
+        foreach (var o in _fanSchema.Modes) o.IsSelected = o.Value == value;
+    }
+
     /// <summary>
     /// 图标 key：优先 spec_type 里的设备大类；没有 spec_type 时才退回 model 前缀猜，
     /// 有大类但不认识的直接归到通用图标，免得 model 里带 "switch" 的传感器被当成可开关设备。
@@ -242,6 +304,8 @@ public partial class MijiaDevice : ObservableObject
                 case "curtain": return "curtain";
                 case "air-conditioner": return "ac";
                 case "bath-heater": return "light"; // 浴霸的 siid=2/piid=1 实测是整机 bool on
+                case "fan": return "fan";
+                case "camera": return "camera";
                 case "": break;
                 default: return "device";
             }
@@ -315,7 +379,7 @@ public partial class MijiaDevice : ObservableObject
         ParseDid();
         if (Spec != null) return;
         var key = IconKey;
-        var legacyPower = key is "light" or "socket" or "ac";
+        var legacyPower = key is "light" or "socket" or "ac" or "fan" or "camera";
         HasPower = legacyPower;
         if (legacyPower)
         {
@@ -364,6 +428,7 @@ public partial class MijiaDevice : ObservableObject
         }
 
         ApplySpeaker(spec);
+        if (IsFan) ApplyFan(spec);
         ApplyConsumables(spec);
         RaiseControlChanged();
     }
@@ -403,6 +468,99 @@ public partial class MijiaDevice : ObservableObject
         TextDirectiveAiid = text?.Aiid ?? 0;
         PlayingStateSiid = playingState?.Siid ?? 0;
         PlayingStatePiid = playingState?.Piid ?? 0;
+    }
+
+    /// <summary>
+    /// 按规格解析风扇能力：档位（fan-level / speed-level，离散 or 量程）、摆风（bool）、模式（枚举）。
+    /// 只认可写属性，读不到可写档位时面板不显示风速卡，剩下的属性仍走通用高级设置。
+    /// </summary>
+    private void ApplyFan(DeviceSpec spec)
+    {
+        var schema = new FanControlSchema();
+
+        var level = spec.Properties.FirstOrDefault(p => p.Writable && p.IsNumeric && p.Name == "fan-level")
+                 ?? spec.Properties.FirstOrDefault(p => p.Writable && p.IsNumeric &&
+                        p.Name.StartsWith("fan-level", StringComparison.Ordinal))
+                 ?? spec.Properties.FirstOrDefault(p => p.Writable && p.IsNumeric &&
+                        p.Name is "wind-level" or "fan-speed" or "fan_speed")
+                 ?? spec.Properties.FirstOrDefault(p => p.Writable && p.IsNumeric &&
+                        p.ServiceName.StartsWith("fan", StringComparison.Ordinal) &&
+                        p.Name.Contains("level", StringComparison.Ordinal) &&
+                        !p.Name.Contains("angle", StringComparison.Ordinal));
+        if (level != null)
+        {
+            schema.LevelSiid = level.Siid;
+            schema.LevelPiid = level.Piid;
+            if (level.Options.Count > 0)
+            {
+                foreach (var o in level.Options)
+                    schema.Levels.Add(new AcOptionItem { Value = o.Value, Label = o.Label });
+            }
+            else if (level.HasRange)
+            {
+                schema.LevelHasRange = true;
+                schema.LevelMin = level.Min;
+                schema.LevelMax = level.Max;
+                schema.LevelStep = level.Step <= 0 ? 1 : level.Step;
+            }
+        }
+
+        // 无级调速是另一条属性（dmaker.fan.p9 之类同时有 1–4 挡和无级 1–100），单独出滑杆
+        var speed = spec.Properties.FirstOrDefault(p => p.Writable && p.IsNumeric &&
+            p.Name is "speed-level" or "fan-speed-percent" or "speed-percent" &&
+            !ReferenceEquals(p, level));
+        if (speed != null)
+        {
+            schema.SpeedSiid = speed.Siid;
+            schema.SpeedPiid = speed.Piid;
+            schema.SpeedHasRange = speed.HasRange;
+            if (speed.HasRange)
+            {
+                schema.SpeedMin = speed.Min;
+                schema.SpeedMax = speed.Max;
+                schema.SpeedStep = speed.Step <= 0 ? 1 : speed.Step;
+            }
+        }
+
+        var swingH = spec.Properties.FirstOrDefault(p => p.Writable && p.IsBool &&
+            p.Name is "horizontal-swing" or "swing-horizontal" or "swing-h");
+        var swingV = spec.Properties.FirstOrDefault(p => p.Writable && p.IsBool &&
+            p.Name is "vertical-swing" or "swing-vertical" or "swing-v");
+        // 只有一个摆风属性、名字就叫 swing 的型号，按左右摆风处理
+        var swingAny = spec.Properties.FirstOrDefault(p =>
+            p.Writable && p.IsBool && p.Name == "swing" && p.ServiceName.StartsWith("fan", StringComparison.Ordinal));
+        if (swingH != null || swingAny != null)
+        {
+            var sw = swingH ?? swingAny!;
+            schema.SwingHSiid = sw.Siid;
+            schema.SwingHPiid = sw.Piid;
+        }
+        if (swingV != null)
+        {
+            schema.SwingVSiid = swingV.Siid;
+            schema.SwingVPiid = swingV.Piid;
+        }
+
+        var mode = spec.Properties.FirstOrDefault(p => p.Writable && p.IsNumeric && p.Options.Count > 0 &&
+            p.Name is "mode" or "fan-mode" && p.ServiceName.StartsWith("fan", StringComparison.Ordinal));
+        if (mode != null)
+        {
+            schema.ModeSiid = mode.Siid;
+            schema.ModePiid = mode.Piid;
+            foreach (var o in mode.Options)
+                schema.Modes.Add(new AcOptionItem { Value = o.Value, Label = o.Label });
+        }
+
+        schema.Valid = schema.LevelPiid > 0 || schema.HasSpeed || schema.HasSwingH || schema.HasSwingV || schema.ModePiid > 0;
+        FanSchema = schema.Valid ? schema : null;
+        if (schema.Valid) ApplyFanValuesCache();
+    }
+
+    /// <summary>规格重建后把缓存里的当前值重新标到选项上（否则选中态会全灭）。</summary>
+    private void ApplyFanValuesCache()
+    {
+        foreach (var o in FanSchema!.Levels) o.IsSelected = o.Value == FanLevel;
+        foreach (var o in FanSchema!.Modes) o.IsSelected = o.Value == FanMode;
     }
 
     private void ApplyConsumables(DeviceSpec spec)

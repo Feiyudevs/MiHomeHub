@@ -84,9 +84,9 @@ internal static class UpdateService
 
     /// <summary>
     /// 可选的后台更新源：地址与 app_id 不写死在代码里（开源仓库不该带私有后台），
-    /// 取自仓库根 <c>MiHome.settings.json</c> 的 <c>backendEndpoint</c> / <c>backendAppId</c>
+    /// 取自仓库根 <c>MiHome.settings.json</c> 的 <c>endpoint</c> / <c>appId</c>
     /// （该文件随编译复制到 exe 同级，字段留空即不用后台）；环境变量
-    /// <c>MIHOME_BACKEND_BASE</c> / <c>MIHOME_BACKEND_APP_ID</c> 可临时覆盖，方便联调。
+    /// <c>MIHOME_API_BASE</c> / <c>MIHOME_APP_ID</c> 可临时覆盖，方便联调。
     /// 两个都齐了才走后台；否则完全不碰后台，只用 GitHub Releases，开源用户开箱即用。
     /// </summary>
     private static (string BaseUrl, int AppId)? BackendSource
@@ -94,12 +94,12 @@ internal static class UpdateService
         get
         {
             var settings = AppSettings.Current;
-            var endpoint = Environment.GetEnvironmentVariable("MIHOME_BACKEND_BASE")?.Trim();
-            if (string.IsNullOrWhiteSpace(endpoint)) endpoint = settings.BackendEndpoint?.Trim();
+            var endpoint = Environment.GetEnvironmentVariable("MIHOME_API_BASE")?.Trim();
+            if (string.IsNullOrWhiteSpace(endpoint)) endpoint = settings.Endpoint?.Trim();
 
             var appId = 0;
-            var appRaw = Environment.GetEnvironmentVariable("MIHOME_BACKEND_APP_ID")?.Trim();
-            if (!int.TryParse(appRaw, out appId) || appId <= 0) appId = settings.BackendAppId;
+            var appRaw = Environment.GetEnvironmentVariable("MIHOME_APP_ID")?.Trim();
+            if (!int.TryParse(appRaw, out appId) || appId <= 0) appId = settings.AppId;
 
             return string.IsNullOrWhiteSpace(endpoint) || appId <= 0
                 ? null
@@ -301,15 +301,14 @@ internal static class UpdateService
             };
         }
 
-        if (string.IsNullOrWhiteSpace(packageUrl))
-            throw new InvalidOperationException("后台版本还没有配置安装包地址");
-
+        // 后台已经发了版本但还没填安装包直链：仍然把版本报给用户，不要偷偷回落 GitHub 假装“已是最新”
+        // （下载时会明确提示去后台补 package_url）
         var manifest = new UpdateManifest
         {
             Version = latest!,
             Channel = StableChannel,
             Source = "backend",
-            PackageUrl = packageUrl,
+            PackageUrl = string.IsNullOrWhiteSpace(packageUrl) ? null : packageUrl,
             Force = root.TryGetProperty("force", out var f) && f.ValueKind == JsonValueKind.True,
             DiskUrl = root.TryGetProperty("disk_url", out var d) && d.ValueKind == JsonValueKind.String
                 ? d.GetString()
@@ -400,8 +399,10 @@ internal static class UpdateService
         var hash = manifest.Sha256?.Trim() ?? "";
         if (hash.Length > 0 && (hash.Length != 64 || !hash.All(Uri.IsHexDigit)))
             throw new InvalidOperationException("清单里的 SHA256 不合法");
-        // 后台清单不含校验值时允许为空，但必须至少有 HTTPS 直链，避免“什么校验都没有还去装”
-        if (hash.Length == 0 && string.IsNullOrWhiteSpace(manifest.PackageUrl))
+        // 后台清单不含校验值时允许为空，但必须至少有 HTTPS 直链，避免“什么校验都没有还去装”；
+        // 后台只发了版本、还没配直链的情况例外：版本要照实报出来，下载时再提示去补地址。
+        if (hash.Length == 0 && string.IsNullOrWhiteSpace(manifest.PackageUrl) &&
+            !string.Equals(manifest.Source, "backend", StringComparison.Ordinal))
             throw new InvalidOperationException("清单缺少有效的 SHA256");
 
         var channel = ManifestChannel(manifest);
@@ -471,6 +472,13 @@ internal static class UpdateService
                 lastError = ex;
             }
         }
+
+        // 后台只给了版本没给直链时，说清楚该补什么，而不是丢一句泛泛的下载失败
+        if (string.Equals(manifest.Source, "backend", StringComparison.Ordinal) &&
+            string.IsNullOrWhiteSpace(manifest.PackageUrl))
+            throw new InvalidOperationException(
+                $"后台已发布 {manifest.Version}，但还没有配置安装包直链（package_url）；" +
+                "请先在后台「版本管理」上传安装包并填 package_url，或把该版本发到 GitHub Releases");
 
         throw new InvalidOperationException("下载安装包失败：" +
                                             (lastError is null ? "没有可用的下载地址" : Describe(lastError)));

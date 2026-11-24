@@ -280,7 +280,7 @@
                     <Border x:Name="NavDragGhost" Classes="NavDragGhost" IsVisible="False">
                         <TextBlock x:Name="NavDragGhostLabel" Classes="NavDragGhostLabel" />
                     </Border>
-                    <Border x:Name="NavDropBar" Classes="NavDropBar" Height="3" IsVisible="False" />
+                    <Border x:Name="NavDropBar" Classes="NavDropBar" Height="2" IsVisible="False" />
                 </Canvas>
             </Panel>
             <!-- 内容面板：只左上圆角；左侧与侧栏齐平，右/下用 -10 抵掉主体网格的边距，贴住窗口边缘 -->
@@ -369,6 +369,8 @@
         <!-- ================= 设置弹窗（走 DialogPopup 基类：遮罩 + 居中卡片 + 标题栏 + 滚动正文） ================= -->
         <!-- 基类外壳跨满整个窗口（含 48px 标题栏），卡片以全窗口为基准居中 -->
         <views:SettingsDialogView Grid.Row="0" Grid.RowSpan="2" />
+        <!-- ================= 强制更新弹窗（后台 force=true，只能升级或退出） ================= -->
+        <views:UpdateRequiredDialogView Grid.Row="0" Grid.RowSpan="2" />
         <!-- ================= 操作日志弹窗（走 DialogPopup 基类：遮罩 + 居中卡片，跨满整个窗口） ================= -->
         <views:LogDialogView Grid.Row="0" Grid.RowSpan="2" />
     </Grid>

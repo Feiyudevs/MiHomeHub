@@ -8,10 +8,10 @@
     <UseAvalonia>true</UseAvalonia>
     <AssemblyName>MiHome</AssemblyName>
     <RootNamespace>MiHome</RootNamespace>
-    <Version>1.0.4</Version>
-    <AssemblyVersion>1.0.4.0</AssemblyVersion>
-    <FileVersion>1.0.4.0</FileVersion>
-    <InformationalVersion>1.0.4</InformationalVersion>
+    <Version>1.0.1</Version>
+    <AssemblyVersion>1.0.1.0</AssemblyVersion>
+    <FileVersion>1.0.1.0</FileVersion>
+    <InformationalVersion>1.0.1</InformationalVersion>
     <Product>MiHome</Product>
     <AssemblyTitle>MiHome</AssemblyTitle>
     <Company>Feiyu</Company>

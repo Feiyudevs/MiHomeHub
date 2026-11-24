@@ -1,7 +1,7 @@
 {
-    "version":  "1.0.4",
-    "setup":  "MiHome-Setup-1.0.4-win-x64.exe",
-    "sha256":  "a88be7854d0d5a266fa084d8a3c557f28163b743539e4d45b4f0382630c9e04c",
+    "version":  "1.0.1",
+    "setup":  "MiHome-Setup-1.0.1-win-x64.exe",
+    "sha256":  "f1b818e4c408fb4b5391909e6909e416d3e729e49be4a3972494c33c11d5aed2",
     "notes":  "",
     "mandatory":  false,
     "channel":  "stable",

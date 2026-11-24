@@ -21,11 +21,16 @@ public sealed class TrayIconHost : IDisposable
     private const uint WM_LBUTTONUP = 0x0202;
     private const uint WM_RBUTTONUP = 0x0205;
 
+    private const uint WM_BALLOONUSERCLICK = 0x0405;
+
     private const uint NIM_ADD = 0x0;
+    private const uint NIM_MODIFY = 0x1;
     private const uint NIM_DELETE = 0x2;
     private const uint NIF_MESSAGE = 0x1;
     private const uint NIF_ICON = 0x2;
     private const uint NIF_TIP = 0x4;
+    private const uint NIF_INFO = 0x10;
+    private const uint NIIF_INFO = 0x1;
 
     private readonly string _tooltip;
     private readonly TopLevel _owner;
@@ -36,6 +41,8 @@ public sealed class TrayIconHost : IDisposable
 
     public event Action? LeftClicked;
     public event Action? RightClicked;
+    /// <summary>用户点了气泡本体（不是托盘图标）。</summary>
+    public event Action? BalloonClicked;
 
     public TrayIconHost(TopLevel owner, string tooltip)
     {
@@ -60,6 +67,28 @@ public sealed class TrayIconHost : IDisposable
         Shell_NotifyIcon(NIM_ADD, ref data);
     }
 
+    /// <summary>
+    /// 弹一条托盘气泡（非模态，不抢焦点）：Win10/11 上由系统通知中心接管，
+    /// 用户点气泡会收到 <see cref="BalloonClicked"/>。
+    /// </summary>
+    public void Notify(string title, string text)
+    {
+        var data = CreateData();
+        data.uFlags = NIF_MESSAGE | NIF_ICON | NIF_TIP | NIF_INFO;
+        data.szInfoTitle = Clip(title, 63);
+        data.szInfo = Clip(text, 255);
+        data.dwInfoFlags = NIIF_INFO;
+        data.uTimeoutOrVersion = 10000;
+        Shell_NotifyIcon(NIM_MODIFY, ref data);
+    }
+
+    private static string Clip(string? value, int max)
+    {
+        if (string.IsNullOrEmpty(value)) return "";
+        value = value.Replace('\r', ' ').Replace('\n', ' ');
+        return value.Length <= max ? value : value[..max];
+    }
+
     private NOTIFYICONDATA CreateData() => new()
     {
         cbSize = Marshal.SizeOf<NOTIFYICONDATA>(),
@@ -82,6 +111,7 @@ public sealed class TrayIconHost : IDisposable
             // 在 WndProc 里直接弹窗会重入消息循环，推迟到本轮消息处理完
             if (mouse == WM_LBUTTONUP) Dispatcher.UIThread.Post(() => LeftClicked?.Invoke());
             else if (mouse == WM_RBUTTONUP) Dispatcher.UIThread.Post(() => RightClicked?.Invoke());
+            else if (mouse == WM_BALLOONUSERCLICK) Dispatcher.UIThread.Post(() => BalloonClicked?.Invoke());
             return IntPtr.Zero;
         }
 

@@ -64,7 +64,6 @@ internal static class TelemetryService
 
     private static readonly object Gate = new();
     private static readonly Queue<TelemetryEvent> Queue = new();
-    private static readonly List<TelemetryEvent> Recent = new();
     private static readonly SemaphoreSlim Sending = new(1, 1);
 
     private static TelemetryConfig _config = new();
@@ -169,8 +168,6 @@ internal static class TelemetryService
         lock (Gate)
         {
             Queue.Enqueue(evt);
-            Recent.Add(evt);
-            while (Recent.Count > 5) Recent.RemoveAt(0);
         }
         MaybeFlush();
     }
@@ -201,23 +198,6 @@ internal static class TelemetryService
         }
         Save();
         MaybeFlush();
-    }
-
-    /// <summary>最近 5 条事件的原文，给「查看最近上报内容」用；不含设备标识。</summary>
-    public static IReadOnlyList<string> RecentLines(int count = 5)
-    {
-        List<TelemetryEvent> items;
-        lock (Gate)
-        {
-            items = Recent.Skip(Math.Max(0, Recent.Count - count)).ToList();
-        }
-        return items.Select(e =>
-        {
-            var props = e.Props is { Count: > 0 }
-                ? " " + string.Join(", ", e.Props.Select(kv => $"{kv.Key}={kv.Value}"))
-                : "";
-            return $"{e.Name}{(e.Label is null ? "" : $"（{e.Label}）")}{props}";
-        }).ToList();
     }
 
     // ─────────────────────────────── 上报 ───────────────────────────────
@@ -372,18 +352,18 @@ internal static class TelemetryService
         }
         catch { /* 配置损坏按默认（关闭）处理 */ }
 
-        // 地址与编号来自项目变量字段文件（MiHome.settings.json），不写进 telemetry.json、也不内置默认值
+        // 地址与编号来自 MiHome.settings.json（与本应用更新后台同一套），不写进 telemetry.json、也不内置默认值
         var settings = AppSettings.Current;
-        cfg.Endpoint = settings.TelemetryEndpoint?.Trim() ?? "";
-        cfg.AppId = settings.TelemetryAppId;
+        cfg.Endpoint = settings.Endpoint?.Trim() ?? "";
+        cfg.AppId = settings.AppId;
 
         // 环境变量优先，便于开发和 CI 自检
         var envOn = Environment.GetEnvironmentVariable("MIHOME_TELEMETRY")?.Trim();
         if (envOn is "1" or "true" or "on") cfg.Enabled = true;
         else if (envOn is "0" or "false" or "off") cfg.Enabled = false;
-        var envEndpoint = Environment.GetEnvironmentVariable("MIHOME_TELEMETRY_ENDPOINT")?.Trim();
+        var envEndpoint = Environment.GetEnvironmentVariable("MIHOME_API_BASE")?.Trim();
         if (!string.IsNullOrEmpty(envEndpoint)) cfg.Endpoint = envEndpoint;
-        var envApp = Environment.GetEnvironmentVariable("MIHOME_TELEMETRY_APP_ID")?.Trim();
+        var envApp = Environment.GetEnvironmentVariable("MIHOME_APP_ID")?.Trim();
         if (int.TryParse(envApp, out var appId)) cfg.AppId = appId;
 
         return cfg;

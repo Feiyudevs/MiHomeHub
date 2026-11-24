@@ -57,8 +57,7 @@ if (-not (Test-Path -LiteralPath $exePath)) { throw "published exe not found: $e
 # 但开发时用来注入私有后台/测试通道的 MIHOME_* 变量只在当前会话里，explorer 看不到；
 # 所以带这些变量时直接用 Start-Process -Environment 把变量带进新进程。
 $passEnv = @(
-    'MIHOME_BACKEND_BASE', 'MIHOME_BACKEND_APP_ID',
-    'MIHOME_TELEMETRY_ENDPOINT', 'MIHOME_TELEMETRY_APP_ID', 'MIHOME_TELEMETRY',
+    'MIHOME_API_BASE', 'MIHOME_APP_ID', 'MIHOME_TELEMETRY',
     'MIHOME_UPDATE_CHANNEL', 'MIHOME_UPDATE_SOURCE'
 )
 $passEnv = $passEnv | Where-Object { -not [string]::IsNullOrWhiteSpace([Environment]::GetEnvironmentVariable($_, 'Process')) }

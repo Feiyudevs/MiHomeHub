@@ -126,6 +126,12 @@ public partial class App : Application
             _trayIcon = new TrayIconHost(main, "米家 · 控制中心");
             _trayIcon.LeftClicked += () => ShowMainWindow(main);
             _trayIcon.RightClicked += () => OpenTrayMenu(main);
+            // 点「发现新版本」气泡：把主窗口叫出来，用户自己去「设置 → 关于」安装
+            _trayIcon.BalloonClicked += () => ShowMainWindow(main);
+
+            // 启动自动检查发现新版本时走托盘气泡，不抢焦点（强制更新另有模态框）
+            if (main.DataContext is MainViewModel vm)
+                vm.NotifyUser = (title, text) => _trayIcon.Notify(title, text);
 
             if (silent)
             {

@@ -1,10 +1,8 @@
 {
   // 本地可留空的变量字段：开源分发保持为空，应用就只用 GitHub 更新、不发送统计。
-  // 自建部署或有私有后台时，在本机把下面四项填上即可（随编译复制到 exe 同级）。
-  // 环境变量 MIHOME_BACKEND_BASE / MIHOME_BACKEND_APP_ID /
-  // MIHOME_TELEMETRY_ENDPOINT / MIHOME_TELEMETRY_APP_ID 仍可临时覆盖。
-  "backendEndpoint": "",
-  "backendAppId": 0,
-  "telemetryEndpoint": "",
-  "telemetryAppId": 0
+  // 更新检查与匿名统计共用这一个后台，所以只需要 endpoint + appId 两项。
+  // 自建部署或有私有后台时，在 MiHome.settings.local.json（已 gitignore）里覆盖即可；
+  // 环境变量 MIHOME_API_BASE / MIHOME_APP_ID 仍可临时覆盖。
+  "endpoint": "",
+  "appId": 0
 }

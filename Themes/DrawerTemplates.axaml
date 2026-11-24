@@ -29,6 +29,19 @@
                     Command="{Binding $parent[Window].((vm:MainViewModel)DataContext).SetAcFanCommand}"
                     CommandParameter="{Binding Value}" />
         </DataTemplate>
+        <!-- 风扇档位/模式：与空调同一套分段按钮，命令换成风扇自己的 -->
+        <DataTemplate x:Key="FanLevelOptionTemplate" x:DataType="m:AcOptionItem">
+            <Button Classes="SegBtn" Content="{Binding Label}" Classes.is-on="{Binding IsSelected}"
+                    HorizontalAlignment="Stretch" VerticalAlignment="Center"
+                    Command="{Binding $parent[Window].((vm:MainViewModel)DataContext).SetFanLevelCommand}"
+                    CommandParameter="{Binding Value}" />
+        </DataTemplate>
+        <DataTemplate x:Key="FanModeOptionTemplate" x:DataType="m:AcOptionItem">
+            <Button Classes="SegBtn" Content="{Binding Label}" Classes.is-on="{Binding IsSelected}"
+                    HorizontalAlignment="Stretch" VerticalAlignment="Center"
+                    Command="{Binding $parent[Window].((vm:MainViewModel)DataContext).SetFanModeCommand}"
+                    CommandParameter="{Binding Value}" />
+        </DataTemplate>
         <!-- 多路开关：抽屉里每一路一行，虚拟子设备同样落在这里 -->
         <DataTemplate x:Key="ChannelRowTemplate" x:DataType="m:SwitchChannelState">
             <Grid ColumnDefinitions="*,Auto" Margin="0,2">

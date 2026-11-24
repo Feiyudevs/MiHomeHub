@@ -38,6 +38,9 @@ public static class AppSettingsStore
     /// <summary>侧栏房间的自定义顺序（不含「全部」）；空表示仍按设备数量自动排。</summary>
     public static string[] RoomOrder { get; private set; } = Array.Empty<string>();
 
+    /// <summary>摄像头画面用的本地 go2rtc 地址（空 = 默认 http://127.0.0.1:1984）。</summary>
+    public static string Go2rtcBase { get; private set; } = "";
+
     static AppSettingsStore()
     {
         try
@@ -59,6 +62,8 @@ public static class AppSettingsStore
                 DoubleClickDesktopToggles = dc.ValueKind != JsonValueKind.False;
             if (root.TryGetProperty("hoverExpand", out var he))
                 HoverExpandEnabled = he.ValueKind != JsonValueKind.False;
+            if (root.TryGetProperty("go2rtcBase", out var gb) && gb.ValueKind == JsonValueKind.String)
+                Go2rtcBase = gb.GetString() ?? "";
             if (root.TryGetProperty("roomOrder", out var ro) && ro.ValueKind == JsonValueKind.Array)
             {
                 var order = new List<string>();
@@ -123,6 +128,16 @@ public static class AppSettingsStore
         Save();
     }
 
+    /// <summary>摄像头桥接地址；写空表示回到默认 127.0.0.1:1984。</summary>
+    public static void SetGo2rtcBase(string? url)
+    {
+        var raw = (url ?? "").Trim();
+        if (raw.Length > 0 && !raw.Contains("://", StringComparison.Ordinal))
+            raw = "http://" + raw;
+        Go2rtcBase = raw.TrimEnd('/');
+        Save();
+    }
+
     private static void Save()
     {
         var payload = JsonSerializer.Serialize(new
@@ -134,7 +149,8 @@ public static class AppSettingsStore
             cardShadow = CardShadow,
             doubleClickDesktopToggles = DoubleClickDesktopToggles,
             hoverExpand = HoverExpandEnabled,
-            roomOrder = RoomOrder
+            roomOrder = RoomOrder,
+            go2rtcBase = Go2rtcBase
         });
         // 写盘出 UI 线程；进程被强杀时可能丢最后一次偏好，可接受
         _ = Task.Run(() =>

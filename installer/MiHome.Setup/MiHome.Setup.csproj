@@ -15,8 +15,8 @@
     <AssemblyName>MiHome-Setup</AssemblyName>
     <RootNamespace>MiHome.Setup</RootNamespace>
     <ApplicationIcon>..\..\Assets\logo.ico</ApplicationIcon>
-    <Version>1.0.4</Version>
-    <FileVersion>1.0.4.0</FileVersion>
+    <Version>1.0.1</Version>
+    <FileVersion>1.0.1.0</FileVersion>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <LangVersion>latest</LangVersion>

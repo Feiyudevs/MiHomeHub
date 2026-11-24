@@ -28,6 +28,12 @@ public partial class MainViewModel : ObservableObject
     /// <summary>详情抽屉里灯亮度/色温的防抖提交定时器（拖动过程中不连发请求）。</summary>
     private IDisposable? _lightCommitTimer;
 
+    /// <summary>风扇连续档位滑杆的防抖提交定时器。</summary>
+    private IDisposable? _fanCommitTimer;
+
+    /// <summary>风扇无级调速滑杆的防抖提交定时器。</summary>
+    private IDisposable? _fanSpeedCommitTimer;
+
     /// <summary>当前详情设备及其属性订阅，用于把亮度/色温变化提交回设备。</summary>
     private MijiaDevice? _detailDevice;
     private PropertyChangedEventHandler? _detailHandler;
@@ -93,6 +99,10 @@ public partial class MainViewModel : ObservableObject
         }
         foreach (var timer in _specCommitTimers.Values) timer.Dispose();
         _specCommitTimers.Clear();
+        _fanCommitTimer?.Dispose();
+        _fanCommitTimer = null;
+        _fanSpeedCommitTimer?.Dispose();
+        _fanSpeedCommitTimer = null;
         _actionConfirmTimer?.Dispose();
         _actionConfirmTimer = null;
         DrawerSpecAdvancedGroups.Clear();
@@ -224,6 +234,10 @@ public partial class MainViewModel : ObservableObject
                 ScheduleLightCommit(device);
             else if (e.PropertyName is nameof(MijiaDevice.SpeakerVolume))
                 ScheduleSpeakerVolumeCommit(device);
+            else if (e.PropertyName is nameof(MijiaDevice.FanLevel))
+                ScheduleFanLevelCommit(device);
+            else if (e.PropertyName is nameof(MijiaDevice.FanSpeed))
+                ScheduleFanSpeedCommit(device);
         };
         device.PropertyChanged += _detailHandler;
         _ = LoadDetailAsync(device);
@@ -291,6 +305,11 @@ public partial class MainViewModel : ObservableObject
                     Log($"未获取到 {device.Name} 的空调控制参数，暂时无法下发");
                 }
             }
+            else if (device.IsFan)
+            {
+                await LoadFanStateAsync(client, device);
+            }
+            if (device.IsCamera) _ = RefreshCameraBridgeAsync(device);
         }
         catch (Exception ex)
         {
@@ -300,6 +319,40 @@ public partial class MainViewModel : ObservableObject
         {
             _loadingDetail = false;
         }
+    }
+
+    /// <summary>
+    /// 风扇回读：档位、模式、摆风一次读完。规格里没有的可写项就跳过，
+    /// 界面按 FanSchema 决定显示哪几张卡，读不到的项保持本地值不动。
+    /// </summary>
+    private async Task LoadFanStateAsync(MijiaClient client, MijiaDevice device)
+    {
+        if (device.FanSchema is not { Valid: true } schema) return;
+        var query = new List<(string Did, int Siid, int Piid)>();
+        if (schema.LevelPiid > 0) query.Add((device.TargetDid, schema.LevelSiid, schema.LevelPiid));
+        if (schema.HasSpeed) query.Add((device.TargetDid, schema.SpeedSiid, schema.SpeedPiid));
+        if (schema.ModePiid > 0) query.Add((device.TargetDid, schema.ModeSiid, schema.ModePiid));
+        if (schema.HasSwingH) query.Add((device.TargetDid, schema.SwingHSiid, schema.SwingHPiid));
+        if (schema.HasSwingV) query.Add((device.TargetDid, schema.SwingVSiid, schema.SwingVPiid));
+        if (query.Count == 0) return;
+
+        var map = await client.ReadPropsAsync(query);
+        if (_client == null) return;
+        await Dispatcher.UIThread.InvokeAsync(() =>
+        {
+            if (!ReferenceEquals(DrawerDevice, device)) return;
+            if (schema.LevelPiid > 0 && map.TryGetValue((device.TargetDid, schema.LevelSiid, schema.LevelPiid), out var lv) && lv != null)
+                device.FanLevel = (int)Math.Round(ToDouble(lv));
+            if (schema.HasSpeed && map.TryGetValue((device.TargetDid, schema.SpeedSiid, schema.SpeedPiid), out var sp) && sp != null)
+                device.FanSpeed = (int)Math.Round(ToDouble(sp));
+            if (schema.ModePiid > 0 && map.TryGetValue((device.TargetDid, schema.ModeSiid, schema.ModePiid), out var mv) && mv != null)
+                device.FanMode = ToInt(mv);
+            if (schema.HasSwingH && map.TryGetValue((device.TargetDid, schema.SwingHSiid, schema.SwingHPiid), out var sv))
+                device.SwingHOn = sv is true;
+            if (schema.HasSwingV && map.TryGetValue((device.TargetDid, schema.SwingVSiid, schema.SwingVPiid), out var tv))
+                device.SwingVOn = tv is true;
+            UpdateStats();
+        });
     }
 
     /// <summary>按规格把抽屉里的通用属性/通道/电源读一遍，填进对应的行。</summary>
@@ -450,6 +503,9 @@ public partial class MainViewModel : ObservableObject
         if (device.IsLight && p.ServiceName == "light" &&
             p.Name is "brightness" or "color-temperature") return false;
         if (device.IsAc && p.Name is "mode" or "target-temperature" or "fan-level") return false;
+        // 风扇的档位/摆风/模式已由专门面板展示（含摆风开关），高级设置里不再重复
+        if (device.IsFan && p.Name is "fan-level" or "speed-level" or "wind-level" or "mode"
+            or "fan-mode" or "horizontal-swing" or "vertical-swing" or "swing") return false;
         if (device.IsCurtain && p.Name is "motor-control" or "current-position" or "target-position")
             return false;
 
@@ -661,6 +717,53 @@ public partial class MainViewModel : ObservableObject
         }
     }
 
+    /// <summary>风扇连续档位滑杆：停 600ms 再提交一次，拖动过程不连发。</summary>
+    private void ScheduleFanLevelCommit(MijiaDevice device)
+    {
+        _fanCommitTimer?.Dispose();
+        _fanCommitTimer = DispatcherTimer.RunOnce(
+            () => _ = CommitFanLevelAsync(device), TimeSpan.FromMilliseconds(600));
+    }
+
+    /// <summary>只有「量程式」档位走滑杆提交；有 value-list 的离散档由分段按钮直接下发。</summary>
+    private async Task CommitFanLevelAsync(MijiaDevice device)
+    {
+        if (_client == null || !device.IsOnline) return;
+        if (device.FanSchema is not { Valid: true } s || s.LevelPiid <= 0 || s.HasLevels) return;
+        try
+        {
+            await _client.SetPropAsync(device.TargetDid, s.LevelSiid, s.LevelPiid, device.FanLevel);
+            Log($"{device.Name} 风速 → {device.FanLevel}");
+        }
+        catch (Exception ex)
+        {
+            Log($"设置风扇风速失败：{ex.Message}");
+        }
+    }
+
+    /// <summary>无级调速滑杆：同样 600ms 防抖，停手再下发。</summary>
+    private void ScheduleFanSpeedCommit(MijiaDevice device)
+    {
+        _fanSpeedCommitTimer?.Dispose();
+        _fanSpeedCommitTimer = DispatcherTimer.RunOnce(
+            () => _ = CommitFanSpeedAsync(device), TimeSpan.FromMilliseconds(600));
+    }
+
+    private async Task CommitFanSpeedAsync(MijiaDevice device)
+    {
+        if (_client == null || !device.IsOnline) return;
+        if (device.FanSchema is not { Valid: true } s || !s.HasSpeed) return;
+        try
+        {
+            await _client.SetPropAsync(device.TargetDid, s.SpeedSiid, s.SpeedPiid, device.FanSpeed);
+            Log($"{device.Name} 无级调速 → {device.FanSpeed}");
+        }
+        catch (Exception ex)
+        {
+            Log($"设置无级调速失败：{ex.Message}");
+        }
+    }
+
     [RelayCommand]
     private async Task SetAcMode(int mode)
     {
@@ -747,8 +850,168 @@ public partial class MainViewModel : ObservableObject
         }
     }
 
+    // ===== 摄像头：画面走本地 go2rtc 桥接（云端只有属性，没有视频数据） =====
+
+    /// <summary>打开摄像头抽屉时探一次桥接状态，把结论显示在卡片里，用户不用点按钮才知道没配上。</summary>
+    private async Task RefreshCameraBridgeAsync(MijiaDevice device)
+    {
+        var ready = await CameraBridge.PingAsync();
+        if (!ready)
+        {
+            CameraBridgeHint = "画面源还没接通。看画面需要先做一次本地准备（不经过小米云），点「怎么设置」跟着三步走。";
+            return;
+        }
+        var streams = await CameraBridge.GetStreamNamesAsync();
+        var name = CameraBridge.StreamName(device);
+        CameraBridgeHint = streams.Contains(name)
+            ? "画面源已接通，点「打开画面」即可查看。"
+            : "画面源已接通，但还没认到这台摄像机：在控制台里添加它一次即可。";
+    }
+
+    [RelayCommand]
+    private async Task OpenCameraLive()
+    {
+        if (DrawerDevice is not { IsCamera: true } d) return;
+        var ready = await CameraBridge.PingAsync();
+        if (!ready)
+        {
+            IsCameraSetupExpanded = true;
+            CameraBridgeHint = "画面源还没接通：先按下面三步准备一次，之后这里直接出画面。";
+            Log($"{d.Name} 实时画面未打开：本地画面源未接通");
+            return;
+        }
+
+        var streams = await CameraBridge.GetStreamNamesAsync();
+        var name = CameraBridge.StreamName(d);
+        if (!streams.Contains(name))
+        {
+            var guess = streams.FirstOrDefault(s => s.Contains(d.Did, StringComparison.Ordinal));
+            if (guess == null)
+            {
+                CameraBridgeHint = "画面源里还没有这台摄像机，已打开控制台：找到它、添加一次后回来重试。";
+                CameraBridge.Open(CameraBridge.ConsoleUrl);
+                Log($"{d.Name} 尚未在画面源里登记");
+                return;
+            }
+            name = guess;
+        }
+
+        if (CameraBridge.Open(CameraBridge.PlayUrl(name)))
+        {
+            CameraBridgeHint = $"已打开 {name} 的实时画面（浏览器窗口）。";
+            Log($"{d.Name} 实时画面 → {name}");
+        }
+        else
+        {
+            CameraBridgeHint = $"调用浏览器失败，手动打开：{CameraBridge.PlayUrl(name)}";
+            Log($"打开画面失败：{CameraBridge.PlayUrl(name)}");
+        }
+    }
+
+    [RelayCommand]
+    private void OpenGo2rtcConsole()
+    {
+        if (CameraBridge.Open(CameraBridge.ConsoleUrl))
+        {
+            CameraBridgeHint = "已打开画面源控制台（浏览器窗口）。";
+            Log("打开画面源控制台");
+        }
+        else
+        {
+            CameraBridgeHint = $"调用浏览器失败，手动打开：{CameraBridge.ConsoleUrl}";
+        }
+    }
+
+    [RelayCommand]
+    private void ToggleCameraSetup() => IsCameraSetupExpanded = !IsCameraSetupExpanded;
+
+    [RelayCommand]
+    private async Task RefreshCameraBridge()
+    {
+        if (DrawerDevice is not { IsCamera: true } d) return;
+        await RefreshCameraBridgeAsync(d);
+        Log($"{d.Name} 桥接状态：{CameraBridgeHint}");
+    }
+
     private static string AcOptionLabel(List<AcOptionItem> opts, int value, string fallback) =>
         opts.FirstOrDefault(o => o.Value == value)?.Label ?? $"{fallback}{value}";
+
+    // ===== 风扇：档位 / 模式 / 摆风 =====
+
+    [RelayCommand(AllowConcurrentExecutions = true)]
+    private async Task SetFanLevel(int level)
+    {
+        if (_client == null || DrawerDevice is not { IsFan: true } d || !d.IsOnline)
+        {
+            Log("风扇离线或未选中，指令未下发");
+            return;
+        }
+        if (d.FanSchema is not { Valid: true } s || s.LevelPiid <= 0)
+        {
+            Log($"{d.Name} 缺少档位参数，风速未下发");
+            return;
+        }
+        d.FanLevel = level;
+        d.PendingUntilMs = Environment.TickCount64 + SuppressMs;
+        try
+        {
+            await _client.SetPropAsync(d.TargetDid, s.LevelSiid, s.LevelPiid, level);
+            Log($"{d.Name} 风速 → {AcOptionLabel(s.Levels, level, "档")}");
+        }
+        catch (Exception ex)
+        {
+            Log($"设置风扇风速失败：{ex.Message}");
+        }
+    }
+
+    [RelayCommand(AllowConcurrentExecutions = true)]
+    private async Task SetFanMode(int mode)
+    {
+        if (_client == null || DrawerDevice is not { IsFan: true } d || !d.IsOnline) return;
+        if (d.FanSchema is not { Valid: true } s || s.ModePiid <= 0) return;
+        d.FanMode = mode;
+        d.PendingUntilMs = Environment.TickCount64 + SuppressMs;
+        try
+        {
+            await _client.SetPropAsync(d.TargetDid, s.ModeSiid, s.ModePiid, mode);
+            Log($"{d.Name} 模式 → {AcOptionLabel(s.Modes, mode, "模式")}");
+        }
+        catch (Exception ex)
+        {
+            Log($"设置风扇模式失败：{ex.Message}");
+        }
+    }
+
+    /// <summary>摆风开关：按钮先翻本地态（TwoWay 绑定），失败再翻回来。</summary>
+    [RelayCommand(AllowConcurrentExecutions = true)]
+    private async Task ToggleFanSwing(string? axis)
+    {
+        if (_client == null || DrawerDevice is not { IsFan: true } d || !d.IsOnline)
+        {
+            Log("风扇离线或未选中，指令未下发");
+            return;
+        }
+        if (d.FanSchema is not { Valid: true } s) return;
+
+        var vertical = string.Equals(axis, "v", StringComparison.OrdinalIgnoreCase);
+        if (vertical ? !s.HasSwingV : !s.HasSwingH) return;
+        var siid = vertical ? s.SwingVSiid : s.SwingHSiid;
+        var piid = vertical ? s.SwingVPiid : s.SwingHPiid;
+        var value = vertical ? d.SwingVOn : d.SwingHOn;
+
+        d.PendingUntilMs = Environment.TickCount64 + SuppressMs;
+        try
+        {
+            await _client.SetPropAsync(d.TargetDid, siid, piid, value);
+            Log($"{d.Name} {(vertical ? "上下" : "左右")}摆风 → {(value ? "开" : "关")}");
+        }
+        catch (Exception ex)
+        {
+            if (vertical) d.SwingVOn = !value;
+            else d.SwingHOn = !value;
+            Log($"设置摆风失败：{ex.Message}");
+        }
+    }
 
     [RelayCommand(AllowConcurrentExecutions = true)]
     private Task CurtainOpenAsync() => SendCurtainMotorAsync(MijiaClient.CurtainOpen, "打开");

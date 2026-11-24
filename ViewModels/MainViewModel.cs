@@ -101,6 +101,17 @@ public partial class MainViewModel : ObservableObject
     /// <summary>true = 卡片带投影；false = 扁平无投影。</summary>
     [ObservableProperty] private bool _cardShadow = AppSettingsStore.CardShadow;
 
+    /// <summary>摄像头画面桥（go2rtc）地址，改动即写回 app.json。</summary>
+    [ObservableProperty] private string _go2rtcBase = AppSettingsStore.Go2rtcBase;
+
+    /// <summary>打开摄像头抽屉时探测到的桥接状态，显示在「监控画面」卡片里。</summary>
+    [ObservableProperty] private string _cameraBridgeHint = "";
+
+    /// <summary>「监控画面」里的设置引导默认收起：普通用户只看「打开画面」，配置一次后再也不用展开。</summary>
+    [ObservableProperty] private bool _isCameraSetupExpanded;
+
+    partial void OnGo2rtcBaseChanged(string value) => AppSettingsStore.SetGo2rtcBase(value);
+
     // ── 更新（「关于」页）：检查 GitHub Release → 下载安装包 → 静默安装 ──
     [ObservableProperty] private string _updateStatusText = "检查更新可获取最新版本";
     [ObservableProperty] private string _updateNotes = "";
@@ -111,6 +122,22 @@ public partial class MainViewModel : ObservableObject
     [ObservableProperty] private bool _isUpdateAvailable;
     [ObservableProperty] private bool _isUpdateBusy;
     [ObservableProperty] private double _updateProgress;
+    /// <summary>更新说明是否已展开（说明长了折叠显示，避免把卡片撑成一篇长文）。</summary>
+    [ObservableProperty] private bool _isUpdateNotesExpanded;
+    /// <summary>说明超过折叠行数：只有这种才给「展开全部」按钮。</summary>
+    [ObservableProperty] private bool _hasLongUpdateNotes;
+    /// <summary>短说明直接整段显示（没有折叠按钮）。</summary>
+    [ObservableProperty] private bool _hasShortUpdateNotes;
+    /// <summary>长说明处于折叠态（显示截断摘要）。</summary>
+    [ObservableProperty] private bool _showUpdateNotesCollapsed;
+    /// <summary>折叠按钮文案。</summary>
+    [ObservableProperty] private string _updateNotesToggleText = "查看完整说明";
+    /// <summary>强制更新时弹出不可跳过的更新框。</summary>
+    [ObservableProperty] private bool _isForceUpdateOpen;
+
+    /// <summary>卡片里折叠显示的说明（超过 <see cref="UpdateNotesPreviewLimit"/> 字就截断）。</summary>
+    private const int UpdateNotesPreviewLimit = 180;
+    [ObservableProperty] private string _updateNotesPreview = "";
 
     /// <summary>已发现的新版本清单（点「立即更新」时用）。</summary>
     private UpdateManifest? _pendingUpdate;
@@ -126,25 +153,14 @@ public partial class MainViewModel : ObservableObject
         Log(value ? "已开启匿名使用统计" : "已关闭匿名使用统计");
     }
 
-    /// <summary>「查看最近上报内容」：把最近 5 条事件原文写进操作日志，便于用户自查。</summary>
-    [RelayCommand]
-    private void PreviewTelemetry()
-    {
-        var lines = TelemetryService.RecentLines(5);
-        if (lines.Count == 0)
-        {
-            Log("匿名统计：本轮还没有产生事件（关闭状态不会采集）");
-        }
-        else
-        {
-            Log("匿名统计 · 最近上报内容：");
-            foreach (var line in lines) Log("  " + line);
-        }
-        IsLogOpen = true;
-    }
-
     /// <summary>由 App 注入：真正退出进程（安装器需要先关掉自己才能替换 app 目录）。</summary>
     public Action? RequestExit { get; set; }
+
+    /// <summary>由 App 注入：弹一条非模态托盘气泡（启动时发现新版本用）。</summary>
+    public Action<string, string>? NotifyUser { get; set; }
+
+    /// <summary>一次会话只弹一次气泡，避免自动检查重复刷新时反复打扰。</summary>
+    private bool _startupUpdateNotified;
 
     /// <summary>双击桌面空白处显示 / 隐藏所有桌面分区卡片。</summary>
     [ObservableProperty] private bool _doubleClickDesktopToggles = AppSettingsStore.DoubleClickDesktopToggles;
@@ -3915,6 +3931,9 @@ public partial class MainViewModel : ObservableObject
     /// <summary>关于页「作者网站」链接。</summary>
     public string AuthorUrl { get; } = "https://feiyux.cn/";
 
+    /// <summary>关于页「哔哩哔哩」链接：作者 B 站主页。</summary>
+    public string BilibiliUrl { get; } = "https://space.bilibili.com/3546951903611444";
+
     /// <summary>用系统默认浏览器打开外链（官网 / 开源仓库等）。</summary>
     [RelayCommand]
     private void OpenUrl(string? url)
@@ -3930,10 +3949,10 @@ public partial class MainViewModel : ObservableObject
         }
     }
 
-    /// <summary>启动时的无感检查：失败不提示，只在「关于」页留一句状态。</summary>
+    /// <summary>启动时的无感检查：失败不提示；发现新版本用托盘气泡轻提示，强制更新才弹模态框。</summary>
     private async Task AutoCheckUpdateAsync()
     {
-        try { ApplyUpdateResult(await UpdateService.CheckAsync(force: false)); }
+        try { ApplyUpdateResult(await UpdateService.CheckAsync(force: false), notifyUser: true); }
         catch { /* 后台检查失败不影响任何功能 */ }
     }
 
@@ -3943,10 +3962,13 @@ public partial class MainViewModel : ObservableObject
         if (IsUpdateBusy) return;
         IsUpdateBusy = true;
         UpdateNotes = "";
+        UpdateNotesPreview = "";
+        IsUpdateNotesExpanded = false;
+        HasLongUpdateNotes = false;
         UpdateStatusText = "正在检查更新…";
         try
         {
-            ApplyUpdateResult(await UpdateService.CheckAsync(force: true));
+            ApplyUpdateResult(await UpdateService.CheckAsync(force: true), notifyUser: false);
         }
         catch (Exception ex)
         {
@@ -3959,12 +3981,32 @@ public partial class MainViewModel : ObservableObject
         }
     }
 
-    private void ApplyUpdateResult(UpdateCheckResult result)
+    [RelayCommand]
+    private void ToggleUpdateNotes() => IsUpdateNotesExpanded = !IsUpdateNotesExpanded;
+
+    partial void OnIsUpdateNotesExpandedChanged(bool value) => SyncUpdateNotesVisibility();
+
+    private void SyncUpdateNotesVisibility()
+    {
+        ShowUpdateNotesCollapsed = HasLongUpdateNotes && !IsUpdateNotesExpanded;
+        HasShortUpdateNotes = UpdateNotes.Length > 0 && !HasLongUpdateNotes;
+        UpdateNotesToggleText = IsUpdateNotesExpanded ? "收起说明" : "查看完整说明";
+    }
+
+    private void ApplyUpdateResult(UpdateCheckResult result, bool notifyUser)
     {
         _pendingUpdate = result.Manifest;
         IsUpdateAvailable = result.State == UpdateState.Available && result.Manifest is not null;
         UpdateStatusText = result.Message;
         UpdateNotes = result.Manifest?.Notes?.Trim() ?? "";
+        UpdateNotesPreview = UpdateNotes.Length <= UpdateNotesPreviewLimit
+            ? UpdateNotes
+            : UpdateNotes[..UpdateNotesPreviewLimit].TrimEnd() + "…";
+        HasLongUpdateNotes = UpdateNotes.Length > UpdateNotesPreviewLimit;
+        HasShortUpdateNotes = UpdateNotes.Length > 0 && !HasLongUpdateNotes;
+        IsUpdateNotesExpanded = false;
+        SyncUpdateNotesVisibility();
+        IsForceUpdateOpen = false;
         TelemetryService.Track("update_check", "检查更新", new Dictionary<string, object?>
         {
             ["channel"] = UpdateService.CurrentChannel,
@@ -3978,7 +4020,30 @@ public partial class MainViewModel : ObservableObject
         });
         if (IsUpdateAvailable)
             Log($"发现新版本 {result.Manifest?.Version}（当前 {UpdateService.CurrentVersion}，通道 {UpdateService.CurrentChannel}）");
+
+        if (!IsUpdateAvailable) return;
+
+        var version = result.Manifest?.Version ?? "新版本";
+        // 后台标了 force：必须升级，弹不可跳过的框（只有这一种情况用模态）
+        if (result.Manifest?.Force == true)
+        {
+            IsForceUpdateOpen = true;
+            return;
+        }
+
+        // 启动自动检查：托盘气泡轻提示，不抢焦点；手动检查时用户就在卡片前，不再重复打扰
+        if (notifyUser && !_startupUpdateNotified)
+        {
+            _startupUpdateNotified = true;
+            NotifyUser?.Invoke($"发现新版本 {version}", "打开「设置 → 关于」查看更新说明并安装");
+        }
     }
+
+    [RelayCommand]
+    private void CloseForceUpdate() => IsForceUpdateOpen = false;
+
+    [RelayCommand]
+    private void ExitApp() => RequestExit?.Invoke();
 
     /// <summary>
     /// 下载并校验安装包后交给自研安装器静默更新：先关掉自己，安装器再做目录轮转，

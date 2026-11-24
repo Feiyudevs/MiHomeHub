@@ -319,7 +319,7 @@ public partial class MainWindow
             .Any(b => b.DataContext is RoomChip);
 
     // ================= 侧栏房间拖拽排序 =================
-    // 长按房间行上下拖动，或按住悬停时浮出的六点抓手直接拖；拖动中有一张跟着指针的浮卡
+    // 长按房间行上下拖动，或按住悬停时在行左缘浮出的六点抓手直接拖；拖动中有一张跟着指针的浮卡
     // 和一条落点横线，松手才换位并把顺序写回 app.json（实现在 Controls/NavReorderDrag）。
     private NavReorderDrag? _roomReorder;
 

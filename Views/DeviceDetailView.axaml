@@ -249,6 +249,144 @@
             <TextBlock Classes="Hint" Text="未获取到该空调的控制参数，暂无法调节"
                        IsVisible="{Binding DrawerDevice.AcSchema, Converter={x:Static ObjectConverters.IsNull}}" />
         </StackPanel>
+        <!-- 风扇：风速档 + 摆风 + 模式（全部按设备规格生成，不同型号服务/piid 都不同） -->
+        <StackPanel Spacing="12" IsVisible="{Binding DrawerDevice.IsFan}">
+            <StackPanel Spacing="12"
+                        IsVisible="{Binding DrawerDevice.FanSchema, Converter={x:Static ObjectConverters.IsNotNull}}">
+                <Border Classes="DrCard" IsVisible="{Binding DrawerDevice.FanSchema.HasLevels}">
+                    <StackPanel Spacing="7" IsEnabled="{Binding DrawerDevice.IsOnline}">
+                        <TextBlock Text="风速" FontSize="12.5" Foreground="{DynamicResource Text2Brush}" />
+                        <ItemsControl ItemsSource="{Binding DrawerDevice.FanSchema.Levels}"
+                                      ItemTemplate="{StaticResource FanLevelOptionTemplate}">
+                            <ItemsControl.ItemsPanel>
+                                <ItemsPanelTemplate>
+                                    <WrapPanel Orientation="Horizontal" />
+                                </ItemsPanelTemplate>
+                            </ItemsControl.ItemsPanel>
+                        </ItemsControl>
+                    </StackPanel>
+                </Border>
+                <Border Classes="DrCard" IsVisible="{Binding DrawerDevice.FanSchema.HasLevelRange}">
+                    <StackPanel Spacing="9">
+                        <Grid ColumnDefinitions="*,Auto">
+                            <TextBlock Text="风速" FontSize="12.5" VerticalAlignment="Center"
+                                       Foreground="{DynamicResource Text2Brush}" />
+                            <TextBlock Grid.Column="1" FontSize="14" FontWeight="Bold"
+                                       Foreground="{DynamicResource TextBrush}"
+                                       Text="{Binding DrawerDevice.FanLevel}" />
+                        </Grid>
+                        <Slider Classes="DrSlider"
+                                Minimum="{Binding DrawerDevice.FanSchema.LevelMin}"
+                                Maximum="{Binding DrawerDevice.FanSchema.LevelMax}"
+                                TickFrequency="{Binding DrawerDevice.FanSchema.LevelStep}"
+                                Value="{Binding DrawerDevice.FanLevel, Mode=TwoWay}"
+                                IsEnabled="{Binding DrawerDevice.IsOnline}" />
+                    </StackPanel>
+                </Border>
+                <Border Classes="DrCard" IsVisible="{Binding DrawerDevice.FanSchema.HasSpeed}">
+                    <StackPanel Spacing="9">
+                        <Grid ColumnDefinitions="*,Auto">
+                            <TextBlock Text="无级调速" FontSize="12.5" VerticalAlignment="Center"
+                                       Foreground="{DynamicResource Text2Brush}" />
+                            <TextBlock Grid.Column="1" FontSize="14" FontWeight="Bold"
+                                       Foreground="{DynamicResource TextBrush}"
+                                       Text="{Binding DrawerDevice.FanSpeed}" />
+                        </Grid>
+                        <Slider Classes="DrSlider"
+                                Minimum="{Binding DrawerDevice.FanSchema.SpeedMin}"
+                                Maximum="{Binding DrawerDevice.FanSchema.SpeedMax}"
+                                TickFrequency="{Binding DrawerDevice.FanSchema.SpeedStep}"
+                                Value="{Binding DrawerDevice.FanSpeed, Mode=TwoWay}"
+                                IsEnabled="{Binding DrawerDevice.IsOnline}" />
+                    </StackPanel>
+                </Border>
+                <Border Classes="DrCard"
+                        IsVisible="{Binding DrawerDevice.FanSchema.HasSwingH}">
+                    <Grid ColumnDefinitions="*,Auto">
+                        <TextBlock Text="左右摆风" FontSize="12.5" VerticalAlignment="Center"
+                                   Foreground="{DynamicResource Text2Brush}" />
+                        <ToggleButton Grid.Column="1" Classes="Switch" VerticalAlignment="Center"
+                                      IsChecked="{Binding DrawerDevice.SwingHOn, Mode=TwoWay}"
+                                      IsEnabled="{Binding DrawerDevice.IsOnline}"
+                                      Command="{Binding ToggleFanSwingCommand}"
+                                      CommandParameter="h" />
+                    </Grid>
+                </Border>
+                <Border Classes="DrCard"
+                        IsVisible="{Binding DrawerDevice.FanSchema.HasSwingV}">
+                    <Grid ColumnDefinitions="*,Auto">
+                        <TextBlock Text="上下摆风" FontSize="12.5" VerticalAlignment="Center"
+                                   Foreground="{DynamicResource Text2Brush}" />
+                        <ToggleButton Grid.Column="1" Classes="Switch" VerticalAlignment="Center"
+                                      IsChecked="{Binding DrawerDevice.SwingVOn, Mode=TwoWay}"
+                                      IsEnabled="{Binding DrawerDevice.IsOnline}"
+                                      Command="{Binding ToggleFanSwingCommand}"
+                                      CommandParameter="v" />
+                    </Grid>
+                </Border>
+                <Border Classes="DrCard" IsVisible="{Binding DrawerDevice.FanSchema.HasModes}">
+                    <StackPanel Spacing="7" IsEnabled="{Binding DrawerDevice.IsOnline}">
+                        <TextBlock Text="模式" FontSize="12.5" Foreground="{DynamicResource Text2Brush}" />
+                        <ItemsControl ItemsSource="{Binding DrawerDevice.FanSchema.Modes}"
+                                      ItemTemplate="{StaticResource FanModeOptionTemplate}">
+                            <ItemsControl.ItemsPanel>
+                                <ItemsPanelTemplate>
+                                    <WrapPanel Orientation="Horizontal" />
+                                </ItemsPanelTemplate>
+                            </ItemsControl.ItemsPanel>
+                        </ItemsControl>
+                    </StackPanel>
+                </Border>
+                <TextBlock Classes="Hint" Foreground="{DynamicResource Accent2Brush}"
+                           Text="风扇未开机：档位/摆风需开机后调节"
+                           IsVisible="{Binding !DrawerDevice.IsOn}" />
+            </StackPanel>
+            <TextBlock Classes="Hint" Text="未获取到该风扇的控制参数，暂无法调节"
+                       IsVisible="{Binding DrawerDevice.FanSchema, Converter={x:Static ObjectConverters.IsNull}}" />
+        </StackPanel>
+        <!-- 摄像头：米家只开放状态、不开放画面；画面由本地画面源（go2rtc）转一道，普通用户只看「打开画面」 -->
+        <StackPanel Spacing="12" IsVisible="{Binding DrawerDevice.IsCamera}">
+            <Border Classes="DrCard">
+                <StackPanel Spacing="10">
+                    <TextBlock Text="实时画面" FontSize="14" FontWeight="SemiBold"
+                               Foreground="{DynamicResource TextBrush}" />
+                    <TextBlock Classes="Hint" TextWrapping="Wrap"
+                               Text="米家只把摄像头的状态开放出来，画面本身不出家门。所以要在这里看画面，需要在你家里接一道本地画面源；准备一次，之后不用再动。" />
+                    <Border Classes="SegTrack">
+                        <UniformGrid Columns="2">
+                            <Button Classes="SegBtn" Content="打开画面" VerticalAlignment="Center"
+                                    Command="{Binding OpenCameraLiveCommand}" />
+                            <Button Classes="SegBtn" Content="怎么设置" VerticalAlignment="Center"
+                                    Command="{Binding ToggleCameraSetupCommand}" />
+                        </UniformGrid>
+                    </Border>
+                    <TextBlock Classes="Hint" TextWrapping="Wrap"
+                               Text="{Binding CameraBridgeHint}" />
+                    <StackPanel Spacing="9" IsVisible="{Binding IsCameraSetupExpanded}">
+                        <TextBlock Text="一次准备，三步" FontSize="13" FontWeight="SemiBold"
+                                   Foreground="{DynamicResource TextBrush}" />
+                        <TextBlock Classes="Hint" TextWrapping="Wrap"
+                                   Text="1. 在这台电脑上放一个小工具 go2rtc（单个 exe，免安装，随便找个目录）。同一个网络里有一台常开的设备也能放那儿。" />
+                        <TextBlock Classes="Hint" TextWrapping="Wrap"
+                                   Text="2. 启动它，打开它的页面，用小米账号登录，把摄像头接进来（它的页面会列出来，点一下就行）。" />
+                        <TextBlock Classes="Hint" TextWrapping="Wrap"
+                                   Text="3. 回到这里点「打开画面」。以后每次都是这一步。" />
+                        <Grid ColumnDefinitions="*,Auto" Margin="0,4,0,0">
+                            <TextBlock Text="画面源地址" FontSize="12.5" VerticalAlignment="Center"
+                                       Foreground="{DynamicResource Text2Brush}" />
+                            <Button Grid.Column="1" Classes="SegMini" Content="重新检测"
+                                    Command="{Binding RefreshCameraBridgeCommand}" />
+                        </Grid>
+                        <TextBox Text="{Binding Go2rtcBase, Mode=TwoWay}"
+                                 Watermark="http://127.0.0.1:1984" />
+                        <Button Classes="SegBtn" Content="打开画面源页面" HorizontalAlignment="Left"
+                                Command="{Binding OpenGo2rtcConsoleCommand}" />
+                        <TextBlock Classes="Hint" TextWrapping="Wrap" Opacity="0.75"
+                                   Text="地址默认 127.0.0.1:1984；画面源装在别的机器上时，改成那台机器的 IP 即可。" />
+                    </StackPanel>
+                </StackPanel>
+            </Border>
+        </StackPanel>
         <!-- 智能场景：本设备参与的全部手动场景与自动化，默认折叠（标题行与高级设置同一套开合样式），
              展开后按类型分组，点一行进已有的场景详情弹窗 -->
         <Border Classes="DrCard">

@@ -78,7 +78,7 @@
                     <SolidColorBrush x:Key="PlayHoverFromBrush" Color="#00282F42"/>
                     <SolidColorBrush x:Key="LineBrush" Color="#12FFFFFF"/>
                     <!-- 主窗口卡片外轮廓：比全局 LineBrush 深一档，窗口贴在桌面上时才立得住 -->
-                    <SolidColorBrush x:Key="WindowLineBrush" Color="#10FFFFFF"/>
+                    <SolidColorBrush x:Key="WindowLineBrush" Color="#15FFFFFF"/>
                     <!-- 桌面分区卡片外轮廓：比全局 LineBrush 重一档、仍轻于主窗口，透出壁纸时轮廓才立得住。
                          分区窗固定 Dark 主题，实际只走深色字典；浅色那份只为资源完整性。 -->
                     <SolidColorBrush x:Key="ZoneLineBrush" Color="#1FFFFFFF"/>
@@ -99,6 +99,13 @@
                     <SolidColorBrush x:Key="AccentBrush" Color="#7884ecff"/>
                     <SolidColorBrush x:Key="Accent2Brush" Color="#a69bdfff"/>
                     <Color x:Key="Accent2Color">#9bdfff</Color>
+                    <!-- 侧栏拖拽落点线：主色横向渐变，两端透明收口（线细，硬端点会显得突兀） -->
+                    <LinearGradientBrush x:Key="NavDropLineBrush" StartPoint="0%,50%" EndPoint="100%,50%">
+                        <GradientStop Color="#0084ECFF" Offset="0"/>
+                        <GradientStop Color="#7884ECFF" Offset="0.16"/>
+                        <GradientStop Color="#7884ECFF" Offset="0.84"/>
+                        <GradientStop Color="#0084ECFF" Offset="1"/>
+                    </LinearGradientBrush>
                     <!-- 分区标题栏图钉的开启态：品牌紫提亮一档，压得住卡片底色 -->
                     <SolidColorBrush x:Key="PinBrush" Color="#8B7CFF"/>
                     <SolidColorBrush x:Key="AccentSoftBrush" Color="#247C5CFC"/>
@@ -317,6 +324,13 @@
                     <SolidColorBrush x:Key="AccentBrush" Color="#8E83F0"/>
                     <SolidColorBrush x:Key="Accent2Brush" Color="#7E76E0"/>
                     <Color x:Key="Accent2Color">#7E76E0</Color>
+                    <!-- 侧栏拖拽落点线：主色横向渐变，两端透明收口（线细，硬端点会显得突兀） -->
+                    <LinearGradientBrush x:Key="NavDropLineBrush" StartPoint="0%,50%" EndPoint="100%,50%">
+                        <GradientStop Color="#008E83F0" Offset="0"/>
+                        <GradientStop Color="#8E83F0" Offset="0.16"/>
+                        <GradientStop Color="#8E83F0" Offset="0.84"/>
+                        <GradientStop Color="#008E83F0" Offset="1"/>
+                    </LinearGradientBrush>
                     <SolidColorBrush x:Key="PinBrush" Color="#7C5CFC"/>
                     <SolidColorBrush x:Key="AccentSoftBrush" Color="#1F6D5BE3"/>
                     <!-- 菜单 / 下拉的选中底：浅底上直接用取色到的实心紫 #7C5CFC，悬停亮一档、按压深一档 -->

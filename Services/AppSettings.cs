@@ -9,23 +9,18 @@ namespace MiHome.Services;
 
 /// <summary>
 /// 项目自带的本地配置：仓库根 <c>MiHome.settings.json</c>（随编译复制到 exe 同级目录）。
-/// 里面是**可留空的变量字段**，开源分发时全部为空，应用就只用 GitHub/不统计；
-/// 自建部署或有私有后台时，开发者在本机把字段填上即可，不需要改代码、不写注册表。
-/// 环境变量仍可覆盖（<c>MIHOME_BACKEND_BASE</c> 等），便于临时联调。
+/// 里面是**可留空的两个变量字段**：后台地址与 app_id。更新检查与匿名统计共用同一套后台，
+/// 所以只写一份；开源分发留空时应用就只用 GitHub、不上报。私有值写
+/// <c>MiHome.settings.local.json</c>（已 gitignore，只覆盖非空字段），
+/// 环境变量 <c>MIHOME_API_BASE</c> / <c>MIHOME_APP_ID</c> 可临时覆盖。
 /// </summary>
 internal sealed class AppSettings
 {
-    /// <summary>后台更新根地址，如 <c>https://example.com/api</c>；空 = 不用后台。</summary>
-    public string BackendEndpoint { get; set; } = "";
+    /// <summary>后台根地址，如 <c>https://example.com/api</c>；空 = 不用后台（更新只走 GitHub、统计不发送）。</summary>
+    public string Endpoint { get; set; } = "";
 
-    /// <summary>更新后台的 app_id；0 = 不用后台。</summary>
-    public int BackendAppId { get; set; }
-
-    /// <summary>匿名统计上报根地址；空 = 不发送。</summary>
-    public string TelemetryEndpoint { get; set; } = "";
-
-    /// <summary>统计后台的 app_id；0 = 不发送，只本地留痕。</summary>
-    public int TelemetryAppId { get; set; }
+    /// <summary>本应用在后台的编号；0 = 未登记。</summary>
+    public int AppId { get; set; }
 
     /// <summary>配置文件路径（exe 同级）。</summary>
     public static string FilePath => Path.Combine(AppContext.BaseDirectory, "MiHome.settings.json");
@@ -61,11 +56,9 @@ internal sealed class AppSettings
         var local = Read(LocalPath);
         if (local is null) return settings;
 
-        // 本机覆盖：只覆盖非空字段，避免把基础文件里的其它设置抹掉
-        if (!string.IsNullOrWhiteSpace(local.BackendEndpoint)) settings.BackendEndpoint = local.BackendEndpoint.Trim();
-        if (local.BackendAppId > 0) settings.BackendAppId = local.BackendAppId;
-        if (!string.IsNullOrWhiteSpace(local.TelemetryEndpoint)) settings.TelemetryEndpoint = local.TelemetryEndpoint.Trim();
-        if (local.TelemetryAppId > 0) settings.TelemetryAppId = local.TelemetryAppId;
+        // 本机覆盖：只覆盖非空字段
+        if (!string.IsNullOrWhiteSpace(local.Endpoint)) settings.Endpoint = local.Endpoint.Trim();
+        if (local.AppId > 0) settings.AppId = local.AppId;
         return settings;
     }
 
