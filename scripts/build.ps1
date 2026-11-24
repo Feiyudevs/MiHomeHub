@@ -1,4 +1,4 @@
-# One-click Release build: compile -> publish single-file exe -> launch
+﻿# One-click Release build: compile -> publish single-file exe -> launch
 # Usage: .\scripts\build.ps1          (compile + publish + launch)
 #        .\scripts\build.ps1 -NoRun   (compile only)
 param(
@@ -53,6 +53,23 @@ if ($toStop.Count -gt 0) {
 if ($LASTEXITCODE -ne 0) { throw "publish-sc.ps1 failed with exit code $LASTEXITCODE" }
 if (-not (Test-Path -LiteralPath $exePath)) { throw "published exe not found: $exePath" }
 
-# 托盘常驻应用：交给 explorer 启动，进程归属桌面 shell，避免被当前命令会话回收
-Start-Process explorer.exe -ArgumentList ('"{0}"' -f $exePath)
-Write-Host "Launched -> $exePath"
+# 托盘常驻应用：交给 explorer 启动，进程归属桌面 shell，避免被当前命令会话回收。
+# 但开发时用来注入私有后台/测试通道的 MIHOME_* 变量只在当前会话里，explorer 看不到；
+# 所以带这些变量时直接用 Start-Process -Environment 把变量带进新进程。
+$passEnv = @(
+    'MIHOME_BACKEND_BASE', 'MIHOME_BACKEND_APP_ID',
+    'MIHOME_TELEMETRY_ENDPOINT', 'MIHOME_TELEMETRY_APP_ID', 'MIHOME_TELEMETRY',
+    'MIHOME_UPDATE_CHANNEL', 'MIHOME_UPDATE_SOURCE'
+)
+$passEnv = $passEnv | Where-Object { -not [string]::IsNullOrWhiteSpace([Environment]::GetEnvironmentVariable($_, 'Process')) }
+$passEnv = @($passEnv)
+
+if ($passEnv.Count -gt 0) {
+    $envMap = @{}
+    foreach ($name in $passEnv) { $envMap[$name] = [Environment]::GetEnvironmentVariable($name, 'Process') }
+    Start-Process -FilePath $exePath -Environment $envMap
+    Write-Host ("Launched -> {0} (env: {1})" -f $exePath, ($passEnv -join ', '))
+} else {
+    Start-Process explorer.exe -ArgumentList ('"{0}"' -f $exePath)
+    Write-Host "Launched -> $exePath"
+}

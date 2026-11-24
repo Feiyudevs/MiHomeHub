@@ -1,4 +1,4 @@
-# Self-contained single-file publish (distribution size follows this script)
+﻿# Self-contained single-file publish (distribution size follows this script)
 # Usage: .\scripts\publish-sc.ps1 [-Rid win-x64]
 param(
     [string]$Rid = "win-x64",
@@ -33,6 +33,15 @@ if ($LASTEXITCODE -ne 0) {
 $exe = Join-Path $out "MiHome.exe"
 if (-not (Test-Path -LiteralPath $exe)) {
     throw "published exe not found: $exe"
+}
+
+# 变量字段文件（后台地址/app_id 等）：跟着 exe 走，改配置不用重编代码。
+# 单文件 publish 偶尔不会带 Content，这里显式复制，保证 publish 目录始终有它。
+foreach ($name in @("MiHome.settings.json", "MiHome.settings.local.json")) {
+    $src = Join-Path $root $name
+    if (Test-Path -LiteralPath $src) {
+        Copy-Item -LiteralPath $src -Destination (Join-Path $out $name) -Force
+    }
 }
 
 $mb = [math]::Round((Get-Item -LiteralPath $exe).Length / 1MB, 2)

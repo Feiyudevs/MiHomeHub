@@ -8,10 +8,10 @@
     <UseAvalonia>true</UseAvalonia>
     <AssemblyName>MiHome</AssemblyName>
     <RootNamespace>MiHome</RootNamespace>
-    <Version>1.0.0</Version>
-    <AssemblyVersion>1.0.0.0</AssemblyVersion>
-    <FileVersion>1.0.0.0</FileVersion>
-    <InformationalVersion>1.0.0</InformationalVersion>
+    <Version>1.0.4</Version>
+    <AssemblyVersion>1.0.4.0</AssemblyVersion>
+    <FileVersion>1.0.4.0</FileVersion>
+    <InformationalVersion>1.0.4</InformationalVersion>
     <Product>MiHome</Product>
     <AssemblyTitle>MiHome</AssemblyTitle>
     <Company>Feiyu</Company>
@@ -21,6 +21,14 @@
          View 需有 x:DataType；个别无法类型化的路径可显式 {ReflectionBinding}。 -->
     <AvaloniaUseCompiledBindingsByDefault>true</AvaloniaUseCompiledBindingsByDefault>
   </PropertyGroup>
+
+  <ItemGroup>
+    <!-- 本地变量字段文件：跟随 exe 放在同级目录，开源版本字段全空；发布后可手改，不必改代码。
+         publish 目录会被 publish-sc 清空，所以必须同时设 CopyToPublishDirectory。 -->
+    <Content Include="MiHome.settings.json" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
+    <!-- 本机覆盖（已 .gitignore）：只填私有后台等字段，不进仓库；存在才复制，且不进安装包 payload。 -->
+    <Content Include="MiHome.settings.local.json" Condition="Exists('MiHome.settings.local.json')" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
+  </ItemGroup>
 
   <!-- Release/分发：自包含单文件 + 压缩。
        不开 PublishTrimmed：本应用 XAML 少量 ReflectionBinding + System.Text.Json 反射序列化，
@@ -61,6 +69,10 @@
   <ItemGroup>
     <Compile Remove="obj\**" />
     <Compile Remove="bin\**" />
+    <!-- installer\MiHome.Setup 是独立小工程（自带 Main），其源码与 obj/bin 不能混进主程序编译 -->
+    <Compile Remove="installer\**\*.cs" />
+    <Compile Remove="installer\**\obj\**" />
+    <Compile Remove="installer\**\bin\**" />
   </ItemGroup>
 
   <ItemGroup>

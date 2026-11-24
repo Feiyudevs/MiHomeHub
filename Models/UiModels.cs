@@ -20,6 +20,9 @@ public sealed partial class RoomChip : ObservableObject
 
     public string Name { get; }
 
+    /// <summary>「全部」是伪房间，固定在第一行：不参与拖拽排序，悬停也不亮抓手指柄。</summary>
+    public bool IsLocked => Name == "全部";
+
     /// <summary>图标 key，对应 Assets/Nav/&lt;key&gt;.svg，见 <see cref="Services.NavIcons"/>。</summary>
     public string IconKey { get; }
 

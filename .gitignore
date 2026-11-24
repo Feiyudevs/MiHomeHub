@@ -90,3 +90,6 @@ desktop.ini
 *.bak
 *.orig
 *.rej
+
+# 本机私有配置（后台地址/app_id，不进仓库）
+MiHome.settings.local.json

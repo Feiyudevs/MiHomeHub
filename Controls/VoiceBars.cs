@@ -10,14 +10,17 @@ using Avalonia.Threading;
 namespace MiHome.Controls;
 
 /// <summary>
-/// 小爱声纹条：5 根竖条按正弦节律起伏，用来替代静态声纹图标，让入口看起来「在听」。
+/// 小爱声纹条：4 根竖条按正弦节律起伏，用来替代静态声纹图标，让入口看起来「在听」。
 /// 用缩放而不是改高度，避免每帧触发布局；只在本控件挂到可视树且 IsActive 时跑定时器，
 /// 面板收起 / 窗口关闭后自动停，避免常驻动画空耗 CPU。
 /// </summary>
 public class VoiceBars : UserControl
 {
-    /// <summary>每根条的相位差，让 5 根条错峰起伏，而不是整体上下齐动。</summary>
-    private static readonly double[] Phases = { 0.0, 0.9, 1.8, 2.7, 3.6 };
+    /// <summary>条数：14~16px 的槽里放 5 根会被缝隙挤成一片糊块，4 根才留得住能看出来的间隙。</summary>
+    private const int BarCount = 4;
+
+    /// <summary>每根条的相位差，让各条错峰起伏，而不是整体上下齐动。</summary>
+    private static readonly double[] Phases = { 0.0, 1.0, 2.0, 3.0 };
 
     public static readonly StyledProperty<IBrush?> BarBrushProperty =
         AvaloniaProperty.Register<VoiceBars, IBrush?>(nameof(BarBrush));
@@ -48,7 +51,7 @@ public class VoiceBars : UserControl
         set => SetValue(IsBusyProperty, value);
     }
 
-    private readonly Border[] _bars = new Border[5];
+    private readonly Border[] _bars = new Border[BarCount];
     private DispatcherTimer? _timer;
     private double _angle;
 
@@ -61,9 +64,12 @@ public class VoiceBars : UserControl
     public VoiceBars()
     {
         IsHitTestVisible = false;
+        var columns = new ColumnDefinitions();
+        for (var i = 0; i < BarCount; i++)
+            columns.Add(new ColumnDefinition(1, GridUnitType.Star));
         var grid = new Grid
         {
-            ColumnDefinitions = new ColumnDefinitions("*,*,*,*,*"),
+            ColumnDefinitions = columns,
             HorizontalAlignment = Avalonia.Layout.HorizontalAlignment.Stretch,
             VerticalAlignment = Avalonia.Layout.VerticalAlignment.Stretch
         };
@@ -71,6 +77,8 @@ public class VoiceBars : UserControl
         {
             var bar = new Border
             {
+                // 4 根条时槽宽 4px，左右各留 0.75 → 条宽约 2.5px、缝隙 1.5px；
+                // 缝隙必须留到条宽的六成左右，否则缩到 14~16px 的图标尺寸就会糊成一整块
                 Margin = new Thickness(0.75, 0),
                 CornerRadius = new CornerRadius(2),
                 HorizontalAlignment = Avalonia.Layout.HorizontalAlignment.Stretch,

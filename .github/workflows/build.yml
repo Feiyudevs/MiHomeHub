@@ -3,10 +3,16 @@ name: package
 on:
   push:
     branches: [main]
-    tags: ['v*']
+    tags: ['v*', 'test']
   pull_request:
     branches: [main]
   workflow_dispatch:
+    inputs:
+      channel:
+        description: '发布通道：stable = 正式（默认）；test = 内部测试通道（pre-release，正式通道看不到）'
+        type: choice
+        default: stable
+        options: [stable, test]
 
 concurrency:
   group: package-${{ github.ref }}
@@ -49,21 +55,14 @@ jobs:
           if (-not ${env:ProgramFiles(x86)}) { ${env:ProgramFiles(x86)} = "C:\Program Files (x86)" }
           .\scripts\publish-sc.ps1 -Rid $env:RID -Configuration Release
 
-      - name: Install Inno Setup 6
-        shell: pwsh
-        run: choco install innosetup --no-progress -y
-
-      - name: Build installer
+      - name: Build installer (self-contained shell + payload) + update manifest
         shell: pwsh
         run: |
-          $iscc = @(
-            "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe",
-            "$env:ProgramFiles\Inno Setup 6\ISCC.exe",
-            "$env:LOCALAPPDATA\Programs\Inno Setup 6\ISCC.exe"
-          ) | Where-Object { Test-Path -LiteralPath $_ } | Select-Object -First 1
-          if (-not $iscc) { throw "ISCC.exe not found" }
-          & $iscc installer\MiHome.iss
-          if ($LASTEXITCODE -ne 0) { throw "ISCC failed with exit code $LASTEXITCODE" }
+          $v = "${{ steps.ver.outputs.version }}"
+          $ch = if ("${{ github.ref }}" -eq "refs/tags/test" -or "${{ inputs.channel }}" -eq "test") { "test" } else { "stable" }
+          $expires = if ($ch -eq "test") { 30 } else { 0 }
+          .\scripts\package-setup.ps1 -Rid $env:RID -Version $v -SkipMainPublish -Channel $ch -ExpiresDays $expires
+          if ($LASTEXITCODE -ne 0) { throw "package-setup.ps1 failed" }
 
       - name: Collect artifacts + SHA256
         shell: pwsh
@@ -71,9 +70,11 @@ jobs:
           $v = "${{ steps.ver.outputs.version }}"
           $releaseDir = Join-Path $PWD "publish\release\$v"
           $exe = Join-Path $PWD "publish\sc-$env:RID\MiHome.exe"
-          $setup = Join-Path $releaseDir "MiHome-Setup-$v-win-x64.exe"
+          $setup = Join-Path $releaseDir "MiHome-Setup-$v-$env:RID.exe"
+          $manifest = Join-Path $releaseDir "update.json"
           if (-not (Test-Path -LiteralPath $exe)) { throw "published exe not found: $exe" }
           if (-not (Test-Path -LiteralPath $setup)) { throw "installer not found: $setup" }
+          if (-not (Test-Path -LiteralPath $manifest)) { throw "update.json not found: $manifest" }
 
           Copy-Item -LiteralPath $exe -Destination (Join-Path $releaseDir "MiHome.exe") -Force
           $lines = @()
@@ -105,4 +106,32 @@ jobs:
             publish/release/${{ steps.ver.outputs.version }}/MiHome.exe
             publish/release/${{ steps.ver.outputs.version }}/MiHome-Setup-${{ steps.ver.outputs.version }}-${{ env.RID }}.exe
             publish/release/${{ steps.ver.outputs.version }}/SHA256SUMS.txt
+            publish/release/${{ steps.ver.outputs.version }}/update.json
           generate_release_notes: true
+
+      # 测试通道：固定的滚动 tag 'test'，永远 pre-release；releases/latest 选不到它，
+      # 所以正式用户即使拿着同样的 exe 也永远不会被引到测试版本（清单本身也带 channel=test）。
+      - name: Publish to test channel (pre-release)
+        if: github.ref == 'refs/tags/test' || (github.event_name == 'workflow_dispatch' && inputs.channel == 'test')
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          $v = "${{ steps.ver.outputs.version }}"
+          $dir = Join-Path $PWD "publish\release\$v"
+          $files = @(
+            (Join-Path $dir "MiHome.exe"),
+            (Join-Path $dir "MiHome-Setup-$v-$env:RID.exe"),
+            (Join-Path $dir "SHA256SUMS.txt"),
+            (Join-Path $dir "update.json")
+          )
+          gh release view test *> $null
+          if ($LASTEXITCODE -ne 0) {
+            if (-not (git tag --list test)) { git tag test }
+            git push origin test
+            gh release create test @files --title "MiHome 测试通道（内部验证）" --prerelease --notes "内部测试版本，正式通道不会分发。"
+          } else {
+            gh release upload test @files --clobber
+            gh release edit test --prerelease
+          }
+          if ($LASTEXITCODE -ne 0) { throw "test channel publish failed" }

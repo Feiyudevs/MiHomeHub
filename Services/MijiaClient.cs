@@ -3,6 +3,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.IO;
 using System.IO.Compression;
 using System.Net.Http;
@@ -10,6 +11,7 @@ using System.Text;
 using System.Text.Json;
 using System.Threading.Tasks;
 using MiHome.Models;
+using MiHome.Services.Telemetry;
 
 namespace MiHome.Services;
 
@@ -320,11 +322,31 @@ public class MijiaClient : IDisposable
     public async Task RunSceneAsync(MijiaScene scene)
     {
         var owner = _homes.Find(h => h.Id == scene.HomeId)?.Uid ?? 0;
-        await RequestAsync(RunSceneUri, new
+        var sw = Stopwatch.StartNew();
+        try
         {
-            scene_id = scene.SceneId, scene_type = 2, phone_id = "null",
-            home_id = scene.HomeId, owner_uid = owner
-        });
+            await RequestAsync(RunSceneUri, new
+            {
+                scene_id = scene.SceneId, scene_type = 2, phone_id = "null",
+                home_id = scene.HomeId, owner_uid = owner
+            });
+            TelemetryService.Track("scene_run", "执行场景", new Dictionary<string, object?>
+            {
+                ["ok"] = true,
+                ["trigger"] = "manual",
+                ["ms"] = (int)Math.Min(sw.ElapsedMilliseconds, 60000),
+            });
+        }
+        catch
+        {
+            TelemetryService.Track("scene_run", "执行场景", new Dictionary<string, object?>
+            {
+                ["ok"] = false,
+                ["trigger"] = "manual",
+                ["ms"] = (int)Math.Min(sw.ElapsedMilliseconds, 60000),
+            });
+            throw;
+        }
     }
 
     /// <summary>
@@ -821,7 +843,43 @@ public class MijiaClient : IDisposable
     /// <summary>bool 开关下发：优先用规格解析出的 siid/piid，未解析时回落 siid=2/piid=1。</summary>
     public async Task SetPowerAsync(MijiaDevice device, bool on)
     {
-        await SetPropAsync(device.TargetDid, device.PowerSiid, device.PowerPiid, on);
+        // 统计只记设备类别与成败，不记 did / 设备名 / 房间
+        var kind = DeviceKind(device.SpecType);
+        var sw = Stopwatch.StartNew();
+        try
+        {
+            await SetPropAsync(device.TargetDid, device.PowerSiid, device.PowerPiid, on);
+            TelemetryService.Track("device_control", "开关设备", new Dictionary<string, object?>
+            {
+                ["kind"] = kind,
+                ["action"] = on ? "on" : "off",
+                ["ok"] = true,
+                ["ms"] = (int)Math.Min(sw.ElapsedMilliseconds, 60000),
+            });
+        }
+        catch
+        {
+            TelemetryService.Track("device_control", "开关设备", new Dictionary<string, object?>
+            {
+                ["kind"] = kind,
+                ["action"] = on ? "on" : "off",
+                ["ok"] = false,
+                ["ms"] = (int)Math.Min(sw.ElapsedMilliseconds, 60000),
+            });
+            throw;
+        }
+    }
+
+    /// <summary>从 MIoT 规格串里取设备大类（light / air-conditioner / curtain …），解析不出就 other。</summary>
+    private static string DeviceKind(string? specType)
+    {
+        if (string.IsNullOrWhiteSpace(specType)) return "other";
+        var parts = specType.Split(':');
+        for (var i = 0; i + 1 < parts.Length; i++)
+        {
+            if (parts[i] == "device" && parts[i + 1].Length > 0) return parts[i + 1];
+        }
+        return "other";
     }
 
     /// <summary>多路开关的一路下发；虚拟子设备同样打父 did + 通道 siid。</summary>

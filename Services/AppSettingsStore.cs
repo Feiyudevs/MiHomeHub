@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: GPL-3.0-only
 
 using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Text.Json;
 using System.Threading.Tasks;
@@ -34,6 +35,9 @@ public static class AppSettingsStore
     /// <summary>鼠标移入折叠的桌面分区时自动展开；移出后自动收起。</summary>
     public static bool HoverExpandEnabled { get; private set; } = true;
 
+    /// <summary>侧栏房间的自定义顺序（不含「全部」）；空表示仍按设备数量自动排。</summary>
+    public static string[] RoomOrder { get; private set; } = Array.Empty<string>();
+
     static AppSettingsStore()
     {
         try
@@ -55,6 +59,14 @@ public static class AppSettingsStore
                 DoubleClickDesktopToggles = dc.ValueKind != JsonValueKind.False;
             if (root.TryGetProperty("hoverExpand", out var he))
                 HoverExpandEnabled = he.ValueKind != JsonValueKind.False;
+            if (root.TryGetProperty("roomOrder", out var ro) && ro.ValueKind == JsonValueKind.Array)
+            {
+                var order = new List<string>();
+                foreach (var item in ro.EnumerateArray())
+                    if (item.ValueKind == JsonValueKind.String && item.GetString() is { Length: > 0 } name)
+                        order.Add(name);
+                RoomOrder = order.ToArray();
+            }
         }
         catch
         {
@@ -104,6 +116,13 @@ public static class AppSettingsStore
         Save();
     }
 
+    /// <summary>侧栏房间拖拽后的新顺序；只存房间名，不存「全部」。</summary>
+    public static void SetRoomOrder(IEnumerable<string> names)
+    {
+        RoomOrder = names.ToArray();
+        Save();
+    }
+
     private static void Save()
     {
         var payload = JsonSerializer.Serialize(new
@@ -114,7 +133,8 @@ public static class AppSettingsStore
             defaultSpeakerDid = DefaultSpeakerDid,
             cardShadow = CardShadow,
             doubleClickDesktopToggles = DoubleClickDesktopToggles,
-            hoverExpand = HoverExpandEnabled
+            hoverExpand = HoverExpandEnabled,
+            roomOrder = RoomOrder
         });
         // 写盘出 UI 线程；进程被强杀时可能丢最后一次偏好，可接受
         _ = Task.Run(() =>

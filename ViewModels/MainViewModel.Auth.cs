@@ -20,6 +20,7 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using MiHome.Models;
 using MiHome.Services;
+using MiHome.Services.Telemetry;
 using QRCoder;
 
 namespace MiHome.ViewModels;
@@ -102,7 +103,7 @@ public partial class MainViewModel : ObservableObject
         {
             if (await _auth.RefreshServiceTokenAsync(ct))
             {
-                FinishLogin();
+                FinishLogin("auto");
                 Log("自动登录成功");
                 await InitClientAsync(refreshToken: false);
                 return;
@@ -156,7 +157,7 @@ public partial class MainViewModel : ObservableObject
                 return;
             }
 
-            FinishLogin();
+            FinishLogin("quick");
             Log("一键登录成功");
             await InitClientAsync();
         }
@@ -222,7 +223,7 @@ public partial class MainViewModel : ObservableObject
             }
             if (ok)
             {
-                FinishLogin();
+                FinishLogin("qr");
                 Log("登录成功");
                 await InitClientAsync();
             }
@@ -249,7 +250,7 @@ public partial class MainViewModel : ObservableObject
         }
     }
 
-    private void FinishLogin()
+    private void FinishLogin(string mode)
     {
         CancelAuth();
         CanQuickLogin = _auth.CanQuickLogin();
@@ -258,6 +259,12 @@ public partial class MainViewModel : ObservableObject
         QrHint = "登录成功";
         ClearQrImage();
         IsLoginOpen = false;
+        // 只记登录方式与结果，不记账号/昵称/家庭
+        TelemetryService.Track("mijia_login", "米家登录", new Dictionary<string, object?>
+        {
+            ["mode"] = mode,
+            ["ok"] = true,
+        });
     }
 
     /// <summary>

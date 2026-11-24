@@ -18,10 +18,12 @@
                     <Button Classes="BtnGhost" Content="清空" Click="OnClearLog" />
                 </StackPanel>
             </Grid>
+            <!-- 日志区只是一块阅读面板：这里不画边，TextBox 模板里的边也已在样式里压平，
+                 两层边框不会叠成「双框」 -->
             <Border CornerRadius="10"
                     Background="{DynamicResource Card2Brush}"
-                    BorderBrush="{DynamicResource LineBrush}" BorderThickness="1"
-                    Padding="12">
+                    BorderThickness="0"
+                    Padding="14,12">
                 <TextBox Classes="Log" Text="{Binding LogText}"
                          Height="340" ScrollViewer.VerticalScrollBarVisibility="Auto"
                          VerticalContentAlignment="Top" />

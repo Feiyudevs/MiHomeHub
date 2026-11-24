@@ -17,6 +17,7 @@ using Avalonia.Media;
 using Avalonia.Styling;
 using Avalonia.Threading;
 using Avalonia.VisualTree;
+using MiHome.Controls;
 using MiHome.Models;
 using MiHome.Services;
 using MiHome.ViewModels;
@@ -84,6 +85,7 @@ public partial class MainWindow
             _mainContentScope = built.NameScope;
             SurfaceContentHost.Content = root;
             WireNavSlider();
+            WireRoomReorder();
             Dispatcher.UIThread.Post(() =>
             {
                 if (!ReferenceEquals(_mainContentRoot, root) || Vm is not { } vm) return;
@@ -117,6 +119,7 @@ public partial class MainWindow
             _mainContentScope = null;
             SurfaceContentHost.Content = null;
             UnwireNavSlider();
+            UnwireRoomReorder();
             if (Vm is { } vm)
             {
                 vm.CloseOverlaysCommand.Execute(null);
@@ -314,6 +317,28 @@ public partial class MainWindow
         source is Visual visual
         && visual.GetSelfAndVisualAncestors().OfType<Button>()
             .Any(b => b.DataContext is RoomChip);
+
+    // ================= 侧栏房间拖拽排序 =================
+    // 长按房间行上下拖动，或按住悬停时浮出的六点抓手直接拖；拖动中有一张跟着指针的浮卡
+    // 和一条落点横线，松手才换位并把顺序写回 app.json（实现在 Controls/NavReorderDrag）。
+    private NavReorderDrag? _roomReorder;
+
+    private void WireRoomReorder()
+    {
+        var items = FindMainControl<ItemsControl>("NavRoomsItems");
+        var scroll = FindMainControl<ScrollViewer>("NavRoomsScroll");
+        var layer = FindMainControl<Canvas>("NavDragLayer");
+        var ghost = FindMainControl<Border>("NavDragGhost");
+        var ghostLabel = FindMainControl<TextBlock>("NavDragGhostLabel");
+        var bar = FindMainControl<Border>("NavDropBar");
+        if (items is null || scroll is null || layer is null || ghost is null
+            || ghostLabel is null || bar is null || Vm is not { } vm) return;
+
+        _roomReorder = new NavReorderDrag(items, scroll, layer, ghost, ghostLabel, bar,
+            vm.MoveRoom, vm.SaveRoomOrder);
+    }
+
+    private void UnwireRoomReorder() => _roomReorder = null;
 
     // ================= 切页入场：列表卡片逐张移入 =================
     private Carousel? PageCarousel => FindMainControl<Carousel>("PageCarousel");

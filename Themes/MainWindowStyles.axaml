@@ -26,7 +26,8 @@
         <!-- 标题栏账户：胶囊容器包住「家庭名 + 登录」，与右侧工具按钮同高 -->
         <Style Selector="Border.AccountGroup">
             <Setter Property="Height" Value="32" />
-            <Setter Property="Background" Value="{DynamicResource SurfaceBrush}" />
+            <!-- 底色与「小爱同学 / 音乐」两个胶囊同一档（SearchBgBrush），三个入口在标题栏里看起来是一组 -->
+            <Setter Property="Background" Value="{DynamicResource SearchBgBrush}" />
             <Setter Property="BorderBrush" Value="{DynamicResource LineBrush}" />
             <Setter Property="BorderThickness" Value="1" />
             <Setter Property="CornerRadius" Value="16" />

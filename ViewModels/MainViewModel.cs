@@ -23,6 +23,8 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using MiHome.Models;
 using MiHome.Services;
+using MiHome.Services.Telemetry;
+using MiHome.Services.Update;
 using QRCoder;
 
 namespace MiHome.ViewModels;
@@ -98,6 +100,51 @@ public partial class MainViewModel : ObservableObject
     [ObservableProperty] private bool _closeToTray = AppSettingsStore.CloseToTray;
     /// <summary>true = 卡片带投影；false = 扁平无投影。</summary>
     [ObservableProperty] private bool _cardShadow = AppSettingsStore.CardShadow;
+
+    // ── 更新（「关于」页）：检查 GitHub Release → 下载安装包 → 静默安装 ──
+    [ObservableProperty] private string _updateStatusText = "检查更新可获取最新版本";
+    [ObservableProperty] private string _updateNotes = "";
+    /// <summary>测试通道提示：稳定通道下为空、整行收起，普通用户看不到这行。</summary>
+    [ObservableProperty] private string _updateChannelHint = UpdateService.IsTestChannel
+        ? "测试通道 · 只接收内部测试版本，验证完请删除 channel.txt 回到正式通道"
+        : "";
+    [ObservableProperty] private bool _isUpdateAvailable;
+    [ObservableProperty] private bool _isUpdateBusy;
+    [ObservableProperty] private double _updateProgress;
+
+    /// <summary>已发现的新版本清单（点「立即更新」时用）。</summary>
+    private UpdateManifest? _pendingUpdate;
+
+    // ── 匿名使用统计（可选，默认关闭；只报事件，不报账号与设备名） ──
+    [ObservableProperty] private bool _telemetryEnabled = TelemetryService.IsEnabled;
+    [ObservableProperty] private string _telemetryHint = TelemetryService.StatusText;
+
+    partial void OnTelemetryEnabledChanged(bool value)
+    {
+        TelemetryService.SetEnabled(value);
+        TelemetryHint = TelemetryService.StatusText;
+        Log(value ? "已开启匿名使用统计" : "已关闭匿名使用统计");
+    }
+
+    /// <summary>「查看最近上报内容」：把最近 5 条事件原文写进操作日志，便于用户自查。</summary>
+    [RelayCommand]
+    private void PreviewTelemetry()
+    {
+        var lines = TelemetryService.RecentLines(5);
+        if (lines.Count == 0)
+        {
+            Log("匿名统计：本轮还没有产生事件（关闭状态不会采集）");
+        }
+        else
+        {
+            Log("匿名统计 · 最近上报内容：");
+            foreach (var line in lines) Log("  " + line);
+        }
+        IsLogOpen = true;
+    }
+
+    /// <summary>由 App 注入：真正退出进程（安装器需要先关掉自己才能替换 app 目录）。</summary>
+    public Action? RequestExit { get; set; }
 
     /// <summary>双击桌面空白处显示 / 隐藏所有桌面分区卡片。</summary>
     [ObservableProperty] private bool _doubleClickDesktopToggles = AppSettingsStore.DoubleClickDesktopToggles;
@@ -228,6 +275,9 @@ public partial class MainViewModel : ObservableObject
     // ===== 小爱音箱：默认音箱与语音指令 =====
 
     public ObservableCollection<RoomChip> Rooms { get; } = new();
+
+    /// <summary>侧栏房间的自定义顺序（不含「全部」）：拖拽时即时更新，松手才写盘。</summary>
+    private string[] _roomOrder = AppSettingsStore.RoomOrder;
     public ObservableCollection<HomeOption> HomeOptions { get; } = new();
     public ObservableCollection<MijiaDevice> Devices { get; } = new();
     public ObservableCollection<DeviceGroup> HomeGroups { get; } = new();
@@ -436,6 +486,9 @@ public partial class MainViewModel : ObservableObject
 
         // 全局快捷键：装载 hotkeys.json、安装键盘钩子（窗口收起进托盘也常驻）
         InitHotkeys();
+
+        // 启动后无感检查更新：24 小时内查过就跳过；失败也只留一句状态，不打扰用户
+        if (UpdateService.ShouldAutoCheck()) _ = AutoCheckUpdateAsync();
     }
 
     /// <summary>
@@ -764,6 +817,7 @@ public partial class MainViewModel : ObservableObject
     {
         if (_client == null) return;
         IsLoading = true;
+        var sw = System.Diagnostics.Stopwatch.StartNew();
         try
         {
             Log("正在拉取设备列表…");
@@ -802,6 +856,12 @@ public partial class MainViewModel : ObservableObject
             _ = ResolveSpecsThenRefreshAsync(devices, gen);
 
             Log($"已加载 {_allDevices.Count} 个设备、{SceneItems.Count} 个场景");
+            TelemetryService.Track("devices_loaded", "加载设备", new Dictionary<string, object?>
+            {
+                ["ok"] = true,
+                ["count"] = DeviceCountBucket(_allDevices.Count),
+                ["ms"] = (int)Math.Min(sw.ElapsedMilliseconds, 60000),
+            });
 
             // 设备加载完成后立即收缩原生渲染资源：大量卡片渲染会产生 Avalonia 合成层与 GPU 纹理，
             // GC 不会自动回收这些原生内存，需主动调用 SetProcessWorkingSetSize 让 Windows 收缩工作集。
@@ -810,6 +870,11 @@ public partial class MainViewModel : ObservableObject
         catch (Exception ex)
         {
             Log($"拉取设备失败：{ex.Message}");
+            TelemetryService.Track("devices_loaded", "加载设备", new Dictionary<string, object?>
+            {
+                ["ok"] = false,
+                ["ms"] = (int)Math.Min(sw.ElapsedMilliseconds, 60000),
+            });
             // 断网/接口失败时若还没铺上屏，再兜一次缓存
             if (!HasDevices) ApplyCachedDevices();
             // 这轮拿不到数据，后台读数链不会启动，骨架要在这里收尾，不能让它一直转
@@ -1432,6 +1497,7 @@ public partial class MainViewModel : ObservableObject
             .OrderByDescending(g => g.Count())
             .Select(g => g.Key)
             .ToList();
+        names = ApplyRoomOrder(names);
         if (!names.Contains(_selectedRoom)) _selectedRoom = "全部";
 
         // 房间没变化就不重建侧栏 chip：重建同样会触发文本重排
@@ -1461,6 +1527,42 @@ public partial class MainViewModel : ObservableObject
             Rooms.Add(new RoomChip(n));
         RoomCount = names.Count;
         SyncRoomChips();
+    }
+
+    /// <summary>
+    /// 用户拖过的房间排前面（按保存的先后），没排过的（新出现的房间）仍按设备数排在后面，
+    /// 这样加新房间不会打乱已有顺序。
+    /// </summary>
+    private List<string> ApplyRoomOrder(List<string> names)
+    {
+        if (_roomOrder.Length == 0) return names;
+
+        var rank = new Dictionary<string, int>(StringComparer.Ordinal);
+        for (var i = 0; i < _roomOrder.Length; i++)
+            if (!rank.ContainsKey(_roomOrder[i])) rank[_roomOrder[i]] = i;
+
+        return names.OrderBy(n => rank.TryGetValue(n, out var r) ? r : int.MaxValue).ToList();
+    }
+
+    /// <summary>
+    /// 侧栏房间拖拽落点：只改显示顺序，「全部」固定第一行；拖拽过程中连续调用，先不动磁盘，
+    /// 松手时由 <see cref="SaveRoomOrder"/> 落盘一次。
+    /// </summary>
+    public void MoveRoom(int from, int to)
+    {
+        if (from <= 0 || from >= Rooms.Count) return;
+        to = Math.Clamp(to, 1, Rooms.Count - 1);
+        if (to == from) return;
+
+        Rooms.Move(from, to);
+        _roomOrder = Rooms.Skip(1).Select(c => c.Name).ToArray();
+    }
+
+    /// <summary>拖拽结束写回房间顺序；写盘失败不影响本次运行。</summary>
+    public void SaveRoomOrder()
+    {
+        if (_roomOrder.Length == 0) return;
+        AppSettingsStore.SetRoomOrder(_roomOrder);
     }
 
     /// <summary>侧栏只允许一处高亮：只有停在「房间」页时，当前房间才显示选中态。</summary>
@@ -3827,6 +3929,133 @@ public partial class MainViewModel : ObservableObject
             Log($"打开链接失败：{url} - {ex.Message}");
         }
     }
+
+    /// <summary>启动时的无感检查：失败不提示，只在「关于」页留一句状态。</summary>
+    private async Task AutoCheckUpdateAsync()
+    {
+        try { ApplyUpdateResult(await UpdateService.CheckAsync(force: false)); }
+        catch { /* 后台检查失败不影响任何功能 */ }
+    }
+
+    [RelayCommand]
+    private async Task CheckUpdateAsync()
+    {
+        if (IsUpdateBusy) return;
+        IsUpdateBusy = true;
+        UpdateNotes = "";
+        UpdateStatusText = "正在检查更新…";
+        try
+        {
+            ApplyUpdateResult(await UpdateService.CheckAsync(force: true));
+        }
+        catch (Exception ex)
+        {
+            UpdateStatusText = "检查更新失败：" + ex.Message;
+            Log("检查更新失败：" + ex.Message);
+        }
+        finally
+        {
+            IsUpdateBusy = false;
+        }
+    }
+
+    private void ApplyUpdateResult(UpdateCheckResult result)
+    {
+        _pendingUpdate = result.Manifest;
+        IsUpdateAvailable = result.State == UpdateState.Available && result.Manifest is not null;
+        UpdateStatusText = result.Message;
+        UpdateNotes = result.Manifest?.Notes?.Trim() ?? "";
+        TelemetryService.Track("update_check", "检查更新", new Dictionary<string, object?>
+        {
+            ["channel"] = UpdateService.CurrentChannel,
+            ["result"] = result.State switch
+            {
+                UpdateState.Available => "available",
+                UpdateState.UpToDate => "latest",
+                _ => "failed",
+            },
+            ["version"] = result.Manifest?.Version,
+        });
+        if (IsUpdateAvailable)
+            Log($"发现新版本 {result.Manifest?.Version}（当前 {UpdateService.CurrentVersion}，通道 {UpdateService.CurrentChannel}）");
+    }
+
+    /// <summary>
+    /// 下载并校验安装包后交给自研安装器静默更新：先关掉自己，安装器再做目录轮转，
+    /// 失败会回滚并重新拉起旧版本（见 SetupService 的事务与回滚）。
+    /// </summary>
+    [RelayCommand]
+    private async Task InstallUpdateAsync()
+    {
+        if (_pendingUpdate is not { } manifest || IsUpdateBusy) return;
+
+        // 便携运行（直接跑 publish\sc-win-x64\MiHome.exe）不自动更新：安装器会装到默认目录并另起一份
+        if (!UpdateService.IsRunningFromInstall(out var installRoot))
+        {
+            UpdateStatusText = "便携运行请到 Release 页下载安装包；自动更新只对已安装版本生效";
+            Log("自动更新已跳过：当前不是安装目录里的实例");
+            return;
+        }
+
+        IsUpdateBusy = true;
+        UpdateProgress = 0;
+        UpdateStatusText = $"正在下载 {manifest.Version}…";
+        try
+        {
+            var progress = new Progress<double>(p =>
+            {
+                UpdateProgress = p;
+                UpdateStatusText = p >= 1
+                    ? "正在校验安装包…"
+                    : $"正在下载 {manifest.Version}… {(int)Math.Round(p * 100)}%";
+            });
+
+            var setup = await UpdateService.DownloadAsync(manifest, progress);
+            TelemetryService.Track("update_download", "下载更新包", new Dictionary<string, object?>
+            {
+                ["channel"] = UpdateService.CurrentChannel,
+                ["ok"] = true,
+                ["version"] = manifest.Version,
+            });
+            UpdateStatusText = "正在启动安装程序…";
+            Log($"更新包已就绪：{setup}（目标 {installRoot}）");
+            TelemetryService.Track("update_install", "安装更新", new Dictionary<string, object?>
+            {
+                ["channel"] = UpdateService.CurrentChannel,
+                ["version"] = manifest.Version,
+                ["stage"] = "launch",
+            });
+            UpdateService.LaunchInstaller(setup);
+
+            await Task.Delay(400);
+            IsSettingsOpen = false;
+            RequestExit?.Invoke();
+        }
+        catch (Exception ex)
+        {
+            UpdateStatusText = "更新失败：" + ex.Message;
+            TelemetryService.Track("update_download", "下载更新包", new Dictionary<string, object?>
+            {
+                ["channel"] = UpdateService.CurrentChannel,
+                ["ok"] = false,
+                ["version"] = manifest.Version,
+            });
+            Log("更新失败：" + ex.Message);
+        }
+        finally
+        {
+            IsUpdateBusy = false;
+        }
+    }
+
+    /// <summary>设备数分桶：统计只关心量级，不关心具体设备。</summary>
+    private static string DeviceCountBucket(int count) => count switch
+    {
+        <= 0 => "0",
+        <= 5 => "1-5",
+        <= 20 => "6-20",
+        _ => "20+",
+    };
 
     /// <summary>应用内日志面板（弹窗宿主 catch 到的异常也从这里冒出来）。</summary>
     public void Log(string msg)

@@ -1,0 +1,39 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- 自安装器外壳：无 UI 框架，WinExe + 自包含单文件 + 裁剪，内嵌 payload.zip。
+       卸载已合并进主程序（app\MiHome.exe 带 uninstall 参数），本工程只负责安装外壳。 -->
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net10.0</TargetFramework>
+    <RuntimeIdentifier>win-x64</RuntimeIdentifier>
+    <SelfContained>true</SelfContained>
+    <PublishSingleFile>true</PublishSingleFile>
+    <PublishTrimmed>true</PublishTrimmed>
+    <TrimMode>link</TrimMode>
+    <EnableCompressionInSingleFile>true</EnableCompressionInSingleFile>
+    <IncludeNativeLibrariesForSelfExtract>true</IncludeNativeLibrariesForSelfExtract>
+    <AssemblyName>MiHome-Setup</AssemblyName>
+    <RootNamespace>MiHome.Setup</RootNamespace>
+    <ApplicationIcon>..\..\Assets\logo.ico</ApplicationIcon>
+    <Version>1.0.4</Version>
+    <FileVersion>1.0.4.0</FileVersion>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <LangVersion>latest</LangVersion>
+    <NoWarn>$(NoWarn);IL2026;IL2104;IL3050</NoWarn>
+  </PropertyGroup>
+
+  <!-- 主程序安装协议同源编译：外壳必须与主程序使用完全一致的路径规则和参数白名单 -->
+  <ItemGroup>
+    <Compile Include="..\..\Services\Setup\SetupProtocol.cs" Link="Shared\SetupProtocol.cs" />
+    <Compile Include="..\..\Services\Setup\SetupFiles.cs" Link="Shared\SetupFiles.cs" />
+    <Compile Include="..\..\Services\Setup\SetupLog.cs" Link="Shared\SetupLog.cs" />
+    <Compile Include="..\..\Services\Setup\UninstallChain.cs" Link="Shared\UninstallChain.cs" />
+  </ItemGroup>
+
+  <!-- 只有安装器发布时带 payload；卸载副本发布时不传 PayloadPath -->
+  <ItemGroup Condition="'$(PayloadPath)' != ''">
+    <EmbeddedResource Include="$(PayloadPath)" LogicalName="payload.zip" />
+  </ItemGroup>
+
+</Project>

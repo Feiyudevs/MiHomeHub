@@ -192,6 +192,21 @@ package.cmd -SkipInstaller :: 只出单文件 exe
 登录凭证保存在 `%APPDATA%\Feiyu\MiHome\auth.json`，以 Windows DPAPI 加密（仅当前用户可解密），
 **不要提交或分享**，详见 [SECURITY.md](SECURITY.md)。
 
+### 匿名使用统计（默认关闭）
+
+「设置 → 关于 → 隐私」里的匿名使用统计需要手动打开才会工作，关掉时不会产生任何上报请求。开启后只上报以下事件，用于判断版本分布、控制可靠性与更新链路健康度：
+
+- `app_launch`：启动（附版本、平台、是否静默启动）
+- `mijia_login`：登录方式（auto / quick / qr）与结果
+- `devices_loaded`：设备数量区间（0 / 1-5 / 6-20 / 20+）与加载耗时
+- `device_control`：控制设备类别（light / air-conditioner / curtain …）与成败、耗时
+- `scene_run`：执行场景的成败与耗时
+- `update_check` / `update_download` / `update_install`：更新通道、结果
+
+**不会上报**：账号、昵称、家庭与设备名称、设备 did、令牌、米家服务器地址、IP 之外的地理位置。
+设备标识是本机随机 UUID（`telemetry.json` 里的 `deviceId`），与硬件无关，删掉该文件即重置。
+「查看最近上报内容」会列出最近 5 条事件原文，所有字段都可自查。
+
 ## 文档
 
 - [构建与打包](docs/一键编译与打包.md)

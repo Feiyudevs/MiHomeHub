@@ -1,0 +1,11 @@
+{
+    "version":  "1.0.4",
+    "setup":  "MiHome-Setup-1.0.4-win-x64.exe",
+    "sha256":  "a88be7854d0d5a266fa084d8a3c557f28163b743539e4d45b4f0382630c9e04c",
+    "notes":  "",
+    "mandatory":  false,
+    "channel":  "stable",
+    "mirrors":  [
+
+                ]
+}

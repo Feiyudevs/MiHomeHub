@@ -1,0 +1,404 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        x:Class="MiHome.Views.SetupWindow"
+        Title="MiHome"
+        Width="540"
+        Height="640"
+        CanResize="False"
+        SystemDecorations="None"
+        WindowStartupLocation="Manual"
+        ShowInTaskbar="True"
+        TransparencyLevelHint="Transparent"
+        Background="Transparent"
+        RenderOptions.TextRenderingMode="Antialias">
+
+    <Window.Styles>
+        <!-- 安装器主按钮：飞度桌面同款整宽胶囊按钮 -->
+        <Style Selector="Button.BtnPrimary.SetupPrimary">
+            <Setter Property="Height" Value="46" />
+            <Setter Property="FontSize" Value="14" />
+            <Setter Property="Template">
+                <ControlTemplate>
+                    <Border Name="SetupBd"
+                            CornerRadius="23"
+                            Background="{DynamicResource PrimaryBtnBrush}"
+                            BoxShadow="0 2 8 #00000040"
+                            Padding="{TemplateBinding Padding}">
+                        <ContentPresenter Content="{TemplateBinding Content}"
+                                          HorizontalAlignment="Center"
+                                          VerticalAlignment="Center" />
+                    </Border>
+                </ControlTemplate>
+            </Setter>
+        </Style>
+        <Style Selector="Button.BtnPrimary.SetupPrimary:pointerover /template/ Border#SetupBd">
+            <Setter Property="Background" Value="{DynamicResource Accent2Brush}" />
+        </Style>
+        <Style Selector="Button.BtnPrimary.SetupPrimary:pressed /template/ Border#SetupBd">
+            <Setter Property="Background" Value="{DynamicResource AccentBrush}" />
+        </Style>
+        <Style Selector="Button.BtnPrimary.SetupPrimary:disabled /template/ Border#SetupBd">
+            <Setter Property="Opacity" Value="0.45" />
+        </Style>
+
+        <!-- 关闭按钮：圆形图标按钮，飞度桌面同款细线 X -->
+        <Style Selector="Button.SetupClose">
+            <Setter Property="Width" Value="32" />
+            <Setter Property="Height" Value="32" />
+            <Setter Property="Padding" Value="0" />
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="Template">
+                <ControlTemplate>
+                    <Border Name="CloseBd"
+                            Background="Transparent"
+                            CornerRadius="16">
+                        <ContentPresenter Content="{TemplateBinding Content}"
+                                          HorizontalAlignment="Center"
+                                          VerticalAlignment="Center" />
+                    </Border>
+                </ControlTemplate>
+            </Setter>
+        </Style>
+        <Style Selector="Button.SetupClose:pointerover /template/ Border#CloseBd">
+            <Setter Property="Background" Value="#14FFFFFF" />
+        </Style>
+        <Style Selector="Button.SetupClose:pressed /template/ Border#CloseBd">
+            <Setter Property="Background" Value="#24FFFFFF" />
+        </Style>
+
+        <!-- 安装位置旁的轻量文字按钮 -->
+        <Style Selector="Button.SetupLink">
+            <Setter Property="Height" Value="20" />
+            <Setter Property="Padding" Value="4,0" />
+            <Setter Property="FontSize" Value="11" />
+            <Setter Property="Foreground" Value="{DynamicResource PrimaryBtnBrush}" />
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="Template">
+                <ControlTemplate>
+                    <Border Name="LinkBd" Background="Transparent" CornerRadius="4"
+                            Padding="{TemplateBinding Padding}">
+                        <ContentPresenter Content="{TemplateBinding Content}"
+                                          HorizontalAlignment="Center"
+                                          VerticalAlignment="Center" />
+                    </Border>
+                </ControlTemplate>
+            </Setter>
+        </Style>
+        <Style Selector="Button.SetupLink:pointerover /template/ Border#LinkBd">
+            <Setter Property="Background" Value="{DynamicResource HoverBrush}" />
+        </Style>
+    </Window.Styles>
+
+    <Grid Margin="20">
+        <!-- 投影层：留白区不拦点击，命中交给下面的实体卡片 -->
+        <Border CornerRadius="22"
+                Background="Transparent"
+                BoxShadow="{DynamicResource CardShadow}"
+                IsHitTestVisible="False" />
+
+        <!-- 实体卡片：安装器是独立顶层，用不透明合成色，不透出桌面 -->
+        <Border Name="Surface"
+                CornerRadius="22"
+                Background="{DynamicResource CardSolidBrush}"
+                BorderBrush="{DynamicResource WindowLineBrush}"
+                BorderThickness="1"
+                ClipToBounds="True">
+            <Grid RowDefinitions="Auto,*,Auto">
+
+                <!-- 品牌区（居中，参考飞度桌面）；整行可拖动窗口 -->
+                <Grid Grid.Row="0"
+                      Background="Transparent"
+                      PointerPressed="OnHeaderPressed">
+                    <StackPanel HorizontalAlignment="Center"
+                                Margin="0,52,0,0"
+                                Spacing="0">
+                        <Border Width="96" Height="96"
+                                CornerRadius="24"
+                                Background="#FFFFFF"
+                                BorderBrush="#12000000"
+                                BorderThickness="1"
+                                ClipToBounds="True"
+                                HorizontalAlignment="Center">
+                            <Image Source="avares://MiHome/Assets/logo-256.png"
+                                   Stretch="UniformToFill"
+                                   RenderOptions.BitmapInterpolationMode="HighQuality" />
+                        </Border>
+                        <TextBlock Name="TxtTitle"
+                                   Text="MiHome"
+                                   FontSize="28"
+                                   FontWeight="Bold"
+                                   Foreground="{DynamicResource TextBrush}"
+                                   HorizontalAlignment="Center"
+                                   Margin="0,16,0,0" />
+                        <TextBlock Name="TxtSubtitle"
+                                   Text="版本 1.0.0"
+                                   FontSize="13"
+                                   Foreground="{DynamicResource Text2Brush}"
+                                   HorizontalAlignment="Center"
+                                   Margin="0,6,0,0" />
+                    </StackPanel>
+                </Grid>
+
+                <!-- ═══════════ 内容区（五态） ═══════════ -->
+                <Grid Grid.Row="1" Margin="24,0">
+
+                    <!-- 安装准备 -->
+                    <StackPanel Name="ReadyPanel"
+                                VerticalAlignment="Top"
+                                Margin="0,54,0,0">
+                        <Border Background="{DynamicResource SurfaceBrush}"
+                                BorderBrush="{DynamicResource LineBrush}"
+                                BorderThickness="1"
+                                CornerRadius="14"
+                                ClipToBounds="True">
+                            <StackPanel>
+                                <Grid Margin="18,16" ColumnDefinitions="*,Auto">
+                                    <TextBlock Text="创建桌面快捷方式"
+                                               FontSize="14"
+                                               Foreground="{DynamicResource TextBrush}"
+                                               VerticalAlignment="Center" />
+                                    <ToggleButton Name="SwitchDesktop"
+                                                  Grid.Column="1"
+                                                  Classes="Switch"
+                                                  IsChecked="True"
+                                                  VerticalAlignment="Center" />
+                                </Grid>
+                                <Border Height="1" Background="{DynamicResource LineBrush}" Margin="18,0" />
+                                <Border Margin="14"
+                                        Padding="14,12"
+                                        CornerRadius="10"
+                                        Background="{DynamicResource Surface4Brush}"
+                                        BorderBrush="{DynamicResource LineBrush}"
+                                        BorderThickness="1">
+                                    <StackPanel Spacing="5">
+                                        <Grid ColumnDefinitions="*,Auto">
+                                            <TextBlock Text="安装位置"
+                                                       FontSize="11"
+                                                       Foreground="{DynamicResource Text3Brush}"
+                                                       VerticalAlignment="Center" />
+                                            <Button Name="BtnChangePath"
+                                                    Grid.Column="1"
+                                                    Classes="SetupLink"
+                                                    Content="更改"
+                                                    IsVisible="False"
+                                                    VerticalAlignment="Center"
+                                                    Click="OnChangePathClick" />
+                                        </Grid>
+                                        <TextBlock Name="TxtInstallPath"
+                                                   FontSize="12"
+                                                   LineHeight="18"
+                                                   TextWrapping="Wrap"
+                                                   Foreground="{DynamicResource Text2Brush}" />
+                                    </StackPanel>
+                                </Border>
+                            </StackPanel>
+                        </Border>
+                    </StackPanel>
+
+                    <!-- 进度 -->
+                    <StackPanel Name="ProgressPanel"
+                                IsVisible="False"
+                                VerticalAlignment="Center"
+                                Margin="16,0"
+                                Spacing="16">
+                        <TextBlock Name="TxtProgressStep"
+                                   FontSize="15"
+                                   FontWeight="SemiBold"
+                                   Foreground="{DynamicResource TextBrush}"
+                                   HorizontalAlignment="Center"
+                                   TextAlignment="Center"
+                                   TextWrapping="Wrap" />
+                        <Grid Name="ProgressTrack"
+                              Height="6"
+                              SizeChanged="OnProgressTrackSizeChanged">
+                            <Border Background="{DynamicResource TrackBrush}" CornerRadius="3" />
+                            <Border Name="ProgressFill"
+                                    Width="0"
+                                    HorizontalAlignment="Left"
+                                    CornerRadius="3"
+                                    Background="{DynamicResource PrimaryBtnBrush}" />
+                        </Grid>
+                        <Grid ColumnDefinitions="*,Auto">
+                            <TextBlock Name="TxtProgressHint"
+                                       FontSize="11.5"
+                                       Foreground="{DynamicResource Text3Brush}" />
+                            <TextBlock Name="TxtPercent"
+                                       Grid.Column="1"
+                                       Text="0%"
+                                       FontSize="11.5"
+                                       Foreground="{DynamicResource Text3Brush}" />
+                        </Grid>
+                    </StackPanel>
+
+                    <!-- 完成 -->
+                    <StackPanel Name="DonePanel"
+                                IsVisible="False"
+                                VerticalAlignment="Center"
+                                Margin="16,0">
+                        <Border Width="62" Height="62"
+                                CornerRadius="31"
+                                HorizontalAlignment="Center"
+                                Background="{DynamicResource PrimaryBtnBrush}">
+                            <Viewbox Width="32" Height="32">
+                                <Canvas Width="24" Height="24">
+                                    <Path Data="M5,12 L10,17 L19,7"
+                                          Stroke="#FFFFFF"
+                                          StrokeThickness="2.4"
+                                          StrokeLineCap="Round"
+                                          StrokeJoin="Round"
+                                          Fill="Transparent" />
+                                </Canvas>
+                            </Viewbox>
+                        </Border>
+                        <TextBlock Name="TxtDoneTitle"
+                                   FontSize="19"
+                                   FontWeight="SemiBold"
+                                   Foreground="{DynamicResource TextBrush}"
+                                   HorizontalAlignment="Center"
+                                   Margin="0,16,0,0" />
+                        <TextBlock Name="TxtDoneDetail"
+                                   FontSize="12.5"
+                                   LineHeight="20"
+                                   TextWrapping="Wrap"
+                                   TextAlignment="Center"
+                                   Foreground="{DynamicResource Text2Brush}"
+                                   HorizontalAlignment="Center"
+                                   Margin="0,8,0,0" />
+                        <Border Name="LaunchRow"
+                                Margin="0,22,0,0"
+                                Background="{DynamicResource SurfaceBrush}"
+                                BorderBrush="{DynamicResource LineBrush}"
+                                BorderThickness="1"
+                                CornerRadius="12"
+                                Padding="16,12">
+                            <Grid ColumnDefinitions="*,Auto">
+                                <TextBlock Text="立即启动 MiHome"
+                                           FontSize="13.5"
+                                           Foreground="{DynamicResource TextBrush}"
+                                           VerticalAlignment="Center" />
+                                <ToggleButton Name="SwitchLaunch"
+                                             Grid.Column="1"
+                                             Classes="Switch"
+                                             IsChecked="True"
+                                             VerticalAlignment="Center" />
+                            </Grid>
+                        </Border>
+                    </StackPanel>
+
+                    <!-- 失败 -->
+                    <StackPanel Name="ErrorPanel"
+                                IsVisible="False"
+                                VerticalAlignment="Center"
+                                Margin="16,0"
+                                Spacing="10">
+                        <TextBlock Name="TxtErrorTitle"
+                                   FontSize="19"
+                                   FontWeight="SemiBold"
+                                   Foreground="{DynamicResource DangerBrush}" />
+                        <TextBlock Name="TxtErrorMessage"
+                                   FontSize="13"
+                                   LineHeight="20"
+                                   TextWrapping="Wrap"
+                                   Foreground="{DynamicResource TextBrush}" />
+                        <TextBlock Name="TxtErrorHint"
+                                   FontSize="12"
+                                   LineHeight="19"
+                                   TextWrapping="Wrap"
+                                   Foreground="{DynamicResource Text2Brush}" />
+                        <SelectableTextBlock Name="TxtErrorLog"
+                                             FontSize="11.5"
+                                             TextWrapping="Wrap"
+                                             Foreground="{DynamicResource Text3Brush}" />
+                    </StackPanel>
+
+                    <!-- 卸载确认 -->
+                    <StackPanel Name="UninstallPanel"
+                                IsVisible="False"
+                                VerticalAlignment="Top"
+                                Margin="0,54,0,0">
+                        <Border Background="{DynamicResource SurfaceBrush}"
+                                BorderBrush="{DynamicResource LineBrush}"
+                                BorderThickness="1"
+                                CornerRadius="14"
+                                ClipToBounds="True">
+                            <StackPanel>
+                                <Border Margin="14,14,14,0"
+                                        Padding="13,11"
+                                        CornerRadius="10"
+                                        Background="{DynamicResource DangerSoftBrush}"
+                                        BorderBrush="{DynamicResource DangerBrush}"
+                                        BorderThickness="1"
+                                        Opacity="0.95">
+                                    <TextBlock Name="TxtUninstallLead"
+                                               FontSize="12"
+                                               LineHeight="19"
+                                               TextWrapping="Wrap"
+                                               Foreground="{DynamicResource TextBrush}" />
+                                </Border>
+                                <Border Height="1" Background="{DynamicResource LineBrush}" Margin="18,14,18,0" />
+                                <Grid Margin="18,14" ColumnDefinitions="*,Auto">
+                                    <StackPanel Spacing="3" VerticalAlignment="Center">
+                                        <TextBlock Text="同时删除我的布局、登录与设置"
+                                                   FontSize="13.5"
+                                                   Foreground="{DynamicResource TextBrush}" />
+                                        <TextBlock Text="勾选后不可恢复；默认保留"
+                                                   FontSize="11.5"
+                                                   Foreground="{DynamicResource Text3Brush}" />
+                                    </StackPanel>
+                                    <ToggleButton Name="SwitchRemoveData"
+                                                  Grid.Column="1"
+                                                  Classes="Switch"
+                                                  VerticalAlignment="Center" />
+                                </Grid>
+                            </StackPanel>
+                        </Border>
+                    </StackPanel>
+                </Grid>
+
+                <!-- ═══════════ 底部（提示 + 整宽按钮） ═══════════ -->
+                <StackPanel Grid.Row="2" Margin="10,0,10,44">
+                    <TextBlock Name="TxtHint"
+                               FontSize="12.5"
+                               Foreground="{DynamicResource Text2Brush}"
+                               TextAlignment="Center"
+                               TextWrapping="Wrap"
+                               HorizontalAlignment="Center"
+                               Margin="0,0,0,16" />
+                    <Grid ColumnDefinitions="Auto,*" Margin="22,0">
+                        <Button Name="BtnSecondary"
+                                Grid.Column="0"
+                                Classes="BtnGhost"
+                                MinWidth="110"
+                                Height="46"
+                                Margin="0,0,10,0"
+                                Content="取消"
+                                IsVisible="False"
+                                Click="OnSecondaryClick" />
+                        <Button Name="BtnPrimary"
+                                Grid.Column="1"
+                                Classes="BtnPrimary SetupPrimary"
+                                Width="216"
+                                HorizontalAlignment="Center"
+                                Content="安装"
+                                Click="OnPrimaryClick" />
+                    </Grid>
+                </StackPanel>
+
+                <!-- 关闭按钮：圆形命中区，上/右边距一致，完整留在窗体内 -->
+                <Button Name="BtnClose"
+                        Classes="SetupClose"
+                        HorizontalAlignment="Right"
+                        VerticalAlignment="Top"
+                        Margin="0,14,14,0"
+                        Click="OnCloseClick">
+                    <Path Data="M0,0 L10,10 M10,0 L0,10"
+                          Stroke="{DynamicResource Text2Brush}"
+                          StrokeThickness="1.4"
+                          StrokeLineCap="Round"
+                          Width="10" Height="10" Stretch="None" />
+                </Button>
+            </Grid>
+        </Border>
+    </Grid>
+</Window>

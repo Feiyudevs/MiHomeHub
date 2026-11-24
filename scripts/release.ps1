@@ -1,18 +1,24 @@
-# One-click release: sync version -> publish single-file exe -> build Inno Setup installer -> collect artifacts
+# One-click release: sync version -> publish single-file exe -> build installer -> collect artifacts
 #
 # Usage:
-#   .\scripts\release.ps1                     # package current version from csproj
+#   .\scripts\release.ps1                     # package current version from csproj (built-in installer)
 #   .\scripts\release.ps1 -Bump patch         # 1.0.0 -> 1.0.1, then package
 #   .\scripts\release.ps1 -Bump minor
 #   .\scripts\release.ps1 -Version 1.2.0
-#   .\scripts\release.ps1 -SkipInstaller      # publish only, no Inno Setup
+#   .\scripts\release.ps1 -Inno               # legacy: build the Inno Setup installer instead
+#   .\scripts\release.ps1 -SkipInstaller      # publish only, no installer
+#   .\scripts\release.ps1 -Channel test -ExpiresDays 7   # 测试通道清单（不会覆盖仓库根 update.json）
 #
 # Output: publish\release\<version>\ (exe + Setup + SHA256SUMS.txt)
 param(
     [string]$Version,
     [ValidateSet("none", "patch", "minor", "major")][string]$Bump = "none",
     [string]$Rid = "win-x64",
-    [switch]$SkipInstaller
+    [switch]$Inno,
+    [switch]$SkipInstaller,
+    [string]$Notes = "",
+    [ValidateSet("stable", "test")][string]$Channel = "stable",
+    [int]$ExpiresDays = 0
 )
 
 $ErrorActionPreference = "Stop"
@@ -21,6 +27,8 @@ $root = Split-Path -Parent $PSScriptRoot
 $proj = Join-Path $root "MiHome.csproj"
 $iss = Join-Path $root "installer\MiHome.iss"
 $publishScript = Join-Path $PSScriptRoot "publish-sc.ps1"
+$setupScript = Join-Path $PSScriptRoot "package-setup.ps1"
+$setupProj = Join-Path $root "installer\MiHome.Setup\MiHome.Setup.csproj"
 $publishDir = Join-Path $root "publish\sc-$Rid"
 $exeName = "MiHome.exe"
 
@@ -83,6 +91,18 @@ function Update-ProjectVersion([string]$path, [string]$version) {
     if ($updated -ne $text) {
         Write-FileText $path $updated
         Write-Host "csproj version -> $version"
+    }
+}
+
+function Update-SetupProjectVersion([string]$path, [string]$version) {
+    if (-not (Test-Path -LiteralPath $path)) { return }
+    $text = Read-FileText $path
+    $assembly = "$version.0"
+    $updated = [regex]::Replace($text, '<Version>[^<]*</Version>', "<Version>$version</Version>")
+    $updated = [regex]::Replace($updated, '<FileVersion>[^<]*</FileVersion>', "<FileVersion>$assembly</FileVersion>")
+    if ($updated -ne $text) {
+        Write-FileText $path $updated
+        Write-Host "setup csproj version -> $version"
     }
 }
 
@@ -153,6 +173,7 @@ if ($Version) {
 Write-Host "Release version: $targetVersion (was $currentVersion)"
 
 Update-ProjectVersion $proj $targetVersion
+Update-SetupProjectVersion $setupProj $targetVersion
 Update-InstallerVersion $iss $targetVersion
 
 # ---- publish single-file exe ----
@@ -178,15 +199,21 @@ if (-not (Test-Path -LiteralPath $releaseDir)) {
 # ---- build installer ----
 $setupPath = $null
 if (-not $SkipInstaller) {
-    $iscc = Resolve-Iscc
-    if (-not $iscc) {
-        throw ("Inno Setup compiler (ISCC.exe) not found. Install it with: " +
-            "winget install --id JRSoftware.InnoSetup -e   (or rerun with -SkipInstaller)")
-    }
+    if ($Inno) {
+        $iscc = Resolve-Iscc
+        if (-not $iscc) {
+            throw ("Inno Setup compiler (ISCC.exe) not found. Install it with: " +
+                "winget install --id JRSoftware.InnoSetup -e   (or rerun with -SkipInstaller)")
+        }
 
-    Write-Host "ISCC: $iscc"
-    & $iscc $iss
-    if ($LASTEXITCODE -ne 0) { throw "ISCC failed with exit code $LASTEXITCODE" }
+        Write-Host "ISCC: $iscc"
+        & $iscc $iss
+        if ($LASTEXITCODE -ne 0) { throw "ISCC failed with exit code $LASTEXITCODE" }
+    } else {
+        # Default: built-in installer (self-contained shell + embedded payload, no admin required)
+        & $setupScript -Rid $Rid -Version $targetVersion -SkipMainPublish -Notes $Notes -Channel $Channel -ExpiresDays $ExpiresDays
+        if ($LASTEXITCODE -ne 0) { throw "package-setup.ps1 failed with exit code $LASTEXITCODE" }
+    }
 
     $setups = @(Get-ChildItem -LiteralPath $releaseDir -Filter "MiHome-Setup-$targetVersion-*.exe" -File -ErrorAction SilentlyContinue |
         Sort-Object LastWriteTime -Descending)
@@ -233,5 +260,9 @@ foreach ($file in $artifacts) {
 Write-Host "  SHA256SUMS.txt"
 if (-not $SkipInstaller) {
     Write-Host ""
-    Write-Host "Next: upload the Setup to your distribution channel, then release/gray it."
+    if ($Channel -eq "stable") {
+        Write-Host "Next: upload the Setup to your distribution channel, then release/gray it."
+    } else {
+        Write-Host "Channel: test -> 用 .\scripts\release-github.ps1 -Channel test 发到滚动 tag test（pre-release，正式通道看不到）"
+    }
 }

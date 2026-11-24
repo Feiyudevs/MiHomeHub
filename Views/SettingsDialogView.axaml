@@ -342,6 +342,68 @@
                         </StackPanel>
                     </StackPanel>
                 </Border>
+
+                <!-- 更新：GitHub Release 全量包，校验 SHA256 后交安装器静默替换 -->
+                <Border Classes="Card">
+                    <StackPanel Spacing="16">
+                        <TextBlock Text="更新" FontSize="14.5" FontWeight="SemiBold"
+                                   Foreground="{DynamicResource TextBrush}" />
+                        <Grid ColumnDefinitions="Auto,*,Auto">
+                            <Border Classes="SetIc" Background="{DynamicResource PurpleSoftBrush}">
+                                <Path Stroke="{DynamicResource PurpleBrush}" Data="{StaticResource GeoGear}" />
+                            </Border>
+                            <StackPanel Grid.Column="1" Margin="12,0" VerticalAlignment="Center" Spacing="2">
+                                <TextBlock Text="{Binding UpdateStatusText}" FontSize="13.5" FontWeight="SemiBold"
+                                           Foreground="{DynamicResource TextBrush}" TextWrapping="Wrap" />
+                                <!-- 只有测试通道实例才显示这一行，普通用户看不到 -->
+                                <TextBlock Text="{Binding UpdateChannelHint}" FontSize="12"
+                                           Foreground="{DynamicResource AmberTextBrush}" TextWrapping="Wrap"
+                                           IsVisible="{Binding UpdateChannelHint, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
+                                <!-- 无更新说明时整行收起，避免空行把状态行与说明行撑开 -->
+                                <TextBlock Text="{Binding UpdateNotes}" Classes="Hint Sub" TextWrapping="Wrap"
+                                           IsVisible="{Binding UpdateNotes, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
+                                <TextBlock Text="更新来自 GitHub Releases，安装包校验 SHA256 后静默安装，设置与登录态保留"
+                                           Classes="Hint Sub" TextWrapping="Wrap" />
+                            </StackPanel>
+                            <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="8"
+                                        VerticalAlignment="Center">
+                                <Button Classes="BtnGhost" Height="34" Content="检查更新"
+                                        Command="{Binding CheckUpdateCommand}" />
+                                <Button Classes="BtnPrimary" Height="34" Content="立即更新"
+                                        Command="{Binding InstallUpdateCommand}"
+                                        IsVisible="{Binding IsUpdateAvailable}" />
+                            </StackPanel>
+                        </Grid>
+                        <ProgressBar Height="4" Minimum="0" Maximum="1"
+                                     Value="{Binding UpdateProgress}"
+                                     IsVisible="{Binding IsUpdateBusy}" />
+                    </StackPanel>
+                </Border>
+
+                <!-- 匿名使用统计：默认关闭，用户自己决定是否上报；只报事件，不报账号与设备名 -->
+                <Border Classes="Card">
+                    <StackPanel Spacing="16">
+                        <TextBlock Text="隐私" FontSize="14.5" FontWeight="SemiBold"
+                                   Foreground="{DynamicResource TextBrush}" />
+                        <Grid ColumnDefinitions="Auto,*,Auto">
+                            <Border Classes="SetIc" Background="{DynamicResource GreenSoftBrush}">
+                                <Path Stroke="{DynamicResource GreenBrush}" Data="{StaticResource GeoPower}" />
+                            </Border>
+                            <StackPanel Grid.Column="1" Margin="12,0" VerticalAlignment="Center" Spacing="2">
+                                <TextBlock Text="匿名使用统计" FontSize="13.5" FontWeight="SemiBold"
+                                           Foreground="{DynamicResource TextBrush}" />
+                                <TextBlock Text="{Binding TelemetryHint}" Classes="Hint Sub" TextWrapping="Wrap" />
+                                <TextBlock Text="只上报启动、登录方式、设备数量区间、控制成败、更新结果；不含账号、家庭/设备名称、令牌与地址"
+                                           Classes="Hint Sub" TextWrapping="Wrap" />
+                            </StackPanel>
+                            <ToggleButton Grid.Column="2" Classes="Switch" VerticalAlignment="Center"
+                                          IsChecked="{Binding TelemetryEnabled}" />
+                        </Grid>
+                        <Button Classes="BtnGhost" Height="32" HorizontalAlignment="Left"
+                                Content="查看最近上报内容"
+                                Command="{Binding PreviewTelemetryCommand}" />
+                    </StackPanel>
+                </Border>
             </StackPanel>
         </StackPanel>
     </ctl:DialogPopup>

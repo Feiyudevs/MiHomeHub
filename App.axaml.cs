@@ -11,6 +11,7 @@ using Avalonia.Markup.Xaml;
 using Avalonia.Media;
 using Avalonia.VisualTree;
 using MiHome.Services;
+using MiHome.Services.Setup;
 using MiHome.ViewModels;
 using MiHome.Views;
 using System.Diagnostics;
@@ -44,6 +45,15 @@ public partial class App : Application
         CardShadowScope.Apply(AppSettingsStore.CardShadow);
         if (ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
         {
+            // 安装/卸载/预览是独立任务：只建安装窗口，不碰单实例之外的托盘、桌面组件和主界面。
+            // （--silent 的无界面安装已在 Program.Main 里提前处理，不会走到这里）
+            if (SetupEntry.Active)
+            {
+                desktop.MainWindow = new SetupWindow(SetupEntry.Options ?? new SetupOptions());
+                base.OnFrameworkInitializationCompleted();
+                return;
+            }
+
             // 升级/换目录后 Run 键里可能还是旧 exe 路径
             StartupRegistration.Sync();
 
@@ -62,7 +72,14 @@ public partial class App : Application
 
             // 桌面组件：读上次的分区布局，开着的分区直接贴回桌面（主窗口收起进托盘也照样显示）
             Services.DesktopHost.Initialize((MainViewModel)window.DataContext);
-            if (window.DataContext is MainViewModel mainVm) mainVm.DesktopWidgetsEnabled = Services.DesktopHost.Enabled;
+            if (window.DataContext is MainViewModel mainVm)
+            {
+                mainVm.DesktopWidgetsEnabled = Services.DesktopHost.Enabled;
+                // 「关于」页更新要用：安装器替换目录前必须先真正退出本进程
+                mainVm.RequestExit = window.ExitApplication;
+            }
+            // 可选匿名统计：默认关闭，只有用户在设置里开启后才会有网络请求
+            Services.Telemetry.TelemetryService.Init();
             // 窗口打开后立即回收启动期临时对象和原生渲染资源，降低基础常驻内存
             window.Opened += (_, _) => Services.MemoryTrimmer.TrimForce();
             desktop.MainWindow.AddHandler(Thumb.DragStartedEvent, OnThumbDragStarted,
@@ -125,7 +142,12 @@ public partial class App : Application
         if (main.IsVisible) Start(null, EventArgs.Empty);
         else main.Opened += Start;
 
-        desktop.Exit += (_, _) => _trayIcon?.Dispose();
+        desktop.Exit += (_, _) =>
+        {
+            _trayIcon?.Dispose();
+            // 退出前把剩余活跃时长和队列发出去（最多等 3 秒，不拖慢关闭）
+            Services.Telemetry.TelemetryService.Shutdown();
+        };
     }
 
     private void OpenTrayMenu(MainWindow main)

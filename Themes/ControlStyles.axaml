@@ -440,9 +440,11 @@
                             <Border Name="Bar" Width="3" Height="18" CornerRadius="0 2 2 0"
                                     HorizontalAlignment="Left" VerticalAlignment="Center"
                                     Background="Transparent"/>
-                            <Border Name="Bg" CornerRadius="12" Padding="12,9" Margin="10,3,10,3"
+                            <Border Name="Bg" CornerRadius="12" Padding="12,9,6,9" Margin="10,3,10,3"
                                     Background="Transparent">
-                                <Grid ColumnDefinitions="21,*">
+                                <!-- 行尾 12px 固定留给拖拽抓手（卡片内右侧，Notion 那种「尾巴」位），
+                                     宽度一直占着，悬停时抓手淡入不会把图标和文字推走 -->
+                                <Grid ColumnDefinitions="21,*,12">
                                     <!-- 两套画法都备好，靠设置里的图标模式二选一显示 -->
                                     <Image Name="Gx" Grid.Column="0" Width="17" Height="17" Stretch="Uniform"
                                            IsVisible="{Binding ((vm:MainViewModel)DataContext).IconGlass, RelativeSource={RelativeSource AncestorType=Window}}"
@@ -457,6 +459,33 @@
                                                FontSize="{TemplateBinding FontSize}"
                                                FontWeight="{TemplateBinding FontWeight}"
                                                Foreground="{TemplateBinding Foreground}"/>
+                                    <!-- 拖拽抓手：两列三行的六点，放在卡片右侧；默认透明且不挡鼠标，
+                                         悬停房间行才浮现，按住这里立即进入排序（不用长按） -->
+                                    <Border Name="Grip" Grid.Column="2" Width="10" Height="18"
+                                            HorizontalAlignment="Center" VerticalAlignment="Center"
+                                            Background="Transparent" Cursor="SizeAll">
+                                        <Grid Width="8" Height="15" HorizontalAlignment="Center" VerticalAlignment="Center"
+                                              ColumnDefinitions="*,*" RowDefinitions="*,*,*">
+                                            <Ellipse Grid.Row="0" Grid.Column="0" Width="2" Height="2"
+                                                     Fill="{DynamicResource Text2Brush}"
+                                                     HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                            <Ellipse Grid.Row="0" Grid.Column="1" Width="2" Height="2"
+                                                     Fill="{DynamicResource Text2Brush}"
+                                                     HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                            <Ellipse Grid.Row="1" Grid.Column="0" Width="2" Height="2"
+                                                     Fill="{DynamicResource Text2Brush}"
+                                                     HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                            <Ellipse Grid.Row="1" Grid.Column="1" Width="2" Height="2"
+                                                     Fill="{DynamicResource Text2Brush}"
+                                                     HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                            <Ellipse Grid.Row="2" Grid.Column="0" Width="2" Height="2"
+                                                     Fill="{DynamicResource Text2Brush}"
+                                                     HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                            <Ellipse Grid.Row="2" Grid.Column="1" Width="2" Height="2"
+                                                     Fill="{DynamicResource Text2Brush}"
+                                                     HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                        </Grid>
+                                    </Border>
                                 </Grid>
                             </Border>
                         </Panel>
@@ -504,6 +533,56 @@
         <!-- 房间行图标：比导航图标再细一档，配合圆头圆角更轻盈 -->
         <Style Selector="Button.NavRow.room /template/ Path#Ic">
             <Setter Property="StrokeThickness" Value="1.2"/>
+        </Style>
+        <!-- 拖拽抓手：所有导航行默认透明、不参与命中（上面三行不参与排序，永远看不见）；
+             只有房间行悬停时淡入，按住即可拖。「全部」固定第一行，任何时候都不亮。 -->
+        <Style Selector="Button.NavRow /template/ Border#Grip">
+            <Setter Property="Opacity" Value="0"/>
+            <Setter Property="IsHitTestVisible" Value="False"/>
+            <Setter Property="Transitions">
+                <Transitions>
+                    <DoubleTransition Property="Opacity" Duration="0:0:0.14"/>
+                </Transitions>
+            </Setter>
+        </Style>
+        <Style Selector="Button.NavRow.room:pointerover /template/ Border#Grip">
+            <Setter Property="Opacity" Value="1"/>
+            <Setter Property="IsHitTestVisible" Value="True"/>
+        </Style>
+        <Style Selector="Button.NavRow.room.locked /template/ Border#Grip">
+            <Setter Property="Opacity" Value="0"/>
+            <Setter Property="IsHitTestVisible" Value="False"/>
+        </Style>
+        <Style Selector="Button.NavRow.room.dragging /template/ Border#Grip">
+            <Setter Property="Opacity" Value="0"/>
+            <Setter Property="IsHitTestVisible" Value="False"/>
+        </Style>
+        <!-- 正在拖的那一行：原地淡成占位（落点用下面那条横线表达） -->
+        <Style Selector="Button.NavRow.room.dragging">
+            <Setter Property="Opacity" Value="0.35"/>
+        </Style>
+        <Style Selector="Button.NavRow.room.dragging /template/ Border#Bg">
+            <Setter Property="Background" Value="{DynamicResource AccentSoftBrush}"/>
+        </Style>
+        <!-- ======== 侧栏房间拖拽浮层（NavDragLayer 里的纯视觉元素） ======== -->
+        <!-- 跟着指针走的那张房间卡：比行更高一档的浮起感 -->
+        <Style Selector="Border.NavDragGhost">
+            <Setter Property="Background" Value="{DynamicResource AccentSoftBrush}"/>
+            <Setter Property="CornerRadius" Value="12"/>
+            <Setter Property="Padding" Value="12,0"/>
+            <Setter Property="BoxShadow" Value="0 8 20 0 #3A0F172A"/>
+        </Style>
+        <Style Selector="Border.NavDragGhost TextBlock.NavDragGhostLabel">
+            <Setter Property="FontSize" Value="13.5"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="Foreground" Value="{DynamicResource NavActiveTextBrush}"/>
+            <Setter Property="VerticalAlignment" Value="Center"/>
+            <Setter Property="TextTrimming" Value="CharacterEllipsis"/>
+        </Style>
+        <!-- 落点横线：横贯卡片宽度的一条 3px 主色线，卡在插入位置的两行之间 -->
+        <Style Selector="Border.NavDropBar">
+            <Setter Property="Background" Value="{DynamicResource AccentBrush}"/>
+            <Setter Property="CornerRadius" Value="2"/>
         </Style>
         <!-- 侧栏分组小标题 -->
         <Style Selector="TextBlock.NavCaption">
@@ -974,11 +1053,34 @@
         <Style Selector="TextBox.Log">
             <Setter Property="Background" Value="Transparent"/>
             <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="Padding" Value="0"/>
             <Setter Property="IsReadOnly" Value="True"/>
             <Setter Property="Foreground" Value="{DynamicResource Text3Brush}"/>
             <Setter Property="FontFamily" Value="Consolas"/>
             <Setter Property="FontSize" Value="12"/>
             <Setter Property="TextWrapping" Value="Wrap"/>
+            <!-- 只读日志区不摆出「可输入」的样子：没有闪烁光标，鼠标也不变 I 形 -->
+            <Setter Property="CaretBrush" Value="Transparent"/>
+            <Setter Property="Cursor" Value="Arrow"/>
+            <!-- 日志正文是暗淡的 Text3，默认那支半透明青色选区压在上面几乎看不清字：
+                 选区换成实心紫底 + 白字，和菜单选中态同一套色 -->
+            <Setter Property="SelectionBrush" Value="{DynamicResource SelBgBrush}"/>
+            <Setter Property="SelectionForegroundBrush" Value="{DynamicResource SelTextBrush}"/>
+        </Style>
+        <!-- 模板内那层 Border 才是画底和边的元素：外面已经有一层容器，
+             这里必须连悬停 / 聚焦一起按平，否则鼠标经过或多点一下就又浮出一条内边框 -->
+        <Style Selector="TextBox.Log /template/ Border#PART_BorderElement">
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="CornerRadius" Value="0"/>
+        </Style>
+        <Style Selector="TextBox.Log:pointerover /template/ Border#PART_BorderElement">
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="BorderThickness" Value="0"/>
+        </Style>
+        <Style Selector="TextBox.Log:focus /template/ Border#PART_BorderElement">
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="BorderThickness" Value="0"/>
         </Style>
         <!-- ======== 滚动条：默认隐藏，鼠标进入哪个滚动容器就只浮出它自己的胶囊 ======== -->
         <Style Selector="ScrollBar">

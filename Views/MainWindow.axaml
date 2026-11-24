@@ -102,7 +102,7 @@
                         Command="{Binding ToggleVoiceCommand}" ToolTip.Tip="小爱语音指令">
                     <StackPanel Orientation="Horizontal" Spacing="6" Margin="11,0" HorizontalAlignment="Center">
                         <!-- 图标常驻主色，文字按悬停/展开态才上色：入口保留一点识别度，又不整块铺紫 -->
-                        <ctl:VoiceBars Width="14" Height="14" VerticalAlignment="Center"
+                        <ctl:VoiceBars Width="16" Height="14" VerticalAlignment="Center"
                                        BarBrush="{DynamicResource Accent2Brush}"
                                        IsActive="{Binding HasSpeaker}"
                                        IsBusy="{Binding IsVoiceSending}" />
@@ -260,10 +260,11 @@
                     <TextBlock DockPanel.Dock="Top" Classes="NavCaption" Text="{Binding RoomCount, StringFormat='房间 · {0}'}" />
                     <!-- 所有房间 -->
                     <ScrollViewer x:Name="NavRoomsScroll" VerticalScrollBarVisibility="Auto" Margin="0,0,0,4">
-                        <ItemsControl ItemsSource="{Binding Rooms}">
+                        <ItemsControl x:Name="NavRoomsItems" ItemsSource="{Binding Rooms}">
                             <ItemsControl.ItemTemplate>
                                 <DataTemplate x:DataType="m:RoomChip">
                                     <Button Classes="NavRow room" Classes.on="{Binding IsSelected}"
+                                            Classes.locked="{Binding IsLocked}"
                                             Tag="{Binding IconKey}"
                                             Content="{Binding Name}"
                                             Command="{Binding $parent[Window].((vm:MainViewModel)DataContext).PickRoomCommand}"
@@ -273,6 +274,14 @@
                         </ItemsControl>
                     </ScrollViewer>
                 </DockPanel>
+                <!-- 房间拖拽视觉层：跟着指针的浮卡 + 落点横线（纯视觉，不参与命中；
+                     放在 DockPanel 之上，拖动时可盖在房间行上） -->
+                <Canvas x:Name="NavDragLayer" IsHitTestVisible="False">
+                    <Border x:Name="NavDragGhost" Classes="NavDragGhost" IsVisible="False">
+                        <TextBlock x:Name="NavDragGhostLabel" Classes="NavDragGhostLabel" />
+                    </Border>
+                    <Border x:Name="NavDropBar" Classes="NavDropBar" Height="3" IsVisible="False" />
+                </Canvas>
             </Panel>
             <!-- 内容面板：只左上圆角；左侧与侧栏齐平，右/下用 -10 抵掉主体网格的边距，贴住窗口边缘 -->
             <Border Grid.Column="1" CornerRadius="40,0,0,0" Background="{DynamicResource PanelBrush}"
