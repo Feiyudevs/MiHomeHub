@@ -191,6 +191,30 @@
                     </Button>
                 </Grid>
             </Border>
+            <!-- 标题栏更新提示：检测到新版本时出现；「查看详情」跳设置-关于，X 掉后本次运行不再出现 -->
+            <Border Grid.Column="4" Classes="UpdateBanner"
+                    IsVisible="{Binding IsUpdateBannerVisible}"
+                    HorizontalAlignment="Right" VerticalAlignment="Center"
+                    Margin="12,0,10,0">
+                <StackPanel Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+                    <Ellipse Width="6" Height="6" VerticalAlignment="Center"
+                             Fill="{DynamicResource Accent2Brush}" />
+                    <TextBlock Classes="UpdateBannerText" Text="{Binding UpdateBannerText}"
+                               MaxWidth="200" TextTrimming="CharacterEllipsis" />
+                    <Button Classes="UpdateBannerLink" Content="查看详情"
+                            Command="{Binding OpenUpdateDetailsCommand}" />
+                    <Button Classes="UpdateBannerClose" Command="{Binding DismissUpdateBannerCommand}"
+                            ToolTip.Tip="本次不再提示">
+                        <Viewbox Width="8" Height="8">
+                            <Panel Width="24" Height="24">
+                                <Path StrokeThickness="2.6" StrokeLineCap="Round"
+                                      Data="{StaticResource GeoClose}"
+                                      Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" />
+                            </Panel>
+                        </Viewbox>
+                    </Button>
+                </StackPanel>
+            </Border>
             <StackPanel Grid.Column="5" Orientation="Horizontal" VerticalAlignment="Center">
                 <Button Classes="ThemeBtn" Margin="0,0,6,0" Command="{Binding OpenLogCommand}" ToolTip.Tip="操作日志">
                     <Path Width="15" Height="15" Stretch="Uniform"
@@ -283,9 +307,15 @@
                     <Border x:Name="NavDropBar" Classes="NavDropBar" Height="2" IsVisible="False" />
                 </Canvas>
             </Panel>
-            <!-- 内容面板：只左上圆角；左侧与侧栏齐平，右/下用 -10 抵掉主体网格的边距，贴住窗口边缘 -->
-            <Border Grid.Column="1" CornerRadius="40,0,0,0" Background="{DynamicResource PanelBrush}"
-                    BoxShadow="0 3 10 0 #170F172A" ClipToBounds="True" Margin="0,0,-10,-10">
+            <!-- 内容面板：四角统一圆角（20），作为一块浮动卡片；
+                 右/下不再用 -10 抵掉主体网格的边距，留出 10px 外边距与窗口边缘分开，投影才露得出来。
+                 1px 淡描边画在外层：外层不能开 ClipToBounds（圆角裁剪是 1 位掩膜、不带抗锯齿，
+                 会把描边和圆角边的抗锯齿一起切成硬台阶），内容裁剪交给内层，内层圆角比外层小 1，
+                 正好落在描边内侧，切出来的台阶盖在同色背景上，看不见。 -->
+            <Border Grid.Column="1" CornerRadius="20" Background="{DynamicResource PanelBrush}"
+                    BorderBrush="#10FFFFFF" BorderThickness="1"
+                    BoxShadow="0 4 26 6 #060F172A" Margin="0">
+              <Border CornerRadius="19" ClipToBounds="True">
                 <Grid>
                     <!-- 环境光晕：面板底层两团超大半径的径向光斑（特效测试时可整体隐藏） -->
                     <Panel IsHitTestVisible="False">
@@ -342,6 +372,7 @@
                          弹窗遮罩只盖内容面板，与抽屉的遮罩范围保持一致。 -->
                     <views:DeviceListDialogView />
                 </Grid>
+              </Border>
             </Border>
         </Grid>
         <!-- ================= 设备详情抽屉（右→左滑入动画） =================
@@ -371,6 +402,8 @@
         <views:SettingsDialogView Grid.Row="0" Grid.RowSpan="2" />
         <!-- ================= 强制更新弹窗（后台 force=true，只能升级或退出） ================= -->
         <views:UpdateRequiredDialogView Grid.Row="0" Grid.RowSpan="2" />
+        <!-- ================= 更新详情弹窗（标题栏「查看详情」打开，可稍后再装） ================= -->
+        <views:UpdateDetailsDialogView Grid.Row="0" Grid.RowSpan="2" />
         <!-- ================= 操作日志弹窗（走 DialogPopup 基类：遮罩 + 居中卡片，跨满整个窗口） ================= -->
         <views:LogDialogView Grid.Row="0" Grid.RowSpan="2" />
     </Grid>

@@ -20,7 +20,7 @@
         </Style>
         <Style Selector="Border.TbTag > TextBlock">
             <Setter Property="FontSize" Value="10.5" />
-            <Setter Property="FontWeight" Value="Medium" />
+            <Setter Property="FontWeight" Value="Normal" />
             <Setter Property="Foreground" Value="{DynamicResource AmberTextBrush}" />
         </Style>
         <!-- 标题栏账户：胶囊容器包住「家庭名 + 登录」，与右侧工具按钮同高 -->
@@ -223,7 +223,7 @@
             <Setter Property="IsVisible" Value="True" />
         </Style>
         <Style Selector="Button.HomeMenuItem.is-on ContentPresenter#Cp TextBlock">
-            <Setter Property="FontWeight" Value="SemiBold" />
+            <Setter Property="FontWeight" Value="Normal" />
         </Style>
         <!-- 抽屉分段选择：连续胶囊轨道 + 选中段实心主色，仿 iOS 分段控件 -->
         <Style Selector="Border.SegTrack">
@@ -422,15 +422,18 @@
             <Setter Property="Height" Value="34" />
             <Setter Property="CornerRadius" Value="10" />
         </Style>
+        <!-- 图标交给 Viewbox 缩放：Path 单用 Stretch 时按几何包围盒贴框左上角，
+             锁定/音箱这类非正方形几何会整体偏左上，20px 的 Viewbox 化后天然居中 -->
+        <Style Selector="Border.SetIc Viewbox">
+            <Setter Property="Width" Value="20" />
+            <Setter Property="Height" Value="20" />
+            <Setter Property="HorizontalAlignment" Value="Center" />
+            <Setter Property="VerticalAlignment" Value="Center" />
+        </Style>
         <Style Selector="Border.SetIc Path">
-            <Setter Property="Width" Value="16" />
-            <Setter Property="Height" Value="16" />
-            <Setter Property="Stretch" Value="Uniform" />
             <Setter Property="StrokeThickness" Value="1.8" />
             <Setter Property="StrokeLineCap" Value="Round" />
             <Setter Property="StrokeJoin" Value="Round" />
-            <Setter Property="HorizontalAlignment" Value="Center" />
-            <Setter Property="VerticalAlignment" Value="Center" />
         </Style>
         <!-- 环境概览胶囊：默认浅底、可点开明细，悬停/按下逐档加深；耗材不足时转琥珀色 -->
         <Style Selector="Button.EnvPill">
@@ -594,7 +597,7 @@
             <Setter Property="BorderThickness" Value="1" />
             <Setter Property="Foreground" Value="{DynamicResource Text2Brush}" />
             <Setter Property="FontSize" Value="12" />
-            <Setter Property="FontWeight" Value="Medium" />
+            <Setter Property="FontWeight" Value="Normal" />
             <Setter Property="Cursor" Value="Hand" />
             <Setter Property="HorizontalContentAlignment" Value="Center" />
         </Style>
@@ -845,7 +848,7 @@
         </Style>
         <Style Selector="TextBlock.EnvStatusTx">
             <Setter Property="FontSize" Value="10.5" />
-            <Setter Property="FontWeight" Value="SemiBold" />
+            <Setter Property="FontWeight" Value="Normal" />
             <Setter Property="Foreground" Value="{DynamicResource GreenBrush}" />
         </Style>
         <Style Selector="TextBlock.EnvStatusTx.is-warn">
@@ -860,5 +863,73 @@
         </Style>
         <Style Selector="ProgressBar.EnvBar.is-low">
             <Setter Property="Foreground" Value="{DynamicResource AmberBrush}" />
+        </Style>
+        <!-- 标题栏更新提示：与账户胶囊 / 搜索同高 32，柔主色底 + 细描边，只做「有新版」的轻提示，不抢内容 -->
+        <Style Selector="Border.UpdateBanner">
+            <Setter Property="Height" Value="32" />
+            <Setter Property="CornerRadius" Value="16" />
+            <Setter Property="Background" Value="{DynamicResource AccentSoftBrush}" />
+            <Setter Property="BorderBrush" Value="{DynamicResource LineBrush}" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="Padding" Value="12,0,3,0" />
+            <Setter Property="VerticalAlignment" Value="Center" />
+        </Style>
+        <Style Selector="TextBlock.UpdateBannerText">
+            <Setter Property="FontSize" Value="12" />
+            <Setter Property="Foreground" Value="{DynamicResource TextBrush}" />
+            <Setter Property="VerticalAlignment" Value="Center" />
+        </Style>
+        <!-- 「查看详情」：只给强调色文字，悬停浮一层浅底，够得上但不如主按钮抢眼 -->
+        <Style Selector="Button.UpdateBannerLink">
+            <Setter Property="Height" Value="26" />
+            <Setter Property="Padding" Value="8,0" />
+            <Setter Property="MinWidth" Value="0" />
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="BorderThickness" Value="0" />
+            <Setter Property="Foreground" Value="{DynamicResource Accent2Brush}" />
+            <Setter Property="FontSize" Value="12" />
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="Focusable" Value="False" />
+            <Setter Property="Template">
+                <ControlTemplate>
+                    <Border Name="Bd" CornerRadius="13" Background="{TemplateBinding Background}"
+                            Padding="{TemplateBinding Padding}">
+                        <ContentPresenter Content="{TemplateBinding Content}"
+                                          HorizontalAlignment="Center" VerticalAlignment="Center" />
+                    </Border>
+                </ControlTemplate>
+            </Setter>
+        </Style>
+        <Style Selector="Button.UpdateBannerLink:pointerover /template/ Border#Bd">
+            <Setter Property="Background" Value="{DynamicResource HoverBrush}" />
+        </Style>
+        <Style Selector="Button.UpdateBannerLink:pressed /template/ Border#Bd">
+            <Setter Property="Background" Value="{DynamicResource Surface5Brush}" />
+        </Style>
+        <!-- X：24px 圆点，默认透明，悬停才浮底并提亮描边，窄条里不显笨重 -->
+        <Style Selector="Button.UpdateBannerClose">
+            <Setter Property="Width" Value="24" />
+            <Setter Property="Height" Value="24" />
+            <Setter Property="Padding" Value="0" />
+            <Setter Property="MinWidth" Value="0" />
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="BorderThickness" Value="0" />
+            <Setter Property="Foreground" Value="{DynamicResource Text3Brush}" />
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="Focusable" Value="False" />
+            <Setter Property="Template">
+                <ControlTemplate>
+                    <Border Name="Bd" CornerRadius="12" Background="{TemplateBinding Background}">
+                        <ContentPresenter Content="{TemplateBinding Content}"
+                                          HorizontalAlignment="Center" VerticalAlignment="Center" />
+                    </Border>
+                </ControlTemplate>
+            </Setter>
+        </Style>
+        <Style Selector="Button.UpdateBannerClose:pointerover /template/ Border#Bd">
+            <Setter Property="Background" Value="{DynamicResource HoverBrush}" />
+        </Style>
+        <Style Selector="Button.UpdateBannerClose:pointerover Path">
+            <Setter Property="Stroke" Value="{DynamicResource TextBrush}" />
         </Style>
 </Styles>

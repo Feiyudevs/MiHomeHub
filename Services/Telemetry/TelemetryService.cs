@@ -78,6 +78,35 @@ internal static class TelemetryService
 
     public static string ConfigFile => Path.Combine(AppPaths.Dir, "telemetry.json");
 
+    /// <summary>本机是否已有统计开关记录：有就说明用户（或上次安装）已经做过选择，安装器不再改动。</summary>
+    public static bool HasSavedChoice => File.Exists(ConfigFile);
+
+    /// <summary>
+    /// 安装器调用：首次安装时把「匿名使用统计」的初始开关落盘。
+    /// **只在还没有 telemetry.json 的机器上写**——更新/重装一律不动，避免覆盖用户在设置里的选择。
+    /// </summary>
+    /// <returns>是否真的写了配置文件。</returns>
+    public static bool ApplyInstallDefault(bool enabled)
+    {
+        try
+        {
+            if (File.Exists(ConfigFile)) return false;
+            Directory.CreateDirectory(AppPaths.Dir);
+            var cfg = new TelemetryConfig
+            {
+                Enabled = enabled,
+                DeviceId = Guid.NewGuid().ToString("N"),
+            };
+            File.WriteAllText(ConfigFile, JsonSerializer.Serialize(cfg, Json), new UTF8Encoding(false));
+            _loaded = false; // 让本进程后续读到刚写的值
+            return true;
+        }
+        catch
+        {
+            return false; // 写不进去按默认关闭处理，不影响安装
+        }
+    }
+
     /// <summary>事件是否会被发送：用户开启 + 已配置 app_id + 地址可用。</summary>
     public static bool IsSending => EnsureLoaded().Enabled && _config.AppId > 0 && !string.IsNullOrWhiteSpace(_config.Endpoint);
 
@@ -114,9 +143,9 @@ internal static class TelemetryService
         {
             var cfg = EnsureLoaded();
             if (!cfg.Enabled) return "已关闭：不会产生任何网络请求";
-            if (cfg.AppId <= 0) return "已开启，但还没有登记 app_id：事件只留在本机";
-            if (string.IsNullOrWhiteSpace(cfg.Endpoint)) return "已开启，但没有上报地址：事件只留在本机";
-            return "已开启：只上报匿名事件，可在下方查看最近内容";
+            if (cfg.AppId <= 0) return "已开启，但还没有登记 app_id：数据只留在本机";
+            if (string.IsNullOrWhiteSpace(cfg.Endpoint)) return "已开启，但没有上报地址：数据只留在本机";
+            return "已开启";
         }
     }
 

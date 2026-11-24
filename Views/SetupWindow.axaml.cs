@@ -14,6 +14,7 @@ using Avalonia.Platform.Storage;
 using Avalonia.VisualTree;
 using MiHome.Services;
 using MiHome.Services.Setup;
+using MiHome.Services.Telemetry;
 
 namespace MiHome.Views;
 
@@ -145,6 +146,10 @@ public partial class SetupWindow : Window
         }
 
         SwitchDesktop.IsChecked = true;
+        // 匿名统计：首次安装默认勾选；本机已有 telemetry.json（更新/重装）说明用户已做过选择，
+        // 安装器不会改它，这一行就不显示，避免出现「勾了却不生效」
+        SwitchTelemetry.IsChecked = true;
+        TelemetryRow.IsVisible = installed is null && !TelemetryService.HasSavedChoice;
         BtnChangePath.IsVisible = installed is null;
     }
 
@@ -231,7 +236,10 @@ public partial class SetupWindow : Window
             SetProgress(p.Percent);
         });
 
-        _result = await _service.InstallAsync(SwitchDesktop.IsChecked == true, progress);
+        _result = await _service.InstallAsync(
+            SwitchDesktop.IsChecked == true,
+            TelemetryRow.IsVisible && SwitchTelemetry.IsChecked == true,
+            progress);
         _running = false;
         BtnClose.IsEnabled = true;
 

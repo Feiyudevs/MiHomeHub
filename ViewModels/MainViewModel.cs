@@ -135,6 +135,18 @@ public partial class MainViewModel : ObservableObject
     /// <summary>强制更新时弹出不可跳过的更新框。</summary>
     [ObservableProperty] private bool _isForceUpdateOpen;
 
+    // ── 标题栏更新提示条：检测到新版本时出现，可「查看详情」跳设置-关于，也能 X 掉（本会话不再出现） ──
+    [ObservableProperty] private bool _isUpdateBannerVisible;
+    [ObservableProperty] private string _updateBannerText = "";
+    /// <summary>「查看详情」打开的更新详情弹窗（普通模态：可以稍后再装）。</summary>
+    [ObservableProperty] private bool _isUpdateDetailsOpen;
+    [ObservableProperty] private string _updateDialogTitle = "";
+    /// <summary>网盘兜底页（后台 disk_url / 清单 disk_url）；有值才显示「网盘下载」入口。</summary>
+    [ObservableProperty] private string _updateDiskUrl = "";
+    [ObservableProperty] private bool _hasUpdateDiskUrl;
+    /// <summary>用户点过 X：本次运行不再自动弹回，重新检查出新版本也不打扰。</summary>
+    private bool _updateBannerDismissed;
+
     /// <summary>卡片里折叠显示的说明（超过 <see cref="UpdateNotesPreviewLimit"/> 字就截断）。</summary>
     private const int UpdateNotesPreviewLimit = 180;
     [ObservableProperty] private string _updateNotesPreview = "";
@@ -144,12 +156,15 @@ public partial class MainViewModel : ObservableObject
 
     // ── 匿名使用统计（可选，默认关闭；只报事件，不报账号与设备名） ──
     [ObservableProperty] private bool _telemetryEnabled = TelemetryService.IsEnabled;
-    [ObservableProperty] private string _telemetryHint = TelemetryService.StatusText;
+    // 状态与「不含隐私信息」并成一行，设置页只占两行（标题 + 这一行）
+    [ObservableProperty] private string _telemetryHint = TelemetryService.StatusText + TelemetryPrivacySuffix;
+
+    private const string TelemetryPrivacySuffix = " · 不含隐私信息";
 
     partial void OnTelemetryEnabledChanged(bool value)
     {
         TelemetryService.SetEnabled(value);
-        TelemetryHint = TelemetryService.StatusText;
+        TelemetryHint = TelemetryService.StatusText + TelemetryPrivacySuffix;
         Log(value ? "已开启匿名使用统计" : "已关闭匿名使用统计");
     }
 
@@ -503,7 +518,8 @@ public partial class MainViewModel : ObservableObject
         // 全局快捷键：装载 hotkeys.json、安装键盘钩子（窗口收起进托盘也常驻）
         InitHotkeys();
 
-        // 启动后无感检查更新：24 小时内查过就跳过；失败也只留一句状态，不打扰用户
+        // 启动后无感检查更新：24 小时内查过就跳过联网；缓存里的「有更新」由
+        // NotifyCachedUpdate 在托盘就绪后补提示（构造函数里 NotifyUser 还没注入）。
         if (UpdateService.ShouldAutoCheck()) _ = AutoCheckUpdateAsync();
     }
 
@@ -3956,6 +3972,16 @@ public partial class MainViewModel : ObservableObject
         catch { /* 后台检查失败不影响任何功能 */ }
     }
 
+    /// <summary>
+    /// 托盘与主窗口就绪后调用：用上次检查的缓存结果补一次提示。
+    /// 缓存新鲜时启动不会联网，若不发这一步，发版后重启的机器要等满 24 小时才知道有新版本。
+    /// </summary>
+    public void NotifyCachedUpdate()
+    {
+        if (UpdateService.TryGetCachedResult() is { State: UpdateState.Available } cached)
+            ApplyUpdateResult(cached, notifyUser: true, trackTelemetry: false);
+    }
+
     [RelayCommand]
     private async Task CheckUpdateAsync()
     {
@@ -3968,7 +3994,10 @@ public partial class MainViewModel : ObservableObject
         UpdateStatusText = "正在检查更新…";
         try
         {
-            ApplyUpdateResult(await UpdateService.CheckAsync(force: true), notifyUser: false);
+            var result = await UpdateService.CheckAsync(force: true);
+            ApplyUpdateResult(result, notifyUser: false);
+            // 关于页点「检查更新」查到新版本：直接弹详情弹窗，不用再找下一个入口
+            if (IsUpdateAvailable && !IsForceUpdateOpen) OpenUpdateDetails();
         }
         catch (Exception ex)
         {
@@ -3993,7 +4022,7 @@ public partial class MainViewModel : ObservableObject
         UpdateNotesToggleText = IsUpdateNotesExpanded ? "收起说明" : "查看完整说明";
     }
 
-    private void ApplyUpdateResult(UpdateCheckResult result, bool notifyUser)
+    private void ApplyUpdateResult(UpdateCheckResult result, bool notifyUser, bool trackTelemetry = true)
     {
         _pendingUpdate = result.Manifest;
         IsUpdateAvailable = result.State == UpdateState.Available && result.Manifest is not null;
@@ -4007,19 +4036,35 @@ public partial class MainViewModel : ObservableObject
         IsUpdateNotesExpanded = false;
         SyncUpdateNotesVisibility();
         IsForceUpdateOpen = false;
-        TelemetryService.Track("update_check", "检查更新", new Dictionary<string, object?>
-        {
-            ["channel"] = UpdateService.CurrentChannel,
-            ["result"] = result.State switch
+        if (trackTelemetry)
+            TelemetryService.Track("update_check", "检查更新", new Dictionary<string, object?>
             {
-                UpdateState.Available => "available",
-                UpdateState.UpToDate => "latest",
-                _ => "failed",
-            },
-            ["version"] = result.Manifest?.Version,
-        });
+                ["channel"] = UpdateService.CurrentChannel,
+                ["result"] = result.State switch
+                {
+                    UpdateState.Available => "available",
+                    UpdateState.UpToDate => "latest",
+                    _ => "failed",
+                },
+                ["version"] = result.Manifest?.Version,
+            });
         if (IsUpdateAvailable)
+        {
             Log($"发现新版本 {result.Manifest?.Version}（当前 {UpdateService.CurrentVersion}，通道 {UpdateService.CurrentChannel}）");
+            // 标题栏提示条：X 掉之后本次运行不再弹回，直到重启
+            UpdateBannerText = $"检测到新版本 {result.Manifest?.Version}";
+            UpdateDialogTitle = $"发现新版本 {result.Manifest?.Version}";
+            UpdateDiskUrl = result.Manifest?.DiskUrl?.Trim() ?? "";
+            HasUpdateDiskUrl = UpdateDiskUrl.Length > 0;
+            if (!_updateBannerDismissed) IsUpdateBannerVisible = true;
+        }
+        else
+        {
+            UpdateDiskUrl = "";
+            HasUpdateDiskUrl = false;
+            IsUpdateBannerVisible = false;
+            IsUpdateDetailsOpen = false;
+        }
 
         if (!IsUpdateAvailable) return;
 
@@ -4041,6 +4086,29 @@ public partial class MainViewModel : ObservableObject
 
     [RelayCommand]
     private void CloseForceUpdate() => IsForceUpdateOpen = false;
+
+    /// <summary>标题栏提示条上的 X：本次运行内不再出现（下次启动重新评估）。</summary>
+    [RelayCommand]
+    private void DismissUpdateBanner()
+    {
+        _updateBannerDismissed = true;
+        IsUpdateBannerVisible = false;
+    }
+
+    /// <summary>标题栏「查看详情」：弹出独立的更新详情弹窗（版本说明 + 立即更新 / 稍后）。</summary>
+    [RelayCommand]
+    private void OpenUpdateDetails()
+    {
+        UpdateDialogTitle = _pendingUpdate?.Version is { Length: > 0 } v
+            ? $"发现新版本 {v}"
+            : "发现新版本";
+        IsUpdateDetailsOpen = true;
+        // 已经看到详情，标题栏那条先收起，避免同一信息占两处
+        IsUpdateBannerVisible = false;
+    }
+
+    [RelayCommand]
+    private void CloseUpdateDetails() => IsUpdateDetailsOpen = false;
 
     [RelayCommand]
     private void ExitApp() => RequestExit?.Invoke();

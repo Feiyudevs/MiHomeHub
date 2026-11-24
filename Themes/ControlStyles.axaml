@@ -66,7 +66,7 @@
             <Setter Property="Padding" Value="16,0"/>
             <Setter Property="Foreground" Value="White"/>
             <Setter Property="FontSize" Value="13"/>
-            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="FontWeight" Value="Normal"/>
             <Setter Property="Cursor" Value="Hand"/>
             <Setter Property="Template">
                 <ControlTemplate>
@@ -92,7 +92,7 @@
             <Setter Property="Height" Value="34"/>
             <Setter Property="Padding" Value="16,0"/>
             <Setter Property="FontSize" Value="13"/>
-            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="FontWeight" Value="Normal"/>
             <Setter Property="Cursor" Value="Hand"/>
             <Setter Property="Template">
                 <ControlTemplate>
@@ -148,7 +148,7 @@
             <Setter Property="Height" Value="34"/>
             <Setter Property="Padding" Value="16,0"/>
             <Setter Property="FontSize" Value="13"/>
-            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="FontWeight" Value="Normal"/>
             <Setter Property="Cursor" Value="Hand"/>
             <Setter Property="Template">
                 <ControlTemplate>
@@ -499,7 +499,7 @@
         </Style>
         <Style Selector="Button.NavRow.on">
             <Setter Property="Foreground" Value="{DynamicResource NavActiveTextBrush}"/>
-            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="FontWeight" Value="Normal"/>
         </Style>
         <!-- 选中底色交给共享滑块（Border.NavSlider）画：行自身留透明，悬停也不盖住滑块，
              这样滑块才能从上一行「位移」到当前行（位置由 MainWindow 按 .on 行边界同步） -->
@@ -577,7 +577,7 @@
         </Style>
         <Style Selector="Border.NavDragGhost TextBlock.NavDragGhostLabel">
             <Setter Property="FontSize" Value="13.5"/>
-            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="FontWeight" Value="Normal"/>
             <Setter Property="Foreground" Value="{DynamicResource NavActiveTextBrush}"/>
             <Setter Property="VerticalAlignment" Value="Center"/>
             <Setter Property="TextTrimming" Value="CharacterEllipsis"/>
@@ -599,7 +599,7 @@
             <Setter Property="Height" Value="32"/>
             <Setter Property="Padding" Value="14,0"/>
             <Setter Property="FontSize" Value="12.5"/>
-            <Setter Property="FontWeight" Value="Medium"/>
+            <Setter Property="FontWeight" Value="Normal"/>
             <Setter Property="Cursor" Value="Hand"/>
             <Setter Property="Template">
                 <ControlTemplate>
@@ -620,7 +620,7 @@
         <Style Selector="ToggleButton.Chip:checked">
             <Setter Property="Background" Value="{DynamicResource AccentSoftBrush}"/>
             <Setter Property="Foreground" Value="{DynamicResource WarmTextBrush}"/>
-            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="FontWeight" Value="Normal"/>
         </Style>
         <!-- ======== 设备卡（§8.6：无边框，开启淡紫渐变） ======== -->
         <Style Selector="ctl|DeviceCardButton.DevCard">
@@ -804,7 +804,7 @@
         <Style Selector="TextBlock.DevStatus">
             <Setter Property="Foreground" Value="{DynamicResource Text3Brush}"/>
             <Setter Property="FontSize" Value="11.5"/>
-            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="FontWeight" Value="Normal"/>
         </Style>
         <Style Selector="TextBlock.DevStatus.is-on">
             <Setter Property="Foreground" Value="{DynamicResource GreenBrush}"/>
@@ -1270,7 +1270,7 @@
             <Setter Property="Padding" Value="10,0"/>
             <Setter Property="Foreground" Value="{DynamicResource Text2Brush}"/>
             <Setter Property="FontSize" Value="13"/>
-            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="FontWeight" Value="Normal"/>
             <Setter Property="Cursor" Value="Hand"/>
             <Setter Property="Template">
                 <ControlTemplate>
@@ -1373,7 +1373,7 @@
         </Style>
         <Style Selector="TextBlock.ArgVal.picked">
             <Setter Property="Foreground" Value="{DynamicResource TextBrush}" />
-            <Setter Property="FontWeight" Value="SemiBold" />
+            <Setter Property="FontWeight" Value="Normal" />
         </Style>
 
         <!-- 设备选择行：点一下弹「选择设备」窗，样式与下拉触发器同族（底色 + 描边 + 右箭头） -->
@@ -1444,7 +1444,7 @@
             <Setter Property="Padding" Value="16,8"/>
             <Setter Property="CornerRadius" Value="9"/>
             <Setter Property="FontSize" Value="13"/>
-            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="FontWeight" Value="Normal"/>
             <Setter Property="Cursor" Value="Hand"/>
             <Setter Property="BorderThickness" Value="0"/>
             <Setter Property="Focusable" Value="False"/>

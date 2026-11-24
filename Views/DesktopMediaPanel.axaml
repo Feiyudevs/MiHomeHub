@@ -181,7 +181,7 @@
                                                    Foreground="{DynamicResource DskText2Brush}" />
                                     </Border>
                                     <TextBlock Grid.Column="1" Text="{Binding SpeakerName}" FontSize="13"
-                                               FontWeight="SemiBold" TextTrimming="CharacterEllipsis"
+                                               FontWeight="Normal" TextTrimming="CharacterEllipsis"
                                                VerticalAlignment="Center"
                                                Foreground="{DynamicResource DskTextBrush}" />
                                 </Grid>

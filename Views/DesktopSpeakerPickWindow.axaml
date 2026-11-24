@@ -90,7 +90,7 @@
             Padding="6"
             BoxShadow="0 2 6 0 #140F172A, 0 12 28 0 #1F0F172A">
         <StackPanel>
-            <TextBlock Text="选择控制的音箱" FontSize="10.5" FontWeight="SemiBold"
+            <TextBlock Text="选择控制的音箱" FontSize="10.5" FontWeight="Normal"
                        Margin="8,3,8,5" Foreground="{DynamicResource DskText3Brush}" />
             <ItemsControl ItemsSource="{Binding SpeakerPicks}">
                 <!-- 实心紫底之间必须留出缝，否则相邻两行会连成一整块紫 -->

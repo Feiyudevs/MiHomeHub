@@ -105,7 +105,7 @@
             <Setter Property="Padding" Value="10,5"/>
             <Setter Property="CornerRadius" Value="7"/>
             <Setter Property="FontSize" Value="11.5"/>
-            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="FontWeight" Value="Normal"/>
             <Setter Property="BorderThickness" Value="0"/>
             <Setter Property="Focusable" Value="False"/>
             <Setter Property="Cursor" Value="Hand"/>
@@ -189,7 +189,7 @@
         </Style>
         <Style Selector="TextBlock.KeyText">
             <Setter Property="FontSize" Value="13"/>
-            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="FontWeight" Value="Normal"/>
             <Setter Property="Foreground" Value="{DynamicResource TextBrush}"/>
             <Setter Property="VerticalAlignment" Value="Center"/>
         </Style>
@@ -214,7 +214,7 @@
             <Setter Property="Background" Value="Transparent"/>
             <Setter Property="BorderThickness" Value="0"/>
             <Setter Property="FontSize" Value="12.5"/>
-            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="FontWeight" Value="Normal"/>
             <Setter Property="Foreground" Value="{DynamicResource TextBrush}"/>
             <Setter Property="HorizontalContentAlignment" Value="Center"/>
             <Setter Property="VerticalContentAlignment" Value="Center"/>
@@ -288,7 +288,7 @@
 
                         <!-- 标题输入：放在标题栏下方、分区卡上方 -->
                         <StackPanel Spacing="5">
-                            <TextBlock Text="标题" FontSize="12" FontWeight="SemiBold"
+                            <TextBlock Text="标题" FontSize="12" FontWeight="Normal"
                                        Foreground="{DynamicResource Text2Brush}"/>
                             <TextBox Text="{Binding HotkeyDraftTitle, Mode=TwoWay}"
                                      Height="38" MaxLength="40"
@@ -392,13 +392,13 @@
                                                             <StackPanel Orientation="Horizontal" Spacing="6"
                                                                         VerticalAlignment="Center">
                                                                 <TextBlock Text="{Binding Name}" FontSize="12.5"
-                                                                           FontWeight="SemiBold" MaxWidth="180"
+                                                                           FontWeight="Normal" MaxWidth="180"
                                                                            TextTrimming="CharacterEllipsis"
                                                                            VerticalAlignment="Center"
                                                                            Foreground="{DynamicResource TextBrush}"/>
                                                                 <Border Classes="MiniTag" VerticalAlignment="Center">
                                                                     <TextBlock Text="{Binding TypeText}" FontSize="9.5"
-                                                                               FontWeight="Bold"
+                                                                               FontWeight="Normal"
                                                                                VerticalAlignment="Center"
                                                                                Foreground="{DynamicResource Text3Brush}"/>
                                                                 </Border>
@@ -446,7 +446,7 @@
 
                                 <Border Classes="StepEmpty" IsVisible="{Binding !HasHotkeyDraftSteps}">
                                     <StackPanel Spacing="3">
-                                        <TextBlock Text="还没有控制卡片" FontSize="12.5" FontWeight="SemiBold"
+                                        <TextBlock Text="还没有控制卡片" FontSize="12.5" FontWeight="Normal"
                                                    Foreground="{DynamicResource Text2Brush}"/>
                                         <TextBlock Text="点「选择目标」勾选设备 / 场景 / 自动化，再逐张选动作"
                                                    Classes="Muted"/>

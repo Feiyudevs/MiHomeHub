@@ -22,7 +22,7 @@
             </Border>
         </ctl:DialogPopup.Footer>
         <StackPanel Spacing="12">
-            <TextBlock Text="{Binding UpdateStatusText}" FontSize="13.5" FontWeight="SemiBold"
+            <TextBlock Text="{Binding UpdateStatusText}" FontSize="13.5" FontWeight="Normal"
                        Foreground="{DynamicResource TextBrush}" TextWrapping="Wrap" />
             <ScrollViewer MaxHeight="220" VerticalScrollBarVisibility="Auto"
                           IsVisible="{Binding UpdateNotes, Converter={x:Static StringConverters.IsNotNullOrEmpty}}">

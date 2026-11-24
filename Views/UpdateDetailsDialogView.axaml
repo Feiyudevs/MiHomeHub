@@ -1,0 +1,48 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="clr-namespace:MiHome.ViewModels"
+             xmlns:ctl="clr-namespace:MiHome.Controls"
+             x:Class="MiHome.Views.UpdateDetailsDialogView"
+             x:DataType="vm:MainViewModel">
+    <!-- 更新详情：标题栏提示条点「查看详情」后的普通弹窗（可稍后再装，不阻塞使用） -->
+    <ctl:DialogPopup CardWidth="560" Title="{Binding UpdateDialogTitle}"
+                     Subtitle="升级会保留设置与登录态"
+                     IsOpen="{Binding IsUpdateDetailsOpen}"
+                     CloseCommand="{Binding CloseUpdateDetailsCommand}">
+        <ctl:DialogPopup.Footer>
+            <Border BorderBrush="{DynamicResource LineBrush}" BorderThickness="0,1,0,0"
+                    Padding="0,14,0,0" Margin="28,0,22,20">
+                <Grid ColumnDefinitions="*,Auto,Auto,Auto">
+                    <TextBlock Text="{Binding UpdateBannerText}" FontSize="11"
+                               Foreground="{DynamicResource TextSubBrush}" VerticalAlignment="Center"
+                               TextTrimming="CharacterEllipsis" />
+                    <Button Grid.Column="1" Classes="BtnGhost" Height="34" Content="网盘下载"
+                            Command="{Binding OpenUrlCommand}" CommandParameter="{Binding UpdateDiskUrl}"
+                            IsVisible="{Binding HasUpdateDiskUrl}" Margin="0,0,8,0" />
+                    <Button Grid.Column="2" Classes="BtnGhost" Height="34" Content="稍后"
+                            Command="{Binding CloseUpdateDetailsCommand}" />
+                    <Button Grid.Column="3" Classes="BtnPrimary" Height="34" Margin="8,0,0,0"
+                            Content="立即更新" Command="{Binding InstallUpdateCommand}" />
+                </Grid>
+            </Border>
+        </ctl:DialogPopup.Footer>
+        <StackPanel Spacing="12">
+            <TextBlock Text="{Binding UpdateStatusText}" FontSize="13.5" FontWeight="Normal"
+                       Foreground="{DynamicResource TextBrush}" TextWrapping="Wrap" />
+            <Border Background="{DynamicResource SurfaceBrush}" CornerRadius="12" Padding="14,12"
+                    IsVisible="{Binding UpdateNotes, Converter={x:Static StringConverters.IsNotNullOrEmpty}}">
+                <ScrollViewer MaxHeight="300" VerticalScrollBarVisibility="Auto">
+                    <TextBlock Text="{Binding UpdateNotes}" Classes="Hint Sub" TextWrapping="Wrap" />
+                </ScrollViewer>
+            </Border>
+            <!-- 下载中：圆形进度环（与关于页卡片同一套观感） -->
+            <StackPanel Orientation="Horizontal" Spacing="10" VerticalAlignment="Center"
+                        IsVisible="{Binding IsUpdateBusy}">
+                <ctl:CircularProgress Width="26" Height="26" Thickness="3"
+                                      Value="{Binding UpdateProgress}"
+                                      TrackBrush="{DynamicResource LineBrush}"
+                                      FillBrush="{DynamicResource Accent2Brush}" />
+            </StackPanel>
+        </StackPanel>
+    </ctl:DialogPopup>
+</UserControl>

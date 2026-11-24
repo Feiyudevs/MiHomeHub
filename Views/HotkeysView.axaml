@@ -24,7 +24,7 @@
         </Style>
         <Style Selector="TextBlock.HkKey">
             <Setter Property="FontSize" Value="12"/>
-            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="FontWeight" Value="Normal"/>
             <Setter Property="Foreground" Value="{DynamicResource TextBrush}"/>
         </Style>
         <!-- 状态圆点：默认危险色，钩子可用时挂 .ok 变绿 -->
@@ -47,7 +47,7 @@
             <Setter Property="BorderThickness" Value="1"/>
             <Setter Property="Foreground" Value="{DynamicResource DangerBrush}"/>
             <Setter Property="FontSize" Value="10.5"/>
-            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="FontWeight" Value="Normal"/>
             <Setter Property="Focusable" Value="False"/>
             <Setter Property="Cursor" Value="Hand"/>
             <Setter Property="Template">
@@ -99,7 +99,7 @@
                         <Path Width="12" Height="12" Stretch="Uniform"
                               StrokeThickness="1.8" StrokeLineCap="Round" StrokeJoin="Round"
                               Stroke="{DynamicResource Text3Brush}" Data="{StaticResource GeoPower}" />
-                        <TextBlock Text="全局快捷键" FontSize="12" FontWeight="SemiBold"
+                        <TextBlock Text="全局快捷键" FontSize="12" FontWeight="Normal"
                                    Foreground="{DynamicResource Text2Brush}" VerticalAlignment="Center" />
                         <Button Classes="Switch" Classes.on="{Binding HotkeysEnabled}"
                                 VerticalAlignment="Center" Command="{Binding ToggleHotkeysCommand}" />
@@ -201,12 +201,12 @@
 
                                 <!-- 第二行：目标名称 + 缺失标记 -->
                                 <Grid Grid.Row="1" ColumnDefinitions="*,Auto" Margin="0,9,0,0">
-                                    <TextBlock Text="{Binding TargetText}" FontSize="13.5" FontWeight="SemiBold"
+                                    <TextBlock Text="{Binding TargetText}" FontSize="13.5" FontWeight="Normal"
                                                Foreground="{DynamicResource TextBrush}"
                                                TextTrimming="CharacterEllipsis" VerticalAlignment="Center" />
                                     <Border Grid.Column="1" Classes="MiniTag" Margin="6,0,0,0"
                                             IsVisible="{Binding IsMissing}" VerticalAlignment="Center">
-                                        <TextBlock Text="{Binding MissingText}" FontSize="10" FontWeight="Bold"
+                                        <TextBlock Text="{Binding MissingText}" FontSize="10" FontWeight="Normal"
                                                    Foreground="{DynamicResource DangerBrush}" />
                                     </Border>
                                 </Grid>

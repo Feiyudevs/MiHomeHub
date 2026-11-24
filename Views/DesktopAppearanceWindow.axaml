@@ -57,7 +57,7 @@
             <Border Classes="Card">
                 <StackPanel Spacing="12">
                     <Grid ColumnDefinitions="*,Auto">
-                        <TextBlock Text="背景" FontSize="13.5" FontWeight="SemiBold"
+                        <TextBlock Text="背景" FontSize="13.5" FontWeight="Normal"
                                    Foreground="{DynamicResource TextBrush}" VerticalAlignment="Center" />
                         <Button Grid.Column="1" Classes="BtnGhost" Height="26" Padding="10,0" FontSize="11.5"
                                 Content="恢复默认" Command="{Binding RestoreDefaultCommand}" />
@@ -98,7 +98,7 @@
             <Border Classes="Card">
                 <StackPanel Spacing="10">
                     <Grid ColumnDefinitions="*,Auto">
-                        <TextBlock Text="背景浓度" FontSize="13.5" FontWeight="SemiBold"
+                        <TextBlock Text="背景浓度" FontSize="13.5" FontWeight="Normal"
                                    Foreground="{DynamicResource TextBrush}" />
                         <TextBlock Grid.Column="1" Text="{Binding OpacityText}" FontSize="12.5" FontWeight="SemiBold"
                                    Foreground="{DynamicResource Accent2Brush}" VerticalAlignment="Center" />
@@ -114,7 +114,7 @@
             <Border Classes="Card">
                 <Grid ColumnDefinitions="*,Auto">
                     <StackPanel Spacing="3" VerticalAlignment="Center">
-                        <TextBlock Text="毛玻璃" FontSize="13.5" FontWeight="SemiBold"
+                        <TextBlock Text="毛玻璃" FontSize="13.5" FontWeight="Normal"
                                    Foreground="{DynamicResource TextBrush}" />
                         <TextBlock Classes="Hint" Text="用系统亚克力模糊墙纸，与透明度叠加生效" />
                     </StackPanel>

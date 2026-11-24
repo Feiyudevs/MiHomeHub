@@ -131,7 +131,11 @@ public partial class App : Application
 
             // 启动自动检查发现新版本时走托盘气泡，不抢焦点（强制更新另有模态框）
             if (main.DataContext is MainViewModel vm)
+            {
                 vm.NotifyUser = (title, text) => _trayIcon.Notify(title, text);
+                // 托盘图标刚建好，这时才弹得出来：补提示上次检查缓存的「有新版本」
+                vm.NotifyCachedUpdate();
+            }
 
             if (silent)
             {

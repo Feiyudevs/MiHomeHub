@@ -21,7 +21,7 @@ internal static class SilentSetup
         try
         {
             var service = new SetupService(options);
-            result = service.InstallAsync(desktopShortcut: false, progress: null).GetAwaiter().GetResult();
+            result = service.InstallAsync(desktopShortcut: false, telemetryOptIn: true, progress: null).GetAwaiter().GetResult();
         }
         catch (Exception ex)
         {

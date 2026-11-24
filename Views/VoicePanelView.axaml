@@ -24,7 +24,7 @@
                                    IsBusy="{Binding IsVoiceSending}" />
                 </Border>
                 <StackPanel Grid.Column="1" Margin="10,0,8,0" VerticalAlignment="Center" Spacing="1">
-                    <TextBlock Text="小爱同学" FontSize="13.5" FontWeight="SemiBold"
+                    <TextBlock Text="小爱同学" FontSize="13.5" FontWeight="Normal"
                                Foreground="{DynamicResource TextBrush}" />
                     <TextBlock Classes="Hint Sub" FontSize="11" Text="下发指令的音箱" />
                 </StackPanel>

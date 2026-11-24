@@ -419,14 +419,14 @@
                 <StackPanel Spacing="10" IsVisible="{Binding IsSmartSceneExpanded}">
                     <!-- 手动场景 -->
                     <StackPanel Spacing="6" IsVisible="{Binding HasDrawerSceneGroup}">
-                        <TextBlock Text="场景" FontSize="12" FontWeight="SemiBold"
+                        <TextBlock Text="场景" FontSize="12" FontWeight="Normal"
                                    Foreground="{DynamicResource Text3Brush}" />
                         <ItemsControl ItemsSource="{Binding DrawerScenes}"
                                       ItemTemplate="{StaticResource SceneDeviceRowTemplate}" />
                     </StackPanel>
                     <!-- 自动化 -->
                     <StackPanel Spacing="6" IsVisible="{Binding HasDrawerAutomationGroup}">
-                        <TextBlock Text="自动化" FontSize="12" FontWeight="SemiBold"
+                        <TextBlock Text="自动化" FontSize="12" FontWeight="Normal"
                                    Foreground="{DynamicResource Text3Brush}" />
                         <ItemsControl ItemsSource="{Binding DrawerAutomations}"
                                       ItemTemplate="{StaticResource SceneDeviceRowTemplate}" />
@@ -476,7 +476,7 @@
                 <Grid ColumnDefinitions="*,Auto">
                     <TextBlock Text="房间" Foreground="{DynamicResource Text2Brush}" FontSize="13" />
                     <TextBlock Grid.Column="1" Text="{Binding DrawerDevice.RoomName}" FontSize="13"
-                               FontWeight="SemiBold" Foreground="{DynamicResource Text2Brush}" />
+                               FontWeight="Normal" Foreground="{DynamicResource Text2Brush}" />
                 </Grid>
                 <Grid ColumnDefinitions="*,Auto">
                     <TextBlock Text="连接" Foreground="{DynamicResource Text2Brush}" FontSize="13" />
@@ -484,7 +484,7 @@
                         <Ellipse Classes="StatusDot"
                                  Classes.is-on="{Binding DrawerDevice.IsOnline}"
                                  Classes.is-warn="{Binding !DrawerDevice.IsOnline}" />
-                        <TextBlock FontSize="13" FontWeight="SemiBold"
+                        <TextBlock FontSize="13" FontWeight="Normal"
                                    Foreground="{DynamicResource Text2Brush}"
                                    VerticalAlignment="Center"
                                    Text="{Binding DrawerDevice.IsOnline, Converter={x:Static conv:BoolTextConverter.Instance}, ConverterParameter='在线|离线'}" />
@@ -493,7 +493,7 @@
                 <Grid ColumnDefinitions="*,Auto">
                     <TextBlock Text="型号" Foreground="{DynamicResource Text2Brush}" FontSize="13" />
                     <TextBlock Grid.Column="1" Text="{Binding DrawerDevice.Model}" FontSize="13"
-                               FontWeight="SemiBold" MaxWidth="180" TextTrimming="CharacterEllipsis"
+                               FontWeight="Normal" MaxWidth="180" TextTrimming="CharacterEllipsis"
                                Foreground="{DynamicResource Text2Brush}" />
                 </Grid>
                 <Grid ColumnDefinitions="*,Auto">

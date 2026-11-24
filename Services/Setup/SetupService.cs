@@ -6,6 +6,7 @@ using System.IO;
 using System.Runtime.ExceptionServices;
 using System.Threading;
 using System.Threading.Tasks;
+using MiHome.Services.Telemetry;
 
 namespace MiHome.Services.Setup;
 
@@ -121,10 +122,10 @@ internal sealed class SetupService
         };
     }
 
-    public Task<SetupResult> InstallAsync(bool desktopShortcut, IProgress<SetupProgress>? progress)
+    public Task<SetupResult> InstallAsync(bool desktopShortcut, bool telemetryOptIn, IProgress<SetupProgress>? progress)
         => _options.Preview
             ? PreviewInstallAsync(progress)
-            : Task.Run(() => Install(desktopShortcut, progress));
+            : Task.Run(() => Install(desktopShortcut, telemetryOptIn, progress));
 
     public Task<SetupResult> UninstallAsync(bool removeData, IProgress<SetupProgress>? progress)
         => _options.Preview
@@ -213,7 +214,7 @@ internal sealed class SetupService
 
     // ────────────────────────────────── 安装 ──────────────────────────────────
 
-    private SetupResult Install(bool desktopShortcut, IProgress<SetupProgress>? progress)
+    private SetupResult Install(bool desktopShortcut, bool telemetryOptIn, IProgress<SetupProgress>? progress)
     {
         var root = Root;
         string? installedVersion = null;
@@ -280,6 +281,10 @@ internal sealed class SetupService
                               || (_options.Silent && File.Exists(_integration.DesktopLnkPath));
             var info = new SetupApplyInfo(root, version, "Feiyu", DesktopShortcut: keepDesktop);
             RunSta(() => _integration.Apply(info));
+
+            // 「匿名使用统计」初始开关：只对首次安装生效，已有的 telemetry.json（更新/重装）一律保留
+            if (!_options.IsSelfTest && TelemetryService.ApplyInstallDefault(telemetryOptIn))
+                SetupLog.Info("telemetry-default", telemetryOptIn ? "on" : "off", TelemetryService.ConfigFile);
 
             Report(progress, 0.94, "正在清理旧版本…");
             try

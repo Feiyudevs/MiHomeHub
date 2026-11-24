@@ -181,7 +181,7 @@ internal static class SetupEntry
             Directory.CreateDirectory(root);
             var service = new SetupService(options);
             result = options.Mode == SetupMode.Install
-                ? service.InstallAsync(desktopShortcut: true, null).GetAwaiter().GetResult()
+                ? service.InstallAsync(desktopShortcut: true, telemetryOptIn: false, null).GetAwaiter().GetResult()
                 : service.UninstallAsync(removeData: false, null).GetAwaiter().GetResult();
         }
         catch (Exception ex)

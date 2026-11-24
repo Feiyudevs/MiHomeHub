@@ -148,7 +148,7 @@
             <Setter Property="Height" Value="26" />
             <Setter Property="Padding" Value="0" />
             <Setter Property="FontSize" Value="12.5" />
-            <Setter Property="FontWeight" Value="SemiBold" />
+            <Setter Property="FontWeight" Value="Normal" />
             <Setter Property="TextAlignment" Value="Center" />
             <Setter Property="Background" Value="Transparent" />
             <Setter Property="BorderThickness" Value="0" />
@@ -211,7 +211,7 @@
                     <Grid Grid.Column="2" ColumnDefinitions="*,Auto" Margin="16,0,0,0"
                           VerticalAlignment="Center">
                         <StackPanel Spacing="3" VerticalAlignment="Center">
-                            <TextBlock Text="启用" FontSize="13" FontWeight="SemiBold"
+                            <TextBlock Text="启用" FontSize="13" FontWeight="Normal"
                                        Foreground="{DynamicResource TextBrush}" />
                             <TextBlock Text="{Binding SceneEditEnableHint}"
                                        FontSize="11.5" Foreground="{DynamicResource Text3Brush}" />
@@ -268,7 +268,7 @@
                                                        Foreground="{DynamicResource Text3Brush}" />
                                         </Border>
                                         <StackPanel Grid.Column="1" Spacing="3">
-                                            <TextBlock Text="{Binding Title}" FontSize="12.5" FontWeight="SemiBold"
+                                            <TextBlock Text="{Binding Title}" FontSize="12.5" FontWeight="Normal"
                                                        TextWrapping="Wrap" MaxLines="2"
                                                        TextTrimming="CharacterEllipsis"
                                                        Foreground="{DynamicResource TextBrush}" />
@@ -488,7 +488,7 @@
                                             <StackPanel Spacing="2" VerticalAlignment="Center"
                                                         Margin="0,0,10,0">
                                                 <TextBlock Text="{Binding Title}" FontSize="13"
-                                                           FontWeight="SemiBold"
+                                                           FontWeight="Normal"
                                                            IsVisible="{Binding IsRealAction}"
                                                            TextTrimming="CharacterEllipsis"
                                                            Foreground="{DynamicResource TextBrush}" />
@@ -502,7 +502,7 @@
                                                               Stroke="{DynamicResource AmberBrush}" Opacity="0.85"
                                                               Data="M5.5,3 L5.5,5.6 L7.6,7.2" />
                                                     </Grid>
-                                                    <TextBlock Text="延时" FontSize="13" FontWeight="SemiBold"
+                                                    <TextBlock Text="延时" FontSize="13" FontWeight="Normal"
                                                                VerticalAlignment="Center"
                                                                Foreground="{DynamicResource AmberBrush}" />
                                                 </StackPanel>

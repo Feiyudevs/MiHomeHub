@@ -29,7 +29,7 @@
                     </Viewbox>
                 </Border>
                 <StackPanel Grid.Column="1" Margin="10,0,0,0" VerticalAlignment="Center" Spacing="1">
-                    <TextBlock Text="我的家庭" FontSize="13.5" FontWeight="SemiBold"
+                    <TextBlock Text="我的家庭" FontSize="13.5" FontWeight="Normal"
                                Foreground="{DynamicResource TextBrush}" />
                     <TextBlock Classes="Hint Sub" FontSize="11" Text="{Binding HomeName}"
                                TextTrimming="CharacterEllipsis" />

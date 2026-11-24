@@ -302,7 +302,7 @@
                                                             <StackPanel Grid.Column="1" Margin="10,0,4,0"
                                                                         VerticalAlignment="Center" Spacing="2">
                                                                 <TextBlock Classes="PickName" Text="{Binding Name}" FontSize="12.5"
-                                                                           FontWeight="SemiBold"
+                                                                           FontWeight="Normal"
                                                                            TextTrimming="CharacterEllipsis" />
                                                                 <TextBlock Classes="PickRoom" Text="{Binding Category}" FontSize="10.5"
                                                                            TextTrimming="CharacterEllipsis" />

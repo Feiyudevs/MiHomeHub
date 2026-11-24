@@ -10,6 +10,7 @@ using System.Net.Http.Headers;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
+using System.Text.Json.Serialization;
 using System.Threading;
 using System.Threading.Tasks;
 using MiHome.Services.Setup;
@@ -30,6 +31,7 @@ internal sealed class UpdateManifest
     /// <summary>后台标记的强制更新：客户端不应允许跳过。</summary>
     public bool Force { get; set; }
     /// <summary>网盘兜底页（百度/夸克等），自动下载彻底失败时给用户一个入口。</summary>
+    [JsonPropertyName("disk_url")]
     public string? DiskUrl { get; set; }
     /// <summary>清单来源：backend（后台 check-update）或 github（Release 里的 update.json）。</summary>
     public string Source { get; set; } = "github";
@@ -182,6 +184,20 @@ internal static class UpdateService
     /// <summary>距上次成功检查不足 24 小时且非强制时，直接用缓存结果（避免每次开设置都打网络）。</summary>
     public static bool ShouldAutoCheck()
         => SourceOverride is not null || !IsFresh(ReadState());
+
+    /// <summary>
+    /// 只读本地缓存、不联网：启动时先用上次结果决定要不要提示。没有缓存或通道切换过返回 null；
+    /// 版本比较按当前版本重算，缓存里旧的「有更新」在升级后不会误报。
+    /// </summary>
+    public static UpdateCheckResult? TryGetCachedResult()
+    {
+        var state = ReadState();
+        if (state is null) return null;
+        var cachedChannel = state.Channel?.Trim().ToLowerInvariant();
+        if (string.IsNullOrEmpty(cachedChannel)) cachedChannel = StableChannel;
+        if (cachedChannel != CurrentChannel) return null;
+        return Evaluate(state.Manifest);
+    }
 
     public static async Task<UpdateCheckResult> CheckAsync(bool force, CancellationToken ct = default)
     {
@@ -480,8 +496,12 @@ internal static class UpdateService
                 $"后台已发布 {manifest.Version}，但还没有配置安装包直链（package_url）；" +
                 "请先在后台「版本管理」上传安装包并填 package_url，或把该版本发到 GitHub Releases");
 
+        var hint = string.IsNullOrWhiteSpace(manifest.DiskUrl)
+            ? ""
+            : "；也可以点「网盘下载」手动取安装包";
         throw new InvalidOperationException("下载安装包失败：" +
-                                            (lastError is null ? "没有可用的下载地址" : Describe(lastError)));
+                                            (lastError is null ? "没有可用的下载地址" : Describe(lastError)) +
+                                            hint);
     }
 
     private static async Task DownloadToFileAsync(string url, string target, IProgress<double>? progress,

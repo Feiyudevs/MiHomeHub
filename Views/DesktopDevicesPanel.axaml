@@ -219,10 +219,10 @@
                     </Panel>
                     <StackPanel Grid.Column="1" VerticalAlignment="Center" Margin="12,0,10,0" Spacing="3">
                         <TextBlock Classes="DevName" Text="{Binding Name}" FontSize="13.5"
-                                   FontWeight="SemiBold" TextTrimming="CharacterEllipsis" />
+                                   FontWeight="Normal" TextTrimming="CharacterEllipsis" />
                         <TextBlock Classes="DevMeta" Text="场景" FontSize="11.5"
                                    IsVisible="{Binding !IsRunning}" />
-                        <TextBlock Text="运行中" FontSize="11.5" FontWeight="SemiBold"
+                        <TextBlock Text="运行中" FontSize="11.5" FontWeight="Normal"
                                    Foreground="{DynamicResource GreenBrush}"
                                    IsVisible="{Binding IsRunning}" />
                     </StackPanel>

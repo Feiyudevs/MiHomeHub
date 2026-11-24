@@ -36,10 +36,14 @@
                                    Foreground="{DynamicResource TextBrush}" />
                         <Grid ColumnDefinitions="Auto,*,Auto">
                             <Border Classes="SetIc" Background="{DynamicResource PurpleSoftBrush}">
-                                <Path Stroke="{DynamicResource PurpleBrush}" Data="{StaticResource GeoGear}" />
+                                <Viewbox HorizontalAlignment="Center" VerticalAlignment="Center">
+                                    <Panel Width="24" Height="24">
+                                        <Path Stroke="{DynamicResource PurpleBrush}" Data="{StaticResource GeoGear}" />
+                                    </Panel>
+                                </Viewbox>
                             </Border>
                             <StackPanel Grid.Column="1" Margin="12,0" VerticalAlignment="Center">
-                                <TextBlock Text="主题" FontSize="13.5" FontWeight="SemiBold"
+                                <TextBlock Text="主题" FontSize="13.5" FontWeight="Normal"
                                            Foreground="{DynamicResource TextBrush}" />
                                 <TextBlock Text="界面明暗配色" Classes="Hint Sub" Margin="0,2,0,0" />
                             </StackPanel>
@@ -49,10 +53,14 @@
                         </Grid>
                         <Grid ColumnDefinitions="Auto,*,Auto">
                             <Border Classes="SetIc" Background="{DynamicResource PurpleSoftBrush}">
-                                <Path Stroke="{DynamicResource PurpleBrush}" Data="{StaticResource GeoGrid}" />
+                                <Viewbox HorizontalAlignment="Center" VerticalAlignment="Center">
+                                    <Panel Width="24" Height="24">
+                                        <Path Stroke="{DynamicResource PurpleBrush}" Data="{StaticResource GeoGrid}" />
+                                    </Panel>
+                                </Viewbox>
                             </Border>
                             <StackPanel Grid.Column="1" Margin="12,0" VerticalAlignment="Center">
-                                <TextBlock Text="侧栏图标" FontSize="13.5" FontWeight="SemiBold"
+                                <TextBlock Text="侧栏图标" FontSize="13.5" FontWeight="Normal"
                                            Foreground="{DynamicResource TextBrush}" />
                                 <TextBlock Text="导航区图标的画法" Classes="Hint Sub" Margin="0,2,0,0" />
                             </StackPanel>
@@ -62,10 +70,14 @@
                         </Grid>
                         <Grid ColumnDefinitions="Auto,*,Auto">
                             <Border Classes="SetIc" Background="{DynamicResource BlueSoftBrush}">
-                                <Path Stroke="{DynamicResource BlueBrush}" Data="{StaticResource GeoShadow}" />
+                                <Viewbox HorizontalAlignment="Center" VerticalAlignment="Center">
+                                    <Panel Width="24" Height="24">
+                                        <Path Stroke="{DynamicResource BlueBrush}" Data="{StaticResource GeoShadow}" />
+                                    </Panel>
+                                </Viewbox>
                             </Border>
                             <StackPanel Grid.Column="1" Margin="12,0" VerticalAlignment="Center">
-                                <TextBlock Text="卡片阴影" FontSize="13.5" FontWeight="SemiBold"
+                                <TextBlock Text="卡片阴影" FontSize="13.5" FontWeight="Normal"
                                            Foreground="{DynamicResource TextBrush}" />
                                 <TextBlock Text="关闭后卡片改为扁平贴合，界面更清爽" Classes="Hint Sub" Margin="0,2,0,0" />
                             </StackPanel>
@@ -80,10 +92,14 @@
                                    Foreground="{DynamicResource TextBrush}" />
                         <Grid ColumnDefinitions="Auto,*,Auto">
                             <Border Classes="SetIc" Background="{DynamicResource GreenSoftBrush}">
-                                <Path Stroke="{DynamicResource GreenBrush}" Data="{StaticResource GeoPower}" />
+                                <Viewbox HorizontalAlignment="Center" VerticalAlignment="Center">
+                                    <Panel Width="24" Height="24">
+                                        <Path Stroke="{DynamicResource GreenBrush}" Data="{StaticResource GeoPower}" />
+                                    </Panel>
+                                </Viewbox>
                             </Border>
                             <StackPanel Grid.Column="1" Margin="12,0" VerticalAlignment="Center">
-                                <TextBlock Text="开机启动" FontSize="13.5" FontWeight="SemiBold"
+                                <TextBlock Text="开机启动" FontSize="13.5" FontWeight="Normal"
                                            Foreground="{DynamicResource TextBrush}" />
                                 <TextBlock Text="登录 Windows 后自动启动应用" Classes="Hint Sub" Margin="0,2,0,0" />
                             </StackPanel>
@@ -92,10 +108,14 @@
                         </Grid>
                         <Grid ColumnDefinitions="Auto,*,Auto">
                             <Border Classes="SetIc" Background="{DynamicResource BlueSoftBrush}">
-                                <Path Stroke="{DynamicResource BlueBrush}" Data="{StaticResource GeoMax}" />
+                                <Viewbox HorizontalAlignment="Center" VerticalAlignment="Center">
+                                    <Panel Width="24" Height="24">
+                                        <Path Stroke="{DynamicResource BlueBrush}" Data="{StaticResource GeoMax}" />
+                                    </Panel>
+                                </Viewbox>
                             </Border>
                             <StackPanel Grid.Column="1" Margin="12,0" VerticalAlignment="Center">
-                                <TextBlock Text="启动后显示主界面" FontSize="13.5" FontWeight="SemiBold"
+                                <TextBlock Text="启动后显示主界面" FontSize="13.5" FontWeight="Normal"
                                            Foreground="{DynamicResource TextBrush}" />
                                 <TextBlock Text="关掉后启动直接收进托盘，需要时点托盘图标打开" Classes="Hint Sub" Margin="0,2,0,0" />
                             </StackPanel>
@@ -104,10 +124,14 @@
                         </Grid>
                         <Grid ColumnDefinitions="Auto,*,Auto">
                             <Border Classes="SetIc" Background="{DynamicResource PurpleSoftBrush}">
-                                <Path Stroke="{DynamicResource PurpleBrush}" Data="{StaticResource GeoTray}" />
+                                <Viewbox HorizontalAlignment="Center" VerticalAlignment="Center">
+                                    <Panel Width="24" Height="24">
+                                        <Path Stroke="{DynamicResource PurpleBrush}" Data="{StaticResource GeoTray}" />
+                                    </Panel>
+                                </Viewbox>
                             </Border>
                             <StackPanel Grid.Column="1" Margin="12,0" VerticalAlignment="Center">
-                                <TextBlock Text="关闭后进托盘" FontSize="13.5" FontWeight="SemiBold"
+                                <TextBlock Text="关闭后进托盘" FontSize="13.5" FontWeight="Normal"
                                            Foreground="{DynamicResource TextBrush}" />
                                 <TextBlock Text="关掉这项后点关闭直接退出应用" Classes="Hint Sub" Margin="0,2,0,0" />
                             </StackPanel>
@@ -126,10 +150,14 @@
                                    Foreground="{DynamicResource TextBrush}" />
                         <Grid ColumnDefinitions="Auto,*,Auto">
                             <Border Classes="SetIc" Background="{DynamicResource BlueSoftBrush}">
-                                <Path Stroke="{DynamicResource BlueBrush}" Data="{StaticResource GeoGrid}" />
+                                <Viewbox HorizontalAlignment="Center" VerticalAlignment="Center">
+                                    <Panel Width="24" Height="24">
+                                        <Path Stroke="{DynamicResource BlueBrush}" Data="{StaticResource GeoGrid}" />
+                                    </Panel>
+                                </Viewbox>
                             </Border>
                             <StackPanel Grid.Column="1" Margin="12,0" VerticalAlignment="Center">
-                                <TextBlock Text="在桌面显示设备分区" FontSize="13.5" FontWeight="SemiBold"
+                                <TextBlock Text="在桌面显示设备分区" FontSize="13.5" FontWeight="Normal"
                                            Foreground="{DynamicResource TextBrush}" />
                                 <TextBlock Text="设备卡悬停点「＋」即可添加入口；关掉只是收起，分区配置保留"
                                            Classes="Hint Sub" Margin="0,2,0,0" TextWrapping="Wrap" />
@@ -139,10 +167,14 @@
                         </Grid>
                         <Grid ColumnDefinitions="Auto,*,Auto">
                             <Border Classes="SetIc" Background="{DynamicResource PurpleSoftBrush}">
-                                <Path Stroke="{DynamicResource PurpleBrush}" Data="{StaticResource GeoSpeaker}" />
+                                <Viewbox HorizontalAlignment="Center" VerticalAlignment="Center">
+                                    <Panel Width="24" Height="24">
+                                        <Path Stroke="{DynamicResource PurpleBrush}" Data="{StaticResource GeoSpeaker}" />
+                                    </Panel>
+                                </Viewbox>
                             </Border>
                             <StackPanel Grid.Column="1" Margin="12,0" VerticalAlignment="Center">
-                                <TextBlock Text="在桌面显示媒体分区" FontSize="13.5" FontWeight="SemiBold"
+                                <TextBlock Text="在桌面显示媒体分区" FontSize="13.5" FontWeight="Normal"
                                            Foreground="{DynamicResource TextBrush}" />
                                 <TextBlock Text="控制的音箱与首页「音响播放」是同一台；关掉后不会自动放回"
                                            Classes="Hint Sub" Margin="0,2,0,0" TextWrapping="Wrap" />
@@ -152,10 +184,14 @@
                         </Grid>
                         <Grid ColumnDefinitions="Auto,*,Auto">
                             <Border Classes="SetIc" Background="{DynamicResource GreenSoftBrush}">
-                                <Path Stroke="{DynamicResource GreenBrush}" Data="{StaticResource GeoMax}" />
+                                <Viewbox HorizontalAlignment="Center" VerticalAlignment="Center">
+                                    <Panel Width="24" Height="24">
+                                        <Path Stroke="{DynamicResource GreenBrush}" Data="{StaticResource GeoMax}" />
+                                    </Panel>
+                                </Viewbox>
                             </Border>
                             <StackPanel Grid.Column="1" Margin="12,0" VerticalAlignment="Center">
-                                <TextBlock Text="双击桌面隐藏组件" FontSize="13.5" FontWeight="SemiBold"
+                                <TextBlock Text="双击桌面隐藏组件" FontSize="13.5" FontWeight="Normal"
                                            Foreground="{DynamicResource TextBrush}" />
                                 <TextBlock Text="双击桌面空白处，快速收起 / 恢复所有桌面卡片"
                                            Classes="Hint Sub" Margin="0,2,0,0" TextWrapping="Wrap" />
@@ -165,10 +201,14 @@
                         </Grid>
                         <Grid ColumnDefinitions="Auto,*,Auto">
                             <Border Classes="SetIc" Background="{DynamicResource PurpleSoftBrush}">
-                                <Path Stroke="{DynamicResource PurpleBrush}" Data="{StaticResource GeoGrid}" />
+                                <Viewbox HorizontalAlignment="Center" VerticalAlignment="Center">
+                                    <Panel Width="24" Height="24">
+                                        <Path Stroke="{DynamicResource PurpleBrush}" Data="{StaticResource GeoGrid}" />
+                                    </Panel>
+                                </Viewbox>
                             </Border>
                             <StackPanel Grid.Column="1" Margin="12,0" VerticalAlignment="Center">
-                                <TextBlock Text="移入自动展开" FontSize="13.5" FontWeight="SemiBold"
+                                <TextBlock Text="移入自动展开" FontSize="13.5" FontWeight="Normal"
                                            Foreground="{DynamicResource TextBrush}" />
                                 <TextBlock Text="鼠标移入折叠的分区时自动展开，移出后自动收起"
                                            Classes="Hint Sub" Margin="0,2,0,0" TextWrapping="Wrap" />
@@ -191,7 +231,7 @@
 
                         <!-- 背景色 -->
                         <StackPanel Spacing="10">
-                            <TextBlock Text="背景" FontSize="13" FontWeight="SemiBold"
+                            <TextBlock Text="背景" FontSize="13" FontWeight="Normal"
                                        Foreground="{DynamicResource Text2Brush}" />
                             <ItemsControl ItemsSource="{Binding DesktopAppearance.Presets}">
                                 <ItemsControl.ItemsPanel>
@@ -222,7 +262,7 @@
                         <!-- 背景浓度 -->
                         <StackPanel Spacing="8">
                             <Grid ColumnDefinitions="*,Auto">
-                                <TextBlock Text="背景浓度" FontSize="13" FontWeight="SemiBold"
+                                <TextBlock Text="背景浓度" FontSize="13" FontWeight="Normal"
                                            Foreground="{DynamicResource Text2Brush}" />
                                 <TextBlock Grid.Column="1" Text="{Binding DesktopAppearance.OpacityText}"
                                            FontSize="12.5" FontWeight="SemiBold"
@@ -240,7 +280,7 @@
                         <!-- 毛玻璃 -->
                         <Grid ColumnDefinitions="*,Auto">
                             <StackPanel Spacing="3" VerticalAlignment="Center">
-                                <TextBlock Text="毛玻璃" FontSize="13" FontWeight="SemiBold"
+                                <TextBlock Text="毛玻璃" FontSize="13" FontWeight="Normal"
                                            Foreground="{DynamicResource Text2Brush}" />
                                 <TextBlock Classes="Hint" Text="用系统亚克力模糊墙纸，与透明度叠加生效" />
                             </StackPanel>
@@ -259,10 +299,14 @@
                                    Foreground="{DynamicResource TextBrush}" />
                         <Grid ColumnDefinitions="Auto,*,Auto">
                             <Border Classes="SetIc" Background="{DynamicResource AccentSoftBrush}">
-                                <Path Stroke="{DynamicResource Accent2Brush}" Data="{StaticResource GeoLock}" />
+                                <Viewbox HorizontalAlignment="Center" VerticalAlignment="Center">
+                                    <Panel Width="24" Height="24">
+                                        <Path Stroke="{DynamicResource Accent2Brush}" Data="{StaticResource GeoLock}" />
+                                    </Panel>
+                                </Viewbox>
                             </Border>
                             <StackPanel Grid.Column="1" Margin="12,0" VerticalAlignment="Center">
-                                <TextBlock Text="{Binding StatusText}" FontSize="13.5" FontWeight="SemiBold"
+                                <TextBlock Text="{Binding StatusText}" FontSize="13.5" FontWeight="Normal"
                                            Foreground="{DynamicResource TextBrush}"
                                            TextTrimming="CharacterEllipsis" />
                                 <TextBlock Text="凭证仅保存在本机 · 不上传第三方" Classes="Hint Sub" Margin="0,2,0,0" />
@@ -286,10 +330,14 @@
                                    Foreground="{DynamicResource TextBrush}" />
                         <Grid ColumnDefinitions="Auto,*,Auto">
                             <Border Classes="SetIc" Background="{DynamicResource GreenSoftBrush}">
-                                <Path Stroke="{DynamicResource GreenBrush}" Data="{StaticResource GeoRefresh}" />
+                                <Viewbox HorizontalAlignment="Center" VerticalAlignment="Center">
+                                    <Panel Width="24" Height="24">
+                                        <Path Stroke="{DynamicResource GreenBrush}" Data="{StaticResource GeoRefresh}" />
+                                    </Panel>
+                                </Viewbox>
                             </Border>
                             <StackPanel Grid.Column="1" Margin="12,0" VerticalAlignment="Center">
-                                <TextBlock Text="重新拉取" FontSize="13.5" FontWeight="SemiBold"
+                                <TextBlock Text="重新拉取" FontSize="13.5" FontWeight="Normal"
                                            Foreground="{DynamicResource TextBrush}" />
                                 <TextBlock Text="从米家云端刷新设备列表与开关状态" Classes="Hint Sub" Margin="0,2,0,0" />
                             </StackPanel>
@@ -299,11 +347,15 @@
                         <!-- 默认音箱：小爱语音指令的落点，只在有音箱时出现 -->
                         <Grid ColumnDefinitions="Auto,*,Auto" IsVisible="{Binding HasSpeaker}">
                             <Border Classes="SetIc" Background="{DynamicResource PurpleSoftBrush}">
-                                <Path Stroke="{DynamicResource PurpleBrush}"
-                                      Data="M12,3 C10,3 8,5 8,7 V12 C8,14 10,16 12,16 C14,16 16,14 16,12 V7 C16,5 14,3 12,3 Z M5,11 C5,15 8,18 12,18 C16,18 19,15 19,11 M12,18 V21 M8,21 H16" />
+                                <Viewbox HorizontalAlignment="Center" VerticalAlignment="Center">
+                                    <Panel Width="24" Height="24">
+                                        <Path Stroke="{DynamicResource PurpleBrush}"
+                                              Data="M12,3 C10,3 8,5 8,7 V12 C8,14 10,16 12,16 C14,16 16,14 16,12 V7 C16,5 14,3 12,3 Z M5,11 C5,15 8,18 12,18 C16,18 19,15 19,11 M12,18 V21 M8,21 H16" />
+                                    </Panel>
+                                </Viewbox>
                             </Border>
                             <StackPanel Grid.Column="1" Margin="12,0" VerticalAlignment="Center">
-                                <TextBlock Text="默认音箱" FontSize="13.5" FontWeight="SemiBold"
+                                <TextBlock Text="默认音箱" FontSize="13.5" FontWeight="Normal"
                                            Foreground="{DynamicResource TextBrush}" />
                                 <TextBlock Text="语音指令下发到这台小爱音箱" Classes="Hint Sub" Margin="0,2,0,0" />
                             </StackPanel>
@@ -325,7 +377,7 @@
                             <Image Width="34" Height="34" Source="{StaticResource LogoImage}"
                                    VerticalAlignment="Center" />
                             <StackPanel Grid.Column="1" Margin="12,0" VerticalAlignment="Center">
-                                <TextBlock Text="米家控制中心 MiHomeHub" FontSize="13.5" FontWeight="SemiBold"
+                                <TextBlock Text="米家控制中心 MiHomeHub" FontSize="13.5" FontWeight="Normal"
                                            Foreground="{DynamicResource TextBrush}" />
                                 <TextBlock Text="{Binding AppVersionText}" Classes="Hint Sub" Margin="0,2,0,0" />
                             </StackPanel>
@@ -354,44 +406,41 @@
                                    Foreground="{DynamicResource TextBrush}" />
                         <Grid ColumnDefinitions="Auto,*,Auto">
                             <Border Classes="SetIc" Background="{DynamicResource PurpleSoftBrush}">
-                                <Path Stroke="{DynamicResource PurpleBrush}" Data="{StaticResource GeoGear}" />
+                                <Viewbox HorizontalAlignment="Center" VerticalAlignment="Center">
+                                    <Panel Width="24" Height="24">
+                                        <Path Stroke="{DynamicResource PurpleBrush}" Data="{StaticResource GeoGear}" />
+                                    </Panel>
+                                </Viewbox>
                             </Border>
                             <StackPanel Grid.Column="1" Margin="12,0" VerticalAlignment="Center" Spacing="2">
-                                <TextBlock Text="{Binding UpdateStatusText}" FontSize="13.5" FontWeight="SemiBold"
+                                <TextBlock Text="{Binding UpdateStatusText}" FontSize="13.5" FontWeight="Normal"
                                            Foreground="{DynamicResource TextBrush}" TextWrapping="Wrap" />
                                 <!-- 只有测试通道实例才显示这一行，普通用户看不到 -->
                                 <TextBlock Text="{Binding UpdateChannelHint}" FontSize="12"
                                            Foreground="{DynamicResource AmberTextBrush}" TextWrapping="Wrap"
                                            IsVisible="{Binding UpdateChannelHint, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
-                                <!-- 说明：短的全显示；长的先给截断摘要，需要时展开为限高滚动块 -->
-                                <TextBlock Text="{Binding UpdateNotesPreview}" Classes="Hint Sub" TextWrapping="Wrap"
-                                           IsVisible="{Binding ShowUpdateNotesCollapsed}" />
-                                <TextBlock Text="{Binding UpdateNotes}" Classes="Hint Sub" TextWrapping="Wrap"
-                                           IsVisible="{Binding HasShortUpdateNotes}" />
-                                <ScrollViewer MaxHeight="240" VerticalScrollBarVisibility="Auto"
-                                              IsVisible="{Binding IsUpdateNotesExpanded}">
-                                    <TextBlock Text="{Binding UpdateNotes}" Classes="Hint Sub" TextWrapping="Wrap" />
-                                </ScrollViewer>
-                                <Button Classes="BtnGhost" Height="26" HorizontalAlignment="Left"
-                                        Padding="10,0" FontSize="12"
-                                        Content="{Binding UpdateNotesToggleText}"
-                                        Command="{Binding ToggleUpdateNotesCommand}"
-                                        IsVisible="{Binding HasLongUpdateNotes}" />
                                 <TextBlock Text="优先从版本后台获取更新，未配置后台时仅走 GitHub Releases；安装包校验后静默安装，设置与登录态保留"
                                            Classes="Hint Sub" TextWrapping="Wrap" />
                             </StackPanel>
                             <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="8"
                                         VerticalAlignment="Center">
+                                <!-- 下载中：圆形进度环，替代原来的细横条 -->
+                                <ctl:CircularProgress Width="20" Height="20" Thickness="2.5" Margin="0,0,2,0"
+                                                      Value="{Binding UpdateProgress}"
+                                                      TrackBrush="{DynamicResource LineBrush}"
+                                                      FillBrush="{DynamicResource Accent2Brush}"
+                                                      IsVisible="{Binding IsUpdateBusy}" />
                                 <Button Classes="BtnGhost" Height="34" Content="检查更新"
                                         Command="{Binding CheckUpdateCommand}" />
+                                <Button Classes="BtnGhost" Height="34" Content="网盘下载"
+                                        Command="{Binding OpenUrlCommand}"
+                                        CommandParameter="{Binding UpdateDiskUrl}"
+                                        IsVisible="{Binding HasUpdateDiskUrl}" />
                                 <Button Classes="BtnPrimary" Height="34" Content="立即更新"
                                         Command="{Binding InstallUpdateCommand}"
                                         IsVisible="{Binding IsUpdateAvailable}" />
                             </StackPanel>
                         </Grid>
-                        <ProgressBar Height="4" Minimum="0" Maximum="1"
-                                     Value="{Binding UpdateProgress}"
-                                     IsVisible="{Binding IsUpdateBusy}" />
                     </StackPanel>
                 </Border>
 
@@ -402,14 +451,16 @@
                                    Foreground="{DynamicResource TextBrush}" />
                         <Grid ColumnDefinitions="Auto,*,Auto">
                             <Border Classes="SetIc" Background="{DynamicResource GreenSoftBrush}">
-                                <Path Stroke="{DynamicResource GreenBrush}" Data="{StaticResource GeoPower}" />
+                                <Viewbox HorizontalAlignment="Center" VerticalAlignment="Center">
+                                    <Panel Width="24" Height="24">
+                                        <Path Stroke="{DynamicResource GreenBrush}" Data="{StaticResource GeoPower}" />
+                                    </Panel>
+                                </Viewbox>
                             </Border>
                             <StackPanel Grid.Column="1" Margin="12,0" VerticalAlignment="Center" Spacing="2">
-                                <TextBlock Text="匿名使用统计" FontSize="13.5" FontWeight="SemiBold"
+                                <TextBlock Text="匿名使用统计" FontSize="13.5" FontWeight="Normal"
                                            Foreground="{DynamicResource TextBrush}" />
                                 <TextBlock Text="{Binding TelemetryHint}" Classes="Hint Sub" TextWrapping="Wrap" />
-                                <TextBlock Text="只上报启动、登录方式、设备数量区间、控制成败、更新结果；不含账号、家庭/设备名称、令牌与地址"
-                                           Classes="Hint Sub" TextWrapping="Wrap" />
                             </StackPanel>
                             <ToggleButton Grid.Column="2" Classes="Switch" VerticalAlignment="Center"
                                           IsChecked="{Binding TelemetryEnabled}" />

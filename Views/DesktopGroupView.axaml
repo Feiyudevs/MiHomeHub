@@ -54,7 +54,7 @@
                             <!-- 名称：双击进入改名（浮层是独立窗口，见 DesktopRenameWindow） -->
                             <Grid Name="TitleNameHost" VerticalAlignment="Center" MaxWidth="150">
                                 <TextBlock Name="TitleText" Text="{Binding Name}" FontSize="12.5"
-                                           FontWeight="SemiBold" VerticalAlignment="Center"
+                                           FontWeight="Normal" VerticalAlignment="Center"
                                            Opacity="{Binding TitleOpacity}"
                                            MaxWidth="150" TextTrimming="CharacterEllipsis"
                                            Foreground="{DynamicResource DskTextBrush}" />

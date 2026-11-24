@@ -5,6 +5,7 @@
 [Ll]og/
 [Ll]ogs/
 *.log
+build.out.txt
 
 # User-specific files
 *.user
