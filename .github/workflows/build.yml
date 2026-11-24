@@ -77,8 +77,9 @@ jobs:
           if (-not (Test-Path -LiteralPath $manifest)) { throw "update.json not found: $manifest" }
 
           Copy-Item -LiteralPath $exe -Destination (Join-Path $releaseDir "MiHome.exe") -Force
+          # 校验清单只列实际发到 Release 的安装包：单文件 exe 只留在 CI artifact 里
           $lines = @()
-          foreach ($f in @((Join-Path $releaseDir "MiHome.exe"), $setup)) {
+          foreach ($f in @($setup)) {
             $h = (Get-FileHash -Algorithm SHA256 -LiteralPath $f).Hash.ToLowerInvariant()
             $lines += ("{0}  {1}" -f $h, (Split-Path -Leaf $f))
           }
@@ -103,7 +104,6 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           files: |
-            publish/release/${{ steps.ver.outputs.version }}/MiHome.exe
             publish/release/${{ steps.ver.outputs.version }}/MiHome-Setup-${{ steps.ver.outputs.version }}-${{ env.RID }}.exe
             publish/release/${{ steps.ver.outputs.version }}/SHA256SUMS.txt
             publish/release/${{ steps.ver.outputs.version }}/update.json
@@ -120,7 +120,6 @@ jobs:
           $v = "${{ steps.ver.outputs.version }}"
           $dir = Join-Path $PWD "publish\release\$v"
           $files = @(
-            (Join-Path $dir "MiHome.exe"),
             (Join-Path $dir "MiHome-Setup-$v-$env:RID.exe"),
             (Join-Path $dir "SHA256SUMS.txt"),
             (Join-Path $dir "update.json")

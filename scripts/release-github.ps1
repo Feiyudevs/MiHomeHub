@@ -52,25 +52,24 @@ if ($Version) {
 $tag = if ($Channel -eq "test") { "test" } else { "v$targetVersion" }
 
 # ---- collect artifacts ----
+# 只发安装包、校验清单与更新清单：单文件 exe 不再作为 Release 资产（用户要求）。
 $releaseDir = Join-Path $root "publish\release\$targetVersion"
 if (-not (Test-Path -LiteralPath $releaseDir)) {
     throw ("Release dir not found: $releaseDir`nBuild it first with: .\package.cmd -Version $targetVersion")
 }
 
-$exe = Get-ChildItem -LiteralPath $releaseDir -Filter "MiHome.exe" -File -ErrorAction SilentlyContinue
 $setups = @(Get-ChildItem -LiteralPath $releaseDir -Filter "MiHome-Setup-$targetVersion-*.exe" -File -ErrorAction SilentlyContinue)
 $sums = Get-ChildItem -LiteralPath $releaseDir -Filter "SHA256SUMS.txt" -File -ErrorAction SilentlyContinue
 $manifest = Get-ChildItem -LiteralPath $releaseDir -Filter "update.json" -File -ErrorAction SilentlyContinue
 
 $artifacts = @()
-if ($exe) { $artifacts += $exe.FullName }
 $artifacts += ($setups | ForEach-Object { $_.FullName })
 if ($sums) { $artifacts += $sums.FullName }
 # App 的更新源就是这个固定地址：releases/latest/download/update.json，漏传等于自动更新失效
 if (-not $manifest) { throw "update.json missing in $releaseDir (rebuild with .\package.cmd)" }
 $artifacts += $manifest.FullName
 if ($artifacts.Count -eq 0) {
-    throw "No artifacts (MiHome.exe / MiHome-Setup-$targetVersion-*.exe / SHA256SUMS.txt) in $releaseDir"
+    throw "No artifacts (MiHome-Setup-$targetVersion-*.exe / SHA256SUMS.txt / update.json) in $releaseDir"
 }
 
 Write-Host "Release $tag -> $releaseDir"
