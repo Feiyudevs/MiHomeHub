@@ -1,8 +1,8 @@
 <UserControl xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-             xmlns:vm="clr-namespace:MiHome.ViewModels"
-             xmlns:ctl="clr-namespace:MiHome.Controls"
-             x:Class="MiHome.Views.UpdateDetailsDialogView"
+             xmlns:vm="clr-namespace:MiHomeHub.ViewModels"
+             xmlns:ctl="clr-namespace:MiHomeHub.Controls"
+             x:Class="MiHomeHub.Views.UpdateDetailsDialogView"
              x:DataType="vm:MainViewModel">
     <!-- 更新详情：标题栏提示条点「查看详情」后的普通弹窗（可稍后再装，不阻塞使用） -->
     <ctl:DialogPopup CardWidth="560" Title="{Binding UpdateDialogTitle}"

@@ -4,7 +4,7 @@
 using System;
 using System.IO;
 
-namespace MiHome.Services.Setup;
+namespace MiHomeHub.Services.Setup;
 
 /// <summary>
 /// 更新用的无界面安装：与 <see cref="Views.SetupWindow"/> 走同一套 <see cref="SetupService"/> 事务，
@@ -26,7 +26,7 @@ internal static class SilentSetup
         catch (Exception ex)
         {
             SetupLog.Fail("silent-setup", ex);
-            SetupMessageBox.Error("MiHome 更新失败",
+            SetupMessageBox.Error("MiHomeHub 更新失败",
                 "安装未完成：" + ex.Message + "\n\n诊断日志：" + SetupLog.FilePath);
             return 1;
         }
@@ -36,7 +36,7 @@ internal static class SilentSetup
             SetupLog.Fail("silent-setup",
                 new SetupFailureException(result.Step ?? "silent-setup", result.Error ?? "未知错误"),
                 path: result.Root, details: result.Hint);
-            SetupMessageBox.Error("MiHome 更新失败",
+            SetupMessageBox.Error("MiHomeHub 更新失败",
                 $"{(result.Step is { } step ? step + "：" : string.Empty)}{result.Error}"
                 + (result.Hint is { } hint ? "\n\n" + hint : string.Empty)
                 + "\n\n诊断日志：" + SetupLog.FilePath);

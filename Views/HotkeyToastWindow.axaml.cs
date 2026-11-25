@@ -6,7 +6,7 @@ using System.Linq;
 using Avalonia;
 using Avalonia.Controls;
 
-namespace MiHome.Views;
+namespace MiHomeHub.Views;
 
 /// <summary>
 /// 快捷键触发时的桌面 toast：无边框、置顶、不抢焦点，贴在主屏工作区右下角。

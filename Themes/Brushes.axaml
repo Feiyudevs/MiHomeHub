@@ -2,10 +2,10 @@
     xmlns="https://github.com/avaloniaui"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:ani="clr-namespace:Avalonia.Animation.Easings;assembly=Avalonia.Base"
-    xmlns:conv="clr-namespace:MiHome.Converters"
-    xmlns:ctl="clr-namespace:MiHome.Controls"
-    xmlns:vm="clr-namespace:MiHome.ViewModels"
-    xmlns:m="clr-namespace:MiHome.Models">
+    xmlns:conv="clr-namespace:MiHomeHub.Converters"
+    xmlns:ctl="clr-namespace:MiHomeHub.Controls"
+    xmlns:vm="clr-namespace:MiHomeHub.ViewModels"
+    xmlns:m="clr-namespace:MiHomeHub.Models">
             <!-- ======== 圆角 ======== -->
             <CornerRadius x:Key="RLg">20</CornerRadius>
             <CornerRadius x:Key="R">16</CornerRadius>
@@ -63,6 +63,10 @@
                     <SolidColorBrush x:Key="Card2Brush" Color="#D1222838"/>
                     <!-- 设置页内卡片：比全局 CardBrush 再淡一档，降低存在感 -->
                     <SolidColorBrush x:Key="CardSoftBrush" Color="#D1161A24"/>
+                    <!-- 卡中卡（高级设置里的规格分组）：不能复用 CardBrush —— 它是 82% 半透明，
+                         两层同色叠加会自抵消（合成色差只有 1~2 级），内层卡会彻底融进外层。
+                         这里改成一层淡白提亮，只靠色阶分层，不描边。 -->
+                    <SolidColorBrush x:Key="SubCardBrush" Color="#10FFFFFF"/>
                     <!-- 浮层专用：Popup / 独立置顶窗口背后的东西是屏幕上的其它内容（甚至桌面壁纸），
                          卡片那种半透会直接透出它们，所以这里给一支不透明的合成色（= 卡片叠在面板上的结果） -->
                     <SolidColorBrush x:Key="CardSolidBrush" Color="#181C28"/>
@@ -87,6 +91,12 @@
                     <SolidColorBrush x:Key="TextBrush" Color="#EEF1F6"/>
                     <SolidColorBrush x:Key="Text2Brush" Color="#99A1B3"/>
                     <SolidColorBrush x:Key="Text3Brush" Color="#646C7E"/>
+                    <!-- 输入框占位文字（TextBox.PlaceholderForeground）：中性白带 alpha，不再叠整块半透明。
+                         压在深色卡/搜索框上合成约 #8B8F94（≈5:1），笔画是实的；换回 Text3Brush 那种次级灰会偏青、发脏 -->
+                    <SolidColorBrush x:Key="WatermarkBrush" Color="#80FFFFFF"/>
+                    <!-- 占位文字透明度：Fluent 模板会再乘一道 TextControlPlaceholderOpacity，默认那档带半透，
+                         和上面带 alpha 的画笔一叠就变成「灰扑扑」。这里压成 1，只由画笔自己决定浓淡 -->
+                    <x:Double x:Key="TextControlPlaceholderOpacity">1</x:Double>
                     <!-- 桌面分区卡 / 半透明弹窗专用文字：底色是「透出墙纸的磨砂」，主窗口那套灰压上去读不清，
                          这里统一往上提亮两档（主文字接近纯白，次级仍保持层次） -->
                     <SolidColorBrush x:Key="DskTextBrush" Color="#F8FAFD"/>
@@ -220,10 +230,12 @@
                     <!-- 分区里的电源键：底也是半透明白，不能压住磨砂 -->
                     <SolidColorBrush x:Key="DskSwitchBrush" Color="#33FFFFFF"/>
                     <SolidColorBrush x:Key="DskSwitchOnBrush" Color="#9984ECFF"/>
-                    <!-- 设备卡「更多」：铺满设备图标位置的圆角方底（近不透明的卡面色，压住背后的图标）；
-                         自身悬停再亮一档，确认「点到它了」 -->
-                    <SolidColorBrush x:Key="MoreBtnBgBrush" Color="#E61A1F2C"/>
-                    <SolidColorBrush x:Key="MoreBtnBgHoverBrush" Color="#F22A3145"/>
+                    <!-- 设备卡「更多」：铺满设备图标位置的圆角方底，只做一层薄薄的压暗（55%），
+                         背后的图标透出来一点、整体不再是一块死黑。
+                         自身悬停/按下只再提亮一丁点（55% → 61%），配合 BrushTransition 渐变：
+                         方底是压在图标上的半透明层，颜色一大幅跳变整块会「闪一下」 -->
+                    <SolidColorBrush x:Key="MoreBtnBgBrush" Color="#8C1A1F2C"/>
+                    <SolidColorBrush x:Key="MoreBtnBgHoverBrush" Color="#9C212939"/>
                     <LinearGradientBrush x:Key="PrimaryBtnBrush" StartPoint="0,0" EndPoint="1,1">
                         <GradientStop Color="#7C5CFC" Offset="0"/>
                         <GradientStop Color="#8B7CFF" Offset="1"/>
@@ -293,6 +305,9 @@
                     <SolidColorBrush x:Key="Card2Brush" Color="#F0F3F8"/>
                     <!-- 设置页内卡片：比全局 CardBrush 再淡一档，降低存在感 -->
                     <SolidColorBrush x:Key="CardSoftBrush" Color="#F6F8FC"/>
+                    <!-- 卡中卡（高级设置里的规格分组）：浅色卡本身是纯白，内层必须压深一档才分得开，
+                         同样只靠色阶分层，不描边 -->
+                    <SolidColorBrush x:Key="SubCardBrush" Color="#EDF1F7"/>
                     <!-- 浮层专用：与 CardBrush 同色（浅色主题卡片本来就是实白） -->
                     <SolidColorBrush x:Key="CardSolidBrush" Color="#FFFFFF"/>
                     <!-- 搜索框底：Card2Brush 50% 透明，比面板更轻 -->
@@ -313,6 +328,9 @@
                     <SolidColorBrush x:Key="TextBrush" Color="#0F172A"/>
                     <SolidColorBrush x:Key="Text2Brush" Color="#5A6478"/>
                     <SolidColorBrush x:Key="Text3Brush" Color="#8A93A6"/>
+                    <!-- 输入框占位文字：浅底上要压深，同样用带 alpha 的深色而不是半透明灰 -->
+                    <SolidColorBrush x:Key="WatermarkBrush" Color="#990F172A"/>
+                    <x:Double x:Key="TextControlPlaceholderOpacity">1</x:Double>
                     <!-- 浅色主题下磨砂偏亮，文字反而要往下压深才清晰（与深色主题相反方向） -->
                     <SolidColorBrush x:Key="DskTextBrush" Color="#0B1220"/>
                     <SolidColorBrush x:Key="DskText2Brush" Color="#3A4457"/>
@@ -432,10 +450,10 @@
                     <SolidColorBrush x:Key="DskCardBrush" Color="#B8FFFFFF"/>
                     <SolidColorBrush x:Key="DskSwitchBrush" Color="#B3E7EBF3"/>
                     <SolidColorBrush x:Key="DskSwitchOnBrush" Color="#CC8E83F0"/>
-                    <!-- 设备卡「更多」：铺满设备图标位置的圆角方底（浅灰蓝、近不透明，白卡上也有边界）；
-                         自身悬停再深一档 -->
-                    <SolidColorBrush x:Key="MoreBtnBgBrush" Color="#F2DDE4F0"/>
-                    <SolidColorBrush x:Key="MoreBtnBgHoverBrush" Color="#FFC9D3E6"/>
+                    <!-- 设备卡「更多」：同样收薄（浅色下是淡灰蓝，不再压成一块实底），
+                         悬停只再压一档（比原来那档浅很多），并走 BrushTransition 渐变 -->
+                    <SolidColorBrush x:Key="MoreBtnBgBrush" Color="#BFDDE4F0"/>
+                    <SolidColorBrush x:Key="MoreBtnBgHoverBrush" Color="#C6D6DFEC"/>
                     <LinearGradientBrush x:Key="PrimaryBtnBrush" StartPoint="0,0" EndPoint="1,1">
                         <GradientStop Color="#6D5BE3" Offset="0"/>
                         <GradientStop Color="#8B7CFF" Offset="1"/>

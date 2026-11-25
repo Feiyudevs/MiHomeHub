@@ -5,7 +5,7 @@ using System;
 using System.Diagnostics;
 using Avalonia.Media;
 
-namespace MiHome.Services;
+namespace MiHomeHub.Services;
 
 /// <summary>
 /// 桌面层级贴合（对齐 NoFences / Zonex 的做法）：

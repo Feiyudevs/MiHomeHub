@@ -13,10 +13,10 @@ using System.Text.Json;
 using System.Text.Json.Serialization;
 using System.Threading;
 using System.Threading.Tasks;
-using MiHome.Services.Setup;
-using MiHome.Services.Telemetry;
+using MiHomeHub.Services.Setup;
+using MiHomeHub.Services.Telemetry;
 
-namespace MiHome.Services.Update;
+namespace MiHomeHub.Services.Update;
 
 /// <summary>GitHub Release 里的更新清单（update.json）。字段全部来自打包脚本生成。</summary>
 internal sealed class UpdateManifest
@@ -86,9 +86,9 @@ internal static class UpdateService
 
     /// <summary>
     /// 可选的后台更新源：地址与 app_id 不写死在代码里（开源仓库不该带私有后台），
-    /// 取自仓库根 <c>MiHome.settings.json</c> 的 <c>endpoint</c> / <c>appId</c>
+    /// 取自仓库根 <c>MiHomeHub.settings.json</c> 的 <c>endpoint</c> / <c>appId</c>
     /// （该文件随编译复制到 exe 同级，字段留空即不用后台）；环境变量
-    /// <c>MIHOME_API_BASE</c> / <c>MIHOME_APP_ID</c> 可临时覆盖，方便联调。
+    /// <c>MIHOMEHUB_API_BASE</c> / <c>MIHOMEHUB_APP_ID</c> 可临时覆盖，方便联调。
     /// 两个都齐了才走后台；否则完全不碰后台，只用 GitHub Releases，开源用户开箱即用。
     /// </summary>
     private static (string BaseUrl, int AppId)? BackendSource
@@ -96,11 +96,11 @@ internal static class UpdateService
         get
         {
             var settings = AppSettings.Current;
-            var endpoint = Environment.GetEnvironmentVariable("MIHOME_API_BASE")?.Trim();
+            var endpoint = Environment.GetEnvironmentVariable("MIHOMEHUB_API_BASE")?.Trim();
             if (string.IsNullOrWhiteSpace(endpoint)) endpoint = settings.Endpoint?.Trim();
 
             var appId = 0;
-            var appRaw = Environment.GetEnvironmentVariable("MIHOME_APP_ID")?.Trim();
+            var appRaw = Environment.GetEnvironmentVariable("MIHOMEHUB_APP_ID")?.Trim();
             if (!int.TryParse(appRaw, out appId) || appId <= 0) appId = settings.AppId;
 
             return string.IsNullOrWhiteSpace(endpoint) || appId <= 0
@@ -122,14 +122,14 @@ internal static class UpdateService
 
     /// <summary>
     /// 更新通道，默认 <c>stable</c>。普通用户拿不到测试包：只有本机显式写了
-    /// 环境变量 <c>MIHOME_UPDATE_CHANNEL=test</c> 或 <c>%APPDATA%\Feiyu\MiHome\update\channel.txt</c>
+    /// 环境变量 <c>MIHOMEHUB_UPDATE_CHANNEL=test</c> 或 <c>%APPDATA%\Feiyu\MiHomeHub\update\channel.txt</c>
     /// 才会去读测试通道的清单；清单本身也带 channel 字段，通道不符的实例会直接拒绝。
     /// </summary>
     public static string CurrentChannel
     {
         get
         {
-            var env = Environment.GetEnvironmentVariable("MIHOME_UPDATE_CHANNEL")?.Trim().ToLowerInvariant();
+            var env = Environment.GetEnvironmentVariable("MIHOMEHUB_UPDATE_CHANNEL")?.Trim().ToLowerInvariant();
             if (env is StableChannel or TestChannel) return env;
 
             try
@@ -153,15 +153,15 @@ internal static class UpdateService
 
     /// <summary>
     /// 本地联调口子：把更新源指到某个目录（放 update.json + 安装包）或任意 HTTP 基地址。
-    /// 优先读环境变量 <c>MIHOME_UPDATE_SOURCE</code>，其次读
-    /// <c>%APPDATA%\Feiyu\MiHome\update\source.txt</c>（从资源管理器启动也能生效）。
+    /// 优先读环境变量 <c>MIHOMEHUB_UPDATE_SOURCE</code>，其次读
+    /// <c>%APPDATA%\Feiyu\MiHomeHub\update\source.txt</c>（从资源管理器启动也能生效）。
     /// 两者都没有时走 GitHub；正式发版不依赖它。
     /// </summary>
     private static string? SourceOverride
     {
         get
         {
-            var env = Environment.GetEnvironmentVariable("MIHOME_UPDATE_SOURCE")?.Trim();
+            var env = Environment.GetEnvironmentVariable("MIHOMEHUB_UPDATE_SOURCE")?.Trim();
             if (!string.IsNullOrEmpty(env)) return env;
 
             try
@@ -379,7 +379,7 @@ internal static class UpdateService
         return DefaultSetupName(version);
     }
 
-    private static string DefaultSetupName(string version) => $"MiHome-Setup-{version}-win-x64.exe";
+    private static string DefaultSetupName(string version) => $"MiHomeHub-Setup-{version}-win-x64.exe";
 
     private static async Task<UpdateManifest> FetchManifestAsync(string source, CancellationToken ct)
     {
@@ -448,7 +448,7 @@ internal static class UpdateService
         CancellationToken ct = default)
     {
         var fileName = Path.GetFileName(manifest.Setup);
-        var dir = Path.Combine(Path.GetTempPath(), "MiHome-Update-" + manifest.Version);
+        var dir = Path.Combine(Path.GetTempPath(), "MiHomeHub-Update-" + manifest.Version);
         Directory.CreateDirectory(dir);
         var target = Path.Combine(dir, fileName);
 
@@ -707,7 +707,7 @@ internal static class UpdateService
         try
         {
             var root = Path.GetTempPath();
-            foreach (var dir in Directory.EnumerateDirectories(root, "MiHome-Update-*"))
+            foreach (var dir in Directory.EnumerateDirectories(root, "MiHomeHub-Update-*"))
             {
                 try
                 {
@@ -729,7 +729,7 @@ internal static class UpdateService
     private static HttpClient CreateClient()
     {
         var client = new HttpClient { Timeout = Timeout.InfiniteTimeSpan };
-        client.DefaultRequestHeaders.UserAgent.Add(new ProductInfoHeaderValue("MiHomeUpdater", CurrentVersion));
+        client.DefaultRequestHeaders.UserAgent.Add(new ProductInfoHeaderValue("MiHomeHubUpdater", CurrentVersion));
         client.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
         return client;
     }

@@ -6,7 +6,7 @@ using System.Runtime.InteropServices;
 using System.Text;
 using Avalonia.Threading;
 
-namespace MiHome.Services;
+namespace MiHomeHub.Services;
 
 /// <summary>
 /// 全局鼠标钩子：识别「双击桌面空白处」，用来显示 / 隐藏所有桌面分区卡片。

@@ -6,7 +6,7 @@ using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Media;
 
-namespace MiHome.Controls;
+namespace MiHomeHub.Controls;
 
 /// <summary>
 /// 圆形进度环：下载进度用，替代原来的细横条。

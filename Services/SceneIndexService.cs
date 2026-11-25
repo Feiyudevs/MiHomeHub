@@ -4,9 +4,9 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using MiHome.Models;
+using MiHomeHub.Models;
 
-namespace MiHome.Services;
+namespace MiHomeHub.Services;
 
 /// <summary>设备在某条场景里的角色。</summary>
 [Flags]

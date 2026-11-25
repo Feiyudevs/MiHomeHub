@@ -8,10 +8,10 @@ using System.Linq;
 using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
-using MiHome.Models;
-using MiHome.Services;
+using MiHomeHub.Models;
+using MiHomeHub.Services;
 
-namespace MiHome.ViewModels;
+namespace MiHomeHub.ViewModels;
 
 /// <summary>
 /// 全局快捷键：录制组合键 → 绑定一串控制卡片，由 <see cref="GlobalHotkeyService"/>

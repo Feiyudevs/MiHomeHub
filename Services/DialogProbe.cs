@@ -7,17 +7,17 @@ using System.Text;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Threading;
-using MiHome.ViewModels;
+using MiHomeHub.ViewModels;
 
-namespace MiHome.Services;
+namespace MiHomeHub.Services;
 
 /// <summary>
 /// 弹窗 XAML 自检（一次性诊断）：不登录、不弹窗，把「触发条件 / 添加动作」两个
 /// 弹窗宿主和场景编辑面板直接实例化一遍。任何 InitializeComponent 抛的异常都会
 /// 被弹窗宿主的事件处理器吞成「点击没反应」，这里让它落盘。
 ///
-/// 用法：MiHome.exe --dialog-probe
-/// 输出：%APPDATA%\Feiyu\MiHome\dialog-probe.txt
+/// 用法：MiHomeHub.exe --dialog-probe
+/// 输出：%APPDATA%\Feiyu\MiHomeHub\dialog-probe.txt
 /// </summary>
 internal static class DialogProbe
 {

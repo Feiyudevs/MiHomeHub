@@ -9,9 +9,9 @@ using System.Text.Encodings.Web;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using System.Threading.Tasks;
-using MiHome.Models;
+using MiHomeHub.Models;
 
-namespace MiHome.Services;
+namespace MiHomeHub.Services;
 
 /// <summary>
 /// 「新建场景 / 新建自动化」创建链路探针。
@@ -19,8 +19,8 @@ namespace MiHome.Services;
 /// SceneDraftFactory.CreateBlank → 塞一条设备动作（自动化再加一条定时触发）→ SaveSceneAsync。
 /// 目的：云端到底回了什么错（还是根本成功，说明问题在 UI 层）。
 ///
-/// 用法：MiHome.exe --create-probe
-/// 输出：%APPDATA%\Feiyu\MiHome\create-probe\summary.txt（成功创建的测试对象会立即删除）
+/// 用法：MiHomeHub.exe --create-probe
+/// 输出：%APPDATA%\Feiyu\MiHomeHub\create-probe\summary.txt（成功创建的测试对象会立即删除）
 /// </summary>
 internal static class CreateProbe
 {
@@ -45,7 +45,7 @@ internal static class CreateProbe
         Directory.CreateDirectory(_dir);
         Sb.Clear();
 
-        W($"MiHome 创建链路探针  {DateTime.Now:yyyy-MM-dd HH:mm:ss}");
+        W($"MiHomeHub 创建链路探针  {DateTime.Now:yyyy-MM-dd HH:mm:ss}");
         W("原则：只新建 enable=false 的测试对象，成功后立即删除；不改任何现有对象。");
         W("");
 

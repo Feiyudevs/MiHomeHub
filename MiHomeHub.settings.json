@@ -1,8 +1,8 @@
 {
   // 本地可留空的变量字段：开源分发保持为空，应用就只用 GitHub 更新、不发送统计。
   // 更新检查与匿名统计共用这一个后台，所以只需要 endpoint + appId 两项。
-  // 自建部署或有私有后台时，在 MiHome.settings.local.json（已 gitignore）里覆盖即可；
-  // 环境变量 MIHOME_API_BASE / MIHOME_APP_ID 仍可临时覆盖。
+  // 自建部署或有私有后台时，在 MiHomeHub.settings.local.json（已 gitignore）里覆盖即可；
+  // 环境变量 MIHOMEHUB_API_BASE / MIHOMEHUB_APP_ID 仍可临时覆盖。
   "endpoint": "",
   "appId": 0
 }

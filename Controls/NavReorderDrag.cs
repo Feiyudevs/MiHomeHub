@@ -10,7 +10,7 @@ using Avalonia.Interactivity;
 using Avalonia.Threading;
 using Avalonia.VisualTree;
 
-namespace MiHome.Controls;
+namespace MiHomeHub.Controls;
 
 /// <summary>
 /// 侧栏房间行的拖拽排序，两种入口：

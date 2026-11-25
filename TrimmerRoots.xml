@@ -6,12 +6,12 @@
   二维码不显示、登录面板关不掉、绑定失效。
 
   若将来重新启用 PublishTrimmed(TrimMode=link)，必须保留至少：
-  - MiHome / Avalonia* / System.Text.Json / System.Text.Encodings.Web
+  - MiHomeHub / Avalonia* / System.Text.Json / System.Text.Encodings.Web
   - System.Web.HttpUtility / QRCoder / CommunityToolkit.Mvvm
   并清完 ReflectionBinding、JSON 改源生成后，再做完整功能回归。
 -->
 <linker>
-  <assembly fullname="MiHome" preserve="all" />
+  <assembly fullname="MiHomeHub" preserve="all" />
   <assembly fullname="Avalonia" preserve="all" />
   <assembly fullname="Avalonia.Base" preserve="all" />
   <assembly fullname="Avalonia.Controls" preserve="all" />

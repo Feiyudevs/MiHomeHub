@@ -8,11 +8,11 @@ using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Threading;
-using MiHome.Models;
-using MiHome.ViewModels;
-using MiHome.Views;
+using MiHomeHub.Models;
+using MiHomeHub.ViewModels;
+using MiHomeHub.Views;
 
-namespace MiHome.Services;
+namespace MiHomeHub.Services;
 
 /// <summary>
 /// 桌面组件托管：负责分区窗的创建/销毁、布局持久化、外观广播，以及各类弹窗的唯一实例管理。

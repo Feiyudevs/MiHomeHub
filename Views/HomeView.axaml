@@ -3,14 +3,14 @@
              
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              
-    xmlns:m="clr-namespace:MiHome.Models"
+    xmlns:m="clr-namespace:MiHomeHub.Models"
              
-    xmlns:vm="clr-namespace:MiHome.ViewModels"
+    xmlns:vm="clr-namespace:MiHomeHub.ViewModels"
              
-    xmlns:ctl="clr-namespace:MiHome.Controls"
+    xmlns:ctl="clr-namespace:MiHomeHub.Controls"
              
-    xmlns:views="clr-namespace:MiHome.Views"
-             x:Class="MiHome.Views.HomeView">
+    xmlns:views="clr-namespace:MiHomeHub.Views"
+             x:Class="MiHomeHub.Views.HomeView">
     <!-- 右 16 内距 + 底 20 内距：右侧是给页面滚动条让出的空白（Carousel 右外距 6 + 16 = 原 22，正文宽度不变），
          底部留白只在滚到末尾时露出来，静止时不占版面 -->
     <StackPanel x:DataType="vm:MainViewModel" Margin="0,0,16,20">
@@ -112,7 +112,7 @@
                 </ItemsControl>
                 <WrapPanel HorizontalAlignment="Right" Margin="0,0,-10,-10"
                            IsVisible="{Binding !ShowSkeleton}">
-                    <!-- 四张统计卡都可点：在线→离线设备弹窗、灯光/窗帘/空调→对应全屋弹窗。
+                    <!-- 五张统计卡都可点：在线→离线设备弹窗、总设备→设备页、灯光/窗帘/空调→对应全屋弹窗。
                          卡片图标套 Viewbox 按 24 网格缩放：Path 单用 Stretch 会贴框左上角，还把描边一起放大。
                          用 WrapPanel + 负外边距：窗口窄时整行折成两排，右边缘仍对齐（-10 抵掉末项的 10 右边距）。 -->
                     <Button Classes="StatCard" Margin="0,0,10,10" Command="{Binding OpenOfflineListCommand}"
@@ -146,6 +146,37 @@
                             <Viewbox Classes="StatGo">
                                 <Panel Width="24" Height="24">
                                     <Path Classes="StatGoIc" Stroke="{DynamicResource StatGreenBrush}"
+                                          Data="{StaticResource GeoArrow}" />
+                                </Panel>
+                            </Viewbox>
+                        </Panel>
+                    </Button>
+                    <!-- 总设备：在线卡的斜杠总数把灯组算一台，这张按真实设备数统计（灯组内单灯逐台计） -->
+                    <Button Classes="StatCard" Margin="0,0,10,10" Click="OnGotoRooms"
+                            ToolTip.Tip="真实设备数：灯组按组内单灯逐台计数 · 点击查看全部设备">
+                        <Panel>
+                            <StackPanel Spacing="6">
+                                <StackPanel Orientation="Horizontal" Spacing="6">
+                                    <Viewbox Classes="StatIc">
+                                        <Panel Width="24" Height="24">
+                                            <Path Classes="StatIc" Stroke="{DynamicResource StatBlueBrush}"
+                                                  Data="{StaticResource GeoGrid}" />
+                                        </Panel>
+                                    </Viewbox>
+                                    <TextBlock Text="总设备" FontSize="11" VerticalAlignment="Center"
+                                               Foreground="{DynamicResource Text3Brush}" />
+                                </StackPanel>
+                                <StackPanel Orientation="Horizontal" Spacing="4" VerticalAlignment="Bottom">
+                                    <TextBlock Text="{Binding TotalDeviceCount}" FontSize="21" FontWeight="SemiBold"
+                                               Foreground="{DynamicResource StatBlueBrush}" />
+                                    <TextBlock Text="台" FontSize="11.5" FontWeight="SemiBold"
+                                               Foreground="{DynamicResource Text3Brush}" VerticalAlignment="Bottom"
+                                               Margin="0,0,0,3" />
+                                </StackPanel>
+                            </StackPanel>
+                            <Viewbox Classes="StatGo">
+                                <Panel Width="24" Height="24">
+                                    <Path Classes="StatGoIc" Stroke="{DynamicResource StatBlueBrush}"
                                           Data="{StaticResource GeoArrow}" />
                                 </Panel>
                             </Viewbox>
@@ -314,5 +345,45 @@
                 </DataTemplate>
             </ItemsControl.ItemTemplate>
         </ItemsControl>
+        <!-- 已隐藏：必需设备仍沉在列表末尾的折叠区里，默认收起；展开后是同一张设备卡，
+             右键「取消隐藏」即可放回原房间宫格 -->
+        <StackPanel IsVisible="{Binding !ShowSkeleton}">
+            <StackPanel IsVisible="{Binding HasHiddenDevices}">
+                <Button Classes="BtnGhost" HorizontalAlignment="Left" Height="30" Padding="12,0"
+                        Margin="2,22,0,10" Command="{Binding ToggleHiddenSectionCommand}"
+                        ToolTip.Tip="展开 / 收起已隐藏的设备">
+                    <StackPanel Orientation="Horizontal" Spacing="8">
+                        <TextBlock Text="{Binding HiddenSectionText}" FontSize="12.5"
+                                   VerticalAlignment="Center" Foreground="{DynamicResource Text2Brush}" />
+                        <Viewbox Width="12" Height="12" Stretch="Uniform" VerticalAlignment="Center"
+                                 RenderTransformOrigin="50%,50%">
+                            <Viewbox.RenderTransform>
+                                <RotateTransform Angle="{Binding HiddenSectionAngle}">
+                                    <RotateTransform.Transitions>
+                                        <Transitions>
+                                            <DoubleTransition Property="Angle" Duration="0:0:0.09" />
+                                        </Transitions>
+                                    </RotateTransform.Transitions>
+                                </RotateTransform>
+                            </Viewbox.RenderTransform>
+                            <Panel Width="24" Height="24">
+                                <Path StrokeThickness="1.92" StrokeLineCap="Round" StrokeJoin="Round"
+                                      Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}"
+                                      Data="{StaticResource GeoChevron}" />
+                            </Panel>
+                        </Viewbox>
+                    </StackPanel>
+                </Button>
+                <ctl:RecyclingItemsControl ItemsSource="{Binding HiddenDevices}"
+                                           ItemTemplate="{StaticResource DeviceCardTemplate}"
+                                           IsVisible="{Binding HiddenSectionExpanded}">
+                    <ItemsControl.ItemsPanel>
+                        <ItemsPanelTemplate>
+                            <ctl:VirtualizingAdaptiveGridPanel MinItemWidth="240" Spacing="0" />
+                        </ItemsPanelTemplate>
+                    </ItemsControl.ItemsPanel>
+                </ctl:RecyclingItemsControl>
+            </StackPanel>
+        </StackPanel>
     </StackPanel>
 </UserControl>

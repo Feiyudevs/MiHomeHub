@@ -5,9 +5,9 @@ using System;
 using Avalonia;
 using Avalonia.Media;
 using Avalonia.Styling;
-using MiHome.Models;
+using MiHomeHub.Models;
 
-namespace MiHome.Services;
+namespace MiHomeHub.Services;
 
 /// <summary>
 /// 桌面分区配色：底色来自「自定义色」或深色主题卡片色，Alpha 由背景透明度缩放。

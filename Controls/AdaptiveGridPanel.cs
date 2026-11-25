@@ -5,7 +5,7 @@ using System;
 using Avalonia;
 using Avalonia.Controls;
 
-namespace MiHome.Controls;
+namespace MiHomeHub.Controls;
 
 /// <summary>
 /// 自适应网格：按可用宽度自动计算列数，子项等宽拉伸排列。

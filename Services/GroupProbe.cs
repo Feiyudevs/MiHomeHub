@@ -9,14 +9,14 @@ using System.Text.Encodings.Web;
 using System.Text.Json;
 using System.Threading.Tasks;
 
-namespace MiHome.Services;
+namespace MiHomeHub.Services;
 
 /// <summary>
 /// 设备组（did 形如 group.xxx）成员信息探针：把设备列表的原始响应原样落盘，
 /// 看云端到底有没有给出组成员（App 能数出一组里几只灯，说明数据在某处）。
 ///
-/// 用法：MiHome.exe --group-probe
-/// 输出：%APPDATA%\Feiyu\MiHome\group-probe\home-device-list.json + summary.txt
+/// 用法：MiHomeHub.exe --group-probe
+/// 输出：%APPDATA%\Feiyu\MiHomeHub\group-probe\home-device-list.json + summary.txt
 /// </summary>
 internal static class GroupProbe
 {
@@ -40,7 +40,7 @@ internal static class GroupProbe
         Directory.CreateDirectory(dir);
         Sb.Clear();
 
-        W($"MiHome 设备组探针  {DateTime.Now:yyyy-MM-dd HH:mm:ss}");
+        W($"MiHomeHub 设备组探针  {DateTime.Now:yyyy-MM-dd HH:mm:ss}");
 
         var auth = MijiaAuth.LoadOrEmpty();
         if (string.IsNullOrEmpty(auth.Auth.ServiceToken)) { W("!! 没有登录态"); Finish(dir); return; }

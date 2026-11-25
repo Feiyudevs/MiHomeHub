@@ -6,7 +6,7 @@ using System.IO;
 using System.Runtime.InteropServices;
 using System.Text;
 
-namespace MiHome.Services.Setup;
+namespace MiHomeHub.Services.Setup;
 
 /// <summary>
 /// 创建 .lnk 快捷方式（IShellLinkW + IPersistFile）。安装器需要按真实快捷方式写开始菜单/桌面，
@@ -14,7 +14,7 @@ namespace MiHome.Services.Setup;
 /// </summary>
 internal static class SetupShortcut
 {
-    public static bool Create(string targetExe, string lnkPath, string description = "MiHome")
+    public static bool Create(string targetExe, string lnkPath, string description = "MiHomeHub")
     {
         IShellLinkW? link = null;
         IPersistFile? file = null;

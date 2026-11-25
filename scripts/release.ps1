@@ -8,14 +8,16 @@
 #   .\scripts\release.ps1 -Inno               # legacy: build the Inno Setup installer instead
 #   .\scripts\release.ps1 -SkipInstaller      # publish only, no installer
 #   .\scripts\release.ps1 -Channel test -ExpiresDays 7   # 测试通道清单（不会覆盖仓库根 update.json）
+#   .\scripts\release.ps1 -PublicBuild         # 纯开源包：安装包不带 MiHomeHub.settings.local.json（无后台/无统计）
 #
-# Output: publish\release\<version>\ (exe + Setup + SHA256SUMS.txt)
+# Output: publish\release\<version>\ (Setup + update.json + SHA256SUMS.txt)
 param(
     [string]$Version,
     [ValidateSet("none", "patch", "minor", "major")][string]$Bump = "none",
     [string]$Rid = "win-x64",
     [switch]$Inno,
     [switch]$SkipInstaller,
+    [switch]$PublicBuild,
     [string]$Notes = "",
     [ValidateSet("stable", "test")][string]$Channel = "stable",
     [int]$ExpiresDays = 0
@@ -24,13 +26,13 @@ param(
 $ErrorActionPreference = "Stop"
 
 $root = Split-Path -Parent $PSScriptRoot
-$proj = Join-Path $root "MiHome.csproj"
-$iss = Join-Path $root "installer\MiHome.iss"
+$proj = Join-Path $root "MiHomeHub.csproj"
+$iss = Join-Path $root "installer\MiHomeHub.iss"
 $publishScript = Join-Path $PSScriptRoot "publish-sc.ps1"
 $setupScript = Join-Path $PSScriptRoot "package-setup.ps1"
-$setupProj = Join-Path $root "installer\MiHome.Setup\MiHome.Setup.csproj"
+$setupProj = Join-Path $root "installer\MiHomeHub.Setup\MiHomeHub.Setup.csproj"
 $publishDir = Join-Path $root "publish\sc-$Rid"
-$exeName = "MiHome.exe"
+$exeName = "MiHomeHub.exe"
 
 function Read-FileText([string]$path) {
     return [System.IO.File]::ReadAllText($path)
@@ -136,13 +138,13 @@ function Resolve-Iscc {
 function Stop-PublishInstance([string]$exePath) {
     $target = [System.IO.Path]::GetFullPath($exePath)
     $publishRoot = [System.IO.Path]::GetFullPath((Join-Path (Split-Path -Parent (Split-Path -Parent $exePath)) ""))
-    # 同时杀 sc-win-x64 与 release\<ver>\ 下的 MiHome.exe：后者可能是硬链接残留实例，会锁住归档文件
+    # 同时杀 sc-win-x64 与 release\<ver>\ 下的 MiHomeHub.exe：后者可能是硬链接残留实例，会锁住归档文件
     $running = @()
     foreach ($proc in (Get-CimInstance Win32_Process -ErrorAction SilentlyContinue)) {
         if (-not $proc.ExecutablePath) { continue }
         $full = [System.IO.Path]::GetFullPath($proc.ExecutablePath)
         $isTarget = ($full -ieq $target)
-        $isProjectExe = (($proc.Name -ieq "MiHome.exe") -and $full.StartsWith($publishRoot, [StringComparison]::OrdinalIgnoreCase))
+        $isProjectExe = (($proc.Name -ieq "MiHomeHub.exe") -and $full.StartsWith($publishRoot, [StringComparison]::OrdinalIgnoreCase))
         if ($isTarget -or $isProjectExe) { $running += $proc }
     }
     if ($running.Count -eq 0) { return }
@@ -211,32 +213,22 @@ if (-not $SkipInstaller) {
         if ($LASTEXITCODE -ne 0) { throw "ISCC failed with exit code $LASTEXITCODE" }
     } else {
         # Default: built-in installer (self-contained shell + embedded payload, no admin required)
-        & $setupScript -Rid $Rid -Version $targetVersion -SkipMainPublish -Notes $Notes -Channel $Channel -ExpiresDays $ExpiresDays
+        & $setupScript -Rid $Rid -Version $targetVersion -SkipMainPublish -Notes $Notes -Channel $Channel -ExpiresDays $ExpiresDays -PublicBuild:$PublicBuild
         if ($LASTEXITCODE -ne 0) { throw "package-setup.ps1 failed with exit code $LASTEXITCODE" }
     }
 
-    $setups = @(Get-ChildItem -LiteralPath $releaseDir -Filter "MiHome-Setup-$targetVersion-*.exe" -File -ErrorAction SilentlyContinue |
+    $setups = @(Get-ChildItem -LiteralPath $releaseDir -Filter "MiHomeHub-Setup-$targetVersion-*.exe" -File -ErrorAction SilentlyContinue |
         Sort-Object LastWriteTime -Descending)
     if ($setups.Count -eq 0) { throw "installer not found in $releaseDir" }
     $setupPath = $setups[0].FullName
 } else {
     # -SkipInstaller: drop stale Setup so the version dir matches SHA256SUMS
-    Get-ChildItem -LiteralPath $releaseDir -Filter "MiHome-Setup-*.exe" -File -ErrorAction SilentlyContinue |
+    Get-ChildItem -LiteralPath $releaseDir -Filter "MiHomeHub-Setup-*.exe" -File -ErrorAction SilentlyContinue |
         Remove-Item -Force
 }
 
-# ---- portable exe: hardlink (same volume) so it costs no extra disk ----
-$exeCopy = Join-Path $releaseDir $exeName
-if (Test-Path -LiteralPath $exeCopy) { Remove-Item -LiteralPath $exeCopy -Force }
-try {
-    New-Item -ItemType HardLink -Path $exeCopy -Target $exePath -ErrorAction Stop | Out-Null
-    Write-Host "exe hardlinked -> $exeCopy"
-} catch {
-    Copy-Item -LiteralPath $exePath -Destination $exeCopy -Force
-    Write-Host "exe copied -> $exeCopy"
-}
-
-$artifacts = @($exeCopy)
+# ---- SHA256SUMS: 只列发布资产（安装包）；版本目录里不再放 MiHomeHub.exe ----
+$artifacts = @()
 if ($setupPath) { $artifacts += $setupPath }
 
 $hashLines = @()
@@ -244,11 +236,13 @@ foreach ($file in $artifacts) {
     $hash = Get-Sha256 $file
     $hashLines += ("{0}  {1}" -f $hash, (Split-Path -Leaf $file))
 }
-[System.IO.File]::WriteAllLines(
-    (Join-Path $releaseDir "SHA256SUMS.txt"),
-    [string[]]$hashLines,
-    (New-Object System.Text.UTF8Encoding($false))
-)
+$sumsPath = Join-Path $releaseDir "SHA256SUMS.txt"
+if ($hashLines.Count -gt 0) {
+    [System.IO.File]::WriteAllLines($sumsPath, [string[]]$hashLines,
+        (New-Object System.Text.UTF8Encoding($false)))
+} elseif (Test-Path -LiteralPath $sumsPath) {
+    Remove-Item -LiteralPath $sumsPath -Force
+}
 
 # ---- summary ----
 Write-Host ""
@@ -257,7 +251,7 @@ foreach ($file in $artifacts) {
     $mb = [math]::Round((Get-Item -LiteralPath $file).Length / 1MB, 2)
     Write-Host ("  {0}  ({1} MB)" -f (Split-Path -Leaf $file), $mb)
 }
-Write-Host "  SHA256SUMS.txt"
+if (Test-Path -LiteralPath $sumsPath) { Write-Host "  SHA256SUMS.txt" }
 if (-not $SkipInstaller) {
     Write-Host ""
     if ($Channel -eq "stable") {

@@ -6,10 +6,10 @@ using System.Collections.ObjectModel;
 using System.Linq;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
-using MiHome.Models;
-using MiHome.Services;
+using MiHomeHub.Models;
+using MiHomeHub.Services;
 
-namespace MiHome.ViewModels;
+namespace MiHomeHub.ViewModels;
 
 /// <summary>
 /// 「添加到桌面组件」选择分区弹窗：已有分区多选，底部「新建分区」按需展开名称输入，

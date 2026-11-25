@@ -7,7 +7,7 @@ using Avalonia.Controls;
 using Avalonia.Media;
 using Avalonia.Threading;
 
-namespace MiHome.Controls;
+namespace MiHomeHub.Controls;
 
 /// <summary>
 /// 小爱声纹条：4 根竖条按正弦节律起伏，用来替代静态声纹图标，让入口看起来「在听」。

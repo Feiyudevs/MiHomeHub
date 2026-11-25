@@ -8,10 +8,10 @@ using System.Windows.Input;
 using Avalonia.Media;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
-using MiHome.Models;
-using MiHome.Services;
+using MiHomeHub.Models;
+using MiHomeHub.Services;
 
-namespace MiHome.ViewModels;
+namespace MiHomeHub.ViewModels;
 
 /// <summary>
 /// 一个桌面设备分区的视图模型：持有模型、当前设备/场景实例与外观画刷。
@@ -40,6 +40,9 @@ public partial class DesktopGroupVm : DesktopZoneVm, IDeviceCardHost
 
     /// <summary>减号图标：这是「移除」动作。</summary>
     public Geometry CardMenuIcon => CardMenuIcons.Remove;
+
+    /// <summary>桌面分区不提供「隐藏设备」：隐藏只作用于主列表，这里菜单项随之收起。</summary>
+    public ICommand? HideCardCommand => null;
 
     /// <summary>点场景卡 → 直接执行，与场景页那颗播放按钮同一个命令。</summary>
     public ICommand RunSceneCommand => Main.RunSceneCommand;

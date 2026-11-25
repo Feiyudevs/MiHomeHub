@@ -6,9 +6,9 @@ using System.IO;
 using System.Runtime.ExceptionServices;
 using System.Threading;
 using System.Threading.Tasks;
-using MiHome.Services.Telemetry;
+using MiHomeHub.Services.Telemetry;
 
-namespace MiHome.Services.Setup;
+namespace MiHomeHub.Services.Setup;
 
 public enum SetupMode
 {
@@ -282,8 +282,8 @@ internal sealed class SetupService
             var info = new SetupApplyInfo(root, version, "Feiyu", DesktopShortcut: keepDesktop);
             RunSta(() => _integration.Apply(info));
 
-            // 「匿名使用统计」初始开关：只对首次安装生效，已有的 telemetry.json（更新/重装）一律保留
-            if (!_options.IsSelfTest && TelemetryService.ApplyInstallDefault(telemetryOptIn))
+            // 「匿名使用统计」初始开关：用户选择过的不动；静默更新也不替用户接管已有配置
+            if (!_options.IsSelfTest && TelemetryService.ApplyInstallDefault(telemetryOptIn, adoptUnchosen: !_options.Silent))
                 SetupLog.Info("telemetry-default", telemetryOptIn ? "on" : "off", TelemetryService.ConfigFile);
 
             Report(progress, 0.94, "正在清理旧版本…");

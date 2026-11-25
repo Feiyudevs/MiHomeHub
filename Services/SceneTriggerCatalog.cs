@@ -6,9 +6,9 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text.Json.Nodes;
 using System.Threading.Tasks;
-using MiHome.Models;
+using MiHomeHub.Models;
 
-namespace MiHome.Services;
+namespace MiHomeHub.Services;
 
 /// <summary>
 /// 触发条件目录：按设备 MIoT 规格生成「能触发什么」的候选清单，并负责把用户的选择拼回

@@ -5,11 +5,11 @@ using System;
 using System.ComponentModel;
 using Avalonia;
 using Avalonia.Controls;
-using MiHome.Models;
-using MiHome.Services;
-using MiHome.ViewModels;
+using MiHomeHub.Models;
+using MiHomeHub.Services;
+using MiHomeHub.ViewModels;
 
-namespace MiHome.Views;
+namespace MiHomeHub.Views;
 
 /// <summary>
 /// 桌面媒体分区的音量浮层：独立顶层小窗（贴桌面窗上的 Popup 会被压到普通窗口之下）。

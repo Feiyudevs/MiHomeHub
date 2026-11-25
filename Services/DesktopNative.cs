@@ -4,7 +4,7 @@
 using System;
 using System.Runtime.InteropServices;
 
-namespace MiHome.Services;
+namespace MiHomeHub.Services;
 
 /// <summary>
 /// 桌面贴图层用到的 Win32 互操作（只保留分区窗需要的部分，避免整份 Win32 搬进来）。

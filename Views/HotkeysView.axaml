@@ -1,8 +1,8 @@
 <UserControl xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-             xmlns:vm="clr-namespace:MiHome.ViewModels"
-             xmlns:views="clr-namespace:MiHome.Views"
-             x:Class="MiHome.Views.HotkeysView">
+             xmlns:vm="clr-namespace:MiHomeHub.ViewModels"
+             xmlns:views="clr-namespace:MiHomeHub.Views"
+             x:Class="MiHomeHub.Views.HotkeysView">
     <UserControl.Styles>
         <!-- 快捷键卡片：网格里一格，固定宽度，内容三行（键帽 / 名称 / 说明）；不描边，靠 CardBrush 的浅底分层 -->
         <Style Selector="Border.HkCard">

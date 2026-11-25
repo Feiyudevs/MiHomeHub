@@ -5,7 +5,7 @@ using System;
 using System.Runtime.InteropServices;
 using System.Text;
 
-namespace MiHome.Services;
+namespace MiHomeHub.Services;
 
 /// <summary>
 /// 开机启动 = 当前用户 Run 键（HKCU\Software\Microsoft\Windows\CurrentVersion\Run）。
@@ -14,7 +14,7 @@ namespace MiHome.Services;
 public static class StartupRegistration
 {
     private const string RunKey = @"Software\Microsoft\Windows\CurrentVersion\Run";
-    private const string ValueName = "MiHome";
+    private const string ValueName = "MiHomeHub";
 
     private static readonly IntPtr HKeyCurrentUser = new(unchecked((int)0x80000001));
     private const int KeyQueryValue = 0x0001;

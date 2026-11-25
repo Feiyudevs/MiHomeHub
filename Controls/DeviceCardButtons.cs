@@ -5,7 +5,7 @@ using System;
 using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
 
-namespace MiHome.Controls;
+namespace MiHomeHub.Controls;
 
 // Dedicated style keys keep every card from subscribing to the unrelated application-wide
 // Button.<class> rules and the Fluent button theme. Input, command and automation behavior

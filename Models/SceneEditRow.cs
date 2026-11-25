@@ -8,7 +8,7 @@ using System.Linq;
 using System.Text.Json.Nodes;
 using CommunityToolkit.Mvvm.ComponentModel;
 
-namespace MiHome.Models;
+namespace MiHomeHub.Models;
 
 /// <summary>编辑面板里一张卡片的类型。米家的动作不止「写属性」一种，必须按 type 分派。</summary>
 public enum SceneEditRowKind

@@ -8,9 +8,9 @@ using System.Net.Http;
 using System.Text;
 using System.Text.Json;
 using System.Web;
-using MiHome.Models;
+using MiHomeHub.Models;
 
-namespace MiHome.Services;
+namespace MiHomeHub.Services;
 
 /// <summary>
 /// 米家扫码登录流程（移植自 mijia-api QRlogin）

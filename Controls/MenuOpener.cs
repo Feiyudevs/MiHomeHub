@@ -9,7 +9,7 @@ using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.VisualTree;
 
-namespace MiHome.Controls;
+namespace MiHomeHub.Controls;
 
 /// <summary>
 /// 设备卡右上角「更多」按钮的行为：点击时打开所在设备卡的 ContextMenu（与右键同一份菜单）。

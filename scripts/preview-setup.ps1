@@ -15,7 +15,7 @@ param(
 $ErrorActionPreference = "Stop"
 $root = Split-Path -Parent $PSScriptRoot
 
-$setup = Get-ChildItem -LiteralPath (Join-Path $root "publish\release") -Filter "MiHome-Setup-*.exe" -File -Recurse |
+$setup = Get-ChildItem -LiteralPath (Join-Path $root "publish\release") -Filter "MiHomeHub-Setup-*.exe" -File -Recurse |
     Sort-Object LastWriteTime -Descending |
     Select-Object -First 1
 if (-not $setup) {

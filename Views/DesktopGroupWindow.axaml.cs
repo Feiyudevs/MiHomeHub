@@ -8,10 +8,10 @@ using System.Runtime.InteropServices;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Threading;
-using MiHome.Services;
-using MiHome.ViewModels;
+using MiHomeHub.Services;
+using MiHomeHub.ViewModels;
 
-namespace MiHome.Views;
+namespace MiHomeHub.Views;
 
 /// <summary>
 /// 分区独立顶层小窗：贴桌面（owner=Progman）+ 压底 + NOACTIVATE + 窗口级亚克力。
@@ -189,7 +189,7 @@ public partial class DesktopGroupWindow : Window
         _hwnd = TryGetPlatformHandle()?.Handle ?? nint.Zero;
         if (_hwnd == nint.Zero) return;
 
-        // 调试口子：MIHOME_DESKTOP_DEBUG=1 时不贴桌面、改为置顶普通窗口，
+        // 调试口子：MIHOMEHUB_DESKTOP_DEBUG=1 时不贴桌面、改为置顶普通窗口，
         // 方便在其它窗口之上肉眼核对卡片排版/圆角/磨砂（正式运行时环境变量不存在，走正常贴桌面路径）。
         if (DebugMode)
         {
@@ -228,7 +228,7 @@ public partial class DesktopGroupWindow : Window
     }
 
     private static readonly bool DebugMode =
-        Environment.GetEnvironmentVariable("MIHOME_DESKTOP_DEBUG") == "1";
+        Environment.GetEnvironmentVariable("MIHOMEHUB_DESKTOP_DEBUG") == "1";
 
     /// <summary>重打圆角 + 磨砂 + 桌面层级（外观变更、尺寸变化后调用）。</summary>
     public void ApplyChrome()

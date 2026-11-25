@@ -17,13 +17,13 @@ using Avalonia.Media.Imaging;
 using Avalonia.Platform;
 using SkiaSharp;
 
-namespace MiHome.Services;
+namespace MiHomeHub.Services;
 
 /// <summary>
 /// 设备真机图：米家云的设备列表接口不带图标字段，按 model 到米家产品库取 realIcon 产品图。
 /// realIcon 绝大多数托管在 iotweb-user-center（少数在 iotweb-product-center），且带签名参数，
 /// 必须整段 URL 才能通过 CDN 校验；无该字段的型号返回 null，卡片回退到矢量图标。
-/// 结果同时写入 %APPDATA%\Feiyu\MiHome\icons\ 磁盘缓存：命中期内直接读盘，过期后对比 URL
+/// 结果同时写入 %APPDATA%\Feiyu\MiHomeHub\icons\ 磁盘缓存：命中期内直接读盘，过期后对比 URL
 /// 再决定是否重新下载，产品图更新时能自动换新。
 /// 磁盘保留接口原图；内存按 UI 所需尺寸解码，不做裁切或抠图，最长边不超过 192px。
 /// </summary>

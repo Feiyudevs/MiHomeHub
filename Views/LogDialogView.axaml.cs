@@ -4,9 +4,9 @@
 using System;
 using Avalonia.Controls;
 using Avalonia.Interactivity;
-using MiHome.ViewModels;
+using MiHomeHub.ViewModels;
 
-namespace MiHome.Views;
+namespace MiHomeHub.Views;
 
 /// <summary>操作日志弹窗：复制 / 清空按钮的事件处理随本控件走。</summary>
 public partial class LogDialogView : UserControl

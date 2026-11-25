@@ -5,10 +5,10 @@ using System;
 using Avalonia.Media;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
-using MiHome.Models;
-using MiHome.Services;
+using MiHomeHub.Models;
+using MiHomeHub.Services;
 
-namespace MiHome.ViewModels;
+namespace MiHomeHub.ViewModels;
 
 /// <summary>
 /// 桌面分区视图模型的公共部分：模型、位置/尺寸/折叠、外观画刷与危险操作二次确认。

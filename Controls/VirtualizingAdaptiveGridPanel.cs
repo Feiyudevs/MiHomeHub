@@ -11,7 +11,7 @@ using Avalonia.Input;
 using Avalonia.Layout;
 using Avalonia.VisualTree;
 
-namespace MiHome.Controls;
+namespace MiHomeHub.Controls;
 
 /// <summary>
 /// 等高卡片的自适应虚拟化网格。离屏容器先解除数据绑定，再进入按回收 key 区分的有界池；

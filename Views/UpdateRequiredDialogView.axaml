@@ -1,8 +1,8 @@
 <UserControl xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-             xmlns:vm="clr-namespace:MiHome.ViewModels"
-             xmlns:ctl="clr-namespace:MiHome.Controls"
-             x:Class="MiHome.Views.UpdateRequiredDialogView"
+             xmlns:vm="clr-namespace:MiHomeHub.ViewModels"
+             xmlns:ctl="clr-namespace:MiHomeHub.Controls"
+             x:Class="MiHomeHub.Views.UpdateRequiredDialogView"
              x:DataType="vm:MainViewModel">
     <!-- 强制更新：后台 force=true 时唯一允许的模态提示，只能升级或退出，不给跳过 -->
     <ctl:DialogPopup CardWidth="520" Title="需要更新后才能继续使用"

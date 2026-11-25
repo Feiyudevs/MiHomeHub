@@ -5,7 +5,7 @@ using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Media;
 
-namespace MiHome.Views;
+namespace MiHomeHub.Views;
 
 /// <summary>通用空态提示：细环 + 主题色软底图标 + 标题/说明，首页与场景页共用。</summary>
 public partial class EmptyState : UserControl

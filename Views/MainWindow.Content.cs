@@ -17,12 +17,12 @@ using Avalonia.Media;
 using Avalonia.Styling;
 using Avalonia.Threading;
 using Avalonia.VisualTree;
-using MiHome.Controls;
-using MiHome.Models;
-using MiHome.Services;
-using MiHome.ViewModels;
+using MiHomeHub.Controls;
+using MiHomeHub.Models;
+using MiHomeHub.Services;
+using MiHomeHub.ViewModels;
 
-namespace MiHome.Views;
+namespace MiHomeHub.Views;
 
 public partial class MainWindow
 {

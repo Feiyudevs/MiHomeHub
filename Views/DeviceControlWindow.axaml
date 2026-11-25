@@ -1,9 +1,9 @@
 <Window xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        xmlns:vm="clr-namespace:MiHome.ViewModels"
-        xmlns:views="clr-namespace:MiHome.Views"
-        xmlns:ctl="clr-namespace:MiHome.Controls"
-        x:Class="MiHome.Views.DeviceControlWindow"
+        xmlns:vm="clr-namespace:MiHomeHub.ViewModels"
+        xmlns:views="clr-namespace:MiHomeHub.Views"
+        xmlns:ctl="clr-namespace:MiHomeHub.Controls"
+        x:Class="MiHomeHub.Views.DeviceControlWindow"
         x:DataType="vm:MainViewModel"
         Title="设备控制"
         Width="572" Height="832"
@@ -19,7 +19,7 @@
     <Window.Styles>
         <!-- 分区弹窗与主窗口抽屉共用同一套详情控件样式（DrCard / SegTrack / SegBtn / SegMini …），
              少了这一份，弹窗里的分段按钮会退回 Fluent 默认外观，和侧边栏对不上 -->
-        <StyleInclude Source="avares://MiHome/Themes/MainWindowStyles.axaml" />
+        <StyleInclude Source="avares://MiHomeHub/Themes/MainWindowStyles.axaml" />
     </Window.Styles>
 
     <ctl:DialogPopup CardWidth="456" CardMaxHeight="716"

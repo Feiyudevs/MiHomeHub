@@ -3,9 +3,9 @@
 
 using System;
 using System.Text;
-using MiHome.Models;
+using MiHomeHub.Models;
 
-namespace MiHome.Services;
+namespace MiHomeHub.Services;
 
 /// <summary>
 /// 组合键的键名与判定：钩子拿到的是 Win32 虚拟键码，界面/日志需要人类可读的写法。

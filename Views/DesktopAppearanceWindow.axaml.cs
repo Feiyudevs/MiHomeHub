@@ -4,9 +4,9 @@
 using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Interactivity;
-using MiHome.ViewModels;
+using MiHomeHub.ViewModels;
 
-namespace MiHome.Views;
+namespace MiHomeHub.Views;
 
 /// <summary>桌面分区外观弹窗：背景色 / 背景透明度 / 毛玻璃，改动即时生效。</summary>
 public partial class DesktopAppearanceWindow : Window

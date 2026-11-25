@@ -3,7 +3,7 @@
 
 using Avalonia.Controls;
 
-namespace MiHome.Views;
+namespace MiHomeHub.Views;
 
 /// <summary>
 /// 设备详情正文（电源/开关/音量/耗材/窗帘/灯光/空调/高级设置/设备信息）。

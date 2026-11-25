@@ -6,7 +6,7 @@ using System.ComponentModel;
 using System.Runtime.InteropServices;
 using System.Text;
 
-namespace MiHome.Setup;
+namespace MiHomeHub.Setup;
 
 /// <summary>
 /// Win32 进程启动：CREATE_SUSPENDED 建进程 → 允许前台 → ResumeThread。
@@ -180,5 +180,5 @@ internal static class ShellMessageBox
     private static extern int MessageBoxW(IntPtr hWnd, string text, string caption, uint type);
 
     public static void Error(string message)
-        => MessageBoxW(IntPtr.Zero, message, "MiHome · 安装程序", MB_OK | MB_ICONERROR);
+        => MessageBoxW(IntPtr.Zero, message, "MiHomeHub · 安装程序", MB_OK | MB_ICONERROR);
 }

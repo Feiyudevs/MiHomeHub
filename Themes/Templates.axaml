@@ -2,10 +2,10 @@
     xmlns="https://github.com/avaloniaui"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:ani="clr-namespace:Avalonia.Animation.Easings;assembly=Avalonia.Base"
-    xmlns:conv="clr-namespace:MiHome.Converters"
-    xmlns:ctl="clr-namespace:MiHome.Controls"
-    xmlns:vm="clr-namespace:MiHome.ViewModels"
-    xmlns:m="clr-namespace:MiHome.Models">
+    xmlns:conv="clr-namespace:MiHomeHub.Converters"
+    xmlns:ctl="clr-namespace:MiHomeHub.Controls"
+    xmlns:vm="clr-namespace:MiHomeHub.ViewModels"
+    xmlns:m="clr-namespace:MiHomeHub.Models">
             <!-- ======== 全局 DataTemplate：设备卡/骨架卡/场景迷你卡（MainWindow 与 HomeView 共用） ======== -->
             <!-- 加载骨架：与设备卡同尺寸同圆角，先用占位块占住宫格，真设备到手整块换掉 -->
             <DataTemplate x:Key="SkeletonCardTemplate" x:DataType="x:String">
@@ -43,7 +43,7 @@
                     </Panel>
                 </Border>
             </DataTemplate>
-            <!-- 统计卡骨架：与四张概览统计卡同尺寸同圆角，冷启动拉取期间先占住统计行。
+            <!-- 统计卡骨架：与五张概览统计卡同尺寸同圆角，冷启动拉取期间先占住统计行。
                  外边距与真卡一致，配合 WrapPanel 的负边距容器保持右边缘对齐 -->
             <DataTemplate x:Key="StatSkeletonTemplate" x:DataType="x:String">
                 <Border CornerRadius="16" Padding="16,13" MinWidth="96" Margin="0,0,10,10"
@@ -177,10 +177,29 @@
                             </Viewbox>
                         </MenuItem.Icon>
                     </MenuItem>
+                    <!-- 第三项只给主列表：隐藏 / 恢复这台设备。桌面分区宿主返回 null，整项收起。
+                         文案按设备当前状态切换，隐藏后同一张卡片右键就是「取消隐藏」 -->
+                    <MenuItem Theme="{StaticResource CardMenuItem}"
+                              Header="{Binding IsHidden, Converter={x:Static conv:BoolTextConverter.Instance}, ConverterParameter='取消隐藏|隐藏此设备'}"
+                              IsVisible="{Binding $parent[Window].((vm:IDeviceCardHost)DataContext).HideCardCommand, Converter={x:Static ObjectConverters.IsNotNull}}"
+                              Command="{Binding $parent[Window].((vm:IDeviceCardHost)DataContext).HideCardCommand}"
+                              CommandParameter="{Binding}">
+                        <MenuItem.Icon>
+                            <Viewbox Width="12" Height="12" Stretch="Uniform"
+                                     HorizontalAlignment="Center" VerticalAlignment="Center">
+                                <Panel Width="24" Height="24">
+                                    <Path StrokeThickness="1.92" StrokeLineCap="Round" StrokeJoin="Round"
+                                          Stroke="{Binding $parent[MenuItem].Foreground}"
+                                          Data="M2,12 C5,7 8.5,5 12,5 C15.5,5 19,7 22,12 C19,17 15.5,19 12,19 C8.5,19 5,17 2,12 Z M12,9 A3,3 0 1,1 11.99,9 M4,4 L20,20" />
+                                </Panel>
+                            </Viewbox>
+                        </MenuItem.Icon>
+                    </MenuItem>
                 </ContextMenu>
             </DataTemplate>
             <DataTemplate x:Key="DeviceCardTemplate" x:DataType="m:MijiaDevice">
                 <ctl:DeviceCardButton Classes="DevCard" Classes.on="{Binding IsOn}"
+                        Classes.sw="{Binding ShowCardSwitch}"
                         ctl:LazyContextMenu.MenuTemplate="{StaticResource DeviceCardMenuTemplate}"
                         Command="{Binding $parent[Window].((vm:IDeviceCardHost)DataContext).OpenCardCommand}"
                         CommandParameter="{Binding}">
@@ -232,10 +251,16 @@
                                     <TextBlock Text="离线" FontSize="9.5" FontWeight="Normal"
                                                Foreground="{DynamicResource AmberBrush}" />
                                 </Border>
+                                <!-- 灯组标签：组本身也在设备列表里，卡片上要能一眼和单灯区分 -->
+                                <Border CornerRadius="8" Padding="6,1.5" VerticalAlignment="Center"
+                                        Background="{DynamicResource BlueSoftBrush}" IsVisible="{Binding IsGroup}">
+                                    <TextBlock Text="{Binding GroupTag}" FontSize="9.5" FontWeight="Normal"
+                                               Foreground="{DynamicResource BlueBrush}" />
+                                </Border>
                             </StackPanel>
                         </StackPanel>
                         <!-- 右列：电源键固定垂直居中，不随悬停位移（「更多」已移到左侧图标上）；
-                             多路设备的「N 路」角标与电源键互斥（同一时刻只显示一个），贴右下。 -->
+                             多路设备的卡片不再显示「N 路」角标（设备名里已看出是双开/多键），这一列对它们留空。 -->
                         <Grid Grid.Column="2" MinWidth="32">
                             <ctl:DevicePowerButton Classes="Power" Classes.curtain="{Binding IsCurtain}"
                                           HorizontalAlignment="Center" VerticalAlignment="Center"
@@ -244,14 +269,6 @@
                                           IsChecked="{Binding IsOn}" IsEnabled="{Binding !IsBusy}"
                                           Command="{Binding $parent[Window].((vm:IDeviceCardHost)DataContext).ToggleSwitchCommand}"
                                           CommandParameter="{Binding}" />
-                            <!-- 多路开关不在卡片上铺满多个开关：显示路数，进抽屉逐路操作 -->
-                            <Border Classes="DevBadge" CornerRadius="8" Padding="8,3" HorizontalAlignment="Right" VerticalAlignment="Bottom"
-                                    Margin="0,0,-2,-4"
-                                    Background="{DynamicResource SurfaceBrush}"
-                                    IsVisible="{Binding ShowChannelBadge}">
-                                <TextBlock Classes="DevBadgeText" FontSize="10.5" FontWeight="SemiBold"
-                                           Text="{Binding Channels.Count, StringFormat='{}{0} 路'}" />
-                            </Border>
                         </Grid>
                     </Grid>
                     </Panel>

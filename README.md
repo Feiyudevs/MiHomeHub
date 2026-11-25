@@ -13,7 +13,7 @@
 [![Platform](https://img.shields.io/badge/platform-Windows%20x64-0078D4.svg)](#快速开始)
 [![Build](https://github.com/Feiyudevs/MiHomeHub/actions/workflows/build.yml/badge.svg)](https://github.com/Feiyudevs/MiHomeHub/actions/workflows/build.yml)
 
-基于 **Avalonia 11 + .NET 10** 原生构建，不是套壳、不是 Web 页面包装。
+基于 **Avalonia 11 + .NET 10** 原生构建，不是套壳、不是 Web 页面包装——代码一套到底，架构跨平台，当前发布 Windows x64。
 扫码登录即可接管你的全部米家设备——灯、空调、窗帘、开关、传感器、音箱、场景与自动化。
 
 </div>
@@ -145,7 +145,7 @@ MiHomeHub 的取舍很明确：视觉不将就，控制不打折。
 
 ```
 MiHomeHub/
-├── MiHome.csproj / Program.cs / App.axaml(.cs)
+├── MiHomeHub.csproj / Program.cs / App.axaml(.cs)
 ├── Assets/          # 矢量图标与程序图标
 ├── Controls/        # 自定义控件（虚拟化网格、拖拽排序、浮层等）
 ├── Converters/      # XAML 值转换器
@@ -176,7 +176,7 @@ package.cmd -Bump patch    :: 升版本后打包
 package.cmd -SkipInstaller :: 只出单文件 exe
 ```
 
-产物：`publish\sc-win-x64\MiHome.exe`（启动与回归的固定路径）、
+产物：`publish\sc-win-x64\MiHomeHub.exe`（启动与回归的固定路径）、
 `publish\release\<版本>\`（发版目录）。完整流程见 [docs/一键编译与打包.md](docs/一键编译与打包.md)。
 
 > 只运行 publish 产物，不要运行 `bin\Release` 下的中间产物（裁剪与自包含行为不一致）。
@@ -186,11 +186,11 @@ package.cmd -SkipInstaller :: 只出单文件 exe
 
 ## 使用
 
-1. 运行 `publish\sc-win-x64\MiHome.exe`。
+1. 运行 `publish\sc-win-x64\MiHomeHub.exe`。
 2. 首次在设置 → 账号中点「获取二维码」，用米家 App 扫码登录。
 3. 登录后自动同步家庭、房间、设备与场景；后续启动可一键登录。
 
-登录凭证保存在 `%APPDATA%\Feiyu\MiHome\auth.json`，以 Windows DPAPI 加密（仅当前用户可解密），
+登录凭证保存在 `%APPDATA%\Feiyu\MiHomeHub\auth.json`，以 Windows DPAPI 加密（仅当前用户可解密），
 **不要提交或分享**，详见 [SECURITY.md](SECURITY.md)。
 
 ### 匿名使用统计（默认关闭）

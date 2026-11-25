@@ -10,7 +10,7 @@ using Avalonia.Styling;
 using Avalonia.Threading;
 using System.Threading.Tasks;
 
-namespace MiHome.Views;
+namespace MiHomeHub.Views;
 
 public partial class DeviceDrawerView : UserControl
 {

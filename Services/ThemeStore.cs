@@ -7,9 +7,9 @@ using System.Text.Json;
 using System.Threading.Tasks;
 using Avalonia.Styling;
 
-namespace MiHome.Services;
+namespace MiHomeHub.Services;
 
-/// <summary>主题偏好持久化在 %APPDATA%\Feiyu\MiHome\theme.json，与 auth.json 同目录。</summary>
+/// <summary>主题偏好持久化在 %APPDATA%\Feiyu\MiHomeHub\theme.json，与 auth.json 同目录。</summary>
 public static class ThemeStore
 {
     private static readonly string Dir = AppPaths.Dir;

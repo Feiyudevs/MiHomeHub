@@ -7,9 +7,9 @@ using System.Collections.ObjectModel;
 using System.Globalization;
 using System.Linq;
 using CommunityToolkit.Mvvm.ComponentModel;
-using MiHome.Models;
+using MiHomeHub.Models;
 
-namespace MiHome.ViewModels;
+namespace MiHomeHub.ViewModels;
 
 /// <summary>通用属性面板的一组（按 MIoT 服务分组），渲染成抽屉里的一张卡片。</summary>
 public sealed class SpecGroupVm
@@ -184,6 +184,30 @@ public sealed partial class SpecOptionVm : ObservableObject, IPickOption
 
     // IPickOption 要求 object；保持对外仍是 int，避免既有调用点被装箱语义带偏
     object IPickOption.Value => Value;
+}
+
+/// <summary>详情顶部的实时读数卡：温度/湿度/功率/电压/电流/PM2.5/照度等规格读数。</summary>
+public sealed partial class MetricTileVm : ObservableObject
+{
+    public required SpecPropertyDef Def { get; init; }
+
+    public string Title => Def.Desc;
+
+    /// <summary>格式化后的读数（含单位），没读到前显示占位。</summary>
+    [ObservableProperty] private string _valueText = "—";
+}
+
+/// <summary>卡片外显里的一个可选读数：点一下加入卡片副标题，再点移出（整类设备一起生效）。</summary>
+public sealed partial class CardMetricVm : ObservableObject
+{
+    public required MijiaDevice Device { get; init; }
+
+    /// <summary>规格属性短名，写进 app.json 的 cardMetrics。</summary>
+    public required string Name { get; init; }
+
+    public required string Title { get; init; }
+
+    [ObservableProperty] private bool _isShown;
 }
 
 /// <summary>规格里无入参的动作；执行前需二次确认，避免误触（扫地机回充、净化器复位等）。</summary>

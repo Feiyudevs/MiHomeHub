@@ -8,9 +8,9 @@ using System.Linq;
 using System.Net.Http;
 using System.Text.Json;
 using System.Threading.Tasks;
-using MiHome.Models;
+using MiHomeHub.Models;
 
-namespace MiHome.Services;
+namespace MiHomeHub.Services;
 
 /// <summary>
 /// 设备 MIoT 规格解析：优先用云端下发的设备实例规格（带真实 iid），失败再退回公开规格站。
@@ -255,9 +255,12 @@ public static class DeviceSpecService
             {
                 if (!item.TryGetProperty("value", out var v) || v.ValueKind != JsonValueKind.Number) continue;
                 var value = v.TryGetInt32(out var iv) ? iv : (int)v.GetDouble();
-                var rawLabel = ReadText(item, "comment") ?? ReadText(item, "description") ?? value.ToString();
+                var rawLabel = ReadText(item, "comment") ?? ReadText(item, "description");
                 // 清理标签：去掉括号内的技术说明和末尾的数字 ID
-                var label = CleanLabel(rawLabel);
+                var label = CleanLabel(rawLabel ?? "");
+                // 规格里没写 comment/description 时只剩值本身，而 CleanLabel 会把纯数字标签整段削空，
+                // 空标签在下拉 / 分段按钮里就是一枚没有字的胶囊，回落到原始数值
+                if (string.IsNullOrWhiteSpace(label)) label = value.ToString();
                 def.Options.Add(new SpecOptionDef { Value = value, Label = label });
             }
         }
@@ -329,6 +332,13 @@ public static class DeviceSpecService
         "minutes" => "分钟",
         "hours" => "小时",
         "days" => "天",
+        "watt" or "watts" => "W",
+        "kilowatt" or "kilowatts" => "kW",
+        "volt" or "volts" => "V",
+        "ampere" or "amperes" => "A",
+        "lux" => "lx",
+        "ppm" => "ppm",
+        "microgram-per-cubic-meter" => "µg/m³",
         "rgb" => "",
         null or "" => GuessUnit(name),
         _ => unit
@@ -338,7 +348,7 @@ public static class DeviceSpecService
     private static string GuessUnit(string name) => name switch
     {
         "temperature" or "target-temperature" => "℃",
-        "relative-humidity" or "humidity" or "battery-level" or "battery" => "%",
+        "relative-humidity" or "humidity" or "battery-level" or "battery" or "charge-progress" => "%",
         "pm2.5" or "pm10" => "µg/m³",
         "illuminance" => "lx",
         "co2" => "ppm",
@@ -388,12 +398,14 @@ public static class DeviceSpecService
         ["illuminance"] = "照度",
         ["battery-level"] = "电量",
         ["battery"] = "电量",
+        ["charge-progress"] = "电量",
         ["co2"] = "二氧化碳",
         ["tvoc"] = "TVOC",
         ["tds-in"] = "TDS进水",
         ["air-quality"] = "空气质量",
         ["water-level"] = "水位",
         ["power-consumption"] = "功耗",
+        ["electric-power"] = "功率",
         ["voltage"] = "电压",
         ["electric-current"] = "电流",
         ["motion-detected"] = "运动检测",

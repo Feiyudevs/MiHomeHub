@@ -5,7 +5,7 @@
 #   .\scripts\test-update.ps1 -SkipInstall     # 已装基线，只出下一版包并启动
 #   .\scripts\test-update.ps1 -BaselineVersion 1.0.1
 #
-# 原理：把环境变量 MIHOME_UPDATE_SOURCE 指向 publish\release\<新版本> 目录，
+# 原理：把环境变量 MIHOMEHUB_UPDATE_SOURCE 指向 publish\release\<新版本> 目录，
 # 应用会从该目录读 update.json、拷贝安装包并校验 SHA256，再走 --silent 静默替换。
 param(
     [string]$BaselineVersion = "1.0.0",
@@ -16,8 +16,8 @@ param(
 $ErrorActionPreference = "Stop"
 
 $root = Split-Path -Parent $PSScriptRoot
-$proj = Join-Path $root "MiHome.csproj"
-$installedExe = Join-Path $env:LOCALAPPDATA "Programs\MiHome\app\MiHome.exe"
+$proj = Join-Path $root "MiHomeHub.csproj"
+$installedExe = Join-Path $env:LOCALAPPDATA "Programs\MiHomeHub\app\MiHomeHub.exe"
 
 function Get-ProjectVersion {
     $text = [System.IO.File]::ReadAllText($proj)
@@ -28,7 +28,7 @@ function Get-ProjectVersion {
 
 function Stop-PublishInstances {
     # 便携实例会占着单实例互斥体，导致新启动的「已安装版本」被顶回去
-    Get-CimInstance Win32_Process -Filter "Name='MiHome.exe'" |
+    Get-CimInstance Win32_Process -Filter "Name='MiHomeHub.exe'" |
         Where-Object { $_.ExecutablePath -like (Join-Path $root 'publish\*') } |
         ForEach-Object {
             Write-Host "停止便携实例 PID $($_.ProcessId)"
@@ -37,9 +37,9 @@ function Stop-PublishInstances {
 }
 
 function Stop-InstalledInstances {
-    # 基线安装完成页默认会勾选「启动 MiHome」；那个进程没带联调变量，必须先关掉
-    Get-CimInstance Win32_Process -Filter "Name='MiHome.exe'" |
-        Where-Object { $_.ExecutablePath -like (Join-Path $env:LOCALAPPDATA 'Programs\MiHome\*') } |
+    # 基线安装完成页默认会勾选「启动 MiHomeHub」；那个进程没带联调变量，必须先关掉
+    Get-CimInstance Win32_Process -Filter "Name='MiHomeHub.exe'" |
+        Where-Object { $_.ExecutablePath -like (Join-Path $env:LOCALAPPDATA 'Programs\MiHomeHub\*') } |
         ForEach-Object {
             Write-Host "停止已安装实例 PID $($_.ProcessId)"
             Stop-Process -Id $_.ProcessId -Force
@@ -52,7 +52,7 @@ if (-not $SkipInstall) {
         $current = (Get-Item $installedExe).VersionInfo.ProductVersion
         Write-Host "本机已安装 $current（$installedExe）；如需从 $BaselineVersion 开始，请先卸载"
     } else {
-        $baselineSetup = Join-Path $root "publish\release\$BaselineVersion\MiHome-Setup-$BaselineVersion-$Rid.exe"
+        $baselineSetup = Join-Path $root "publish\release\$BaselineVersion\MiHomeHub-Setup-$BaselineVersion-$Rid.exe"
         if (-not (Test-Path -LiteralPath $baselineSetup)) {
             throw "缺少基线安装包：$baselineSetup（先出 $BaselineVersion 的包，或指定 -BaselineVersion）"
         }
@@ -83,10 +83,10 @@ Write-Host "清单版本：$after   已装版本：$before"
 Stop-PublishInstances
 Stop-InstalledInstances
 # 落到文件而不是只靠环境变量：从资源管理器/托盘启动也能继承，重启应用也还有效
-$overrideFile = Join-Path $env:APPDATA 'Feiyu\MiHome\update\source.txt'
+$overrideFile = Join-Path $env:APPDATA 'Feiyu\MiHomeHub\update\source.txt'
 New-Item -ItemType Directory -Path (Split-Path $overrideFile) -Force | Out-Null
 [System.IO.File]::WriteAllText($overrideFile, $source, (New-Object System.Text.UTF8Encoding($false)))
-$env:MIHOME_UPDATE_SOURCE = $source
+$env:MIHOMEHUB_UPDATE_SOURCE = $source
 Start-Process explorer.exe -ArgumentList $installedExe
 Write-Host ""
 Write-Host "已启动已安装版本（联调源已写入 $overrideFile）"

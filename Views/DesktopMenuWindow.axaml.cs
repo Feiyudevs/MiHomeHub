@@ -6,10 +6,10 @@ using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Interactivity;
 using Avalonia.Threading;
-using MiHome.Services;
-using MiHome.ViewModels;
+using MiHomeHub.Services;
+using MiHomeHub.ViewModels;
 
-namespace MiHome.Views;
+namespace MiHomeHub.Views;
 
 /// <summary>
 /// 分区「⋯」菜单：独立小窗。

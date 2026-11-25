@@ -10,14 +10,14 @@ using Avalonia.Interactivity;
 using Avalonia.Markup.Xaml;
 using Avalonia.Media;
 using Avalonia.VisualTree;
-using MiHome.Services;
-using MiHome.Services.Setup;
-using MiHome.ViewModels;
-using MiHome.Views;
+using MiHomeHub.Services;
+using MiHomeHub.Services.Setup;
+using MiHomeHub.ViewModels;
+using MiHomeHub.Views;
 using System.Diagnostics;
 using System.Runtime.Versioning;
 
-namespace MiHome;
+namespace MiHomeHub;
 
 [SupportedOSPlatform("windows")]
 public partial class App : Application
@@ -41,6 +41,8 @@ public partial class App : Application
     public override void OnFrameworkInitializationCompleted()
     {
         RequestedThemeVariant = ThemeStore.CurrentVariant;
+        // 全局 ToolTip 形状：单行胶囊、换行改小圆角矩形（见 Controls/ToolTipShape.cs）
+        Controls.ToolTipShape.Install();
         // 卡片投影偏好可能在启动前就是关闭状态，先落到资源再建窗口，避免首帧闪一下投影
         CardShadowScope.Apply(AppSettingsStore.CardShadow);
         if (ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)

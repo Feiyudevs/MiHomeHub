@@ -6,7 +6,7 @@ using System.Runtime;
 using System.Runtime.InteropServices;
 using System.Threading.Tasks;
 
-namespace MiHome.Services;
+namespace MiHomeHub.Services;
 
 /// <summary>
 /// 内存整理工具：在窗口收进托盘等空闲时机回收托管内存并收缩工作集，

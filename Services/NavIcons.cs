@@ -5,7 +5,7 @@ using System.Collections.Concurrent;
 using System.Collections.Generic;
 using Avalonia.Media;
 
-namespace MiHome.Services;
+namespace MiHomeHub.Services;
 
 /// <summary>
 /// 侧栏导航图标注册表：每个 IconKey 同时备有两套画法 ——
@@ -58,7 +58,7 @@ public static class NavIcons
 
     /// <summary>玻璃 SVG 的 avares 绝对地址；未出图的 key 回落到 house，玻璃模式不留空位。</summary>
     public static string SourceFor(string? key) =>
-        $"avares://MiHome/Assets/Nav/{(HasGlass(key) ? key : Fallback)}.svg";
+        $"avares://MiHomeHub/Assets/Nav/{(HasGlass(key) ? key : Fallback)}.svg";
 
     private static readonly ConcurrentDictionary<string, Geometry> LineCache = new();
 

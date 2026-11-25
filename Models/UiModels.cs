@@ -5,9 +5,9 @@ using System.Collections.Generic;
 using Avalonia;
 using Avalonia.Media;
 using CommunityToolkit.Mvvm.ComponentModel;
-using MiHome.Services;
+using MiHomeHub.Services;
 
-namespace MiHome.Models;
+namespace MiHomeHub.Models;
 
 /// <summary>房间筛选芯片：可选中，选中态由 VM 统一维护；每个房间按名称匹配一枚图标 key。</summary>
 public sealed partial class RoomChip : ObservableObject

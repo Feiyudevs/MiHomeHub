@@ -4,9 +4,9 @@
 using System;
 using Avalonia;
 using Avalonia.Controls;
-using MiHome.ViewModels;
+using MiHomeHub.ViewModels;
 
-namespace MiHome.Views;
+namespace MiHomeHub.Views;
 
 /// <summary>
 /// 我的家庭浮层：由标题栏家庭胶囊唤出，与小爱 / 音乐浮层共用同一套开合动画与位置。

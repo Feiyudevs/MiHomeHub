@@ -6,29 +6,29 @@ using System.Collections.Generic;
 using System.IO;
 using System.Text.RegularExpressions;
 
-namespace MiHome.Services.Setup;
+namespace MiHomeHub.Services.Setup;
 
 /// <summary>
 /// 自安装协议：主程序与安装外壳共享的唯一事实来源（外壳通过 Compile Include 链接本文件）。
-/// 这里只允许出现 BCL 类型，禁止引用 MiHome 的其它类型。
+/// 这里只允许出现 BCL 类型，禁止引用 MiHomeHub 的其它类型。
 /// </summary>
 internal static class SetupProtocol
 {
-    public const string ProductName = "MiHome";
-    public const string ExeName = "MiHome.exe";
+    public const string ProductName = "MiHomeHub";
+    public const string ExeName = "MiHomeHub.exe";
 
     /// <summary>旧版安装根上的独立卸载器名：仅为兼容与清理保留，新安装不再生成。</summary>
-    public const string UninstallerName = "Uninstall MiHome.exe";
+    public const string UninstallerName = "Uninstall MiHomeHub.exe";
 
     /// <summary>外壳解压 payload 的临时目录前缀（GUID 后缀）。</summary>
-    public const string SetupTempPrefix = "MiHome-Setup-";
+    public const string SetupTempPrefix = "MiHomeHub-Setup-";
 
     /// <summary>卸载搬家中转副本前缀（GUID 后缀，.exe）。</summary>
-    public const string CleanupTempPrefix = "MiHome-Cleanup-";
+    public const string CleanupTempPrefix = "MiHomeHub-Cleanup-";
 
     public const string LeaseSuffix = ".lease";
-    public const string LogFileName = "MiHome-setup.log";
-    public const string LogMutexName = @"Local\MiHome-Setup-Log";
+    public const string LogFileName = "MiHomeHub-setup.log";
+    public const string LogMutexName = @"Local\MiHomeHub-Setup-Log";
 
     public const string UninstallKeyPath =
         @"Software\Microsoft\Windows\CurrentVersion\Uninstall\" + ProductName;
@@ -59,7 +59,7 @@ internal static class SetupProtocol
     };
 
     private static readonly Regex EventPattern =
-        new(@"^Local\\MiHome-(Setup|Uninstall)-[0-9a-f]{32}$", RegexOptions.Compiled);
+        new(@"^Local\\MiHomeHub-(Setup|Uninstall)-[0-9a-f]{32}$", RegexOptions.Compiled);
 
     public static bool IsUninstallerIdentity(string? exePathWithoutExtension)
         => !string.IsNullOrEmpty(exePathWithoutExtension)
@@ -76,7 +76,7 @@ internal static class SetupProtocol
         => Path.Combine(Path.GetTempPath(), CleanupTempPrefix + Guid.NewGuid().ToString("N") + ".exe");
 
     public static string NewEventName(string kind)
-        => $@"Local\MiHome-{kind}-{Guid.NewGuid():N}";
+        => $@"Local\MiHomeHub-{kind}-{Guid.NewGuid():N}";
 
     /// <summary>
     /// 解析 <c>--name value</c> 名值对（从 <paramref name="start"/> 开始）。

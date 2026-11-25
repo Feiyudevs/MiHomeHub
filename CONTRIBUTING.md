@@ -22,7 +22,7 @@ package.cmd -SkipInstaller:: 只出单文件 exe
 
 等价 PowerShell：`.\scripts\build.ps1 [-NoRun]` / `.\scripts\release.ps1 [-Bump patch] [-SkipInstaller]`。
 
-**只运行 publish 产物**（`publish\sc-win-x64\MiHome.exe`），不要运行 `bin\Release` 下的中间产物：
+**只运行 publish 产物**（`publish\sc-win-x64\MiHomeHub.exe`），不要运行 `bin\Release` 下的中间产物：
 两者的裁剪与自包含行为不一致，验证结果无效。完整流程见 `docs\一键编译与打包.md`。
 
 ## 工程约束
@@ -35,7 +35,7 @@ package.cmd -SkipInstaller:: 只出单文件 exe
   确实无法类型化的绑定路径显式写 `{ReflectionBinding}`。
 - 应用为**托盘常驻**：关闭窗口只收进托盘；发布前脚本会按「完整 exe 名 + `ExecutablePath` 落在
   本仓库 `publish\` 下」双重限定精确结束旧实例，禁止使用通配/前缀匹配杀进程。
-- 版本号唯一来源是 `MiHome.csproj` 的 `<Version>`；打包失败重试时**不要**再带 `-Bump`。
+- 版本号唯一来源是 `MiHomeHub.csproj` 的 `<Version>`；打包失败重试时**不要**再带 `-Bump`。
 
 ## 提交前检查
 

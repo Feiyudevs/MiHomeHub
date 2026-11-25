@@ -4,9 +4,9 @@
 using System;
 using Avalonia.Controls;
 using Avalonia.Threading;
-using MiHome.Services;
+using MiHomeHub.Services;
 
-namespace MiHome.Views;
+namespace MiHomeHub.Views;
 
 public partial class MainWindow
 {

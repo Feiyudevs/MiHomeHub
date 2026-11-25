@@ -7,10 +7,10 @@ using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Interactivity;
-using MiHome.Models;
-using MiHome.ViewModels;
+using MiHomeHub.Models;
+using MiHomeHub.ViewModels;
 
-namespace MiHome.Views;
+namespace MiHomeHub.Views;
 
 /// <summary>
 /// 「添加动作」弹窗宿主：无边框透明窗体里放一张居中的 DialogPopup 卡片。

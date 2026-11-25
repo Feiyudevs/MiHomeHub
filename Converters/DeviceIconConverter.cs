@@ -5,9 +5,9 @@ using System;
 using System.Globalization;
 using Avalonia.Data.Converters;
 using Avalonia.Media;
-using MiHome.Models;
+using MiHomeHub.Models;
 
-namespace MiHome.Converters;
+namespace MiHomeHub.Converters;
 
 /// <summary>
 /// 设备图标：24 网格、圆头描边的单线路径，按 MijiaDevice.IconKey 取几何。

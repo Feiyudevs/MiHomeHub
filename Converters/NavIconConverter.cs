@@ -7,9 +7,9 @@ using System.Globalization;
 using Avalonia.Data.Converters;
 using Avalonia.Media;
 using Avalonia.Svg.Skia;
-using MiHome.Services;
+using MiHomeHub.Services;
 
-namespace MiHome.Converters;
+namespace MiHomeHub.Converters;
 
 /// <summary>IconKey → Assets/Nav 下的玻璃 SVG；未出图的 key 取 house，显示与否由图标模式控制。</summary>
 public sealed class NavSvgConverter : IValueConverter

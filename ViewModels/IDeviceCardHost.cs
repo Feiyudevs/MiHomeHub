@@ -4,7 +4,7 @@
 using System.Windows.Input;
 using Avalonia.Media;
 
-namespace MiHome.ViewModels;
+namespace MiHomeHub.ViewModels;
 
 /// <summary>
 /// 设备卡的宿主契约：主窗口列表与桌面分区共用同一张设备卡（DeviceCardTemplate），
@@ -28,4 +28,7 @@ public interface IDeviceCardHost
 
     /// <summary>卡片右键菜单的图标（24 网格线性几何），取 <see cref="CardMenuIcons"/> 里的常量。</summary>
     Geometry CardMenuIcon { get; }
+
+    /// <summary>主列表才提供的「隐藏 / 恢复此设备」动作；桌面分区返回 null，菜单项随之收起。</summary>
+    ICommand? HideCardCommand { get; }
 }

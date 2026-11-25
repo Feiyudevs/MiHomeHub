@@ -1,10 +1,10 @@
 // Copyright (C) 2026 Feiyu
 // SPDX-License-Identifier: GPL-3.0-only
 
-using MiHome.ViewModels;
-using MiHome.Views;
+using MiHomeHub.ViewModels;
+using MiHomeHub.Views;
 
-namespace MiHome.Services;
+namespace MiHomeHub.Services;
 
 /// <summary>
 /// 场景详情独立弹窗的宿主：全局只留一个窗口实例，反复打开复用，关闭后丢掉。

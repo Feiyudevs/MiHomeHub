@@ -8,7 +8,7 @@ using Avalonia.Controls.Primitives;
 using Avalonia.Input;
 using Avalonia.Interactivity;
 
-namespace MiHome.Controls;
+namespace MiHomeHub.Controls;
 
 /// <summary>
 /// 弹窗基类：遮罩 + 居中圆角卡片（浅描边 + 投影）+ 标题栏 + 可滚动正文。

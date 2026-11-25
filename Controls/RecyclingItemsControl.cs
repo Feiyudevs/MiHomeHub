@@ -6,7 +6,7 @@ using Avalonia.Controls;
 using Avalonia.Controls.Presenters;
 using Avalonia.Controls.Templates;
 
-namespace MiHome.Controls;
+namespace MiHomeHub.Controls;
 
 /// <summary>
 /// 设备列表专用：清理回收容器时释放旧数据，保留可回收的 DataTemplate 子树。

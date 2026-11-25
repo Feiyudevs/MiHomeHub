@@ -22,7 +22,7 @@ param(
 $ErrorActionPreference = "Stop"
 
 $root = Split-Path -Parent $PSScriptRoot
-$proj = Join-Path $root "MiHome.csproj"
+$proj = Join-Path $root "MiHomeHub.csproj"
 
 function Read-ProjectVersion([string]$path) {
     $text = [System.IO.File]::ReadAllText($path)
@@ -58,7 +58,7 @@ if (-not (Test-Path -LiteralPath $releaseDir)) {
     throw ("Release dir not found: $releaseDir`nBuild it first with: .\package.cmd -Version $targetVersion")
 }
 
-$setups = @(Get-ChildItem -LiteralPath $releaseDir -Filter "MiHome-Setup-$targetVersion-*.exe" -File -ErrorAction SilentlyContinue)
+$setups = @(Get-ChildItem -LiteralPath $releaseDir -Filter "MiHomeHub-Setup-$targetVersion-*.exe" -File -ErrorAction SilentlyContinue)
 $sums = Get-ChildItem -LiteralPath $releaseDir -Filter "SHA256SUMS.txt" -File -ErrorAction SilentlyContinue
 $manifest = Get-ChildItem -LiteralPath $releaseDir -Filter "update.json" -File -ErrorAction SilentlyContinue
 
@@ -69,7 +69,7 @@ if ($sums) { $artifacts += $sums.FullName }
 if (-not $manifest) { throw "update.json missing in $releaseDir (rebuild with .\package.cmd)" }
 $artifacts += $manifest.FullName
 if ($artifacts.Count -eq 0) {
-    throw "No artifacts (MiHome-Setup-$targetVersion-*.exe / SHA256SUMS.txt / update.json) in $releaseDir"
+    throw "No artifacts (MiHomeHub-Setup-$targetVersion-*.exe / SHA256SUMS.txt / update.json) in $releaseDir"
 }
 
 Write-Host "Release $tag -> $releaseDir"
@@ -108,7 +108,7 @@ if ($Channel -eq "test") {
         if ($LASTEXITCODE -ne 0) { throw "git push failed for tag $tag" }
 
         $createArgs = @("release", "create", $tag) + $artifacts +
-            @("--title", "MiHome 测试通道（内部验证）", "--prerelease") +
+            @("--title", "MiHomeHub 测试通道（内部验证）", "--prerelease") +
             $(if ($releaseArgs.Count -gt 0) { $releaseArgs } else { @("--notes", "内部测试版本，正式通道不会分发。") })
         & gh @createArgs
         if ($LASTEXITCODE -ne 0) { throw "gh release create failed for test channel (exit $LASTEXITCODE)" }

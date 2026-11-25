@@ -8,7 +8,7 @@ using System.Linq;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 
-namespace MiHome.Models;
+namespace MiHomeHub.Models;
 
 /// <summary>
 /// 米家场景 / 自动化（同一个接口返回，靠所属列表区分）。

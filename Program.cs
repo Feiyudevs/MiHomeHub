@@ -3,12 +3,12 @@
 
 using Avalonia;
 using Avalonia.Media;
-using MiHome.Services;
-using MiHome.Services.Setup;
+using MiHomeHub.Services;
+using MiHomeHub.Services.Setup;
 using System;
 using System.Runtime.Versioning;
 
-namespace MiHome;
+namespace MiHomeHub;
 
 [SupportedOSPlatform("windows")]
 internal sealed class Program
@@ -22,6 +22,9 @@ internal sealed class Program
         // 更新的无界面安装：不启 Avalonia、不建窗口，跑完事务后拉起新版本再结束本进程
         if (SetupEntry.Active && SetupEntry.Options is { Silent: true } silentOptions)
             Environment.Exit(SilentSetup.Run(silentOptions));
+
+        // 品牌改名后首次启动：把旧 MiHome 目录的登录态/缓存/偏好搬到 MiHomeHub（仅迁移一次）
+        AppPaths.TryMigrateLegacy();
 
         // 隐藏诊断口：把场景/自动化候选接口全打一遍，原始响应落盘后退出，不启界面。
         // 见 Services/SceneProbe.cs；服务端结构确认后可连同该文件一起删掉。
@@ -131,6 +134,16 @@ internal sealed class Program
         {
             var did = ss + 1 < args.Length ? args[ss + 1] : "";
             SpeakerProbe.RunSpecRawAsync(did).GetAwaiter().GetResult();
+            return;
+        }
+
+        // 文本指令探针：下发 execute-text-directive 并把云端原始回包（含 code）打印出来。
+        var sd = Array.FindIndex(args, a => string.Equals(a, "--speaker-directive-probe", StringComparison.OrdinalIgnoreCase));
+        if (sd >= 0)
+        {
+            var did = sd + 1 < args.Length && !args[sd + 1].StartsWith("--", StringComparison.Ordinal) ? args[sd + 1] : "";
+            var text = sd + 2 < args.Length ? args[sd + 2] : "";
+            SpeakerProbe.RunDirectiveProbeAsync(did, text).GetAwaiter().GetResult();
             return;
         }
 

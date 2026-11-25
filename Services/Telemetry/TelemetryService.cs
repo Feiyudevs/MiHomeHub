@@ -14,7 +14,7 @@ using System.Text.Json.Serialization;
 using System.Threading;
 using System.Threading.Tasks;
 
-namespace MiHome.Services.Telemetry;
+namespace MiHomeHub.Services.Telemetry;
 
 internal sealed class TelemetryEvent
 {
@@ -29,8 +29,14 @@ internal sealed class TelemetryConfig
     /// <summary>用户是否在设置里打开了「匿名使用统计」；默认关闭。</summary>
     public bool Enabled { get; set; }
     /// <summary>
+    /// 开关是否有人明确选择过（用户在设置里拨动、或安装器写入首次默认）。
+    /// 缺字段的老文件、以及主程序为了存 deviceId 自动生成的配置都算「没选择过」，
+    /// 安装器仍可以按首次安装的默认值覆盖，避免默认勾选被一份自动生成的 false 悄悄吃掉。
+    /// </summary>
+    public bool ChoiceSaved { get; set; }
+    /// <summary>
     /// 上报基地址，最终请求 <c>{endpoint}/track</c>。
-    /// **不进本地配置文件**：只从环境变量 <c>MIHOME_TELEMETRY_ENDPOINT</c> 读取，
+    /// **不进本地配置文件**：只从环境变量 <c>MIHOMEHUB_TELEMETRY_ENDPOINT</c> 读取，
     /// 开源分发的代码与用户机器上都不该出现私有后台地址。
     /// </summary>
     [JsonIgnore]
@@ -53,7 +59,7 @@ internal static class TelemetryService
 {
     /// <summary>
     /// 默认不内置任何上报地址：开源版本不带私有后台，地址由本机配置
-    /// （<c>telemetry.json</c> 的 <c>Endpoint</c> 或环境变量 <c>MIHOME_TELEMETRY_ENDPOINT</c>）提供；
+    /// （<c>telemetry.json</c> 的 <c>Endpoint</c> 或环境变量 <c>MIHOMEHUB_TELEMETRY_ENDPOINT</c>）提供；
     /// 没配地址时即使打开开关也不会发出请求。
     /// </summary>
     public const string DefaultEndpoint = "";
@@ -78,25 +84,29 @@ internal static class TelemetryService
 
     public static string ConfigFile => Path.Combine(AppPaths.Dir, "telemetry.json");
 
-    /// <summary>本机是否已有统计开关记录：有就说明用户（或上次安装）已经做过选择，安装器不再改动。</summary>
-    public static bool HasSavedChoice => File.Exists(ConfigFile);
+    /// <summary>本机是否已有「明确选择过」的统计开关记录：有就说明用户做过选择，安装器不再改动。</summary>
+    public static bool HasSavedChoice => ReadSavedChoice();
 
     /// <summary>
     /// 安装器调用：首次安装时把「匿名使用统计」的初始开关落盘。
-    /// **只在还没有 telemetry.json 的机器上写**——更新/重装一律不动，避免覆盖用户在设置里的选择。
+    /// **用户明确选择过就一律不动**；只有「没选择过」的配置（新机器、老文件、
+    /// 主程序为了存 deviceId 自动生成的 false）才按安装时的默认值重写，
+    /// 否则安装界面上的默认勾选会被一份自动生成的文件悄悄吃掉。
+    /// 静默更新（<paramref name="adoptUnchosen"/>=false）不接管任何已有配置，避免无界面时替用户打开。
     /// </summary>
     /// <returns>是否真的写了配置文件。</returns>
-    public static bool ApplyInstallDefault(bool enabled)
+    public static bool ApplyInstallDefault(bool enabled, bool adoptUnchosen = true)
     {
         try
         {
-            if (File.Exists(ConfigFile)) return false;
             Directory.CreateDirectory(AppPaths.Dir);
-            var cfg = new TelemetryConfig
-            {
-                Enabled = enabled,
-                DeviceId = Guid.NewGuid().ToString("N"),
-            };
+            if (ReadSavedChoice()) return false;
+            if (!adoptUnchosen && File.Exists(ConfigFile)) return false;
+
+            var cfg = ReadConfigFile() ?? new TelemetryConfig();
+            cfg.Enabled = enabled;
+            cfg.ChoiceSaved = true;
+            if (string.IsNullOrEmpty(cfg.DeviceId)) cfg.DeviceId = Guid.NewGuid().ToString("N");
             File.WriteAllText(ConfigFile, JsonSerializer.Serialize(cfg, Json), new UTF8Encoding(false));
             _loaded = false; // 让本进程后续读到刚写的值
             return true;
@@ -206,6 +216,7 @@ internal static class TelemetryService
         var cfg = EnsureLoaded();
         if (cfg.Enabled == on) return;
         cfg.Enabled = on;
+        cfg.ChoiceSaved = true; // 用户自己拨过开关，安装器以后不再覆盖
         if (on)
         {
             // 开启即算一次启动事件，便于立刻看到一条真实数据
@@ -244,7 +255,10 @@ internal static class TelemetryService
     {
         var cfg = EnsureLoaded();
         if (!cfg.Enabled || cfg.AppId <= 0 || string.IsNullOrWhiteSpace(cfg.Endpoint)) return;
-        if (!await Sending.WaitAsync(0)) return;
+        if (!await Sending.WaitAsync(0).ConfigureAwait(false)) return;
+
+        // 从这里开始不再碰 UI 线程：Shutdown() 会用 FlushAsync().Wait(3s) 同步等这一趟发完，
+        // 若 await 回到 UI 线程就会在等待里死锁（关闭时白卡 3 秒且最后一批数据发不出去）。
 
         List<TelemetryEvent> batch;
         long activeMs;
@@ -281,9 +295,9 @@ internal static class TelemetryService
         {
             using var timeout = new CancellationTokenSource(HttpTimeout);
             using var content = new StringContent(JsonSerializer.Serialize(body, Json), Encoding.UTF8, "application/json");
-            using var response = await Http.PostAsync(TrackUrl(cfg.Endpoint), content, timeout.Token);
+            using var response = await Http.PostAsync(TrackUrl(cfg.Endpoint), content, timeout.Token).ConfigureAwait(false);
             response.EnsureSuccessStatusCode();
-            var text = await response.Content.ReadAsStringAsync(timeout.Token);
+            var text = await response.Content.ReadAsStringAsync(timeout.Token).ConfigureAwait(false);
             if (text.Contains("\"ok\":false", StringComparison.Ordinal)) throw new InvalidOperationException("服务端未受理");
 
             lock (Gate)
@@ -369,6 +383,23 @@ internal static class TelemetryService
         }
     }
 
+    /// <summary>只读 telemetry.json 本身（不叠加 settings/环境变量），用于判定是否已有人做过选择。</summary>
+    private static TelemetryConfig? ReadConfigFile()
+    {
+        try
+        {
+            if (!File.Exists(ConfigFile)) return null;
+            return JsonSerializer.Deserialize<TelemetryConfig>(File.ReadAllText(ConfigFile), Json);
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
+    private static bool ReadSavedChoice()
+        => ReadConfigFile() is { ChoiceSaved: true };
+
     private static TelemetryConfig LoadConfig()
     {
         var cfg = new TelemetryConfig();
@@ -381,18 +412,18 @@ internal static class TelemetryService
         }
         catch { /* 配置损坏按默认（关闭）处理 */ }
 
-        // 地址与编号来自 MiHome.settings.json（与本应用更新后台同一套），不写进 telemetry.json、也不内置默认值
+        // 地址与编号来自 MiHomeHub.settings.json（与本应用更新后台同一套），不写进 telemetry.json、也不内置默认值
         var settings = AppSettings.Current;
         cfg.Endpoint = settings.Endpoint?.Trim() ?? "";
         cfg.AppId = settings.AppId;
 
         // 环境变量优先，便于开发和 CI 自检
-        var envOn = Environment.GetEnvironmentVariable("MIHOME_TELEMETRY")?.Trim();
+        var envOn = Environment.GetEnvironmentVariable("MIHOMEHUB_TELEMETRY")?.Trim();
         if (envOn is "1" or "true" or "on") cfg.Enabled = true;
         else if (envOn is "0" or "false" or "off") cfg.Enabled = false;
-        var envEndpoint = Environment.GetEnvironmentVariable("MIHOME_API_BASE")?.Trim();
+        var envEndpoint = Environment.GetEnvironmentVariable("MIHOMEHUB_API_BASE")?.Trim();
         if (!string.IsNullOrEmpty(envEndpoint)) cfg.Endpoint = envEndpoint;
-        var envApp = Environment.GetEnvironmentVariable("MIHOME_APP_ID")?.Trim();
+        var envApp = Environment.GetEnvironmentVariable("MIHOMEHUB_APP_ID")?.Trim();
         if (int.TryParse(envApp, out var appId)) cfg.AppId = appId;
 
         return cfg;
@@ -449,7 +480,7 @@ internal static class TelemetryService
     private static HttpClient CreateClient()
     {
         var client = new HttpClient { Timeout = Timeout.InfiniteTimeSpan };
-        client.DefaultRequestHeaders.UserAgent.Add(new ProductInfoHeaderValue("MiHome", "1.0"));
+        client.DefaultRequestHeaders.UserAgent.Add(new ProductInfoHeaderValue("MiHomeHub", "1.0"));
         client.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
         return client;
     }

@@ -6,10 +6,10 @@ using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Interactivity;
 using Avalonia.Threading;
-using MiHome.Services;
-using MiHome.ViewModels;
+using MiHomeHub.Services;
+using MiHomeHub.ViewModels;
 
-namespace MiHome.Views;
+namespace MiHomeHub.Views;
 
 /// <summary>
 /// 桌面媒体分区的换音箱浮层：独立顶层小窗，贴着音箱那一行下方展开，失焦即收。

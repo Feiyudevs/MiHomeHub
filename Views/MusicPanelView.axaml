@@ -1,9 +1,9 @@
 <UserControl xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-             xmlns:conv="clr-namespace:MiHome.Converters"
-             xmlns:ctl="clr-namespace:MiHome.Controls"
-             xmlns:vm="clr-namespace:MiHome.ViewModels"
-             x:Class="MiHome.Views.MusicPanelView"
+             xmlns:conv="clr-namespace:MiHomeHub.Converters"
+             xmlns:ctl="clr-namespace:MiHomeHub.Controls"
+             xmlns:vm="clr-namespace:MiHomeHub.ViewModels"
+             x:Class="MiHomeHub.Views.MusicPanelView"
              x:DataType="vm:MainViewModel">
     <Border x:Name="MusicPanel" Classes="MusicPanel" Width="344"
             HorizontalAlignment="Left" VerticalAlignment="Top" Margin="12,2,0,0"

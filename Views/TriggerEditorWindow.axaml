@@ -1,9 +1,9 @@
 <Window xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        xmlns:vm="clr-namespace:MiHome.ViewModels"
-        xmlns:m="clr-namespace:MiHome.Models"
-        xmlns:ctl="clr-namespace:MiHome.Controls"
-        x:Class="MiHome.Views.TriggerEditorWindow"
+        xmlns:vm="clr-namespace:MiHomeHub.ViewModels"
+        xmlns:m="clr-namespace:MiHomeHub.Models"
+        xmlns:ctl="clr-namespace:MiHomeHub.Controls"
+        x:Class="MiHomeHub.Views.TriggerEditorWindow"
         x:DataType="vm:MainViewModel"
         Title="触发条件"
         SystemDecorations="None"
@@ -18,7 +18,7 @@
          确定 / 取消直接复用 ConfirmTrigger / CancelTriggerEditor 两个命令。
          窗体铺满父窗口客户区（尺寸由 FitTo 设置），遮罩才能像设置弹窗一样盖住整窗。 -->
     <Window.Styles>
-        <StyleInclude Source="avares://MiHome/Themes/MainWindowStyles.axaml" />
+        <StyleInclude Source="avares://MiHomeHub/Themes/MainWindowStyles.axaml" />
     </Window.Styles>
 
     <ctl:DialogPopup x:Name="EditorPopup" CardWidth="500" CardMaxHeight="600"

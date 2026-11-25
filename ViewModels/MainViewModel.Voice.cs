@@ -17,11 +17,11 @@ using Avalonia.Styling;
 using Avalonia.Threading;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
-using MiHome.Models;
-using MiHome.Services;
+using MiHomeHub.Models;
+using MiHomeHub.Services;
 using QRCoder;
 
-namespace MiHome.ViewModels;
+namespace MiHomeHub.ViewModels;
 
 public partial class MainViewModel : ObservableObject
 {

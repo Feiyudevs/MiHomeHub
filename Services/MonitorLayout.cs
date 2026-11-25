@@ -6,7 +6,7 @@ using System.Collections.Generic;
 using System.Runtime.InteropServices;
 using Avalonia;
 
-namespace MiHome.Services;
+namespace MiHomeHub.Services;
 
 /// <summary>
 /// 多屏落位：给每块显示器算一个签名（设备名 + 边界），窗口与桌面分区的位置记录里连签名一起存。

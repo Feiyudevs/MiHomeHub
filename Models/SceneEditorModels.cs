@@ -9,7 +9,7 @@ using System.Text.Json;
 using System.Text.Json.Nodes;
 using CommunityToolkit.Mvvm.ComponentModel;
 
-namespace MiHome.Models;
+namespace MiHomeHub.Models;
 
 /// <summary>
 /// 触发条件下拉里的一行：一条触发源或一条状态条件。

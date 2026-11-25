@@ -6,7 +6,7 @@ using System.IO;
 using System.Runtime.InteropServices;
 using System.Threading;
 
-namespace MiHome.Services.Setup;
+namespace MiHomeHub.Services.Setup;
 
 /// <summary>
 /// 安装模式的最早入口（必须在单实例 Mutex / 桌面钩子 / 托盘之前调用）：
@@ -51,7 +51,7 @@ internal static class SetupEntry
             if (Options?.SelfTestRoot is { } testRoot)
                 WriteSelfTestError(testRoot, "setup-entry", ex.Message, null);
             else
-                SetupMessageBox.Error("MiHome", "安装程序启动失败：" + ex.Message + "\n\n" + SetupLog.FilePath);
+                SetupMessageBox.Error("MiHomeHub", "安装程序启动失败：" + ex.Message + "\n\n" + SetupLog.FilePath);
             Environment.ExitCode = 2;
             return true;
         }
@@ -127,8 +127,8 @@ internal static class SetupEntry
             var full = SetupFiles.Normalize(selfTest);
             var temp = SetupFiles.Normalize(Path.GetTempPath());
             var name = Path.GetFileName(full);
-            if (!SetupFiles.IsUnder(full, temp) || !name.StartsWith("MiHome-test-", StringComparison.OrdinalIgnoreCase))
-                throw new ArgumentException("隔离自测目录必须是 %TEMP% 下 MiHome-test- 前缀的目录");
+            if (!SetupFiles.IsUnder(full, temp) || !name.StartsWith("MiHomeHub-test-", StringComparison.OrdinalIgnoreCase))
+                throw new ArgumentException("隔离自测目录必须是 %TEMP% 下 MiHomeHub-test- 前缀的目录");
             selfTest = full;
         }
 
@@ -154,7 +154,7 @@ internal static class SetupEntry
         var self = Environment.ProcessPath;
         if (string.IsNullOrEmpty(self) || !File.Exists(self))
         {
-            SetupMessageBox.Error("MiHome", "没有找到安装信息，无法卸载。\n\n" + SetupLog.FilePath);
+            SetupMessageBox.Error("MiHomeHub", "没有找到安装信息，无法卸载。\n\n" + SetupLog.FilePath);
             SetupLog.Fail("uninstall-relay", new IOException("未找到当前程序路径"));
             Environment.ExitCode = 2;
             return true;
@@ -163,7 +163,7 @@ internal static class SetupEntry
         var exit = UninstallChain.LaunchFromInstalled(self, args);
         if (exit != 0)
         {
-            SetupMessageBox.Error("MiHome", "没有找到安装信息，无法卸载。\n\n" + SetupLog.FilePath);
+            SetupMessageBox.Error("MiHomeHub", "没有找到安装信息，无法卸载。\n\n" + SetupLog.FilePath);
             SetupLog.Fail("uninstall-relay", new IOException("无法启动卸载链"), path: self);
         }
         Environment.ExitCode = exit;
@@ -224,7 +224,7 @@ internal static class SetupEntry
         var arp = Path.Combine(root, "uninstall.json");
         if (!File.Exists(arp)) return "卸载登记未写入";
         var text = File.ReadAllText(arp);
-        // 卸载入口已合并进主程序：UninstallString 必须指向 app\MiHome.exe --uninstall
+        // 卸载入口已合并进主程序：UninstallString 必须指向 app\MiHomeHub.exe --uninstall
         if (!text.Contains(SetupProtocol.ExeName, StringComparison.Ordinal)
             || !text.Contains("--uninstall", StringComparison.OrdinalIgnoreCase))
             return "卸载登记的 UninstallString 未指向主程序";

@@ -6,7 +6,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Text;
 
-namespace MiHome.Services.Setup;
+namespace MiHomeHub.Services.Setup;
 
 /// <summary>安装前后需要成组回滚的「登记现场」快照。</summary>
 internal sealed class SetupSnapshot

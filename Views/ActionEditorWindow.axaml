@@ -1,8 +1,8 @@
 <Window xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        xmlns:vm="clr-namespace:MiHome.ViewModels"
-        xmlns:ctl="clr-namespace:MiHome.Controls"
-        x:Class="MiHome.Views.ActionEditorWindow"
+        xmlns:vm="clr-namespace:MiHomeHub.ViewModels"
+        xmlns:ctl="clr-namespace:MiHomeHub.Controls"
+        x:Class="MiHomeHub.Views.ActionEditorWindow"
         x:DataType="vm:MainViewModel"
         Title="添加动作"
         SystemDecorations="None"
@@ -15,7 +15,7 @@
     <!-- 添加动作弹窗：① 设备 → ② 属性 → ③ 值，跟触发条件弹窗同一套做法（独立窗体 + 居中卡片）。
          状态都挂在主视图模型上，「添加 / 取消」直接复用 ConfirmAddAction / CancelAddAction。 -->
     <Window.Styles>
-        <StyleInclude Source="avares://MiHome/Themes/MainWindowStyles.axaml" />
+        <StyleInclude Source="avares://MiHomeHub/Themes/MainWindowStyles.axaml" />
     </Window.Styles>
 
     <ctl:DialogPopup x:Name="EditorPopup" CardWidth="500" CardMaxHeight="640"

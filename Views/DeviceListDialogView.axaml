@@ -1,8 +1,8 @@
 <UserControl xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-             xmlns:vm="clr-namespace:MiHome.ViewModels"
-             xmlns:ctl="clr-namespace:MiHome.Controls"
-             x:Class="MiHome.Views.DeviceListDialogView"
+             xmlns:vm="clr-namespace:MiHomeHub.ViewModels"
+             xmlns:ctl="clr-namespace:MiHomeHub.Controls"
+             x:Class="MiHomeHub.Views.DeviceListDialogView"
              x:DataType="vm:MainViewModel">
     <!-- 统计卡共用的设备清单弹窗（灯光卡 = 全屋灯，在线卡 = 离线设备）。
          正文复用主窗口那张设备卡，动作仍由 MainViewModel(IDeviceCardHost) 接：点卡开抽屉、点电源键下发开关。 -->

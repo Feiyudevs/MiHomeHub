@@ -5,7 +5,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 
-namespace MiHome.Models;
+namespace MiHomeHub.Models;
 
 /// <summary>通用规格属性的控件形态，由 format / value-list / value-range 决定。</summary>
 public enum SpecControlKind
@@ -69,6 +69,13 @@ public sealed class SpecPropertyDef
         or "int16" or "int32" or "int64" or "uint64" or "float" or "double";
 
     public bool IsText => Format == "string";
+
+    /// <summary>电量类属性的短名（不同机型/代际的叫法）。</summary>
+    public bool IsBatteryName => Name is "battery" or "battery-level" or "charge-progress"
+        or "charge-level" or "battery-percentage";
+
+    /// <summary>值域像百分比：量程落在 2–100。用来区分「电量状态量（0 低 / 1 正常）」。</summary>
+    public bool LooksPercent => HasRange && Max <= 100 && Max > 1;
 
     public SpecControlKind Kind
     {
@@ -154,14 +161,15 @@ public sealed class DeviceSpec
         Properties.FirstOrDefault(x => x.Readable && x.Name == name);
 
     /// <summary>
-    /// 耗材余量：滤芯/刷头 life-level 与电量 battery-level（0–100 百分比）。
-    /// battery 只在量程不超过 100 时才算百分比，避免把毫伏读数当成余量。
+    /// 耗材余量：滤芯/刷头 life-level 与电量（0–100 百分比）。
+    /// 电量属性名各机型不统一，且同名不同义：净烟机 P2 的 battery-level 是
+    /// 「0 低电量 / 1 正常」的状态量，真正的百分比在 charge-progress（1–100 percentage）。
+    /// 所以电量只认值域落在 2–100 的属性，枚举/状态量一律不算，否则「正常」会被显示成 1%。
     /// </summary>
     public IEnumerable<SpecPropertyDef> ConsumableProps =>
-        Properties.Where(p => p.Readable && p.IsNumeric &&
+        Properties.Where(p => p.Readable && p.IsNumeric && p.Options.Count == 0 &&
             (p.Name.Contains("life-level", StringComparison.Ordinal) ||
-             p.Name == "battery-level" ||
-             (p.Name == "battery" && (!p.HasRange || p.Max <= 100))));
+             (p.IsBatteryName && p.LooksPercent)));
 
     /// <summary>音箱音量属性：speaker 服务的 volume，可读可写、0–100。</summary>
     public SpecPropertyDef? SpeakerVolume =>

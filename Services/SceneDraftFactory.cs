@@ -3,9 +3,9 @@
 
 using System;
 using System.Text.Json.Nodes;
-using MiHome.Models;
+using MiHomeHub.Models;
 
-namespace MiHome.Services;
+namespace MiHomeHub.Services;
 
 /// <summary>
 /// 新建场景 / 自动化用的空白报文骨架。

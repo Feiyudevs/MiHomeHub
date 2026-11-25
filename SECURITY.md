@@ -5,7 +5,7 @@
 扫码登录后，凭证以 **Windows DPAPI（当前用户作用域）加密**的形式保存在用户目录：
 
 ```
-%APPDATA%\Feiyu\MiHome\auth.json
+%APPDATA%\Feiyu\MiHomeHub\auth.json
 ```
 
 文件内容为 `dpapi:<Base64>`，只有登录该 Windows 账户的用户可解密；复制到其他账户或
@@ -21,14 +21,14 @@
 
 「退出登录」会清除 `serviceToken` / `ssecurity`，但**保留** `passToken` 用于免扫码一键登录；
 如需彻底清除凭证，请在设置中执行退出后手动删除 `auth.json`，或删除整个
-`%APPDATA%\Feiyu\MiHome\` 目录（会同时丢失本地偏好、设备缓存与桌面分组配置）。
+`%APPDATA%\Feiyu\MiHomeHub\` 目录（会同时丢失本地偏好、设备缓存与桌面分组配置）。
 
 `.gitignore` 已忽略 `auth.json`、`app.json`、`theme.json`、`devices.json`、`crash_*.txt`、
 `*.log` 及各类探针输出。
 
 ## 调试探针
 
-`MiHome.exe` 的部分命令行参数（设备触发器、场景、音箱探测）会把真实设备 `did` 与云端
+`MiHomeHub.exe` 的部分命令行参数（设备触发器、场景、音箱探测）会把真实设备 `did` 与云端
 响应报文打印到控制台或写入本地文件。这些输出可能包含家庭与设备标识，分享前请自行脱敏。
 
 ## 网络与数据

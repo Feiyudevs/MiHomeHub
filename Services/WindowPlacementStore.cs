@@ -5,9 +5,9 @@ using System;
 using System.IO;
 using System.Text.Json;
 
-namespace MiHome.Services;
+namespace MiHomeHub.Services;
 
-/// <summary>窗口位置与大小持久化在 %APPDATA%\Feiyu\MiHome\window.json，与 theme.json 同目录。</summary>
+/// <summary>窗口位置与大小持久化在 %APPDATA%\Feiyu\MiHomeHub\window.json，与 theme.json 同目录。</summary>
 public static class WindowPlacementStore
 {
     private static readonly string Dir = AppPaths.Dir;

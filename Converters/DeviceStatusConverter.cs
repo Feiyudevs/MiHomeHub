@@ -4,9 +4,9 @@
 using System;
 using System.Globalization;
 using Avalonia.Data.Converters;
-using MiHome.Models;
+using MiHomeHub.Models;
 
-namespace MiHome.Converters;
+namespace MiHomeHub.Converters;
 
 /// <summary>设备状态文案：离线 / 已开启 / 已关闭。颜色由 TextBlock.DevStatus 样式类驱动。</summary>
 public sealed class DeviceStatusConverter : IValueConverter

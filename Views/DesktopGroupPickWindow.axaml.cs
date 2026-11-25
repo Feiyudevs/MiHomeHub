@@ -6,10 +6,10 @@ using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.Threading;
-using MiHome.Models;
-using MiHome.ViewModels;
+using MiHomeHub.Models;
+using MiHomeHub.ViewModels;
 
-namespace MiHome.Views;
+namespace MiHomeHub.Views;
 
 /// <summary>
 /// 「添加到桌面组件」选择分区弹窗：铺满主窗口客户区，遮罩压暗软件本体，卡片居中。

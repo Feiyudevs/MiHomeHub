@@ -1,9 +1,9 @@
 <UserControl xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-             xmlns:m="clr-namespace:MiHome.Models"
-             xmlns:vm="clr-namespace:MiHome.ViewModels"
-             xmlns:ctl="clr-namespace:MiHome.Controls"
-             x:Class="MiHome.Views.DesktopDevicesPanel"
+             xmlns:m="clr-namespace:MiHomeHub.Models"
+             xmlns:vm="clr-namespace:MiHomeHub.ViewModels"
+             xmlns:ctl="clr-namespace:MiHomeHub.Controls"
+             x:Class="MiHomeHub.Views.DesktopDevicesPanel"
              x:DataType="vm:DesktopGroupVm"
              ClipToBounds="False">
 
@@ -32,19 +32,12 @@
         </Style>
 
         <!-- 卡面是半透明的（透出墙纸），主窗口那套灰压上去读不清：
-             名称用近纯白，房间 / 路数 / 计数用提亮后的次级色（DskText2Brush） -->
+             名称用近纯白，房间 / 计数用提亮后的次级色（DskText2Brush） -->
         <Style Selector="ctl|DeviceCardButton.DevCard TextBlock.DevName">
             <Setter Property="Foreground" Value="{DynamicResource DskTextBrush}" />
         </Style>
         <Style Selector="ctl|DeviceCardButton.DevCard TextBlock.DevMeta">
             <Setter Property="Foreground" Value="{DynamicResource DskText2Brush}" />
-        </Style>
-        <Style Selector="ctl|DeviceCardButton.DevCard TextBlock.DevBadgeText">
-            <Setter Property="Foreground" Value="{DynamicResource DskText2Brush}" />
-        </Style>
-        <!-- 路数角标底色也提亮一档，否则深色角标上的亮字看起来像被糊住 -->
-        <Style Selector="ctl|DeviceCardButton.DevCard Border.DevBadge">
-            <Setter Property="Background" Value="#1FFFFFFF" />
         </Style>
 
         <!-- ======== 卡片「更多」（三个点）在玻璃分区里不铺深色方底 ========
@@ -60,26 +53,29 @@
             <Setter Property="BorderBrush" Value="#1AFFFFFF" />
             <Setter Property="BorderThickness" Value="1" />
         </Style>
+        <!-- 悬停 / 按下只挪一小格（底 +1~6% 白、描边 +7~14% 白），并且由全局那档
+             BrushTransition 渐变过去 —— 玻璃卡上的半透明方底一旦色值大跳就是整块闪一下 -->
         <Style Selector="ctl|DeviceCardButton.DevCard ctl|DeviceMoreButton.MoreBtn:pointerover Border.MoreBtnPill">
-            <Setter Property="Background" Value="#14FFFFFF" />
-            <Setter Property="BorderBrush" Value="#33FFFFFF" />
+            <Setter Property="Background" Value="#12FFFFFF" />
+            <Setter Property="BorderBrush" Value="#2AFFFFFF" />
         </Style>
         <Style Selector="ctl|DeviceCardButton.DevCard ctl|DeviceMoreButton.MoreBtn:pressed Border.MoreBtnPill">
-            <Setter Property="Background" Value="#26FFFFFF" />
-            <Setter Property="BorderBrush" Value="#4DFFFFFF" />
+            <Setter Property="Background" Value="#1AFFFFFF" />
+            <Setter Property="BorderBrush" Value="#38FFFFFF" />
         </Style>
-        <!-- 图标淡出与「更多」的淡入同为 0.12s，悬停切换不闪 -->
+        <!-- 图标淡出与「更多」的淡入同为 0.22s（同一档过渡时长），悬停切换不闪；
+             这里若比全局那档短，悬停移开时图标先弹回、方底还在渐隐，会露出半透明底压着图标的一瞬 -->
         <Style Selector="ctl|DeviceCardButton.DevCard Border.DevIc">
             <Setter Property="Transitions">
                 <Transitions>
-                    <DoubleTransition Property="Opacity" Duration="0:0:0.12" />
+                    <DoubleTransition Property="Opacity" Duration="0:0:0.22" />
                 </Transitions>
             </Setter>
         </Style>
         <Style Selector="ctl|DeviceCardButton.DevCard Border.DevPhoto">
             <Setter Property="Transitions">
                 <Transitions>
-                    <DoubleTransition Property="Opacity" Duration="0:0:0.12" />
+                    <DoubleTransition Property="Opacity" Duration="0:0:0.22" />
                 </Transitions>
             </Setter>
         </Style>

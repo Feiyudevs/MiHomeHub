@@ -6,9 +6,9 @@ using System.IO;
 using System.Text.Json;
 using System.Threading.Tasks;
 
-namespace MiHome.Services;
+namespace MiHomeHub.Services;
 
-/// <summary>侧栏图标样式偏好持久化在 %APPDATA%\Feiyu\MiHome\iconstyle.json，与 theme.json 同目录。</summary>
+/// <summary>侧栏图标样式偏好持久化在 %APPDATA%\Feiyu\MiHomeHub\iconstyle.json，与 theme.json 同目录。</summary>
 public static class IconStyleStore
 {
     private static readonly string Dir = AppPaths.Dir;

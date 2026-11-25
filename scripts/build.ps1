@@ -8,11 +8,11 @@ param(
 $ErrorActionPreference = "Stop"
 
 $root = Split-Path -Parent $PSScriptRoot
-$proj = Join-Path $root "MiHome.csproj"
-$dll = Join-Path $root "bin\Release\net10.0\win-x64\MiHome.dll"
+$proj = Join-Path $root "MiHomeHub.csproj"
+$dll = Join-Path $root "bin\Release\net10.0\win-x64\MiHomeHub.dll"
 $publishScript = Join-Path $PSScriptRoot "publish-sc.ps1"
 $publishDir = Join-Path $root "publish\sc-win-x64"
-$exePath = Join-Path $publishDir "MiHome.exe"
+$exePath = Join-Path $publishDir "MiHomeHub.exe"
 
 # Fix NuGet restore: path1 cannot be null
 if (-not $env:ProgramFiles) { $env:ProgramFiles = "C:\Program Files" }
@@ -29,11 +29,11 @@ if ($NoRun) {
     return
 }
 
-# publish-sc.ps1 overwrites MiHome.exe, so a running tray instance locks it.
+# publish-sc.ps1 overwrites MiHomeHub.exe, so a running tray instance locks it.
 # 杀本仓库 publish\ 下全部实例（含 release\1.0.0 等旧拷贝），避免点到旧界面。
 $publishRoot = [System.IO.Path]::GetFullPath((Join-Path $root "publish"))
 $running = @(Get-CimInstance Win32_Process -ErrorAction SilentlyContinue | Where-Object {
-    $_.Name -ieq "MiHome.exe" -and $_.ExecutablePath
+    $_.Name -ieq "MiHomeHub.exe" -and $_.ExecutablePath
 })
 $toStop = @()
 foreach ($proc in $running) {
@@ -54,11 +54,11 @@ if ($LASTEXITCODE -ne 0) { throw "publish-sc.ps1 failed with exit code $LASTEXIT
 if (-not (Test-Path -LiteralPath $exePath)) { throw "published exe not found: $exePath" }
 
 # 托盘常驻应用：交给 explorer 启动，进程归属桌面 shell，避免被当前命令会话回收。
-# 但开发时用来注入私有后台/测试通道的 MIHOME_* 变量只在当前会话里，explorer 看不到；
+# 但开发时用来注入私有后台/测试通道的 MIHOMEHUB_* 变量只在当前会话里，explorer 看不到；
 # 所以带这些变量时直接用 Start-Process -Environment 把变量带进新进程。
 $passEnv = @(
-    'MIHOME_API_BASE', 'MIHOME_APP_ID', 'MIHOME_TELEMETRY',
-    'MIHOME_UPDATE_CHANNEL', 'MIHOME_UPDATE_SOURCE'
+    'MIHOMEHUB_API_BASE', 'MIHOMEHUB_APP_ID', 'MIHOMEHUB_TELEMETRY',
+    'MIHOMEHUB_UPDATE_CHANNEL', 'MIHOMEHUB_UPDATE_SOURCE'
 )
 $passEnv = $passEnv | Where-Object { -not [string]::IsNullOrWhiteSpace([Environment]::GetEnvironmentVariable($_, 'Process')) }
 $passEnv = @($passEnv)

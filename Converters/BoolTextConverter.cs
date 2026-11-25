@@ -4,9 +4,9 @@
 using System;
 using System.Globalization;
 using Avalonia.Data.Converters;
-using MiHome.Models;
+using MiHomeHub.Models;
 
-namespace MiHome.Converters;
+namespace MiHomeHub.Converters;
 
 /// <summary>bool → 文本，参数格式 "trueText|falseText"。</summary>
 public sealed class BoolTextConverter : IValueConverter

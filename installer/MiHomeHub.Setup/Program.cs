@@ -8,15 +8,15 @@ using System.IO.Compression;
 using System.Reflection;
 using System.Text;
 using System.Threading;
-using MiHome.Services.Setup;
+using MiHomeHub.Services.Setup;
 
-namespace MiHome.Setup;
+namespace MiHomeHub.Setup;
 
 /// <summary>
 /// 自安装器外壳（无 UI 框架）：
 /// 1) 解压内嵌 payload.zip 到 %TEMP%；
 /// 2) 挂起启动主程序（--setup），由主程序 Avalonia 界面完成安装；
-/// 3) 旧版卸载器身份兼容：安装根的 Uninstall MiHome.exe 走 <see cref="UninstallChain"/> 中转；
+/// 3) 旧版卸载器身份兼容：安装根的 Uninstall MiHomeHub.exe 走 <see cref="UninstallChain"/> 中转；
 /// 4) 退出时清理临时目录。
 /// </summary>
 internal static class SetupShellProgram

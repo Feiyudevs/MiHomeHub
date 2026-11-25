@@ -8,9 +8,9 @@ using System.IO;
 using System.Linq;
 using System.Threading;
 
-namespace MiHome.Services.Setup;
+namespace MiHomeHub.Services.Setup;
 
-/// <summary>安装前后的进程协同：关闭安装在目标目录里的 MiHome 实例，完成后启动新版本。</summary>
+/// <summary>安装前后的进程协同：关闭安装在目标目录里的 MiHomeHub 实例，完成后启动新版本。</summary>
 internal static class SetupProcess
 {
     public static List<Process> FindRunning(string root)
@@ -20,7 +20,7 @@ internal static class SetupProcess
         {
             try
             {
-                if (!string.Equals(p.ProcessName, "MiHome", StringComparison.OrdinalIgnoreCase))
+                if (!string.Equals(p.ProcessName, "MiHomeHub", StringComparison.OrdinalIgnoreCase))
                 {
                     p.Dispose();
                     continue;
@@ -41,7 +41,7 @@ internal static class SetupProcess
         return list;
     }
 
-    /// <summary>关闭目标目录里的实例。MiHome 默认关闭即收进托盘，所以先试 WM_CLOSE，等不到再强杀。</summary>
+    /// <summary>关闭目标目录里的实例。MiHomeHub 默认关闭即收进托盘，所以先试 WM_CLOSE，等不到再强杀。</summary>
     public static bool StopRunning(string root, int timeoutMs = 8000)
     {
         var running = FindRunning(root);

@@ -2,10 +2,10 @@
     xmlns="https://github.com/avaloniaui"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:ani="clr-namespace:Avalonia.Animation.Easings;assembly=Avalonia.Base"
-    xmlns:conv="clr-namespace:MiHome.Converters"
-    xmlns:ctl="clr-namespace:MiHome.Controls"
-    xmlns:vm="clr-namespace:MiHome.ViewModels"
-    xmlns:m="clr-namespace:MiHome.Models">
+    xmlns:conv="clr-namespace:MiHomeHub.Converters"
+    xmlns:ctl="clr-namespace:MiHomeHub.Controls"
+    xmlns:vm="clr-namespace:MiHomeHub.ViewModels"
+    xmlns:m="clr-namespace:MiHomeHub.Models">
         <conv:DeviceStatusConverter x:Key="DevStatus" />
         <conv:IntEqualsConverter x:Key="IntEq" />
         <!-- 音箱媒体控制图标：上一曲 / 下一曲 / 暂停，用实心几何避免小尺寸下线条糊成一团。
@@ -61,6 +61,27 @@
                     Command="{Binding $parent[Window].((vm:MainViewModel)DataContext).SetSpecChoiceCommand}"
                     CommandParameter="{Binding}" />
         </DataTemplate>
+        <!-- 详情顶部实时读数卡：标题 + 格式化读数 -->
+        <DataTemplate x:Key="MetricTileTemplate" x:DataType="vm:MetricTileVm">
+            <Border Classes="MetricTile" Width="104" Margin="0,0,8,8">
+                <StackPanel Spacing="4">
+                    <TextBlock Text="{Binding Title}" FontSize="11.5"
+                               Foreground="{DynamicResource Text3Brush}"
+                               TextTrimming="CharacterEllipsis" />
+                    <TextBlock Text="{Binding ValueText}" FontSize="16" FontWeight="SemiBold"
+                               Foreground="{DynamicResource TextBrush}"
+                               TextTrimming="CharacterEllipsis" />
+                </StackPanel>
+            </Border>
+        </DataTemplate>
+        <!-- 卡片外显：一个读数一枚胶囊，点亮=已在卡片副标题上，点一下即加/移 -->
+        <DataTemplate x:Key="CardMetricChipTemplate" x:DataType="vm:CardMetricVm">
+            <Button Classes="SegBtn" Classes.is-on="{Binding IsShown}"
+                    Content="{Binding Title}" HorizontalAlignment="Left"
+                    MinWidth="58" Margin="0,0,6,6" Padding="12,0"
+                    Command="{Binding $parent[Window].((vm:MainViewModel)DataContext).ToggleCardMetricCommand}"
+                    CommandParameter="{Binding}" />
+        </DataTemplate>
         <DataTemplate x:Key="SpecPropTemplate" x:DataType="vm:SpecPropVm">
             <StackPanel Spacing="7" Margin="0,0,0,12">
                 <Grid ColumnDefinitions="*,Auto">
@@ -101,9 +122,10 @@
                 </Border>
             </StackPanel>
         </DataTemplate>
-        <!-- 高级设置分区：服务标题下一条淡分割线，只在分区之间画，不再逐行铺线 -->
+        <!-- 高级设置分区：服务标题下一条淡分割线，只在分区之间画，不再逐行铺线。
+             外层已经是一张 DrCard，这里必须是 DrSubCard —— 同色嵌套会看不出是独立分组 -->
         <DataTemplate x:Key="SpecGroupTemplate" x:DataType="vm:SpecGroupVm">
-            <Border Classes="DrCard">
+            <Border Classes="DrSubCard">
                 <StackPanel Spacing="10">
                     <TextBlock Text="{Binding Title}" FontSize="12.5"
                                Foreground="{DynamicResource Text2Brush}" />

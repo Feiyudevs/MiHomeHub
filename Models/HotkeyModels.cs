@@ -5,7 +5,7 @@ using System;
 using System.Collections.Generic;
 using System.Text.Json.Serialization;
 
-namespace MiHome.Models;
+namespace MiHomeHub.Models;
 
 /// <summary>控制目标的类型：设备 / 手动场景 / 自动化。</summary>
 public enum HotkeyTargetType

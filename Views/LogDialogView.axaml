@@ -1,9 +1,9 @@
 <UserControl xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-             xmlns:m="clr-namespace:MiHome.Models"
-             xmlns:vm="clr-namespace:MiHome.ViewModels"
-             xmlns:ctl="clr-namespace:MiHome.Controls"
-             x:Class="MiHome.Views.LogDialogView"
+             xmlns:m="clr-namespace:MiHomeHub.Models"
+             xmlns:vm="clr-namespace:MiHomeHub.ViewModels"
+             xmlns:ctl="clr-namespace:MiHomeHub.Controls"
+             x:Class="MiHomeHub.Views.LogDialogView"
              x:DataType="vm:MainViewModel">
     <ctl:DialogPopup CardWidth="620" CardMaxHeight="600"
                      Title="操作日志" Subtitle="实时操作与设备响应记录"

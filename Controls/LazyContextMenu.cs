@@ -7,7 +7,7 @@ using Avalonia.Controls.Primitives;
 using Avalonia.Controls.Templates;
 using Avalonia.Interactivity;
 
-namespace MiHome.Controls;
+namespace MiHomeHub.Controls;
 
 /// <summary>
 /// 延迟创建 ContextMenu：平时不实例化菜单对象，右键、菜单键或「更多」点击时才构建。

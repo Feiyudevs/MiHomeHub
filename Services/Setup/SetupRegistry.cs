@@ -7,7 +7,7 @@ using System.ComponentModel;
 using System.Runtime.InteropServices;
 using System.Text;
 
-namespace MiHome.Services.Setup;
+namespace MiHomeHub.Services.Setup;
 
 internal sealed record SetupRegistryValue(string Name, int Type, byte[] Data);
 

@@ -5,10 +5,10 @@ using System;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Interactivity;
-using MiHome.Services;
-using MiHome.ViewModels;
+using MiHomeHub.Services;
+using MiHomeHub.ViewModels;
 
-namespace MiHome.Views;
+namespace MiHomeHub.Views;
 
 /// <summary>
 /// 桌面媒体分区的内容：音响身份（点击换音箱）、播放状态、播放控制与音量入口。

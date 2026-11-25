@@ -10,10 +10,10 @@ using System.Net.Http;
 using System.Text;
 using System.Text.Json;
 using System.Threading.Tasks;
-using MiHome.Models;
-using MiHome.Services.Telemetry;
+using MiHomeHub.Models;
+using MiHomeHub.Services.Telemetry;
 
-namespace MiHome.Services;
+namespace MiHomeHub.Services;
 
 /// <summary>
 /// 米家云端 API 客户端（api.mijia.tech/app）
@@ -784,13 +784,40 @@ public class MijiaClient : IDisposable
     /// <summary>
     /// 带入参的规格动作（小爱文本指令等）：入参按位置数组放在 in 里，
     /// 例如 execute-text-directive 的 in = ["打开客厅灯", false]。
+    ///
+    /// 注意：外层 code=0 只代表云端收下了请求，设备是否真的执行要看 result 里每条的 code
+    /// （<see cref="ThrowIfDeviceRejected"/>）。老固件不支持这条动作时外层照样回 0，
+    /// 以前不检查就会「界面提示已发送、音箱毫无反应」。
     /// </summary>
     public async Task RunActionWithParamsAsync(string did, int siid, int aiid, object? input)
     {
         var payload = input == null
             ? (object)new { did, siid, aiid }
             : new { did, siid, aiid, @in = input };
-        await RequestAsync("/miotspec/action", new { @params = payload });
+        var r = await RequestAsync("/miotspec/action", new { @params = payload });
+        ThrowIfDeviceRejected(r, siid, aiid);
+    }
+
+    /// <summary>动作结果逐条看 code：负数才是设备/固件拒绝（-704xxx 不支持/越界），0/1 视为已受理。</summary>
+    private static void ThrowIfDeviceRejected(JsonElement result, int siid, int aiid)
+    {
+        void Check(JsonElement item)
+        {
+            if (item.ValueKind != JsonValueKind.Object) return;
+            if (!item.TryGetProperty("code", out var c) || c.ValueKind != JsonValueKind.Number) return;
+            var code = c.GetInt32();
+            if (code >= 0) return;
+            var msg = item.TryGetProperty("message", out var m) && m.ValueKind == JsonValueKind.String ? m.GetString() : null;
+            throw new Exception(string.IsNullOrEmpty(msg)
+                ? $"设备拒绝了动作 siid={siid} aiid={aiid}（code {code}）"
+                : $"设备拒绝了动作 siid={siid} aiid={aiid}（code {code} {msg}）");
+        }
+
+        if (result.ValueKind == JsonValueKind.Array)
+        {
+            foreach (var item in result.EnumerateArray()) Check(item);
+        }
+        else Check(result);
     }
 
     /// <summary>音箱音量 0–100（speaker 服务 volume 属性）。</summary>
@@ -817,7 +844,7 @@ public class MijiaClient : IDisposable
 
     /// <summary>
     /// 写属性：did + siid + piid + value。
-    /// 云端按条目回 code，0/1 是成功，负数才是被设备拒绝（-704xxx 是不支持/越界/只读）。
+    /// 云端按条目回 code，0/1 是成功，负数才是被设备拒绝（-704xxx 是不支持/越界，-400 只读）。
     /// </summary>
     public async Task SetPropAsync(string did, int siid, int piid, object value)
     {
@@ -825,19 +852,31 @@ public class MijiaClient : IDisposable
         {
             @params = new[] { new { did, siid, piid, value } }
         });
-        if (r.ValueKind != JsonValueKind.Array) return;
-        foreach (var item in r.EnumerateArray())
+        // 单条写的 result 是对象、批量写才是数组（云端两种都出现过）。以前只认数组，
+        // 对象回包一律当成成功返回，条目里的负 code 全被吞掉——界面记「已下发」而设备毫无动作。
+        ThrowIfPropRejected(r, did, siid, piid);
+    }
+
+    /// <summary>属性写结果逐条看 code：对象/数组都解析，负数才抛（0/1 是已受理）。</summary>
+    private static void ThrowIfPropRejected(JsonElement result, string did, int siid, int piid)
+    {
+        void Check(JsonElement item)
         {
-            var code = item.TryGetProperty("code", out var c) && c.ValueKind == JsonValueKind.Number
-                ? c.GetInt32() : 0;
-            if (code < 0)
-            {
-                var msg = item.TryGetProperty("message", out var m) ? m.GetString() : null;
-                throw new Exception(string.IsNullOrEmpty(msg)
-                    ? $"设备拒绝了指令 siid={siid} piid={piid}（code {code}）"
-                    : $"设备拒绝了指令 siid={siid} piid={piid}（code {code} {msg}）");
-            }
+            if (item.ValueKind != JsonValueKind.Object) return;
+            if (!item.TryGetProperty("code", out var c) || c.ValueKind != JsonValueKind.Number) return;
+            var code = c.GetInt32();
+            if (code >= 0) return;
+            var msg = item.TryGetProperty("message", out var m) && m.ValueKind == JsonValueKind.String ? m.GetString() : null;
+            throw new Exception(string.IsNullOrEmpty(msg)
+                ? $"设备拒绝了指令 {did} siid={siid} piid={piid}（code {code}）"
+                : $"设备拒绝了指令 {did} siid={siid} piid={piid}（code {code} {msg}）");
         }
+
+        if (result.ValueKind == JsonValueKind.Array)
+        {
+            foreach (var item in result.EnumerateArray()) Check(item);
+        }
+        else Check(result);
     }
 
     /// <summary>bool 开关下发：优先用规格解析出的 siid/piid，未解析时回落 siid=2/piid=1。</summary>

@@ -5,11 +5,11 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 
-namespace MiHome.Services.Setup;
+namespace MiHomeHub.Services.Setup;
 
 /// <summary>
 /// 安装位置约定：默认装到当前用户目录（无需管理员），升级时锁死为已装位置。
-/// 程序目录与用户数据目录分离（数据在 %APPDATA%\Feiyu\MiHome，卸载时可选删除）。
+/// 程序目录与用户数据目录分离（数据在 %APPDATA%\Feiyu\MiHomeHub，卸载时可选删除）。
 /// </summary>
 internal static class SetupPaths
 {
@@ -22,9 +22,9 @@ internal static class SetupPaths
     public static string AppExe(string root) => Path.Combine(AppDir(root), SetupProtocol.ExeName);
     public static string RootUninstaller(string root) => Path.Combine(root, SetupProtocol.UninstallerName);
 
-    /// <summary>与 Services/AppPaths 保持一致：%APPDATA%\Feiyu\MiHome。</summary>
+    /// <summary>与 Services/AppPaths 保持一致：%APPDATA%\Feiyu\MiHomeHub。</summary>
     public static string DataRoot => Path.Combine(
-        Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "Feiyu", "MiHome");
+        Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "Feiyu", "MiHomeHub");
 
     /// <summary>读卸载注册表里的 InstallLocation；没有或目录已丢失时返回 null。</summary>
     public static string? FindInstalledRoot()

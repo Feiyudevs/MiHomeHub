@@ -6,16 +6,16 @@
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <UseAvalonia>true</UseAvalonia>
-    <AssemblyName>MiHome</AssemblyName>
-    <RootNamespace>MiHome</RootNamespace>
+    <AssemblyName>MiHomeHub</AssemblyName>
+    <RootNamespace>MiHomeHub</RootNamespace>
     <Version>1.0.1</Version>
     <AssemblyVersion>1.0.1.0</AssemblyVersion>
     <FileVersion>1.0.1.0</FileVersion>
     <InformationalVersion>1.0.1</InformationalVersion>
-    <Product>MiHome</Product>
-    <AssemblyTitle>MiHome</AssemblyTitle>
+    <Product>MiHomeHub</Product>
+    <AssemblyTitle>MiHomeHub</AssemblyTitle>
     <Company>Feiyu</Company>
-    <Description>MiHome — 米家桌面控制台</Description>
+    <Description>MiHomeHub — 米家桌面控制台</Description>
     <ApplicationIcon>Assets\logo.ico</ApplicationIcon>
     <!-- 编译绑定：XAML 绑定错误编译期暴露，运行时零反射查找（Zonex 经验 P0）。
          View 需有 x:DataType；个别无法类型化的路径可显式 {ReflectionBinding}。 -->
@@ -25,9 +25,9 @@
   <ItemGroup>
     <!-- 本地变量字段文件：跟随 exe 放在同级目录，开源版本字段全空；发布后可手改，不必改代码。
          publish 目录会被 publish-sc 清空，所以必须同时设 CopyToPublishDirectory。 -->
-    <Content Include="MiHome.settings.json" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
+    <Content Include="MiHomeHub.settings.json" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
     <!-- 本机覆盖（已 .gitignore）：只填私有后台等字段，不进仓库；存在才复制，且不进安装包 payload。 -->
-    <Content Include="MiHome.settings.local.json" Condition="Exists('MiHome.settings.local.json')" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
+    <Content Include="MiHomeHub.settings.local.json" Condition="Exists('MiHomeHub.settings.local.json')" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
   </ItemGroup>
 
   <!-- Release/分发：自包含单文件 + 压缩。
@@ -69,7 +69,7 @@
   <ItemGroup>
     <Compile Remove="obj\**" />
     <Compile Remove="bin\**" />
-    <!-- installer\MiHome.Setup 是独立小工程（自带 Main），其源码与 obj/bin 不能混进主程序编译 -->
+    <!-- installer\MiHomeHub.Setup 是独立小工程（自带 Main），其源码与 obj/bin 不能混进主程序编译 -->
     <Compile Remove="installer\**\*.cs" />
     <Compile Remove="installer\**\obj\**" />
     <Compile Remove="installer\**\bin\**" />
@@ -85,3 +85,4 @@
   </ItemGroup>
 
 </Project>
+

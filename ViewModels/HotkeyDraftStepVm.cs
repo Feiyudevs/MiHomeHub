@@ -7,10 +7,10 @@ using System.Collections.ObjectModel;
 using System.Linq;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
-using MiHome.Models;
+using MiHomeHub.Models;
 using Avalonia.Media.Imaging;
 
-namespace MiHome.ViewModels;
+namespace MiHomeHub.ViewModels;
 
 /// <summary>步骤卡片上的一个动作胶囊（打开 / 关闭 / 切换 / 执行）。</summary>
 public sealed partial class HotkeyActionOptionVm : ObservableObject

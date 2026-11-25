@@ -12,9 +12,9 @@ using Avalonia.Controls.Primitives.PopupPositioning;
 using Avalonia.Interactivity;
 using Avalonia.Styling;
 using Avalonia.Threading;
-using MiHome.Models;
+using MiHomeHub.Models;
 
-namespace MiHome.Controls;
+namespace MiHomeHub.Controls;
 
 /// <summary>
 /// 自绘下拉选择：触发器显示当前项，点开是玻璃浮层列表，选中项只上柔色底不改边框。

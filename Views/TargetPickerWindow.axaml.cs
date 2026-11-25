@@ -8,11 +8,11 @@ using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.Threading;
-using MiHome.Models;
-using MiHome.Services;
-using MiHome.ViewModels;
+using MiHomeHub.Models;
+using MiHomeHub.Services;
+using MiHomeHub.ViewModels;
 
-namespace MiHome.Views;
+namespace MiHomeHub.Views;
 
 /// <summary>
 /// 全局唯一的设备选择弹窗：卡片网格（标题栏可拖动、点遮罩关闭），正文按房间 / 场景 / 自动化分组。

@@ -1,7 +1,7 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <!-- 自安装器外壳：无 UI 框架，WinExe + 自包含单文件 + 裁剪，内嵌 payload.zip。
-       卸载已合并进主程序（app\MiHome.exe 带 uninstall 参数），本工程只负责安装外壳。 -->
+       卸载已合并进主程序（app\MiHomeHub.exe 带 uninstall 参数），本工程只负责安装外壳。 -->
   <PropertyGroup>
     <OutputType>WinExe</OutputType>
     <TargetFramework>net10.0</TargetFramework>
@@ -12,8 +12,8 @@
     <TrimMode>link</TrimMode>
     <EnableCompressionInSingleFile>true</EnableCompressionInSingleFile>
     <IncludeNativeLibrariesForSelfExtract>true</IncludeNativeLibrariesForSelfExtract>
-    <AssemblyName>MiHome-Setup</AssemblyName>
-    <RootNamespace>MiHome.Setup</RootNamespace>
+    <AssemblyName>MiHomeHub-Setup</AssemblyName>
+    <RootNamespace>MiHomeHub.Setup</RootNamespace>
     <ApplicationIcon>..\..\Assets\logo.ico</ApplicationIcon>
     <Version>1.0.1</Version>
     <FileVersion>1.0.1.0</FileVersion>
@@ -37,3 +37,4 @@
   </ItemGroup>
 
 </Project>
+

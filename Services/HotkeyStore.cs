@@ -8,9 +8,9 @@ using System.Text.Json;
 using System.Text.Json.Serialization;
 using System.Threading;
 using System.Threading.Tasks;
-using MiHome.Models;
+using MiHomeHub.Models;
 
-namespace MiHome.Services;
+namespace MiHomeHub.Services;
 
 /// <summary>hotkeys.json 的落盘结构：总开关 + 绑定列表。</summary>
 public sealed class HotkeyStoreData
@@ -20,7 +20,7 @@ public sealed class HotkeyStoreData
 }
 
 /// <summary>
-/// 全局快捷键持久化在 %APPDATA%\Feiyu\MiHome\hotkeys.json。
+/// 全局快捷键持久化在 %APPDATA%\Feiyu\MiHomeHub\hotkeys.json。
 /// 与 app.json 一样写盘出 UI 线程；带版本号，短时间连续改动只落最后一份，避免旧值覆盖新值。
 /// </summary>
 public static class HotkeyStore

@@ -5,12 +5,12 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Text.Json;
-using MiHome.Models;
+using MiHomeHub.Models;
 
-namespace MiHome.Services;
+namespace MiHomeHub.Services;
 
 /// <summary>
-/// 设备列表本地缓存，落在 %APPDATA%\Feiyu\MiHome\devices.json。
+/// 设备列表本地缓存，落在 %APPDATA%\Feiyu\MiHomeHub\devices.json。
 /// 启动先读缓存秒开，联网成功后再写回；网络失败时继续用上次列表。
 /// </summary>
 public static class DeviceCacheStore

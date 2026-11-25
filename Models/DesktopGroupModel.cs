@@ -5,7 +5,7 @@ using System;
 using System.Collections.Generic;
 using System.Text.Json.Serialization;
 
-namespace MiHome.Models;
+namespace MiHomeHub.Models;
 
 /// <summary>
 /// 桌面分区（一个独立贴在桌面上的设备分组窗）。

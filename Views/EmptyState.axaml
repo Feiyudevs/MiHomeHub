@@ -1,6 +1,6 @@
 <UserControl xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-             x:Class="MiHome.Views.EmptyState"
+             x:Class="MiHomeHub.Views.EmptyState"
              x:Name="Root">
     <!-- 空态：同心细环 + 主题色软底图标，标题一句话、说明一句话 -->
     <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center"

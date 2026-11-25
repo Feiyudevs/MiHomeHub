@@ -5,10 +5,10 @@ using System;
 using System.ComponentModel;
 using Avalonia;
 using Avalonia.Controls;
-using MiHome.Services;
-using MiHome.ViewModels;
+using MiHomeHub.Services;
+using MiHomeHub.ViewModels;
 
-namespace MiHome.Views;
+namespace MiHomeHub.Views;
 
 /// <summary>
 /// 桌面分区里的设备控制弹窗宿主。

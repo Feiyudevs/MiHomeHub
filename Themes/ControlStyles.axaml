@@ -2,10 +2,10 @@
     xmlns="https://github.com/avaloniaui"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:ani="clr-namespace:Avalonia.Animation.Easings;assembly=Avalonia.Base"
-    xmlns:conv="clr-namespace:MiHome.Converters"
-    xmlns:ctl="clr-namespace:MiHome.Controls"
-    xmlns:vm="clr-namespace:MiHome.ViewModels"
-    xmlns:m="clr-namespace:MiHome.Models">
+    xmlns:conv="clr-namespace:MiHomeHub.Converters"
+    xmlns:ctl="clr-namespace:MiHomeHub.Controls"
+    xmlns:vm="clr-namespace:MiHomeHub.ViewModels"
+    xmlns:m="clr-namespace:MiHomeHub.Models">
         <!-- ======== 全局基础 ======== -->
         <!-- 字体族是内存敏感项，不要改成多段链（如 "A, B, C"），也不要换成 Segoe UI：
              多段链会让 Avalonia 每排版一次都去逐个探测候选字族，探测过程会新建 GlyphTypeface；
@@ -32,9 +32,6 @@
             <Setter Property="Foreground" Value="{DynamicResource Text2Brush}"/>
         </Style>
         <Style Selector="TextBlock.DevMeta">
-            <Setter Property="Foreground" Value="{DynamicResource Text3Brush}"/>
-        </Style>
-        <Style Selector="TextBlock.DevBadgeText">
             <Setter Property="Foreground" Value="{DynamicResource Text3Brush}"/>
         </Style>
         <Style Selector="TextBlock.SecTitle">
@@ -279,6 +276,28 @@
         <Style Selector="Button.IconDisc:pointerover">
             <Setter Property="Foreground" Value="{DynamicResource TextBrush}"/>
         </Style>
+        <!-- 胶囊图标+文字钮：底与悬停同 IconDisc，横向按内距撑开，圆角取半高成胶囊 -->
+        <Style Selector="Button.IconPill">
+            <Setter Property="Height" Value="32"/>
+            <Setter Property="Padding" Value="11,0"/>
+            <Setter Property="Foreground" Value="{DynamicResource Text2Brush}"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="Template">
+                <ControlTemplate>
+                    <Border Name="Bd" CornerRadius="16" Background="{DynamicResource SurfaceBrush}"
+                            Padding="{TemplateBinding Padding}">
+                        <ContentPresenter Content="{TemplateBinding Content}"
+                                          HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                    </Border>
+                </ControlTemplate>
+            </Setter>
+        </Style>
+        <Style Selector="Button.IconPill:pointerover /template/ Border#Bd">
+            <Setter Property="Background" Value="{DynamicResource HoverBrush}"/>
+        </Style>
+        <Style Selector="Button.IconPill:pointerover">
+            <Setter Property="Foreground" Value="{DynamicResource TextBrush}"/>
+        </Style>
         <!-- ======== 开关 40×22（§8.4） ======== -->
         <Style Selector="ToggleButton.Switch">
             <Setter Property="Width" Value="40"/>
@@ -464,24 +483,26 @@
                                  默认透明且不挡鼠标，悬停房间行才淡淡浮现，按住左缘立即进入排序（不用长按） -->
                             <Border Name="Grip" Width="10" HorizontalAlignment="Left" VerticalAlignment="Stretch"
                                     Background="Transparent" Cursor="SizeAll">
-                                <Grid Name="GripDots" Width="8" Height="15" HorizontalAlignment="Center" VerticalAlignment="Center"
+                                <!-- 八宫格 4×4 等分（8×12）：点径与行/列步长都取整数像素，三行两列才会等距；
+                                     原来 8×15 的行步长是 5、列是 4，非整数取整后中间那行会偏，看着没有等分 -->
+                                <Grid Name="GripDots" Width="8" Height="12" HorizontalAlignment="Left" VerticalAlignment="Center"
                                       ColumnDefinitions="*,*" RowDefinitions="*,*,*">
-                                    <Ellipse Grid.Row="0" Grid.Column="0" Width="1.8" Height="1.8"
+                                    <Ellipse Grid.Row="0" Grid.Column="0" Width="2" Height="2"
                                              Fill="{DynamicResource Text3Brush}"
                                              HorizontalAlignment="Center" VerticalAlignment="Center"/>
-                                    <Ellipse Grid.Row="0" Grid.Column="1" Width="1.8" Height="1.8"
+                                    <Ellipse Grid.Row="0" Grid.Column="1" Width="2" Height="2"
                                              Fill="{DynamicResource Text3Brush}"
                                              HorizontalAlignment="Center" VerticalAlignment="Center"/>
-                                    <Ellipse Grid.Row="1" Grid.Column="0" Width="1.8" Height="1.8"
+                                    <Ellipse Grid.Row="1" Grid.Column="0" Width="2" Height="2"
                                              Fill="{DynamicResource Text3Brush}"
                                              HorizontalAlignment="Center" VerticalAlignment="Center"/>
-                                    <Ellipse Grid.Row="1" Grid.Column="1" Width="1.8" Height="1.8"
+                                    <Ellipse Grid.Row="1" Grid.Column="1" Width="2" Height="2"
                                              Fill="{DynamicResource Text3Brush}"
                                              HorizontalAlignment="Center" VerticalAlignment="Center"/>
-                                    <Ellipse Grid.Row="2" Grid.Column="0" Width="1.8" Height="1.8"
+                                    <Ellipse Grid.Row="2" Grid.Column="0" Width="2" Height="2"
                                              Fill="{DynamicResource Text3Brush}"
                                              HorizontalAlignment="Center" VerticalAlignment="Center"/>
-                                    <Ellipse Grid.Row="2" Grid.Column="1" Width="1.8" Height="1.8"
+                                    <Ellipse Grid.Row="2" Grid.Column="1" Width="2" Height="2"
                                              Fill="{DynamicResource Text3Brush}"
                                              HorizontalAlignment="Center" VerticalAlignment="Center"/>
                                 </Grid>
@@ -644,8 +665,56 @@
                          桌面分区内卡片不投影，局部样式把它收到 4，故此处不能再写本地值（本地值会压过样式 setter） -->
                     <Panel>
                         <Border Name="Card" MinHeight="74" CornerRadius="16" Padding="15,13">
-                            <ContentPresenter Content="{TemplateBinding Content}"
-                                              HorizontalAlignment="Stretch" VerticalAlignment="Center"/>
+                            <Panel>
+                                <!-- 底部彩色光晕：贴卡底往上晕开的一层彩色渐变（青 → 蓝 → 紫 → 粉）。
+                                     这里刻意不用 BoxShadow：阴影画不到自身轮廓内，光源条必须露在卡内，
+                                     一露就留下硬边暗缝；露在卡外又会被当成「卡片外面的光」。
+                                     所以改用「横向彩色渐变 + 纵向柔化遮罩」的纯背景层：
+                                     整层永远只在卡片本体范围内（圆角由 Border 自己的 CornerRadius 裁出来），
+                                     纵向遮罩从 34% 处开始极缓地抬亮度，到卡底最浓，往上自然散开，没有硬边界。
+                                     负外边距是 Padding 15,13 的反向值，把它撑到卡片本体边缘；透明度只由样式给。 -->
+                                <Border Name="Glow" IsHitTestVisible="False"
+                                        HorizontalAlignment="Stretch" VerticalAlignment="Stretch"
+                                        Margin="-15,-13,-15,-13"
+                                        CornerRadius="16">
+                                    <Border.Background>
+                                        <LinearGradientBrush StartPoint="0%,50%" EndPoint="100%,50%">
+                                            <GradientStop Color="#005FD8FF" Offset="0"/>
+                                            <GradientStop Color="#B45FD8FF" Offset="0.15"/>
+                                            <GradientStop Color="#C08FB6FF" Offset="0.42"/>
+                                            <GradientStop Color="#C4A78BFA" Offset="0.66"/>
+                                            <GradientStop Color="#C0FF9EC4" Offset="0.86"/>
+                                            <GradientStop Color="#00FF9EC4" Offset="1"/>
+                                        </LinearGradientBrush>
+                                    </Border.Background>
+                                    <Border.OpacityMask>
+                                        <LinearGradientBrush StartPoint="0%,0%" EndPoint="0%,100%">
+                                            <GradientStop Color="#00FFFFFF" Offset="0"/>
+                                            <GradientStop Color="#08FFFFFF" Offset="0.34"/>
+                                            <GradientStop Color="#20FFFFFF" Offset="0.56"/>
+                                            <GradientStop Color="#58FFFFFF" Offset="0.76"/>
+                                            <GradientStop Color="#A8FFFFFF" Offset="0.9"/>
+                                            <GradientStop Color="#FFFFFFFF" Offset="1"/>
+                                        </LinearGradientBrush>
+                                    </Border.OpacityMask>
+                                </Border>
+                                <!-- 已开启的设备：右侧压一层很淡的渐变彩，不用整块紫底也能一眼认出是开着的 -->
+                                <Border Name="OnTint" IsHitTestVisible="False"
+                                        HorizontalAlignment="Stretch" VerticalAlignment="Stretch"
+                                        Margin="-15,-13,-15,-13"
+                                        CornerRadius="16">
+                                    <Border.Background>
+                                        <LinearGradientBrush StartPoint="0%,50%" EndPoint="100%,50%">
+                                            <GradientStop Color="#008B7CFF" Offset="0"/>
+                                            <GradientStop Color="#008B7CFF" Offset="0.5"/>
+                                            <GradientStop Color="#338B7CFF" Offset="0.8"/>
+                                            <GradientStop Color="#4DFF9EC4" Offset="1"/>
+                                        </LinearGradientBrush>
+                                    </Border.Background>
+                                </Border>
+                                <ContentPresenter Content="{TemplateBinding Content}"
+                                                  HorizontalAlignment="Stretch" VerticalAlignment="Center"/>
+                            </Panel>
                         </Border>
                         <!-- 拖拽排序辅助框：盖在卡面上的覆盖层，不参与布局（悬停点亮时不会推动兄弟卡片）。
                              Opacity 与 Margin 都只由样式给（同上，本地值压不过样式）；默认全暗，只有分区那侧点亮。 -->
@@ -666,6 +735,40 @@
                     <DoubleTransition Property="Opacity" Duration="0:0:0.12"/>
                 </Transitions>
             </Setter>
+        </Style>
+        <!-- 底部光晕：静止全暗，悬停淡入；卡片抬起（-3px）与光晕同时发生，分区卡只留光晕 -->
+        <Style Selector="ctl|DeviceCardButton.DevCard /template/ Border#Glow">
+            <Setter Property="Opacity" Value="0"/>
+            <Setter Property="Transitions">
+                <Transitions>
+                    <DoubleTransition Property="Opacity" Duration="0:0:0.24">
+                        <DoubleTransition.Easing>
+                            <ani:CubicEaseOut/>
+                        </DoubleTransition.Easing>
+                    </DoubleTransition>
+                </Transitions>
+            </Setter>
+        </Style>
+        <Style Selector="ctl|DeviceCardButton.DevCard:pointerover /template/ Border#Glow">
+            <Setter Property="Opacity" Value="1"/>
+        </Style>
+        <!-- 开启态右缘渐变：只在「卡面带电源键的开启设备」上出现 ——
+             .on 是任意一路通电，.sw 是卡片显示单个开关（IsControllable && 单路），
+             双开 / 四键这类多路卡不显示，它们进抽屉操作。开关切换时淡入淡出。 -->
+        <Style Selector="ctl|DeviceCardButton.DevCard /template/ Border#OnTint">
+            <Setter Property="Opacity" Value="0"/>
+            <Setter Property="Transitions">
+                <Transitions>
+                    <DoubleTransition Property="Opacity" Duration="0:0:0.22">
+                        <DoubleTransition.Easing>
+                            <ani:CubicEaseOut/>
+                        </DoubleTransition.Easing>
+                    </DoubleTransition>
+                </Transitions>
+            </Setter>
+        </Style>
+        <Style Selector="ctl|DeviceCardButton.DevCard.on.sw /template/ Border#OnTint">
+            <Setter Property="Opacity" Value="1"/>
         </Style>
         <Style Selector="ctl|DeviceCardButton.DevCard /template/ Border#Card">
             <Setter Property="Margin" Value="8"/>
@@ -977,10 +1080,16 @@
             <Setter Property="Background" Value="{DynamicResource Surface5Brush}"/>
             <Setter Property="BorderBrush" Value="{DynamicResource AccentBrush}"/>
         </Style>
-        <!-- 占位文字：比正文淡两档，别和真实内容抢注意力 -->
+        <!-- 占位文字：本项目锁定 Avalonia 11.3.9，Fluent 模板里的占位 TextBlock 叫 PART_Watermark
+             （不带浮动水印时只有这一个），直接给它上色即可。
+             注意 11 没有 TextBox.PlaceholderForeground 这个属性，也不能写 PART_Placeholder / PART_FloatingPlaceholder
+             （那是 Avalonia 12 的模板名与属性），写了会直接编译失败。 -->
         <Style Selector="TextBox /template/ TextBlock#PART_Watermark">
-            <Setter Property="Foreground" Value="{DynamicResource Text3Brush}"/>
+            <Setter Property="Foreground" Value="{DynamicResource WatermarkBrush}"/>
             <Setter Property="Opacity" Value="0.75"/>
+        </Style>
+        <Style Selector="TextBox /template/ TextBlock#PART_FloatingWatermark">
+            <Setter Property="Foreground" Value="{DynamicResource WatermarkBrush}"/>
         </Style>
         <!-- 数字框 / 时间框内部的 TextBox 自带边框，会和外框叠成双层，统一压平 -->
         <Style Selector="NumericUpDown /template/ TextBox">
@@ -1131,7 +1240,9 @@
              菜单本体（外壳 + 菜单项主题）直接内联在 Templates.axaml 的设备卡模板里，
              不依赖样式匹配 —— 弹出层的样式应用时机不可控，本地值最稳。 -->
         <!-- 「更多」：48×48 点击热区，与设备图标同尺寸；可见内容是一枚铺满热区的圆角方底 + 三个点。
-             默认隐藏 + 上浮 3px，卡片悬停时淡入下滑浮现 -->
+             默认隐藏 + 上浮 3px，卡片悬停时渐显下滑浮现、移开时渐隐回升。
+             Avalonia 的 Transitions 是双向共用一条设置（没有分方向时长），0.22s 是按
+             「渐变看得出来、又不拖手」定的档：太短（0.12s 左右）在深色卡上几乎读成瞬现。 -->
         <Style Selector="ctl|DeviceMoreButton.MoreBtn">
             <Setter Property="Width" Value="48"/>
             <Setter Property="Height" Value="48"/>
@@ -1162,8 +1273,16 @@
             <Setter Property="RenderTransform" Value="translate(0px,-3px)"/>
             <Setter Property="Transitions">
                 <Transitions>
-                    <DoubleTransition Property="Opacity" Duration="0:0:0.12"/>
-                    <TransformOperationsTransition Property="RenderTransform" Duration="0:0:0.15"/>
+                    <DoubleTransition Property="Opacity" Duration="0:0:0.22">
+                        <DoubleTransition.Easing>
+                            <ani:CubicEaseOut/>
+                        </DoubleTransition.Easing>
+                    </DoubleTransition>
+                    <TransformOperationsTransition Property="RenderTransform" Duration="0:0:0.24">
+                        <TransformOperationsTransition.Easing>
+                            <ani:CubicEaseOut/>
+                        </TransformOperationsTransition.Easing>
+                    </TransformOperationsTransition>
                 </Transitions>
             </Setter>
         </Style>
@@ -1177,13 +1296,21 @@
         </Style>
         <!-- 底色：铺满整个 48×48 热区（与设备图同大），大圆角方底 + 基本不透明的浅色，
              把背后的设备图标完全压住，三个点才读得清；
-             自身悬停 / 按下只把底色提亮一档，不出现 Fluent Button 主题自带的实心灰底 -->
+             自身悬停 / 按下只把底色提亮一档，不出现 Fluent Button 主题自带的实心灰底。
+             底色 / 描边都挂 BrushTransition：方底是半透明层，硬切换会像整块闪一下；
+             桌面分区那侧的本地样式只改颜色值，过渡照样跟着这个 Border 走，不用各写一份 -->
         <Style Selector="ctl|DeviceMoreButton.MoreBtn Border.MoreBtnPill">
             <Setter Property="Width" Value="48"/>
             <Setter Property="Height" Value="48"/>
             <Setter Property="Background" Value="{DynamicResource MoreBtnBgBrush}"/>
             <Setter Property="CornerRadius" Value="14"/>
             <Setter Property="Padding" Value="0"/>
+            <Setter Property="Transitions">
+                <Transitions>
+                    <BrushTransition Property="Background" Duration="0:0:0.2"/>
+                    <BrushTransition Property="BorderBrush" Duration="0:0:0.2"/>
+                </Transitions>
+            </Setter>
         </Style>
         <Style Selector="ctl|DeviceMoreButton.MoreBtn:pointerover Border.MoreBtnPill">
             <Setter Property="Background" Value="{DynamicResource MoreBtnBgHoverBrush}"/>

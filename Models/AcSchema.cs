@@ -4,7 +4,7 @@
 using System.Collections.Generic;
 using CommunityToolkit.Mvvm.ComponentModel;
 
-namespace MiHome.Models;
+namespace MiHomeHub.Models;
 
 /// <summary>空调面板里一个可选段（模式/风速），选中态由设备当前值驱动。</summary>
 public sealed partial class AcOptionItem : ObservableObject

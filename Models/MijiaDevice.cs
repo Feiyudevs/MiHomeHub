@@ -11,7 +11,7 @@ using System.Text.Json.Serialization;
 using Avalonia.Media.Imaging;
 using CommunityToolkit.Mvvm.ComponentModel;
 
-namespace MiHome.Models;
+namespace MiHomeHub.Models;
 
 /// <summary>小米部分字段（房间 id、时间戳等）在不同接口里 string / Number 混用，统一按文本取。</summary>
 public sealed class LenientStringConverter : JsonConverter<string>
@@ -46,6 +46,12 @@ public partial class MijiaDevice : ObservableObject
     [JsonPropertyName("uid")] public long Uid { get; set; }
     [JsonPropertyName("isOnline")] public bool IsOnline { get; set; }
     [JsonPropertyName("spec_type")] public string SpecType { get; set; } = "";
+
+    /// <summary>
+    /// 局域网 IP：设备列表原始响应里带 localip（Wi-Fi / 网线接入的设备才有）。
+    /// 中枢网关的「自动化极客版」网页就在这个 IP 的 80 端口，界面直接用它拼地址。
+    /// </summary>
+    [JsonPropertyName("localip")] public string LocalIp { get; set; } = "";
 
     /// <summary>
     /// 设备组（did 形如 group.xxx）的成员 did，来自云端 extra.member_list.member_ship 的键。
@@ -88,8 +94,16 @@ public partial class MijiaDevice : ObservableObject
     /// <summary>窗帘：当前开合度 0–100（siid=2/piid=3），打开/关闭后由详情页回填。</summary>
     [property: JsonIgnore] [ObservableProperty] private int _curtainPosition;
 
-    /// <summary>卡片副标题里的读数（温度/湿度等），由轮询按规格回填；空串表示没有读数。</summary>
+    /// <summary>卡片副标题里的读数（温度/湿度/功率等），由轮询按外显配置回填；空串表示没有读数。</summary>
     [property: JsonIgnore] [ObservableProperty] private string _metricsText = "";
+
+    /// <summary>外显读数缓存：属性短名 → 最近一次格式化后的文本。
+    /// 温湿度这类慢速读数不是每拍都读，靠这份缓存保证副标题不会在两拍之间闪没。</summary>
+    [JsonIgnore] public Dictionary<string, string> CardMetricTexts { get; } = new(StringComparer.Ordinal);
+
+    /// <summary>用户在列表里单独隐藏了这台设备：只在主列表里折叠到末尾，控制/场景/统计照旧。
+    /// 状态来自 app.json 的 hiddenDids，不进 devices.json 缓存。</summary>
+    [property: JsonIgnore] [ObservableProperty] private bool _isHidden;
 
     /// <summary>本地指令下发后的抑制截止时间（TickCount64）；这段时间内轮询不覆盖本地状态。</summary>
     [property: JsonIgnore] [ObservableProperty] private long _pendingUntilMs;
@@ -102,7 +116,7 @@ public partial class MijiaDevice : ObservableObject
     /// <summary>最近一次读到的相对湿度（%，已按 0.1 单位缩回）。</summary>
     [JsonIgnore] public double? Humidity { get; set; }
 
-    // ===== 耗材（滤芯/刷头 life-level、电量 battery-level 百分比） =====
+    // ===== 耗材（滤芯/刷头 life-level、电量 battery-level/charge-progress 百分比） =====
 
     /// <summary>规格里的耗材余量项；随规格解析重建，卡片与抽屉按需展示。</summary>
     [JsonIgnore] public List<ConsumableState> Consumables { get; } = new();
@@ -214,11 +228,45 @@ public partial class MijiaDevice : ObservableObject
         }
     }
 
+    /// <summary>
+    /// 是否中枢网关（xiaomi.gateway.hub1 等）：只有它在局域网里自带「自动化极客版」网页，
+    /// 抽屉里给它一个可点击的入口。其他网关（多模网关、音箱网关）没有这个页面。
+    /// </summary>
+    [JsonIgnore]
+    public bool IsHub => Model.ToLowerInvariant().Contains("gateway.hub");
+
     /// <summary>抽屉里的整机电源开关卡片（开关类走多路通道卡片，不重复显示）。</summary>
     [JsonIgnore] public bool IsPower => HasPower;
 
-    /// <summary>卡片是否显示单个开关：整机电源、窗帘、单路开关都算。</summary>
-    [JsonIgnore] public bool ShowCardSwitch => IsControllable && Channels.Count <= 1;
+    /// <summary>
+    /// 类目上没有整机开关的设备：网关 / 中枢、路由器、门锁、音箱、各类传感器。
+    /// 它们的规格里也常带可写 on（指示灯、夜灯、报警开关、播放开关），但那不是「设备开关」，
+    /// 卡片上不该出现电源键，也不该点亮开启态的右缘渐变。
+    /// 判定词按大类拆成几段匹配：spec_type 的大类段形如 device:router / device:lock / device:speaker。
+    /// </summary>
+    [JsonIgnore]
+    public bool HasNoCardPower
+    {
+        get
+        {
+            var cat = Category.ToLowerInvariant();
+            var model = Model.ToLowerInvariant();
+            return cat.Contains("gateway", StringComparison.Ordinal)
+                   || cat.Contains("sensor", StringComparison.Ordinal)
+                   || cat.Contains("router", StringComparison.Ordinal)
+                   || cat.Contains("lock", StringComparison.Ordinal)
+                   || cat.Contains("speaker", StringComparison.Ordinal)
+                   || cat.Contains("voice-assistant", StringComparison.Ordinal)
+                   || cat is "hub" or "central-hub"
+                   || model.Contains("gateway", StringComparison.Ordinal)
+                   || model.Contains(".router.", StringComparison.Ordinal)
+                   || model.Contains(".lock.", StringComparison.Ordinal)
+                   || model.Contains(".wifispeaker.", StringComparison.Ordinal);
+        }
+    }
+
+    /// <summary>卡片是否显示单个开关：整机电源、窗帘、单路开关都算；网关 / 路由 / 门锁 / 音箱 / 传感器不算。</summary>
+    [JsonIgnore] public bool ShowCardSwitch => IsControllable && Channels.Count <= 1 && !HasNoCardPower;
 
     /// <summary>多路开关卡片只显示「N 路」角标，具体每一路进抽屉操作。</summary>
     [JsonIgnore] public bool ShowChannelBadge => Channels.Count > 1;
@@ -228,6 +276,18 @@ public partial class MijiaDevice : ObservableObject
 
     /// <summary>卡片开关的聚合态（多路时任意一路开即视为开）。</summary>
     [JsonIgnore] public bool IsControllable => IsCurtain || HasPower || Channels.Count > 0;
+
+    /// <summary>设备组（米家把多盏灯等打包成一个虚拟设备，did 形如 group.xxx）。</summary>
+    [JsonIgnore] public bool IsGroup => Did.StartsWith("group.", StringComparison.OrdinalIgnoreCase);
+
+    /// <summary>组再进设备列表时卡片上的标签：灯组要能一眼认出来，其他组归为设备组。</summary>
+    [JsonIgnore] public string GroupTag => IsGroup ? (IsLight ? "灯组" : "设备组") : "";
+
+    /// <summary>多键开关被米家拆出来的单键虚拟设备（did 形如 &lt;parent&gt;.sN）。</summary>
+    [JsonIgnore] public bool IsSplitChild => ChannelSiid > 0;
+
+    /// <summary>墙壁开关 / 场景按键类设备（多键以虚拟子设备出现）；设置里可以整类隐藏。</summary>
+    [JsonIgnore] public bool IsSwitchDevice => !IsGroup && IconKey == "switch";
 
     /// <summary>卡片副标题：房间 + 读数（有读数时）。</summary>
     [JsonIgnore]
@@ -352,6 +412,9 @@ public partial class MijiaDevice : ObservableObject
 
         if (!string.Equals(SpecType, other.SpecType, StringComparison.Ordinal))
             SpecType = other.SpecType;
+
+        if (!string.Equals(LocalIp, other.LocalIp, StringComparison.Ordinal))
+            LocalIp = other.LocalIp;
 
         // 灯组成员来自设备列表的原始响应（DTO 不映射），刷新时复用旧实例，
         // 不在这里同步就会把成员表清空，单灯再也反查不到「只写了 group.xxx」的场景。
@@ -607,6 +670,30 @@ public partial class MijiaDevice : ObservableObject
         IsOn = Channels.Any(c => c.IsOn);
     }
 
+    /// <summary>
+    /// 规格还没解析到（离线 / 首次启动）时，用被并回父卡的单键子设备补齐通道，
+    /// 否则子卡藏起来后这几个键就再也点不到了。下发走的是同一套「父 did + 通道 siid」。
+    /// </summary>
+    public void EnsureFallbackChannels(IEnumerable<MijiaDevice> children)
+    {
+        if (Spec != null || Channels.Count > 0) return;
+        foreach (var child in children.Where(c => c.ChannelSiid > 0).OrderBy(c => c.ChannelSiid))
+        {
+            Channels.Add(new SwitchChannelState
+            {
+                Siid = child.ChannelSiid,
+                Label = string.IsNullOrWhiteSpace(child.Name) ? $"路 {child.ChannelSiid}" : child.Name,
+                Device = this,
+                IsOn = child.IsOn
+            });
+        }
+
+        if (Channels.Count == 0) return;
+        HasPower = false;
+        SyncOnFromChannels();
+        RaiseControlChanged();
+    }
+
     /// <summary>把 &lt;parent&gt;.sN 拆成父 did + 通道 siid；普通 did 原样保留。</summary>
     private void ParseDid()
     {
@@ -619,6 +706,9 @@ public partial class MijiaDevice : ObservableObject
         TargetDid = Did[..dot];
         ChannelSiid = ch;
     }
+
+    /// <summary>spec_type 里的设备大类（空表示规格还没到）。卡片外显按大类分组用。</summary>
+    [JsonIgnore] public string CategoryName => Category;
 
     /// <summary>spec_type 形如 urn:miot-spec-v2:device:&lt;大类&gt;:&lt;型号段&gt;:&lt;版本&gt;。</summary>
     private string Category

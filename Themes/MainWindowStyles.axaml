@@ -2,10 +2,10 @@
     xmlns="https://github.com/avaloniaui"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:ani="clr-namespace:Avalonia.Animation.Easings;assembly=Avalonia.Base"
-    xmlns:conv="clr-namespace:MiHome.Converters"
-    xmlns:ctl="clr-namespace:MiHome.Controls"
-    xmlns:vm="clr-namespace:MiHome.ViewModels"
-    xmlns:m="clr-namespace:MiHome.Models">
+    xmlns:conv="clr-namespace:MiHomeHub.Converters"
+    xmlns:ctl="clr-namespace:MiHomeHub.Controls"
+    xmlns:vm="clr-namespace:MiHomeHub.ViewModels"
+    xmlns:m="clr-namespace:MiHomeHub.Models">
         <!-- 刷新图标跟随 BtnGhost 悬停加深，与旁侧文字按钮状态一致 -->
         <Style Selector="Button.BtnGhost:pointerover Path.RefreshIc">
             <Setter Property="Stroke" Value="{DynamicResource TextBrush}"/>
@@ -325,12 +325,29 @@
         <Style Selector="Button.SegMini:pressed /template/ Border#Bd">
             <Setter Property="Background" Value="{DynamicResource AccentSoftBrush}" />
         </Style>
+        <!-- 详情顶部读数小卡：与抽屉控制卡同一投影语言，尺寸更紧凑 -->
+        <Style Selector="Border.MetricTile">
+            <Setter Property="Background" Value="{DynamicResource CardBrush}" />
+            <Setter Property="CornerRadius" Value="14" />
+            <Setter Property="Padding" Value="12,10" />
+            <Setter Property="BoxShadow" Value="{DynamicResource CardShadow}" />
+        </Style>
         <!-- 抽屉控制卡：浅灰托盘上的白色浮卡，一个控制区域一张卡（与主内容区 DevCard 同一投影语言） -->
         <Style Selector="Border.DrCard">
             <Setter Property="Background" Value="{DynamicResource CardBrush}" />
             <Setter Property="CornerRadius" Value="16" />
             <Setter Property="Padding" Value="16,15" />
             <Setter Property="BoxShadow" Value="{DynamicResource CardShadow}" />
+        </Style>
+        <!-- 卡中卡（高级设置里的规格分组）：外层 DrCard 用的 CardBrush 带 82% 透明度，
+             内层若沿用同一个键，两层同色叠加会互相抵消，整片糊成一张卡。
+             这里换成次级面色（比外层浅/深一档）分出层次；不描边、不叠投影，
+             卡与卡之间靠外层 StackPanel 的 Spacing 留白，边界交给色阶。 -->
+        <Style Selector="Border.DrSubCard">
+            <Setter Property="Background" Value="{DynamicResource SubCardBrush}" />
+            <Setter Property="BorderThickness" Value="0" />
+            <Setter Property="CornerRadius" Value="12" />
+            <Setter Property="Padding" Value="12,11" />
         </Style>
         <!-- 详情卡片折叠标题行（智能场景 / 高级设置共用）：
              文字靠左、箭头靠右。BtnGhost 的模板把内容钉在 Center，直接复用会整行居中，所以单开一套 -->
@@ -474,7 +491,7 @@
         <Style Selector="Button.EnvPill.is-warn:pressed /template/ Border#Bd">
             <Setter Property="Background" Value="{DynamicResource AmberSoft2Brush}" />
         </Style>
-        <!-- 「已开启」统计卡：可点开全量开启设备弹窗。静息外观与其余三张统计卡逐值一致
+        <!-- 统计卡：可点开对应设备弹窗。静息外观在所有统计卡上逐值一致
              （圆角 16 / 内距 16,13 / 最小宽 96 / CardBrush / 同两档投影），差别只在悬停反馈。
              MinWidth、内距都写在模板内的 Border 上：Button 自身的 MinWidth 会算上默认内距，宽度对不齐其余卡片。 -->
         <Style Selector="Button.StatCard">

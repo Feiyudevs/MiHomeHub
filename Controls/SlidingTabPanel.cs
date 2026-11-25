@@ -4,7 +4,7 @@
 using Avalonia;
 using Avalonia.Controls;
 
-namespace MiHome.Controls;
+namespace MiHomeHub.Controls;
 
 /// <summary>
 /// 横向 Tab 容器：把选中底色做成一整块共享滑块，SelectedIndex 变化时从 A 位移到 B 并同步变宽。

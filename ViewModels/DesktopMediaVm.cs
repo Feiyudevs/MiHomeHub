@@ -5,10 +5,10 @@ using System.ComponentModel;
 using System.Collections.ObjectModel;
 using Avalonia;
 using CommunityToolkit.Mvvm.Input;
-using MiHome.Models;
-using MiHome.Services;
+using MiHomeHub.Models;
+using MiHomeHub.Services;
 
-namespace MiHome.ViewModels;
+namespace MiHomeHub.ViewModels;
 
 /// <summary>
 /// 桌面媒体分区：一台音箱的身份、播放控制、正在播放与音量入口。

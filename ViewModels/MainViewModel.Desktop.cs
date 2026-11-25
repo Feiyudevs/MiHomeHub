@@ -7,16 +7,16 @@ using System.Windows.Input;
 using Avalonia.Media;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
-using MiHome.Models;
-using MiHome.Services;
+using MiHomeHub.Models;
+using MiHomeHub.Services;
 
-namespace MiHome.ViewModels;
+namespace MiHomeHub.ViewModels;
 
 /// <summary>桌面组件：设备卡加号、分区窗、控制弹窗与主视图模型的对接层。</summary>
 public partial class MainViewModel : IDeviceCardHost
 {
-    /// <summary>当前家庭的设备全量（未按房间/搜索过滤），桌面分区按 did 从这里取实例。</summary>
-    public IReadOnlyList<MijiaDevice> AllDevices => _allDevices;
+    /// <summary>当前家庭上屏的设备清单（未按房间/搜索过滤；已并组、并键、隐藏开关），桌面分区按 did 从这里取实例。</summary>
+    public IReadOnlyList<MijiaDevice> AllDevices => _visibleDevices;
 
     // ===== 设备卡宿主契约：主窗口这一侧沿用原有抽屉/开关/加号三套命令 =====
 
@@ -34,6 +34,35 @@ public partial class MainViewModel : IDeviceCardHost
 
     /// <summary>加号图标：这是「加入」动作。</summary>
     public Geometry CardMenuIcon => CardMenuIcons.Add;
+
+    /// <summary>主列表右键第三项：隐藏 / 恢复这台设备（只影响主列表，控制、场景、统计照旧）。</summary>
+    public ICommand? HideCardCommand => HideDeviceCommand;
+
+    /// <summary>
+    /// 单独隐藏一台设备：从所在房间宫格里拿掉，折进列表末尾的「已隐藏」区；
+    /// 再点一次恢复原位。状态按 did 写回 app.json，重启后仍然生效。
+    /// </summary>
+    [RelayCommand]
+    private void HideDevice(MijiaDevice? device)
+    {
+        if (device == null || string.IsNullOrEmpty(device.Did)) return;
+
+        var hide = !device.IsHidden;
+        if (hide) _hiddenDids.Add(device.Did);
+        else _hiddenDids.Remove(device.Did);
+        device.IsHidden = hide;
+        AppSettingsStore.SetHiddenDids(_hiddenDids);
+
+        ApplyFilter();
+        RebuildHomeGroups();
+        Log(hide
+            ? $"已隐藏设备「{device.Name}」，可在列表末尾的「已隐藏」里找回"
+            : $"已取消隐藏「{device.Name}」");
+    }
+
+    /// <summary>展开 / 收起列表末尾的「已隐藏」区。</summary>
+    [RelayCommand]
+    private void ToggleHiddenSection() => HiddenSectionExpanded = !HiddenSectionExpanded;
 
     /// <summary>供分区视图模型写操作日志用：Log 只在 MainViewModel 内部可见。</summary>
     public void AppendLog(string message) => Log(message);

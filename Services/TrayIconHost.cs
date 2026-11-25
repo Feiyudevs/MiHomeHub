@@ -7,7 +7,7 @@ using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Threading;
 
-namespace MiHome.Services;
+namespace MiHomeHub.Services;
 
 /// <summary>
 /// 自己托管 Shell_NotifyIcon：Avalonia 11.3 的 TrayIcon 只暴露左键 Clicked，

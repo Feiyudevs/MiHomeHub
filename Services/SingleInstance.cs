@@ -6,7 +6,7 @@ using System.Runtime.Versioning;
 using System.Threading;
 using Avalonia.Threading;
 
-namespace MiHome.Services;
+namespace MiHomeHub.Services;
 
 /// <summary>
 /// 单实例：命名互斥体保证只跑一个常驻进程。
@@ -15,8 +15,8 @@ namespace MiHome.Services;
 [SupportedOSPlatform("windows")]
 public static class SingleInstance
 {
-    private const string MutexName = @"Local\MiHome.SingleInstance";
-    private const string ShowEventName = @"Local\MiHome.ShowMain";
+    private const string MutexName = @"Local\MiHomeHub.SingleInstance";
+    private const string ShowEventName = @"Local\MiHomeHub.ShowMain";
 
     private static Mutex? _mutex;
     private static EventWaitHandle? _showEvent;

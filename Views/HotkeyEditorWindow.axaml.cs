@@ -7,10 +7,10 @@ using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.Threading;
-using MiHome.Models;
-using MiHome.ViewModels;
+using MiHomeHub.Models;
+using MiHomeHub.ViewModels;
 
-namespace MiHome.Views;
+namespace MiHomeHub.Views;
 
 /// <summary>
 /// 「新建 / 编辑快捷键」弹窗宿主：控制卡片 + 组合键录制 + 保存。
@@ -23,7 +23,7 @@ public partial class HotkeyEditorWindow : Window
     private HotkeyModifier _fallbackModifiers = HotkeyModifier.None;
 
     // ===== 控制卡片拖拽排序（与创建自动化弹窗同一套做法）=====
-    private const string StepDragFormat = "MiHome.HotkeyDraftStep";
+    private const string StepDragFormat = "MiHomeHub.HotkeyDraftStep";
     private Point _stepGripStart;
     private HotkeyDraftStepVm? _stepDragCandidate;
     private Control? _hoveredStepCard;

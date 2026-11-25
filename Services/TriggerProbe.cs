@@ -10,9 +10,9 @@ using System.Text.Encodings.Web;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using System.Threading.Tasks;
-using MiHome.Models;
+using MiHomeHub.Models;
 
-namespace MiHome.Services;
+namespace MiHomeHub.Services;
 
 /// <summary>
 /// 设备「触发条件能力」接口探针（只读）。
@@ -21,8 +21,8 @@ namespace MiHome.Services;
 /// 这是小米 IoT 平台上厂商为该型号配置的自动化能力 ID，本地无法推导。
 /// 本探针把候选接口逐个打一遍，确认是否存在「按设备取自动化能力列表」的云端接口。
 ///
-/// 用法：MiHome.exe --trigger-probe [did]
-/// 输出：%APPDATA%\Feiyu\MiHome\trigger-probe\
+/// 用法：MiHomeHub.exe --trigger-probe [did]
+/// 输出：%APPDATA%\Feiyu\MiHomeHub\trigger-probe\
 ///   summary.txt / NN-xxx.json / done.flag
 /// </summary>
 internal static class TriggerProbe
@@ -53,7 +53,7 @@ internal static class TriggerProbe
         Directory.CreateDirectory(_dir);
         foreach (var f in Directory.GetFiles(_dir)) { try { File.Delete(f); } catch { } }
 
-        W($"MiHome 触发条件可写性实验  {DateTime.Now:yyyy-MM-dd HH:mm:ss}");
+        W($"MiHomeHub 触发条件可写性实验  {DateTime.Now:yyyy-MM-dd HH:mm:ss}");
         W("原则：只新建 enable=false 的测试自动化，成功后立即删除；不改任何现有对象。");
         W("");
 
@@ -169,7 +169,7 @@ internal static class TriggerProbe
         Directory.CreateDirectory(_dir);
         foreach (var f in Directory.GetFiles(_dir)) { try { File.Delete(f); } catch { } }
 
-        W($"MiHome 触发条件端到端验证  {DateTime.Now:yyyy-MM-dd HH:mm:ss}");
+        W($"MiHomeHub 触发条件端到端验证  {DateTime.Now:yyyy-MM-dd HH:mm:ss}");
         W("");
 
         var auth = MijiaAuth.LoadOrEmpty();
@@ -341,7 +341,7 @@ internal static class TriggerProbe
             try { File.Delete(f); } catch { }
         }
 
-        W($"MiHome 设备触发条件探针  {DateTime.Now:yyyy-MM-dd HH:mm:ss}");
+        W($"MiHomeHub 设备触发条件探针  {DateTime.Now:yyyy-MM-dd HH:mm:ss}");
         W($"输出目录：{_dir}");
 
         var auth = MijiaAuth.LoadOrEmpty();

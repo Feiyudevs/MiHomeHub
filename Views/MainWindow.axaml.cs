@@ -14,11 +14,11 @@ using Avalonia.Threading;
 using Avalonia.VisualTree;
 using System.Linq;
 using System.Threading.Tasks;
-using MiHome.Services;
-using MiHome.Controls;
-using MiHome.ViewModels;
+using MiHomeHub.Services;
+using MiHomeHub.Controls;
+using MiHomeHub.ViewModels;
 
-namespace MiHome.Views;
+namespace MiHomeHub.Views;
 
 public partial class MainWindow : CustomWindow
 {

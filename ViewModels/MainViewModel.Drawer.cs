@@ -11,17 +11,18 @@ using System.Linq;
 using System.Runtime;
 using System.Threading.Tasks;
 using Avalonia;
+using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Media;
 using Avalonia.Media.Imaging;
 using Avalonia.Styling;
 using Avalonia.Threading;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
-using MiHome.Models;
-using MiHome.Services;
+using MiHomeHub.Models;
+using MiHomeHub.Services;
 using QRCoder;
 
-namespace MiHome.ViewModels;
+namespace MiHomeHub.ViewModels;
 
 public partial class MainViewModel : ObservableObject
 {
@@ -45,18 +46,32 @@ public partial class MainViewModel : ObservableObject
     public ObservableCollection<SpecGroupVm> DrawerSpecAdvancedGroups { get; } = new();
     public ObservableCollection<SpecActionVm> DrawerSpecAdvancedActions { get; } = new();
 
+    /// <summary>卡片外显的候选读数：每个设备类型一组，点一下加入/移出卡片副标题。</summary>
+    public ObservableCollection<CardMetricVm> DrawerCardMetrics { get; } = new();
+
+    /// <summary>详情顶部的实时读数卡（功率/电压/电流/温度/湿度/PM2.5/照度等）。</summary>
+    public ObservableCollection<MetricTileVm> DrawerMetricTiles { get; } = new();
+
     [ObservableProperty] private bool _hasAdvancedPanel;
     [ObservableProperty] private bool _hasAdvancedActions;
     [ObservableProperty] private bool _isAdvancedExpanded;
+    [ObservableProperty] private bool _hasCardMetrics;
+    [ObservableProperty] private bool _hasDrawerMetricTiles;
+    [ObservableProperty] private string _cardMetricsTitle = "卡片外显";
+
+    /// <summary>外显面板的说明文字，带上类型名，提示改动对同类设备一起生效。</summary>
+    [ObservableProperty] private string _cardMetricsHint = "";
 
     /// <summary>抽屉「智能场景」：默认折叠，点标题展开（与高级设置同一套开合交互）。</summary>
     [ObservableProperty] private bool _isSmartSceneExpanded;
 
-    /// <summary>高级设置区是否有内容（属性组或动作任一存在）。</summary>
-    public bool HasAdvanced => HasAdvancedPanel || HasAdvancedActions;
+    /// <summary>高级设置区是否有内容（外显候选、属性组或动作任一存在）。</summary>
+    public bool HasAdvanced => HasCardMetrics || HasAdvancedPanel || HasAdvancedActions;
 
     /// <summary>高级设置里属性组与动作之间那条分割线：两段都有内容才画。</summary>
     public bool HasAdvancedDivider => HasAdvancedPanel && HasAdvancedActions;
+
+    partial void OnHasCardMetricsChanged(bool value) => OnPropertyChanged(nameof(HasAdvanced));
 
     partial void OnHasAdvancedPanelChanged(bool value)
     {
@@ -83,6 +98,17 @@ public partial class MainViewModel : ObservableObject
         // 每次打开都回到默认折叠，不继承上一台设备的展开态
         IsSmartSceneExpanded = false;
         BuildSpecPanel(device);
+
+        // 中枢网关：云端设备列表带 localip 时直接用它，没带就回落上次手填/扫描到的地址
+        if (device.IsHub)
+        {
+            HubGeekIp = !string.IsNullOrWhiteSpace(device.LocalIp)
+                ? HubGeek.NormalizeIp(device.LocalIp)
+                : AppSettingsStore.GetHubIp(device.Did);
+            HubGeekHint = "";
+            IsHubGeekHelpExpanded = false;
+        }
+
         AttachDrawerDetail(device);
         UpdateDrawerScenes();
     }
@@ -107,8 +133,12 @@ public partial class MainViewModel : ObservableObject
         _actionConfirmTimer = null;
         DrawerSpecAdvancedGroups.Clear();
         DrawerSpecAdvancedActions.Clear();
+        DrawerCardMetrics.Clear();
+        DrawerMetricTiles.Clear();
         HasAdvancedPanel = false;
         HasAdvancedActions = false;
+        HasCardMetrics = false;
+        HasDrawerMetricTiles = false;
         IsAdvancedExpanded = false;
         IsSmartSceneExpanded = false;
     }
@@ -362,6 +392,9 @@ public partial class MainViewModel : ObservableObject
         var query = new List<(string Did, int Siid, int Piid)>();
         foreach (var vm in DrawerSpecAdvancedGroups.SelectMany(g => g.Items))
             query.Add((device.TargetDid, vm.Def.Siid, vm.Def.Piid));
+        // 顶部读数卡：把能读的指标一起取了，打开抽屉立刻有值
+        foreach (var tile in DrawerMetricTiles)
+            query.Add((device.TargetDid, tile.Def.Siid, tile.Def.Piid));
         foreach (var ch in device.Channels)
             query.Add((device.TargetDid, ch.Siid, ch.Piid));
         if (device.HasPower) query.Add((device.TargetDid, device.PowerSiid, device.PowerPiid));
@@ -374,6 +407,7 @@ public partial class MainViewModel : ObservableObject
         {
             if (!ReferenceEquals(DrawerDevice, device)) return;
             ApplySpecValues(device, map);
+            UpdateDrawerMetricTiles(device, map);
             foreach (var ch in device.Channels)
                 if (map.TryGetValue((device.TargetDid, ch.Siid, ch.Piid), out var v))
                     ch.IsOn = v is true;
@@ -392,7 +426,7 @@ public partial class MainViewModel : ObservableObject
     private static readonly HashSet<string> MetricPropNames = new(StringComparer.Ordinal)
     {
         "temperature", "relative-humidity", "humidity", "pm2.5", "pm10", "illuminance",
-        "battery-level", "battery", "co2", "tvoc", "tds-in", "air-quality", "water-level",
+        "co2", "tvoc", "tds-in", "air-quality", "water-level",
         "power-consumption", "voltage", "electric-current", "motion-detected",
         "contact-state", "occupancy", "smoke-state", "leak", "door-state", "submersion-state"
     };
@@ -405,13 +439,20 @@ public partial class MainViewModel : ObservableObject
     {
         DrawerSpecAdvancedGroups.Clear();
         DrawerSpecAdvancedActions.Clear();
+        DrawerCardMetrics.Clear();
+        DrawerMetricTiles.Clear();
         var spec = device.Spec;
         if (spec == null)
         {
             HasAdvancedPanel = false;
             HasAdvancedActions = false;
+            HasCardMetrics = false;
+            HasDrawerMetricTiles = false;
             return;
         }
+
+        BuildCardMetricsPanel(device);
+        BuildMetricTiles(device);
 
         // 按 siid 分组：多路面板的规格里会有多个同名服务（Light 1/2/3、Curtain 1/2），
         // 按描述分组会把它们并成一张卡，出现多行同名的滑杆。
@@ -465,6 +506,86 @@ public partial class MainViewModel : ObservableObject
 
         HasAdvancedPanel = DrawerSpecAdvancedGroups.Count > 0;
         HasAdvancedActions = DrawerSpecAdvancedActions.Count > 0;
+    }
+
+    /// <summary>卡片外显区：列出这台设备能外显的读数，已选中的直接点亮。</summary>
+    private void BuildCardMetricsPanel(MijiaDevice device)
+    {
+        var selected = CardMetricsCatalog.EffectiveNames(device);
+        foreach (var p in CardMetricsCatalog.Candidates(device))
+        {
+            DrawerCardMetrics.Add(new CardMetricVm
+            {
+                Device = device,
+                Name = p.Name,
+                Title = CardMetricsCatalog.DisplayLabel(p),
+                IsShown = selected.Contains(p.Name)
+            });
+        }
+        HasCardMetrics = DrawerCardMetrics.Count > 0;
+        var label = CardMetricsCatalog.TypeLabel(device);
+        CardMetricsTitle = $"卡片外显 · {label}";
+        CardMetricsHint = $"点一下加到卡片副标题，再点移出；{label}类设备一起生效。";
+    }
+
+    /// <summary>详情顶部的读数卡：把这台设备规格里能读的指标各铺一枚，值随轮询刷新。</summary>
+    private void BuildMetricTiles(MijiaDevice device)
+    {
+        DrawerMetricTiles.Clear();
+        foreach (var p in CardMetricsCatalog.Candidates(device))
+            DrawerMetricTiles.Add(new MetricTileVm { Def = p });
+        HasDrawerMetricTiles = DrawerMetricTiles.Count > 0;
+    }
+
+    /// <summary>用本轮读到的原始值刷新读数卡；没读到的保持上一次的值。</summary>
+    private void UpdateDrawerMetricTiles(MijiaDevice device,
+        Dictionary<(string Did, int Siid, int Piid), object?> map)
+    {
+        if (!ReferenceEquals(DrawerDevice, device)) return;
+        foreach (var tile in DrawerMetricTiles)
+        {
+            if (!map.TryGetValue((device.TargetDid, tile.Def.Siid, tile.Def.Piid), out var raw) || raw == null)
+                continue;
+            tile.ValueText = CardMetricsCatalog.FormatValue(tile.Def, ToDouble(raw));
+        }
+    }
+
+    /// <summary>切换一个外显读数；写回按类型保存，并让同类设备立刻按新配置刷新。</summary>
+    [RelayCommand]
+    private void ToggleCardMetric(CardMetricVm? item)
+    {
+        if (item == null) return;
+        var typeKey = CardMetricsCatalog.TypeKey(item.Device);
+        var current = CardMetricsCatalog.EffectiveNames(typeKey).ToList();
+        if (!current.Remove(item.Name)) current.Add(item.Name);
+        AppSettingsStore.SetCardMetrics(typeKey, current);
+        AfterCardMetricsChanged(typeKey);
+    }
+
+    /// <summary>恢复该类型的默认外显（插座=功率，其余=温度+湿度）。</summary>
+    [RelayCommand]
+    private void ResetCardMetrics()
+    {
+        if (DrawerDevice == null) return;
+        var typeKey = CardMetricsCatalog.TypeKey(DrawerDevice);
+        AppSettingsStore.ClearCardMetrics(typeKey);
+        AfterCardMetricsChanged(typeKey);
+    }
+
+    private void AfterCardMetricsChanged(string typeKey)
+    {
+        var selected = CardMetricsCatalog.EffectiveNames(typeKey);
+        // 同类设备的旧读数缓存作废，重新拼副标题；温湿度要清掉，否则环境概览还拿旧值
+        foreach (var d in _allDevices.Where(x => CardMetricsCatalog.TypeKey(x) == typeKey))
+        {
+            d.CardMetricTexts.Clear();
+            d.MetricsText = "";
+            d.TemperatureC = null;
+            d.Humidity = null;
+        }
+        foreach (var vm in DrawerCardMetrics) vm.IsShown = selected.Contains(vm.Name);
+        RecomputeEnvironment();
+        if (_client != null && IsLoggedIn) _ = RefreshStatesAsync(includeMetrics: true);
     }
 
     private List<SpecPropVm> BuildPropVms(MijiaDevice device, List<SpecPropertyDef> defs, Action<SpecPropVm> commit)
@@ -852,53 +973,60 @@ public partial class MainViewModel : ObservableObject
 
     // ===== 摄像头：画面走本地 go2rtc 桥接（云端只有属性，没有视频数据） =====
 
-    /// <summary>打开摄像头抽屉时探一次桥接状态，把结论显示在卡片里，用户不用点按钮才知道没配上。</summary>
+    private void ApplyCameraProbe(CameraProbeResult probe)
+    {
+        CameraBridgeHint = probe.Hint;
+        CameraSecurityHint = probe.SecurityHint;
+    }
+
+    private async Task CopyTextAsync(string text)
+    {
+        try
+        {
+            var window = (Application.Current?.ApplicationLifetime as IClassicDesktopStyleApplicationLifetime)?.MainWindow;
+            if (window?.Clipboard is { } clipboard)
+                await clipboard.SetTextAsync(text);
+            else
+                Log("写剪贴板失败：找不到主窗口");
+        }
+        catch (Exception ex)
+        {
+            Log($"写剪贴板失败：{ex.Message}");
+        }
+    }
+
+    /// <summary>打开摄像头抽屉时探一次桥接状态，把结论和下一步显示在卡片里，用户不用点按钮才知道没配上。</summary>
     private async Task RefreshCameraBridgeAsync(MijiaDevice device)
     {
-        var ready = await CameraBridge.PingAsync();
-        if (!ready)
-        {
-            CameraBridgeHint = "画面源还没接通。看画面需要先做一次本地准备（不经过小米云），点「怎么设置」跟着三步走。";
-            return;
-        }
-        var streams = await CameraBridge.GetStreamNamesAsync();
-        var name = CameraBridge.StreamName(device);
-        CameraBridgeHint = streams.Contains(name)
-            ? "画面源已接通，点「打开画面」即可查看。"
-            : "画面源已接通，但还没认到这台摄像机：在控制台里添加它一次即可。";
+        var probe = await CameraBridge.ProbeAsync(device);
+        ApplyCameraProbe(probe);
+        Log($"{device.Name} 画面源自检：{probe.CodeText} · 流 {(probe.StreamName == null ? "未匹配" : "已匹配")}");
     }
 
     [RelayCommand]
     private async Task OpenCameraLive()
     {
         if (DrawerDevice is not { IsCamera: true } d) return;
-        var ready = await CameraBridge.PingAsync();
-        if (!ready)
+        var probe = await CameraBridge.ProbeAsync(d);
+        ApplyCameraProbe(probe);
+
+        if (!probe.Ready)
         {
-            IsCameraSetupExpanded = true;
-            CameraBridgeHint = "画面源还没接通：先按下面三步准备一次，之后这里直接出画面。";
-            Log($"{d.Name} 实时画面未打开：本地画面源未接通");
+            // 配置/网关问题才把三步准备展开；只是没认到摄像头就别吓用户。
+            IsCameraSetupExpanded = probe.Stage is CameraProbeStage.Config or CameraProbeStage.Gateway;
+            Log($"{d.Name} 实时画面未打开：{probe.CodeText} {probe.Hint}");
+            if (probe.Code == CameraProbeCode.StreamMissing)
+            {
+                CameraBridge.Open(CameraBridge.ConsoleUrl);
+                CameraBridgeHint = "已打开画面源控制台：找到这台摄像机、添加一次后回来重试。";
+            }
             return;
         }
 
-        var streams = await CameraBridge.GetStreamNamesAsync();
-        var name = CameraBridge.StreamName(d);
-        if (!streams.Contains(name))
-        {
-            var guess = streams.FirstOrDefault(s => s.Contains(d.Did, StringComparison.Ordinal));
-            if (guess == null)
-            {
-                CameraBridgeHint = "画面源里还没有这台摄像机，已打开控制台：找到它、添加一次后回来重试。";
-                CameraBridge.Open(CameraBridge.ConsoleUrl);
-                Log($"{d.Name} 尚未在画面源里登记");
-                return;
-            }
-            name = guess;
-        }
-
+        var name = probe.StreamName!;
         if (CameraBridge.Open(CameraBridge.PlayUrl(name)))
         {
-            CameraBridgeHint = $"已打开 {name} 的实时画面（浏览器窗口）。";
+            CameraBridgeHint = $"已打开 {name} 的实时画面（浏览器窗口）。一直黑屏的话多是 H.265 浏览器解不了，改用「播放器打开」。";
             Log($"{d.Name} 实时画面 → {name}");
         }
         else
@@ -906,6 +1034,70 @@ public partial class MainViewModel : ObservableObject
             CameraBridgeHint = $"调用浏览器失败，手动打开：{CameraBridge.PlayUrl(name)}";
             Log($"打开画面失败：{CameraBridge.PlayUrl(name)}");
         }
+    }
+
+    /// <summary>H.265 兜底：把 go2rtc 的 RTSP 交给本机 mpv / VLC / PotPlayer，不额外下载组件。</summary>
+    [RelayCommand]
+    private async Task OpenCameraWithPlayer()
+    {
+        if (DrawerDevice is not { IsCamera: true } d) return;
+        var probe = await CameraBridge.ProbeAsync(d);
+        ApplyCameraProbe(probe);
+        if (!probe.Ready)
+        {
+            IsCameraSetupExpanded = probe.Stage is CameraProbeStage.Config or CameraProbeStage.Gateway;
+            Log($"{d.Name} 播放器打开失败：{probe.CodeText} {probe.Hint}");
+            return;
+        }
+
+        var name = probe.StreamName!;
+        var url = CameraBridge.RtspUrl(name);
+        if (CameraBridge.TryOpenPlayer(url, out var player, out var error))
+        {
+            CameraBridgeHint = $"已用 {player} 打开 {name} 的画面（H.265 也能放）。";
+            Log($"{d.Name} 实时画面 → {player}（RTSP）");
+            return;
+        }
+
+        CameraBridgeHint = error == null
+            ? $"没找到本机播放器（mpv / VLC / PotPlayer），已复制 RTSP 地址：{url}。装上任意一个后，这个按钮会直接用它打开。"
+            : $"调用播放器失败：{error}。已复制 RTSP 地址：{url}。";
+        Log($"{d.Name} 播放器打开失败：{error ?? "未找到本机播放器"}");
+        await CopyTextAsync(url);
+    }
+
+    /// <summary>把「只绑本机」的 go2rtc 配置片段放进剪贴板，避免整个局域网都能打开控制台。</summary>
+    [RelayCommand]
+    private async Task CopyCameraConfig()
+    {
+        await CopyTextAsync(CameraBridge.RecommendedConfig);
+        CameraBridgeHint = "已复制推荐配置：粘贴到 go2rtc.yaml 顶层并重启，api 和 rtsp 就只对本机开放（控制台不再对整个局域网可见）。";
+        CameraSecurityHint = "";
+        Log("已复制 go2rtc 推荐配置");
+    }
+
+    /// <summary>自检结果只含阶段、错误码和是否匹配，不带账号、令牌、视频地址和设备 did。</summary>
+    [RelayCommand]
+    private async Task CopyCameraDiagnostic()
+    {
+        if (DrawerDevice is not { IsCamera: true } d) return;
+        var probe = await CameraBridge.ProbeAsync(d);
+        ApplyCameraProbe(probe);
+
+        var lines = new[]
+        {
+            "MiHomeHub 画面源自检",
+            $"时间：{DateTime.Now:yyyy-MM-dd HH:mm:ss}",
+            $"阶段：{probe.Stage} / {probe.Code}",
+            $"画面源：{probe.BaseUrl}",
+            $"仅本机：{(probe.LoopbackHost ? "是" : "否")}",
+            $"设备型号：{d.Model}",
+            $"匹配流：{(probe.StreamName == null ? "未匹配" : "已匹配")}",
+            $"流数量：{probe.Streams.Count}",
+            $"自动结论：{probe.Hint}"
+        };
+        await CopyTextAsync(string.Join(Environment.NewLine, lines));
+        CameraBridgeHint = "已复制自检结果（不含账号、令牌、视频地址和设备 did），可直接贴给维护者排查。";
     }
 
     [RelayCommand]
@@ -925,12 +1117,69 @@ public partial class MainViewModel : ObservableObject
     [RelayCommand]
     private void ToggleCameraSetup() => IsCameraSetupExpanded = !IsCameraSetupExpanded;
 
+    // ===== 中枢网关：自动化极客版（网关自托管的网页，端口固定 80） =====
+
+    /// <summary>正在局域网扫描极客版网页，防止连点重复扫。</summary>
+    private bool _findingHub;
+
+    [RelayCommand]
+    private void OpenHubGeek()
+    {
+        if (DrawerDevice is not { IsHub: true } d) return;
+        var url = HubGeek.BuildUrl(HubGeekIp);
+        if (url.Length == 0)
+        {
+            HubGeekHint = "还不知道网关 IP：点「自动查找」，或在上面手动填一次（米家 App 中枢功能页里能看到）。";
+            Log($"{d.Name} 极客版未打开：缺少网关 IP");
+            return;
+        }
+
+        if (HubGeek.Open(url))
+        {
+            HubGeekHint = $"已打开 {url}。登录码在米家 App 里现取（一次性、几分钟有效），同一个浏览器登录过就不用再输。";
+            Log($"{d.Name} 极客版 → {url}");
+        }
+        else
+        {
+            HubGeekHint = $"调用浏览器失败，手动打开：{url}";
+        }
+    }
+
+    [RelayCommand]
+    private async Task FindHubGateway()
+    {
+        if (DrawerDevice is not { IsHub: true } d || _findingHub) return;
+
+        _findingHub = true;
+        HubGeekHint = "正在局域网里找极客版网页（约十几秒）…";
+        try
+        {
+            var found = await HubGeek.FindAsync();
+            if (found == null)
+            {
+                HubGeekHint = "这个网段里没扫到极客版网页。可以按米家 App 里显示的 IP 手动填一次，或确认电脑和网关在同一网络。";
+                Log($"{d.Name} 极客版：局域网未找到");
+                return;
+            }
+
+            HubGeekIp = found;
+            HubGeekHint = $"已找到网关：{found}。点「打开极客版」即可，登录码去米家 App 里取。";
+            Log($"{d.Name} 极客版：局域网找到 {found}");
+        }
+        finally
+        {
+            _findingHub = false;
+        }
+    }
+
+    [RelayCommand]
+    private void ToggleHubGeekHelp() => IsHubGeekHelpExpanded = !IsHubGeekHelpExpanded;
+
     [RelayCommand]
     private async Task RefreshCameraBridge()
     {
         if (DrawerDevice is not { IsCamera: true } d) return;
         await RefreshCameraBridgeAsync(d);
-        Log($"{d.Name} 桥接状态：{CameraBridgeHint}");
     }
 
     private static string AcOptionLabel(List<AcOptionItem> opts, int value, string fallback) =>

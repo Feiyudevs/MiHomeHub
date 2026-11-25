@@ -10,7 +10,7 @@ using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.VisualTree;
 
-namespace MiHome.Controls;
+namespace MiHomeHub.Controls;
 
 /// <summary>
 /// 宫格卡片的拖拽排序：按住卡片拖过阈值进入排序，源卡淡成虚影、落点边亮一条竖线，松手才真正改顺序。

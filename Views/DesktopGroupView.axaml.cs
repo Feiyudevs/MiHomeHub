@@ -13,11 +13,11 @@ using Avalonia.Interactivity;
 using Avalonia.Media;
 using Avalonia.Threading;
 using Avalonia.VisualTree;
-using MiHome.Controls;
-using MiHome.Services;
-using MiHome.ViewModels;
+using MiHomeHub.Controls;
+using MiHomeHub.Services;
+using MiHomeHub.ViewModels;
 
-namespace MiHome.Views;
+namespace MiHomeHub.Views;
 
 /// <summary>
 /// 分区卡片内容：标题栏（拖动 / 单击折叠 / 双击重命名）、动作区（置顶 · 折叠 · 添加设备 · 菜单）、设备宫格。

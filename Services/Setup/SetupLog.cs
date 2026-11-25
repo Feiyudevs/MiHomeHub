@@ -7,10 +7,10 @@ using System.Linq;
 using System.Text;
 using System.Threading;
 
-namespace MiHome.Services.Setup;
+namespace MiHomeHub.Services.Setup;
 
 /// <summary>
-/// 安装/卸载诊断日志（外壳与主程序共用）：<c>%TEMP%\MiHome-setup.log</c>，
+/// 安装/卸载诊断日志（外壳与主程序共用）：<c>%TEMP%\MiHomeHub-setup.log</c>，
 /// 全局互斥体串行写入，单行制表符分隔，超 64 KB 从头部截断。
 /// 所有写日志失败都静默吞掉——诊断不能遮盖原始故障。
 /// </summary>

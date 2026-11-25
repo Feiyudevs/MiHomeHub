@@ -3,7 +3,7 @@
 
 using Avalonia.Controls;
 
-namespace MiHome.Views;
+namespace MiHomeHub.Views;
 
 public partial class DeviceListDialogView : UserControl
 {

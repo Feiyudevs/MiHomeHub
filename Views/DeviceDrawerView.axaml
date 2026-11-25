@@ -1,13 +1,13 @@
 <UserControl
     xmlns="https://github.com/avaloniaui"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-    xmlns:vm="clr-namespace:MiHome.ViewModels"
-    xmlns:m="clr-namespace:MiHome.Models"
-    xmlns:conv="clr-namespace:MiHome.Converters"
-    xmlns:ctl="clr-namespace:MiHome.Controls"
-    xmlns:views="clr-namespace:MiHome.Views"
-    xmlns:svc="clr-namespace:MiHome.Services"
-    x:Class="MiHome.Views.DeviceDrawerView"
+    xmlns:vm="clr-namespace:MiHomeHub.ViewModels"
+    xmlns:m="clr-namespace:MiHomeHub.Models"
+    xmlns:conv="clr-namespace:MiHomeHub.Converters"
+    xmlns:ctl="clr-namespace:MiHomeHub.Controls"
+    xmlns:views="clr-namespace:MiHomeHub.Views"
+    xmlns:svc="clr-namespace:MiHomeHub.Services"
+    x:Class="MiHomeHub.Views.DeviceDrawerView"
     x:DataType="vm:MainViewModel">
         <Border x:Name="DeviceDrawer" Width="380" HorizontalAlignment="Right"
                 VerticalAlignment="Stretch"
@@ -51,18 +51,23 @@
                                                Text="离线" />
                                 </StackPanel>
                             </StackPanel>
-                            <Button Grid.Column="1" Classes="IconDisc" Margin="10,0,0,0" VerticalAlignment="Center"
+                            <!-- 胶囊钮：加号 + 「桌面」两个字，告诉用户这颗钮是把设备放到桌面上 -->
+                            <Button Grid.Column="1" Classes="IconPill" Margin="10,0,0,0" VerticalAlignment="Center"
                                     Command="{Binding AddToDesktopCommand}"
                                     CommandParameter="{Binding DrawerDevice}"
                                     ToolTip.Tip="添加到桌面组件">
-                                <Viewbox Width="14" Height="14" Stretch="Uniform"
-                                         HorizontalAlignment="Center" VerticalAlignment="Center">
-                                    <Panel Width="24" Height="24">
-                                        <Path StrokeThickness="2" StrokeLineCap="Round"
-                                              Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}"
-                                              Data="{StaticResource GeoPlus}" />
-                                    </Panel>
-                                </Viewbox>
+                                <StackPanel Orientation="Horizontal" Spacing="5">
+                                    <Viewbox Width="13" Height="13" Stretch="Uniform"
+                                             HorizontalAlignment="Center" VerticalAlignment="Center">
+                                        <Panel Width="24" Height="24">
+                                            <Path StrokeThickness="2" StrokeLineCap="Round"
+                                                  Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}"
+                                                  Data="{StaticResource GeoPlus}" />
+                                        </Panel>
+                                    </Viewbox>
+                                    <TextBlock Text="桌面" FontSize="12.5" VerticalAlignment="Center"
+                                               Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" />
+                                </StackPanel>
                             </Button>
                         </Grid>
                     </StackPanel>

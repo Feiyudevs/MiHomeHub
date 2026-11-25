@@ -7,9 +7,9 @@ using System.IO;
 using System.Linq;
 using System.Threading;
 
-namespace MiHome.Services.Setup;
+namespace MiHomeHub.Services.Setup;
 
-/// <summary>安装事务中可带步骤名的失败（不含 MiHome 依赖，外壳同源编译）。</summary>
+/// <summary>安装事务中可带步骤名的失败（不含 MiHomeHub 依赖，外壳同源编译）。</summary>
 internal sealed class SetupFailureException : Exception
 {
     public string Step { get; }

@@ -4,7 +4,7 @@
 using Avalonia;
 using Avalonia.Media;
 
-namespace MiHome.Services;
+namespace MiHomeHub.Services;
 
 /// <summary>
 /// 卡片投影的运行期开关：卡片样式统一引用 CardShadow / CardShadowHover 两个资源，

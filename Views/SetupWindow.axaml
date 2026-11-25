@@ -1,7 +1,7 @@
 <Window xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        x:Class="MiHome.Views.SetupWindow"
-        Title="MiHome"
+        x:Class="MiHomeHub.Views.SetupWindow"
+        Title="MiHomeHub"
         Width="540"
         Height="640"
         CanResize="False"
@@ -120,12 +120,12 @@
                                 BorderThickness="1"
                                 ClipToBounds="True"
                                 HorizontalAlignment="Center">
-                            <Image Source="avares://MiHome/Assets/logo-256.png"
+                            <Image Source="avares://MiHomeHub/Assets/logo-256.png"
                                    Stretch="UniformToFill"
                                    RenderOptions.BitmapInterpolationMode="HighQuality" />
                         </Border>
                         <TextBlock Name="TxtTitle"
-                                   Text="MiHome"
+                                   Text="MiHomeHub"
                                    FontSize="28"
                                    FontWeight="Bold"
                                    Foreground="{DynamicResource TextBrush}"
@@ -292,7 +292,7 @@
                                 CornerRadius="12"
                                 Padding="16,12">
                             <Grid ColumnDefinitions="*,Auto">
-                                <TextBlock Text="立即启动 MiHome"
+                                <TextBlock Text="立即启动 MiHomeHub"
                                            FontSize="13.5"
                                            Foreground="{DynamicResource TextBrush}"
                                            VerticalAlignment="Center" />

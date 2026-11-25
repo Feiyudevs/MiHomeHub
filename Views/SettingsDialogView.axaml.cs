@@ -3,9 +3,9 @@
 
 using Avalonia.Controls;
 using Avalonia.Interactivity;
-using MiHome.ViewModels;
+using MiHomeHub.ViewModels;
 
-namespace MiHome.Views;
+namespace MiHomeHub.Views;
 
 public partial class SettingsDialogView : UserControl
 {

@@ -5,9 +5,9 @@ using System;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Input;
-using MiHome.ViewModels;
+using MiHomeHub.ViewModels;
 
-namespace MiHome.Views;
+namespace MiHomeHub.Views;
 
 /// <summary>
 /// 小爱语音指令浮层：由标题栏胶囊唤出。

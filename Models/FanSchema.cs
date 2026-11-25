@@ -3,7 +3,7 @@
 
 using System.Collections.Generic;
 
-namespace MiHome.Models;
+namespace MiHomeHub.Models;
 
 /// <summary>
 /// 风扇（落地扇/循环扇/塔扇）的控制参数，全部从设备 MIoT 规格推出：

@@ -3,9 +3,9 @@
 
 using System.Text.Json.Serialization;
 
-namespace MiHome.Models;
+namespace MiHomeHub.Models;
 
-/// <summary>登录凭证，持久化到 %APPDATA%/Feiyu/MiHome/auth.json（DPAPI 加密，仅当前 Windows 用户可解密）</summary>
+/// <summary>登录凭证，持久化到 %APPDATA%/Feiyu/MiHomeHub/auth.json（DPAPI 加密，仅当前 Windows 用户可解密）</summary>
 public class AuthData
 {
     [JsonPropertyName("ssecurity")] public string SSecurity { get; set; } = "";

@@ -2,9 +2,9 @@
 // SPDX-License-Identifier: GPL-3.0-only
 
 using CommunityToolkit.Mvvm.ComponentModel;
-using MiHome.Models;
+using MiHomeHub.Models;
 
-namespace MiHome.ViewModels;
+namespace MiHomeHub.ViewModels;
 
 /// <summary>
 /// 快捷键列表行。绑定对象本身留在 <see cref="Binding"/>（持久化 / 钩子匹配都用它），

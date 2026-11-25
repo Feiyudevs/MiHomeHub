@@ -21,20 +21,29 @@ using Avalonia.Styling;
 using Avalonia.Threading;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
-using MiHome.Models;
-using MiHome.Services;
-using MiHome.Services.Telemetry;
-using MiHome.Services.Update;
+using MiHomeHub.Models;
+using MiHomeHub.Services;
+using MiHomeHub.Services.Telemetry;
+using MiHomeHub.Services.Update;
 using QRCoder;
 
-namespace MiHome.ViewModels;
+namespace MiHomeHub.ViewModels;
 
 public partial class MainViewModel : ObservableObject
 {
     private readonly MijiaAuth _auth;
     private MijiaClient? _client;
     private List<MijiaDevice> _allDevices = new();
+
+    /// <summary>实际上屏的设备清单：并进灯组的单灯、并回父卡的多键子设备、被设置隐藏的开关都不在这里。
+    /// 控制 / 场景 / 快捷键仍走 <see cref="_allDevices"/>，这里只决定列表与统计看得到什么。</summary>
+    private List<MijiaDevice> _visibleDevices = new();
+
     private string _selectedRoom = "全部";
+
+    /// <summary>用户单独隐藏的设备 did（app.json 的 hiddenDids）。只影响主列表：卡片折到末尾的「已隐藏」区，
+    /// 设备本身仍可控制、仍进场景与统计。</summary>
+    private readonly HashSet<string> _hiddenDids = new(AppSettingsStore.HiddenDids, StringComparer.Ordinal);
 
     /// <summary>设备名排序器：zh-CN 文化下汉字按拼音序，忽略大小写。</summary>
     private static readonly StringComparer DeviceNameComparer =
@@ -107,10 +116,33 @@ public partial class MainViewModel : ObservableObject
     /// <summary>打开摄像头抽屉时探测到的桥接状态，显示在「监控画面」卡片里。</summary>
     [ObservableProperty] private string _cameraBridgeHint = "";
 
+    /// <summary>画面源不在本机时的安全提示；空字符串表示整行收起。</summary>
+    [ObservableProperty] private string _cameraSecurityHint = "";
+
     /// <summary>「监控画面」里的设置引导默认收起：普通用户只看「打开画面」，配置一次后再也不用展开。</summary>
     [ObservableProperty] private bool _isCameraSetupExpanded;
 
     partial void OnGo2rtcBaseChanged(string value) => AppSettingsStore.SetGo2rtcBase(value);
+
+    // ===== 中枢网关「自动化极客版」：端口固定 80（实时通道 8082），只有 IP 需要确定 =====
+
+    /// <summary>极客版网页用的网关 IP；改动即按 did 写回 app.json，下次打开不用重填。</summary>
+    [ObservableProperty] private string _hubGeekIp = "";
+
+    /// <summary>极客版卡片的结果/提示文字（打开成功、扫描结果、登录码说明）。</summary>
+    [ObservableProperty] private string _hubGeekHint = "";
+
+    /// <summary>「登录码在哪看」三步引导默认收起，普通用户点一下才展开。</summary>
+    [ObservableProperty] private bool _isHubGeekHelpExpanded;
+
+    /// <summary>可点击的极客版地址：http://IP（80 端口浏览器默认，不显示端口更干净）。</summary>
+    public string HubGeekAddress => HubGeek.BuildUrl(HubGeekIp);
+
+    partial void OnHubGeekIpChanged(string value)
+    {
+        OnPropertyChanged(nameof(HubGeekAddress));
+        if (DrawerDevice is { IsHub: true } d) AppSettingsStore.SetHubIp(d.Did, value);
+    }
 
     // ── 更新（「关于」页）：检查 GitHub Release → 下载安装包 → 静默安装 ──
     [ObservableProperty] private string _updateStatusText = "检查更新可获取最新版本";
@@ -183,6 +215,21 @@ public partial class MainViewModel : ObservableObject
     /// <summary>鼠标移入折叠的桌面分区时自动展开。</summary>
     [ObservableProperty] private bool _hoverExpand = AppSettingsStore.HoverExpandEnabled;
 
+    /// <summary>设备列表隐藏墙壁开关 / 场景按键类设备（多键键位并回所属开关，不再单独出卡）。</summary>
+    [ObservableProperty] private bool _hideSwitches = AppSettingsStore.HideSwitches;
+
+    partial void OnHideSwitchesChanged(bool value)
+    {
+        AppSettingsStore.SetHideSwitches(value);
+        RebuildVisibleDevices();
+        RebuildRooms();
+        ApplyFilter();
+        RebuildHomeGroups();
+        UpdateStats();
+        RefreshSpeakers();
+        Log(value ? "已隐藏开关类设备" : "已显示开关类设备");
+    }
+
     /// <summary>设置弹窗当前 Tab：0 通用 / 1 桌面组件 / 2 账户 / 3 关于。</summary>
     [ObservableProperty] private int _settingsTab;
 
@@ -190,6 +237,13 @@ public partial class MainViewModel : ObservableObject
     private bool _revertingAutoStart;
     [ObservableProperty] private int _totalCount;
     [ObservableProperty] private int _onlineCount;
+
+    /// <summary>
+    /// 「总设备」卡：真实设备数。在线卡的 TotalCount 走的是上屏清单，灯组只算一台；
+    /// 这里把灯组按组内单灯逐台计数，组本身和拆键虚拟行都不算设备。
+    /// </summary>
+    [ObservableProperty] private int _totalDeviceCount;
+
     [ObservableProperty] private int _lightOnCount;
     [ObservableProperty] private string _lightTotalText = "";
     [ObservableProperty] private int _curtainOnCount;
@@ -311,6 +365,25 @@ public partial class MainViewModel : ObservableObject
     private string[] _roomOrder = AppSettingsStore.RoomOrder;
     public ObservableCollection<HomeOption> HomeOptions { get; } = new();
     public ObservableCollection<MijiaDevice> Devices { get; } = new();
+
+    /// <summary>用户单独隐藏的设备：不占房间宫格，统一折在列表最后的「已隐藏」区。</summary>
+    public ObservableCollection<MijiaDevice> HiddenDevices { get; } = new();
+
+    /// <summary>是否还有被隐藏的设备（没有时整块区域不出现）。</summary>
+    [ObservableProperty] private bool _hasHiddenDevices;
+
+    /// <summary>「已隐藏」区是否展开；默认收起，隐藏后仍能在末尾一键找回。</summary>
+    [ObservableProperty] private bool _hiddenSectionExpanded;
+
+    /// <summary>「已隐藏」标题：带上台数，收起时也能看出藏了几台。</summary>
+    [ObservableProperty] private string _hiddenSectionText = "";
+
+    /// <summary>折叠箭头的旋转角：收起时指向右（-90），展开时朝下（0）。</summary>
+    public double HiddenSectionAngle => HiddenSectionExpanded ? 0 : -90;
+
+    partial void OnHiddenSectionExpandedChanged(bool value) =>
+        OnPropertyChanged(nameof(HiddenSectionAngle));
+
     public ObservableCollection<DeviceGroup> HomeGroups { get; } = new();
     public ObservableCollection<SceneCardItem> SceneItems { get; } = new();
 
@@ -425,9 +498,9 @@ public partial class MainViewModel : ObservableObject
     public IReadOnlyList<string> SkeletonSlots { get; } =
         Enumerable.Range(0, 10).Select(i => i.ToString()).ToArray();
 
-    /// <summary>概览统计卡的骨架槽位：真实统计卡固定四张（在线/灯光/窗帘/空调），占位数量与之一致。</summary>
+    /// <summary>概览统计卡的骨架槽位：真实统计卡固定五张（在线/总设备/灯光/窗帘/空调），占位数量与之一致。</summary>
     public IReadOnlyList<string> StatSkeletonSlots { get; } =
-        Enumerable.Range(0, 4).Select(i => i.ToString()).ToArray();
+        Enumerable.Range(0, 5).Select(i => i.ToString()).ToArray();
 
     /// <summary>环境胶囊的骨架槽位：温度/湿度/耗材三枚。</summary>
     public IReadOnlyList<string> EnvSkeletonSlots { get; } =
@@ -742,6 +815,7 @@ public partial class MainViewModel : ObservableObject
         OnPropertyChanged(nameof(HomeChipTip));
         // 首次从无到有只是回填，不重复拉；用户下拉切换时才重载该家庭设备
         if (_suppressHomeReload) return;
+        AppSettingsStore.SetHomeId(value.Id);
         _ = LoadDevicesForSelectedHomeAsync();
     }
 
@@ -829,10 +903,18 @@ public partial class MainViewModel : ObservableObject
     {
         var cached = DeviceCacheStore.Load();
         if (cached == null) return;
+        // 旧版本缓存可能混着多个家庭的设备：只留当前（或上次）家庭 + 共享设备，开屏不混显
+        var keepHome = SelectedHome?.Id ?? AppSettingsStore.HomeId;
+        if (!string.IsNullOrEmpty(keepHome))
+            cached = cached
+                .Where(d => string.IsNullOrEmpty(d.HomeId) || d.HomeId == keepHome || d.HomeId == "shared")
+                .ToList();
+        if (cached.Count == 0) return;
         foreach (var d in cached) d.ApplyLegacyDefaults();
         Dispatcher.UIThread.Post(() =>
         {
             _allDevices = cached;
+            RebuildVisibleDevices();
             SyncSceneGroups();
             RebuildRooms();
             ApplyFilter();
@@ -844,84 +926,16 @@ public partial class MainViewModel : ObservableObject
         _ = LoadIconsAsync(cached);
     }
 
+    /// <summary>刷新：先刷家庭列表，再只拉「当前选中家庭」的设备（不是所有家庭混在一起）。</summary>
     [RelayCommand]
-    private async Task LoadDevicesAsync()
-    {
-        if (_client == null) return;
-        IsLoading = true;
-        var sw = System.Diagnostics.Stopwatch.StartNew();
-        try
-        {
-            Log("正在拉取设备列表…");
-            // 网络请求的 await 会在线程池回来，ObservableCollection 的增删必须切回 UI 线程，
-            // 否则 ItemsControl 收不到集合通知，页面上就一个卡片都不显示。
-            var fresh = await _client.GetAllDevicesAsync();
-            var homes = _client.Homes.ToList();
-            foreach (var d in fresh) d.ApplyLegacyDefaults();
-            var gen = ++_loadGeneration;
+    private Task LoadDevicesAsync() => LoadSelectedHomeDevicesAsync(forceHomeRefresh: true);
 
-            // 设备到手就先渲染并落盘，开关状态和场景随后补，不让用户干等
-            await Dispatcher.UIThread.InvokeAsync(() =>
-            {
-                SyncHomeOptions(homes);
-                // 复用已有实例（按 did 匹配），避免每轮刷新把整屏卡片重新绑定一遍
-                _allDevices = MergeDevices(_allDevices, fresh);
-                SyncSceneGroups();
-                RebuildRooms();
-                ApplyFilter();
-                RebuildHomeGroups();
-                UpdateStats();
-                RefreshSpeakers();
-            });
-
-            // 合并后的实例（旧对象被复用），后续图标/规格/状态都回填到它们身上
-            var devices = _allDevices;
-            _ = Task.Run(() => DeviceCacheStore.Save(devices));
-
-            // 先按旧版 siid 兜底读一次状态，规格解析完再用真实 iid 校正一遍
-            await Task.WhenAll(LoadScenesAsync(), RefreshStatesAsync(includeMetrics: false));
-
-            // 真机图按型号取：磁盘缓存命中秒出，过期后对比产品库再决定是否重下
-            _ = LoadIconsAsync(devices);
-
-            // 规格解析较慢（每种型号一次请求），放后台跑，完成后再刷新状态与读数
-            _ = ResolveSpecsThenRefreshAsync(devices, gen);
-
-            Log($"已加载 {_allDevices.Count} 个设备、{SceneItems.Count} 个场景");
-            TelemetryService.Track("devices_loaded", "加载设备", new Dictionary<string, object?>
-            {
-                ["ok"] = true,
-                ["count"] = DeviceCountBucket(_allDevices.Count),
-                ["ms"] = (int)Math.Min(sw.ElapsedMilliseconds, 60000),
-            });
-
-            // 设备加载完成后立即收缩原生渲染资源：大量卡片渲染会产生 Avalonia 合成层与 GPU 纹理，
-            // GC 不会自动回收这些原生内存，需主动调用 SetProcessWorkingSetSize 让 Windows 收缩工作集。
-            Services.MemoryTrimmer.TrimForce();
-        }
-        catch (Exception ex)
-        {
-            Log($"拉取设备失败：{ex.Message}");
-            TelemetryService.Track("devices_loaded", "加载设备", new Dictionary<string, object?>
-            {
-                ["ok"] = false,
-                ["ms"] = (int)Math.Min(sw.ElapsedMilliseconds, 60000),
-            });
-            // 断网/接口失败时若还没铺上屏，再兜一次缓存
-            if (!HasDevices) ApplyCachedDevices();
-            // 这轮拿不到数据，后台读数链不会启动，骨架要在这里收尾，不能让它一直转
-            FinishInitialSync();
-        }
-        finally
-        {
-            IsLoading = false;
-        }
-    }
-
-    /// <summary>把 homelist 同步成标题栏下拉项；选中项尽量保持用户当前选择。</summary>
+    /// <summary>把 homelist 同步成标题栏下拉项；选中项尽量保持用户当前选择（否则回落到上次用过的家庭）。</summary>
     private void SyncHomeOptions(List<MijiaHome> homes)
     {
         var prevId = SelectedHome?.Id;
+        // 冷启动还没有选中项：沿用上次切换过的那个家庭，避免每次都跳回列表第一个
+        if (string.IsNullOrEmpty(prevId)) prevId = AppSettingsStore.HomeId;
         _suppressHomeReload = true;
         try
         {
@@ -959,37 +973,58 @@ public partial class MainViewModel : ObservableObject
         SelectedHome = home; // OnSelectedHomeChanged 里会发起加载
     }
 
-    /// <summary>按 SelectedHome 拉该家庭下的设备。</summary>
-    private async Task LoadDevicesForSelectedHomeAsync()
+    /// <summary>家庭下拉切换后的重载：家庭列表已在手里，直接按选中项拉设备。</summary>
+    private Task LoadDevicesForSelectedHomeAsync() => LoadSelectedHomeDevicesAsync(forceHomeRefresh: false);
+
+    /// <summary>
+    /// 只加载「当前选中家庭」的设备（启动、刷新、切换家庭共用）。
+    /// 同一 did 复用旧实例；本次没拉到的旧设备（包括换家庭前的）一并丢弃，不会混显。
+    /// </summary>
+    private async Task LoadSelectedHomeDevicesAsync(bool forceHomeRefresh)
     {
-        if (_client == null || SelectedHome == null) return;
+        if (_client == null) return;
         BeginInitialSync();
         IsLoading = true;
+        var sw = System.Diagnostics.Stopwatch.StartNew();
         try
         {
-            var home = _client.FindHome(SelectedHome.Id);
+            if (forceHomeRefresh)
+            {
+                Log("正在拉取家庭列表…");
+                var homes = await _client.GetHomesAsync(forceRefresh: true);
+                await Dispatcher.UIThread.InvokeAsync(() => SyncHomeOptions(homes.ToList()));
+            }
+
+            var home = SelectedHome == null ? null : _client.FindHome(SelectedHome.Id);
             if (home == null)
             {
                 // 极端情况：本地选中项还在，云端列表已刷过 — 强刷 homelist 再找一次
                 var homes = await _client.GetHomesAsync(forceRefresh: true);
                 await Dispatcher.UIThread.InvokeAsync(() => SyncHomeOptions(homes.ToList()));
-                home = _client.FindHome(SelectedHome.Id);
+                home = SelectedHome == null ? null : _client.FindHome(SelectedHome.Id);
                 if (home == null)
                 {
+                    Log("没有可用的家庭，已停止加载设备");
                     FinishInitialSync();
                     return;
                 }
             }
 
-            Log($"切换到家庭「{home.Name}」，正在拉取设备…");
+            var homeName = string.IsNullOrWhiteSpace(home.Name) ? "我的家" : home.Name.Trim();
+            Log($"正在拉取家庭「{homeName}」的设备…");
             var fresh = await LoadHomeDevicesAsync(home);
             foreach (var d in fresh) d.ApplyLegacyDefaults();
             var gen = ++_loadGeneration;
+
+            // 网络请求的 await 会在线程池回来，ObservableCollection 的增删必须切回 UI 线程，
+            // 否则 ItemsControl 收不到集合通知，页面上就一个卡片都不显示。
+            // 设备到手就先渲染并落盘，开关状态和场景随后补，不让用户干等
             await Dispatcher.UIThread.InvokeAsync(() =>
             {
-                HomeName = string.IsNullOrWhiteSpace(home.Name) ? "我的家" : home.Name.Trim();
-                // 同一 did 复用旧实例；换家庭时 did 不同，旧实例自然被丢弃
+                HomeName = homeName;
+                // 只留本次拉到的那批：其他家庭的旧卡片在这里被丢掉
                 _allDevices = MergeDevices(_allDevices, fresh);
+                RebuildVisibleDevices();
                 SyncSceneGroups();
                 RebuildRooms();
                 ApplyFilter();
@@ -998,21 +1033,42 @@ public partial class MainViewModel : ObservableObject
                 RefreshSpeakers();
             });
 
+            // 合并后的实例（旧对象被复用），后续图标/规格/状态都回填到它们身上
             var devices = _allDevices;
             _ = Task.Run(() => DeviceCacheStore.Save(devices));
 
+            // 先按旧版 siid 兜底读一次状态，规格解析完再用真实 iid 校正一遍
             await Task.WhenAll(LoadScenesAsync(), RefreshStatesAsync(includeMetrics: false));
-            _ = LoadIconsAsync(devices);
-            _ = ResolveSpecsThenRefreshAsync(devices, gen);
-            Log($"「{HomeName}」已加载 {_allDevices.Count} 个设备、{SceneItems.Count} 个场景");
 
-            // 设备加载完成后立即收缩原生渲染资源
+            // 真机图按型号取：磁盘缓存命中秒出，过期后对比产品库再决定是否重下
+            _ = LoadIconsAsync(devices);
+
+            // 规格解析较慢（每种型号一次请求），放后台跑，完成后再刷新状态与读数
+            _ = ResolveSpecsThenRefreshAsync(devices, gen);
+
+            Log($"「{homeName}」已加载 {_allDevices.Count} 个设备、{SceneItems.Count} 个场景");
+            TelemetryService.Track("devices_loaded", "加载设备", new Dictionary<string, object?>
+            {
+                ["ok"] = true,
+                ["count"] = DeviceCountBucket(_allDevices.Count),
+                ["ms"] = (int)Math.Min(sw.ElapsedMilliseconds, 60000),
+            });
+
+            // 设备加载完成后立即收缩原生渲染资源：大量卡片渲染会产生 Avalonia 合成层与 GPU 纹理，
+            // GC 不会自动回收这些原生内存，需主动调用 SetProcessWorkingSetSize 让 Windows 收缩工作集。
             Services.MemoryTrimmer.TrimForce();
         }
         catch (Exception ex)
         {
-            Log($"切换家庭失败：{ex.Message}");
-            // 拉不到设备就没有后台读数链，骨架要在这里收尾
+            Log($"拉取设备失败：{ex.Message}");
+            TelemetryService.Track("devices_loaded", "加载设备", new Dictionary<string, object?>
+            {
+                ["ok"] = false,
+                ["ms"] = (int)Math.Min(sw.ElapsedMilliseconds, 60000),
+            });
+            // 断网/接口失败时若还没铺上屏，再兜一次缓存
+            if (!HasDevices) ApplyCachedDevices();
+            // 这轮拿不到数据，后台读数链不会启动，骨架要在这里收尾，不能让它一直转
             FinishInitialSync();
         }
         finally
@@ -1142,6 +1198,13 @@ public partial class MainViewModel : ObservableObject
                 Add((did, d.PowerSiid, d.PowerPiid));
             }
 
+            // 外显字段里近实时的那部分（功率/电压/电流等）每拍都读，卡片读数才跟得上
+            foreach (var p in CardMetricsCatalog.FastProps(d)) Add((did, p.Siid, p.Piid));
+
+            // 抽屉打开时，顶部读数卡的指标也每拍读一遍，数值才跟手
+            if (ReferenceEquals(d, DrawerDevice))
+                foreach (var p in CardMetricsCatalog.Candidates(d)) Add((did, p.Siid, p.Piid));
+
             if (includeMetrics)
             {
                 if (d.Spec?.FindMetric("temperature") is { } t) Add((did, t.Siid, t.Piid));
@@ -1245,9 +1308,14 @@ public partial class MainViewModel : ObservableObject
                     if (d.IsPlaying != playing) d.IsPlaying = playing;
                 }
 
+                // 卡片副标题外显读数：每拍按已缓存的文本重算，慢速读数不会中间消失
+                if (ApplyCardMetrics(d, map)) changed = true;
+
+                // 抽屉顶部读数卡
+                if (ReferenceEquals(d, DrawerDevice)) UpdateDrawerMetricTiles(d, map);
+
                 if (includeMetrics)
                 {
-                    if (ApplyMetrics(d, map)) changed = true;
                     var consChanged = false;
                     foreach (var c in d.Consumables)
                     {
@@ -1281,36 +1349,47 @@ public partial class MainViewModel : ObservableObject
         }
     }
 
-    /// <summary>卡片副标题读数：温度/湿度；部分传感器用 0.1 为单位，超阈值时缩回。</summary>
-    private static bool ApplyMetrics(MijiaDevice d,
+    /// <summary>
+    /// 卡片副标题外显读数：按设备类型取用户选定的字段（插座默认功率，其余默认温湿度）。
+    /// 读到新值就更新缓存，再用缓存重新拼副标题——温湿度每 4 拍才读一次，
+    /// 靠缓存才能在中间几拍里保留读数而不闪没。
+    /// </summary>
+    private static bool ApplyCardMetrics(MijiaDevice d,
         Dictionary<(string Did, int Siid, int Piid), object?> map)
     {
         var spec = d.Spec;
         if (spec == null) return false;
-        var parts = new List<string>(2);
-        d.TemperatureC = null;
-        d.Humidity = null;
+        var names = CardMetricsCatalog.EffectiveNames(d);
+        var changed = false;
 
-        if (spec.FindMetric("temperature") is { } t &&
-            map.TryGetValue((d.TargetDid, t.Siid, t.Piid), out var tv) && tv != null)
+        foreach (var name in names)
         {
-            var temp = ToDouble(tv);
-            if (temp > 60) temp /= 10;
-            d.TemperatureC = temp;
-            parts.Add($"{temp:0.#}℃");
-        }
-        if (spec.FindMetric("relative-humidity") is { } h &&
-            map.TryGetValue((d.TargetDid, h.Siid, h.Piid), out var hv) && hv != null)
-        {
-            var hum = ToDouble(hv);
-            if (hum > 100) hum /= 10;
-            d.Humidity = hum;
-            parts.Add($"{hum:0.#}%");
+            var prop = spec.FindMetric(name) ?? spec.FindProp(name);
+            if (prop == null) continue;
+            if (!map.TryGetValue((d.TargetDid, prop.Siid, prop.Piid), out var raw) || raw == null)
+                continue;
+
+            var value = ToDouble(raw);
+            var text = CardMetricsCatalog.FormatValue(prop, value);
+            if (!d.CardMetricTexts.TryGetValue(name, out var old) || old != text)
+            {
+                d.CardMetricTexts[name] = text;
+                changed = true;
+            }
+
+            if (name == "temperature") d.TemperatureC = CardMetricsCatalog.NormalizeTemperature(value);
+            else if (name is "relative-humidity" or "humidity")
+                d.Humidity = CardMetricsCatalog.NormalizeHumidity(value);
         }
 
-        var text = string.Join(" · ", parts);
-        if (d.MetricsText == text) return false;
-        d.MetricsText = text;
+        var parts = new List<string>(names.Count);
+        foreach (var name in names)
+            if (d.CardMetricTexts.TryGetValue(name, out var t) && t.Length > 0)
+                parts.Add(t);
+
+        var text2 = string.Join(" · ", parts);
+        if (d.MetricsText == text2) return changed;
+        d.MetricsText = text2;
         return true;
     }
 
@@ -1523,7 +1602,7 @@ public partial class MainViewModel : ObservableObject
 
     private void RebuildRooms()
     {
-        var names = _allDevices.Select(d => d.RoomName)
+        var names = _visibleDevices.Select(d => d.RoomName)
             .Where(n => !string.IsNullOrEmpty(n))
             .GroupBy(n => n)
             .OrderByDescending(g => g.Count())
@@ -1604,10 +1683,63 @@ public partial class MainViewModel : ObservableObject
             c.IsSelected = SelectedNavIndex == 1 && c.Name == _selectedRoom;
     }
 
+    /// <summary>
+    /// 按当前设置算一遍上屏清单（每次设备列表换代、切换「隐藏开关」后调用）：
+    /// 1) 灯组成员在卡片上让位给灯组本身，不再散落成一盏一张卡；
+    /// 2) 米家把多键开关拆出的 .sN 单键并回父卡（父卡按规格显示「N 路」，逐路在抽屉里操作）；
+    /// 3) 打开「隐藏开关」时整类开关不上屏。
+    /// </summary>
+    private void RebuildVisibleDevices()
+    {
+        var groupMembers = new HashSet<string>(StringComparer.Ordinal);
+        var byDid = new Dictionary<string, MijiaDevice>(_allDevices.Count, StringComparer.Ordinal);
+        var childrenByParent = new Dictionary<string, List<MijiaDevice>>(StringComparer.Ordinal);
+
+        foreach (var d in _allDevices)
+        {
+            if (!string.IsNullOrEmpty(d.Did)) byDid[d.Did] = d;
+            if (d.IsGroup)
+            {
+                foreach (var m in d.GroupMembers) groupMembers.Add(m);
+            }
+            else if (d.IsSplitChild)
+            {
+                var list = childrenByParent.TryGetValue(d.TargetDid, out var e) ? e : new List<MijiaDevice>();
+                childrenByParent[d.TargetDid] = list;
+                list.Add(d);
+            }
+        }
+
+        // 父卡先把键位补齐：规格解析晚到时也照样能逐路控制，不会因为子卡藏起来而丢操作
+        foreach (var (parentDid, children) in childrenByParent)
+            byDid[parentDid]?.EnsureFallbackChannels(children);
+
+        _visibleDevices = _allDevices.Where(d =>
+        {
+            if (groupMembers.Contains(d.Did)) return false;
+            if (d.IsSplitChild)
+            {
+                var parent = byDid[d.TargetDid];
+                // 父卡确实能逐路下发时才并回去；父卡没有通道就仍单列，避免按键彻底失联
+                if (parent != null && parent.Channels.Count > 0) return false;
+            }
+            if (HideSwitches && d.IsSwitchDevice) return false;
+            return true;
+        }).ToList();
+
+        // 单独隐藏状态只认 did：设备实例换代（缓存上屏 / 刷新合并）后重新标一遍
+        foreach (var d in _visibleDevices)
+            d.IsHidden = !string.IsNullOrEmpty(d.Did) && _hiddenDids.Contains(d.Did);
+    }
+
     private void ApplyFilter()
     {
-        var list = OrderDevices(_allDevices
-            .Where(d => (_selectedRoom == "全部" || d.RoomName == _selectedRoom) && MatchesSearch(d))).ToList();
+        var scoped = _visibleDevices
+            .Where(d => (_selectedRoom == "全部" || d.RoomName == _selectedRoom) && MatchesSearch(d))
+            .ToList();
+
+        var list = OrderDevices(scoped.Where(d => !d.IsHidden)).ToList();
+        var hidden = OrderDevices(scoped.Where(d => d.IsHidden)).ToList();
 
         // 集合没变就别重建：Clear+Add 会让每张卡片重新绑定数据、重排文字，
         // 而重排会在 Avalonia 的字体缓存里不断新建字体对象（只增不减），
@@ -1618,14 +1750,28 @@ public partial class MainViewModel : ObservableObject
             foreach (var d in list) Devices.Add(d);
         }
 
-        HasDevices = Devices.Count > 0;
+        if (!SameSequence(HiddenDevices, hidden))
+        {
+            HiddenDevices.Clear();
+            foreach (var d in hidden) HiddenDevices.Add(d);
+        }
+
+        HasHiddenDevices = hidden.Count > 0;
+        HiddenSectionText = $"已隐藏 · {hidden.Count} 台设备";
+        // 搜索命中藏在收起区里的设备时自动展开，否则会看起来「搜不到」
+        if (hidden.Count > 0 && !string.IsNullOrEmpty(SearchText)) HiddenSectionExpanded = true;
+        // 最后一台也恢复了就收起折叠区，下次再隐藏从收起态开始
+        if (!HasHiddenDevices) HiddenSectionExpanded = false;
+
+        HasDevices = Devices.Count > 0 || HiddenDevices.Count > 0;
         UpdateBanner();
     }
 
     private void RebuildHomeGroups()
     {
         var groups = new List<DeviceGroup>();
-        foreach (var g in _allDevices
+        foreach (var g in _visibleDevices
+                     .Where(d => !d.IsHidden)
                      .GroupBy(d => d.RoomName)
                      .OrderByDescending(g => g.Count()))
         {
@@ -1689,19 +1835,58 @@ public partial class MainViewModel : ObservableObject
         return merged;
     }
 
+    /// <summary>
+    /// 真实设备数：按 did 去重后统计。
+    /// 1) 灯组（group.xxx）是虚拟设备，不计自身，只把组内成员按单灯各算一台；
+    /// 2) 多键开关拆出的 .sN 虚拟行不计，物理设备由父卡代表；
+    /// 3) 隐藏的开关仍算真实设备，口径不受「隐藏开关」设置影响。
+    /// </summary>
+    private int CountPhysicalDevices()
+    {
+        var dids = new HashSet<string>(StringComparer.Ordinal);
+        var parents = new HashSet<string>(StringComparer.Ordinal);
+        var orphanChildren = new HashSet<string>(StringComparer.Ordinal);
+
+        foreach (var d in _allDevices)
+        {
+            if (d.IsGroup)
+            {
+                foreach (var m in d.GroupMembers)
+                    if (!string.IsNullOrEmpty(m)) dids.Add(m);
+                continue;
+            }
+            if (string.IsNullOrEmpty(d.Did)) continue;
+            if (d.IsSplitChild)
+            {
+                // 父卡不在清单里的极端情况：仍按这台物理设备记一次，别让设备凭空消失
+                if (!string.IsNullOrEmpty(d.TargetDid)) orphanChildren.Add(d.TargetDid);
+                else dids.Add(d.Did);
+                continue;
+            }
+            parents.Add(d.Did);
+            dids.Add(d.Did);
+        }
+
+        foreach (var did in orphanChildren)
+            if (!parents.Contains(did)) dids.Add(did);
+
+        return dids.Count;
+    }
+
     private void UpdateStats()
     {
-        TotalCount = _allDevices.Count;
-        OnlineCount = _allDevices.Count(d => d.IsOnline);
+        TotalCount = _visibleDevices.Count;
+        OnlineCount = _visibleDevices.Count(d => d.IsOnline);
         OfflineCount = TotalCount - OnlineCount;
+        TotalDeviceCount = CountPhysicalDevices();
         HasScenes = SceneItems.Count > 0;
         TotalText = $"/ {TotalCount}";
         OfflineText = $"离线 {OfflineCount}";
         HasOffline = OfflineCount > 0;
         // 三张类型卡：数字是「在线且开」，斜杠后是该类型总数，与弹窗清单同一口径
-        var lights = _allDevices.Where(d => d.IconKey == "light").ToList();
-        var curtains = _allDevices.Where(d => d.IconKey == "curtain").ToList();
-        var acs = _allDevices.Where(d => d.IconKey == "ac").ToList();
+        var lights = _visibleDevices.Where(d => d.IconKey == "light").ToList();
+        var curtains = _visibleDevices.Where(d => d.IconKey == "curtain").ToList();
+        var acs = _visibleDevices.Where(d => d.IconKey == "ac").ToList();
         LightOnCount = lights.Count(d => d.IsOnline && d.IsOn);
         CurtainOnCount = curtains.Count(d => d.IsOnline && d.IsOn);
         AcOnCount = acs.Count(d => d.IsOnline && d.IsOn);
@@ -1724,10 +1909,10 @@ public partial class MainViewModel : ObservableObject
         var kind = _statListKind;
         var list = kind switch
         {
-            StatListKind.Lights => OnFirst("light", _allDevices),
-            StatListKind.Curtains => OnFirst("curtain", _allDevices),
-            StatListKind.Ac => OnFirst("ac", _allDevices),
-            _ => OrderDevices(_allDevices.Where(d => !d.IsOnline)).ToList(),
+            StatListKind.Lights => OnFirst("light", _visibleDevices),
+            StatListKind.Curtains => OnFirst("curtain", _visibleDevices),
+            StatListKind.Ac => OnFirst("ac", _visibleDevices),
+            _ => OrderDevices(_visibleDevices.Where(d => !d.IsOnline)).ToList(),
         };
         if (!SameSequence(StatDevices, list))
         {
@@ -1783,8 +1968,8 @@ public partial class MainViewModel : ObservableObject
     private void UpdateBanner()
     {
         var list = _selectedRoom == "全部"
-            ? _allDevices
-            : _allDevices.Where(d => d.RoomName == _selectedRoom).ToList();
+            ? _visibleDevices
+            : _visibleDevices.Where(d => d.RoomName == _selectedRoom).ToList();
         BannerTitle = _selectedRoom == "全部" ? "全屋设备" : _selectedRoom;
         BannerDesc = _selectedRoom == "全部"
             ? "统一管理家中所有智能设备与传感器"
@@ -1801,7 +1986,10 @@ public partial class MainViewModel : ObservableObject
     /// </summary>
     private void RecomputeEnvironment()
     {
-        var readings = _allDevices.Where(d => !string.IsNullOrEmpty(d.MetricsText)).ToList();
+        // 环境概览只统计温湿度读数；插座外显的功率不算环境读数
+        var readings = _allDevices
+            .Where(d => d.TemperatureC.HasValue || d.Humidity.HasValue)
+            .ToList();
         HasEnvironment = readings.Count > 0;
 
         EnvReadings.Clear();
@@ -4122,7 +4310,7 @@ public partial class MainViewModel : ObservableObject
     {
         if (_pendingUpdate is not { } manifest || IsUpdateBusy) return;
 
-        // 便携运行（直接跑 publish\sc-win-x64\MiHome.exe）不自动更新：安装器会装到默认目录并另起一份
+        // 便携运行（直接跑 publish\sc-win-x64\MiHomeHub.exe）不自动更新：安装器会装到默认目录并另起一份
         if (!UpdateService.IsRunningFromInstall(out var installRoot))
         {
             UpdateStatusText = "便携运行请到 Release 页下载安装包；自动更新只对已安装版本生效";

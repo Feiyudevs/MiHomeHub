@@ -5,9 +5,9 @@ using System;
 using System.Threading;
 using System.Threading.Tasks;
 using Avalonia.Threading;
-using MiHome.Views;
+using MiHomeHub.Views;
 
-namespace MiHome.Services;
+namespace MiHomeHub.Services;
 
 /// <summary>
 /// 快捷键 toast 的单例：复用同一个无边框窗口，连续触发只替换文案并重置计时，

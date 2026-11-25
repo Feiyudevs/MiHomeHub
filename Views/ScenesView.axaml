@@ -1,9 +1,9 @@
 <UserControl xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-             xmlns:vm="clr-namespace:MiHome.ViewModels"
-             xmlns:ctl="clr-namespace:MiHome.Controls"
-             xmlns:views="clr-namespace:MiHome.Views"
-             x:Class="MiHome.Views.ScenesView">
+             xmlns:vm="clr-namespace:MiHomeHub.ViewModels"
+             xmlns:ctl="clr-namespace:MiHomeHub.Controls"
+             xmlns:views="clr-namespace:MiHomeHub.Views"
+             x:Class="MiHomeHub.Views.ScenesView">
     <!-- 右 16 内距 + 底 20 内距：右侧是给页面滚动条让出的空白（Carousel 右外距 6 + 16 = 原 22，正文宽度不变），
          底部留白只在滚到末尾时露出来，静止时不占版面 -->
     <StackPanel x:DataType="vm:MainViewModel" Margin="0,0,16,20">

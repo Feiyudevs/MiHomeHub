@@ -6,9 +6,9 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Runtime.InteropServices;
 using Avalonia.Threading;
-using MiHome.Models;
+using MiHomeHub.Models;
 
-namespace MiHome.Services;
+namespace MiHomeHub.Services;
 
 /// <summary>
 /// 全局快捷键：低层键盘钩子（WH_KEYBOARD_LL）常驻 UI 线程，命中绑定后把动作 Post 回 UI 线程执行。

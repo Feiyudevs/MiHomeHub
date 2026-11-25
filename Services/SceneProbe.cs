@@ -10,16 +10,16 @@ using System.Text.Encodings.Web;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using System.Threading.Tasks;
-using MiHome.Models;
+using MiHomeHub.Models;
 
-namespace MiHome.Services;
+namespace MiHomeHub.Services;
 
 /// <summary>
 /// 场景 / 自动化接口探针（只读诊断，不写任何云端数据）。
 /// 用本地 auth.json 的登录态，把候选接口逐个打一遍，原始响应原样落盘。
 ///
-/// 用法：MiHome.exe --scene-probe
-/// 输出：%APPDATA%\Feiyu\MiHome\scene-probe\
+/// 用法：MiHomeHub.exe --scene-probe
+/// 输出：%APPDATA%\Feiyu\MiHomeHub\scene-probe\
 ///   summary.txt        每个接口的 code / message / 顶层字段
 ///   01-xxx.json ...    各接口完整原始响应
 ///   done.flag          跑完标记
@@ -53,7 +53,7 @@ internal static class SceneProbe
             try { File.Delete(f); } catch { }
         }
 
-        W($"MiHome 场景接口探针  {DateTime.Now:yyyy-MM-dd HH:mm:ss}");
+        W($"MiHomeHub 场景接口探针  {DateTime.Now:yyyy-MM-dd HH:mm:ss}");
         W($"输出目录：{_dir}");
 
         var auth = MijiaAuth.LoadOrEmpty();
@@ -306,8 +306,8 @@ internal static class SceneProbe
     /// <summary>
     /// 自动化「启停」接口探针（幂等写）：只把当前 enable 值原样写回去，语义上零变化，
     /// 用来确认接口名与入参字段，避免拿真实自动化做实验。
-    /// 用法：MiHome.exe --scene-probe-enable
-    /// 输出：%APPDATA%\Feiyu\MiHome\scene-probe-enable\
+    /// 用法：MiHomeHub.exe --scene-probe-enable
+    /// 输出：%APPDATA%\Feiyu\MiHomeHub\scene-probe-enable\
     /// </summary>
     public static async Task RunEnableAsync()
     {
@@ -318,7 +318,7 @@ internal static class SceneProbe
             try { File.Delete(f); } catch { }
         }
 
-        W($"MiHome 启停接口探针（幂等写）  {DateTime.Now:yyyy-MM-dd HH:mm:ss}");
+        W($"MiHomeHub 启停接口探针（幂等写）  {DateTime.Now:yyyy-MM-dd HH:mm:ss}");
         W($"输出目录：{_dir}");
         W("原则：只把每条自动化当前的 enable 原值写回，不改变任何实际状态。");
         W("");
@@ -409,8 +409,8 @@ internal static class SceneProbe
     /// 自动化「编辑」接口探针（阶段一：只探是否存在，不改任何真实对象）。
     /// 全部请求都用不存在的 scene_id="0" 或空 body，预期全部失败，
     /// 通过错误码/错误文案判断：接口是否存在、缺哪些字段。
-    /// 用法：MiHome.exe --scene-probe-edit
-    /// 输出：%APPDATA%\Feiyu\MiHome\scene-probe-edit\
+    /// 用法：MiHomeHub.exe --scene-probe-edit
+    /// 输出：%APPDATA%\Feiyu\MiHomeHub\scene-probe-edit\
     /// </summary>
     public static async Task RunEditAsync()
     {
@@ -421,7 +421,7 @@ internal static class SceneProbe
             try { File.Delete(f); } catch { }
         }
 
-        W($"MiHome 自动化编辑接口探针（阶段一：不碰真实对象）  {DateTime.Now:yyyy-MM-dd HH:mm:ss}");
+        W($"MiHomeHub 自动化编辑接口探针（阶段一：不碰真实对象）  {DateTime.Now:yyyy-MM-dd HH:mm:ss}");
         W($"输出目录：{_dir}");
         W("原则：所有写请求都用 scene_id=\"0\"（不存在）或空 body，只会失败，不会改动任何现有场景。");
         W("");
@@ -626,7 +626,7 @@ internal static class SceneProbe
         Directory.CreateDirectory(_dir);
         foreach (var f in Directory.GetFiles(_dir)) { try { File.Delete(f); } catch { } }
 
-        W($"MiHome 场景克隆探针（新建副本 → 立即删除）  {DateTime.Now:yyyy-MM-dd HH:mm:ss}");
+        W($"MiHomeHub 场景克隆探针（新建副本 → 立即删除）  {DateTime.Now:yyyy-MM-dd HH:mm:ss}");
         W($"输出目录：{_dir}");
         W("原则：只新建一条 enable=false 的测试自动化，不修改任何现有对象，成功后立刻删除。");
         W("");
@@ -890,7 +890,7 @@ internal static class SceneProbe
         Directory.CreateDirectory(_dir);
         foreach (var f in Directory.GetFiles(_dir)) { try { File.Delete(f); } catch { } }
 
-        W($"MiHome 动作顺序探针  {DateTime.Now:yyyy-MM-dd HH:mm:ss}");
+        W($"MiHomeHub 动作顺序探针  {DateTime.Now:yyyy-MM-dd HH:mm:ss}");
         W("做法：克隆一条多动作自动化 → 颠倒顺序 → 新建 → 读回 → 删除。不修改任何现有对象。");
         W("");
 

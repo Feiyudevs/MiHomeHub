@@ -1,9 +1,9 @@
 <UserControl xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-             xmlns:m="clr-namespace:MiHome.Models"
-             xmlns:vm="clr-namespace:MiHome.ViewModels"
-             xmlns:ctl="clr-namespace:MiHome.Controls"
-             x:Class="MiHome.Views.SettingsDialogView"
+             xmlns:m="clr-namespace:MiHomeHub.Models"
+             xmlns:vm="clr-namespace:MiHomeHub.ViewModels"
+             xmlns:ctl="clr-namespace:MiHomeHub.Controls"
+             x:Class="MiHomeHub.Views.SettingsDialogView"
              x:DataType="vm:MainViewModel">
     <ctl:DialogPopup
                      Title="设置"
@@ -343,6 +343,24 @@
                             </StackPanel>
                             <Button Grid.Column="2" Classes="BtnGhost" Content="刷新" VerticalAlignment="Center"
                                     Command="{Binding LoadDevicesCommand}" IsEnabled="{Binding !IsLoading}" />
+                        </Grid>
+                        <!-- 隐藏开关：打开后墙壁开关 / 场景按键整类不上设备列表 -->
+                        <Grid ColumnDefinitions="Auto,*,Auto">
+                            <Border Classes="SetIc" Background="{DynamicResource AmberSoftBrush}">
+                                <Viewbox HorizontalAlignment="Center" VerticalAlignment="Center">
+                                    <Panel Width="24" Height="24">
+                                        <Path Stroke="{DynamicResource AmberBrush}" Data="{StaticResource GeoKeycap}" />
+                                    </Panel>
+                                </Viewbox>
+                            </Border>
+                            <StackPanel Grid.Column="1" Margin="12,0" VerticalAlignment="Center">
+                                <TextBlock Text="隐藏开关" FontSize="13.5" FontWeight="Normal"
+                                           Foreground="{DynamicResource TextBrush}" />
+                                <TextBlock Text="打开后，设备列表不再出现墙壁开关与场景按键"
+                                           Classes="Hint Sub" Margin="0,2,0,0" TextWrapping="Wrap" />
+                            </StackPanel>
+                            <ToggleButton Grid.Column="2" Classes="Switch" VerticalAlignment="Center"
+                                          IsChecked="{Binding HideSwitches}" />
                         </Grid>
                         <!-- 默认音箱：小爱语音指令的落点，只在有音箱时出现 -->
                         <Grid ColumnDefinitions="Auto,*,Auto" IsVisible="{Binding HasSpeaker}">

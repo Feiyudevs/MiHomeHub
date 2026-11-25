@@ -5,9 +5,9 @@ using System;
 using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Threading;
-using MiHome.ViewModels;
+using MiHomeHub.ViewModels;
 
-namespace MiHome.Views;
+namespace MiHomeHub.Views;
 
 /// <summary>通用输入弹窗：可激活的普通窗口，输入框能正常拿到键盘焦点。</summary>
 public partial class DesktopInputWindow : Window

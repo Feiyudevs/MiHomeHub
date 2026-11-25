@@ -5,11 +5,11 @@ using System;
 using System.IO;
 using System.Text.Json;
 using System.Threading.Tasks;
-using MiHome.Models;
+using MiHomeHub.Models;
 
-namespace MiHome.Services;
+namespace MiHomeHub.Services;
 
-/// <summary>桌面组件布局持久化：%APPDATA%\Feiyu\MiHome\desktop.json（与 theme.json / app.json 同目录）。</summary>
+/// <summary>桌面组件布局持久化：%APPDATA%\Feiyu\MiHomeHub\desktop.json（与 theme.json / app.json 同目录）。</summary>
 public static class DesktopGroupStore
 {
     private static readonly string Dir = AppPaths.Dir;

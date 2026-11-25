@@ -12,15 +12,15 @@ using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.Platform.Storage;
 using Avalonia.VisualTree;
-using MiHome.Services;
-using MiHome.Services.Setup;
-using MiHome.Services.Telemetry;
+using MiHomeHub.Services;
+using MiHomeHub.Services.Setup;
+using MiHomeHub.Services.Telemetry;
 
-namespace MiHome.Views;
+namespace MiHomeHub.Views;
 
 /// <summary>
 /// 安装/更新/卸载界面：单窗口五态（准备 → 进度 → 完成 / 失败 / 卸载确认）。
-/// 复用 MiHome 的主题画刷、BtnPrimary/BtnGhost 与 ToggleButton.Switch，不另造一套视觉。
+/// 复用 MiHomeHub 的主题画刷、BtnPrimary/BtnGhost 与 ToggleButton.Switch，不另造一套视觉。
 /// </summary>
 public partial class SetupWindow : Window
 {
@@ -105,7 +105,7 @@ public partial class SetupWindow : Window
     {
         if (_options.Mode == SetupMode.Uninstall)
         {
-            TxtTitle.Text = "卸载 MiHome";
+            TxtTitle.Text = "卸载 MiHomeHub";
             TxtSubtitle.Text = _preview.InstalledVersion is { } installedVersion
                 ? $"当前版本 {installedVersion}"
                 : "移除本机安装";
@@ -114,7 +114,7 @@ public partial class SetupWindow : Window
             ShowPanel(Phase.UninstallReady);
             TxtUninstallLead.Text =
                 "程序文件会被完整删除；桌面布局、登录态与设置默认保留，方便以后重新安装后继续使用。";
-            SetHint("确认后会先让正在运行的 MiHome 退出");
+            SetHint("确认后会先让正在运行的 MiHomeHub 退出");
             BtnPrimary.Content = "卸载";
             return;
         }
@@ -124,7 +124,7 @@ public partial class SetupWindow : Window
         _phase = Phase.Ready;
         ShowPanel(Phase.Ready);
 
-        TxtTitle.Text = "MiHome";
+        TxtTitle.Text = "MiHomeHub";
         TxtSubtitle.Text = package is null ? "版本 1.0.0" : $"版本 {package}";
         TxtInstallPath.Text = _preview.Root;
         BtnSecondary.Content = "取消";
@@ -136,12 +136,12 @@ public partial class SetupWindow : Window
         }
         else if (package is not null && SetupFiles.CompareVersions(package, installed) > 0)
         {
-            SetHint("设置和数据都会保留；会先让正在运行的 MiHome 退出");
+            SetHint("设置和数据都会保留；会先让正在运行的 MiHomeHub 退出");
             BtnPrimary.Content = $"更新到 {package}";
         }
         else
         {
-            SetHint("设置和数据都会保留；会先让正在运行的 MiHome 退出");
+            SetHint("设置和数据都会保留；会先让正在运行的 MiHomeHub 退出");
             BtnPrimary.Content = "重新安装";
         }
 
@@ -171,7 +171,7 @@ public partial class SetupWindow : Window
 
             var folders = await top.StorageProvider.OpenFolderPickerAsync(new FolderPickerOpenOptions
             {
-                Title = "选择 MiHome 安装位置",
+                Title = "选择 MiHomeHub 安装位置",
                 AllowMultiple = false,
             });
             if (folders.Count == 0) return;
@@ -190,8 +190,8 @@ public partial class SetupWindow : Window
             }
             catch (Exception) when (!IsDriveRoot(normalized))
             {
-                // 用户往往直接选 D:\Apps 这种已有目录：自动落到其下的 MiHome 子目录。
-                var child = SetupFiles.Normalize(Path.Combine(normalized, "MiHome"));
+                // 用户往往直接选 D:\Apps 这种已有目录：自动落到其下的 MiHomeHub 子目录。
+                var child = SetupFiles.Normalize(Path.Combine(normalized, "MiHomeHub"));
                 SetupPaths.ValidateTargetRoot(child);
                 normalized = child;
             }
@@ -266,7 +266,7 @@ public partial class SetupWindow : Window
         var updated = result.PreviousVersion is not null && result.Version is not null
                       && result.PreviousVersion != result.Version;
         TxtSubtitle.Text = result.Version is null ? "已安装到当前用户目录" : $"已安装 · 版本 {result.Version}";
-        TxtDoneTitle.Text = updated ? "MiHome 已更新到最新版本" : "MiHome 已安装完成";
+        TxtDoneTitle.Text = updated ? "MiHomeHub 已更新到最新版本" : "MiHomeHub 已安装完成";
         TxtDoneDetail.Text = $"安装位置：{result.Root}";
         SetHint(null);
         LaunchRow.IsVisible = true;
@@ -320,7 +320,7 @@ public partial class SetupWindow : Window
             TxtSubtitle.Text = _preview.InstalledVersion is { } version
                 ? $"版本 {version} 已移除"
                 : "已从本机移除";
-            TxtDoneTitle.Text = "MiHome 已卸载";
+            TxtDoneTitle.Text = "MiHomeHub 已卸载";
             TxtDoneDetail.Text = SwitchRemoveData.IsChecked == true
                 ? "程序文件与布局、登录、设置均已删除。"
                 : "程序文件已删除，布局与设置已保留。";

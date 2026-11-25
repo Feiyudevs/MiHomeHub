@@ -8,7 +8,7 @@ using System.Text.Json.Nodes;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 
-namespace MiHome.Models;
+namespace MiHomeHub.Models;
 
 /// <summary>触发条件的两个来源：事件上报、属性变化。</summary>
 public enum TriggerAxis

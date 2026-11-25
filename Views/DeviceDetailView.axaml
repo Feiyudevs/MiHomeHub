@@ -1,17 +1,27 @@
 <UserControl xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-             xmlns:vm="clr-namespace:MiHome.ViewModels"
-             xmlns:m="clr-namespace:MiHome.Models"
-             xmlns:conv="clr-namespace:MiHome.Converters"
-             xmlns:ctl="clr-namespace:MiHome.Controls"
-             xmlns:views="clr-namespace:MiHome.Views"
-             xmlns:svc="clr-namespace:MiHome.Services"
-             x:Class="MiHome.Views.DeviceDetailView"
+             xmlns:vm="clr-namespace:MiHomeHub.ViewModels"
+             xmlns:m="clr-namespace:MiHomeHub.Models"
+             xmlns:conv="clr-namespace:MiHomeHub.Converters"
+             xmlns:ctl="clr-namespace:MiHomeHub.Controls"
+             xmlns:views="clr-namespace:MiHomeHub.Views"
+             xmlns:svc="clr-namespace:MiHomeHub.Services"
+             x:Class="MiHomeHub.Views.DeviceDetailView"
              x:DataType="vm:MainViewModel">
     <!-- 设备详情正文：右侧抽屉与桌面分区的控制弹窗共用这一份，
          两处永远是同一套卡片、同一套命令，不复制不漂移。
          外边距由宿主（抽屉 ScrollViewer / DialogPopup 正文区）决定。 -->
     <StackPanel Spacing="16">
+        <!-- 详情顶部实时读数：设备规格里有的指标各一枚小卡（功率/电压/电流/温度/湿度/PM2.5/照度等） -->
+        <ItemsControl ItemsSource="{Binding DrawerMetricTiles}"
+                      ItemTemplate="{StaticResource MetricTileTemplate}"
+                      IsVisible="{Binding HasDrawerMetricTiles}">
+            <ItemsControl.ItemsPanel>
+                <ItemsPanelTemplate>
+                    <WrapPanel />
+                </ItemsPanelTemplate>
+            </ItemsControl.ItemsPanel>
+        </ItemsControl>
         <Border Classes="DrCard" IsVisible="{Binding DrawerDevice.IsPower}">
             <Grid ColumnDefinitions="*,Auto">
                 <TextBlock Text="电源" FontSize="14" FontWeight="SemiBold"
@@ -353,15 +363,21 @@
                     <TextBlock Classes="Hint" TextWrapping="Wrap"
                                Text="米家只把摄像头的状态开放出来，画面本身不出家门。所以要在这里看画面，需要在你家里接一道本地画面源；准备一次，之后不用再动。" />
                     <Border Classes="SegTrack">
-                        <UniformGrid Columns="2">
+                        <UniformGrid Columns="3">
                             <Button Classes="SegBtn" Content="打开画面" VerticalAlignment="Center"
                                     Command="{Binding OpenCameraLiveCommand}" />
+                            <Button Classes="SegBtn" Content="播放器打开" VerticalAlignment="Center"
+                                    ToolTip.Tip="H.265 摄像头在浏览器里可能黑屏，改用本机 mpv / VLC 打开"
+                                    Command="{Binding OpenCameraWithPlayerCommand}" />
                             <Button Classes="SegBtn" Content="怎么设置" VerticalAlignment="Center"
                                     Command="{Binding ToggleCameraSetupCommand}" />
                         </UniformGrid>
                     </Border>
                     <TextBlock Classes="Hint" TextWrapping="Wrap"
                                Text="{Binding CameraBridgeHint}" />
+                    <TextBlock Classes="Hint" TextWrapping="Wrap" Foreground="{DynamicResource Accent2Brush}"
+                               Text="{Binding CameraSecurityHint}"
+                               IsVisible="{Binding CameraSecurityHint, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
                     <StackPanel Spacing="9" IsVisible="{Binding IsCameraSetupExpanded}">
                         <TextBlock Text="一次准备，三步" FontSize="13" FontWeight="SemiBold"
                                    Foreground="{DynamicResource TextBrush}" />
@@ -379,10 +395,54 @@
                         </Grid>
                         <TextBox Text="{Binding Go2rtcBase, Mode=TwoWay}"
                                  Watermark="http://127.0.0.1:1984" />
-                        <Button Classes="SegBtn" Content="打开画面源页面" HorizontalAlignment="Left"
-                                Command="{Binding OpenGo2rtcConsoleCommand}" />
+                        <StackPanel Orientation="Horizontal" Spacing="8">
+                            <Button Classes="SegMini" Content="复制安全配置"
+                                    Command="{Binding CopyCameraConfigCommand}" />
+                            <Button Classes="SegMini" Content="复制诊断"
+                                    Command="{Binding CopyCameraDiagnosticCommand}" />
+                            <Button Classes="SegMini" Content="打开画面源页面"
+                                    Command="{Binding OpenGo2rtcConsoleCommand}" />
+                        </StackPanel>
                         <TextBlock Classes="Hint" TextWrapping="Wrap" Opacity="0.75"
-                                   Text="地址默认 127.0.0.1:1984；画面源装在别的机器上时，改成那台机器的 IP 即可。" />
+                                   Text="地址默认 127.0.0.1:1984；画面源装在别的机器上时，改成那台机器的 IP 即可。控制台对整个局域网可见时，点「复制安全配置」把 api / rtsp 收回本机。" />
+                        <TextBlock Classes="Hint" TextWrapping="Wrap" Opacity="0.75"
+                                   Text="2K 摄像头多为 H.265，浏览器 WebRTC 可能一直黑屏；这种情况用「播放器打开」（本机装了 mpv / VLC / PotPlayer 即可）。" />
+                    </StackPanel>
+                </StackPanel>
+            </Border>
+        </StackPanel>
+        <!-- 中枢网关：网关自带的网页版自动化编辑器（米家自动化极客版）。
+             端口固定 80（实时通道 8082），所以只需要网关 IP：云端带 localip 就用它，否则自动扫描 / 手填 -->
+        <StackPanel Spacing="12" IsVisible="{Binding DrawerDevice.IsHub}">
+            <Border Classes="DrCard">
+                <StackPanel Spacing="10">
+                    <TextBlock Text="自动化极客版" FontSize="14" FontWeight="SemiBold"
+                               Foreground="{DynamicResource TextBrush}" />
+                    <TextBlock Classes="Hint" TextWrapping="Wrap"
+                               Text="这台网关自带一个网页版编辑器，端口是固定的 80（实时通道 8082），不用额外装东西。登录码是一次性的，只能在米家 App 里现取。" />
+                    <TextBlock Classes="Hint" TextWrapping="Wrap" Text="{Binding HubGeekHint}"
+                               IsVisible="{Binding HubGeekHint, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
+                    <Grid ColumnDefinitions="*,Auto">
+                        <TextBox Text="{Binding HubGeekIp, Mode=TwoWay}"
+                                 Watermark="网关 IP，如 192.168.31.25" />
+                        <Button Grid.Column="1" Classes="SegMini" Content="自动查找"
+                                Margin="8,0,0,0" Command="{Binding FindHubGatewayCommand}" />
+                    </Grid>
+                    <Border Classes="SegTrack">
+                        <UniformGrid Columns="2">
+                            <Button Classes="SegBtn" Content="打开极客版"
+                                    Command="{Binding OpenHubGeekCommand}" />
+                            <Button Classes="SegBtn" Content="登录码在哪看"
+                                    Command="{Binding ToggleHubGeekHelpCommand}" />
+                        </UniformGrid>
+                    </Border>
+                    <StackPanel Spacing="6" IsVisible="{Binding IsHubGeekHelpExpanded}">
+                        <TextBlock Classes="Hint" TextWrapping="Wrap"
+                                   Text="1. 手机打开米家 App，进这台网关的设备页 → 右上角「…」 → 中枢功能。" />
+                        <TextBlock Classes="Hint" TextWrapping="Wrap"
+                                   Text="2. 「自动化极客版」一栏会显示 IP 和 6 位登录码；过期了点「重新获取登录码」。这里一般已经自动填好 IP。" />
+                        <TextBlock Classes="Hint" TextWrapping="Wrap"
+                                   Text="3. 点「打开极客版」进浏览器，输入那 6 位码即可。同一个浏览器登录过，之后不用再输。" />
                     </StackPanel>
                 </StackPanel>
             </Border>
@@ -457,8 +517,39 @@
                     </Grid>
                 </Button>
                 <StackPanel Spacing="16" IsVisible="{Binding IsAdvancedExpanded}">
+                    <!-- 卡片外显：按设备类型选卡片副标题要显示的读数，点一下即加入/移出 -->
+                    <Border Classes="DrSubCard" IsVisible="{Binding HasCardMetrics}">
+                        <StackPanel Spacing="10">
+                            <Grid ColumnDefinitions="*,Auto">
+                                <TextBlock Text="{Binding CardMetricsTitle}" FontSize="12.5"
+                                           VerticalAlignment="Center"
+                                           Foreground="{DynamicResource Text2Brush}" />
+                                <Button Grid.Column="1" Classes="BtnGhost" Height="24" Padding="8,0"
+                                        FontSize="11.5" Content="恢复默认"
+                                        Command="{Binding ResetCardMetricsCommand}" />
+                            </Grid>
+                            <Border Height="1" Background="{DynamicResource LineBrush}" Opacity="0.5" />
+                            <ItemsControl ItemsSource="{Binding DrawerCardMetrics}"
+                                          ItemTemplate="{StaticResource CardMetricChipTemplate}">
+                                <ItemsControl.ItemsPanel>
+                                    <ItemsPanelTemplate>
+                                        <WrapPanel />
+                                    </ItemsPanelTemplate>
+                                </ItemsControl.ItemsPanel>
+                            </ItemsControl>
+                            <TextBlock Classes="Hint" TextWrapping="Wrap"
+                                       Text="{Binding CardMetricsHint}" />
+                        </StackPanel>
+                    </Border>
+                    <!-- 分组卡之间留 12 的间隔：卡本身不描边，边界只靠色阶 + 留白 -->
                     <ItemsControl ItemsSource="{Binding DrawerSpecAdvancedGroups}"
-                                  ItemTemplate="{StaticResource SpecGroupTemplate}" />
+                                  ItemTemplate="{StaticResource SpecGroupTemplate}">
+                        <ItemsControl.ItemsPanel>
+                            <ItemsPanelTemplate>
+                                <StackPanel Spacing="12" />
+                            </ItemsPanelTemplate>
+                        </ItemsControl.ItemsPanel>
+                    </ItemsControl>
                     <!-- 属性区与动作区之间只画一条淡分割线；只有两段都有内容时才出现 -->
                     <Border Height="1" Background="{DynamicResource LineBrush}" Opacity="0.5"
                             Margin="2,0" IsVisible="{Binding HasAdvancedDivider}" />

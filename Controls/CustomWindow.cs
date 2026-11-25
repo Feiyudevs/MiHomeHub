@@ -8,9 +8,9 @@ using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Media;
 using Avalonia.Threading;
-using MiHome.Services;
+using MiHomeHub.Services;
 
-namespace MiHome.Controls;
+namespace MiHomeHub.Controls;
 
 /// <summary>
 /// 自定义窗体基类：无边框 + 大圆角 + 自绘描边 / 投影（文档路线 B，不含毛玻璃与系统投影）。

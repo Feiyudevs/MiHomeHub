@@ -5,7 +5,7 @@ using System;
 using Avalonia.Controls;
 using Avalonia.Threading;
 
-namespace MiHome.Services;
+namespace MiHomeHub.Services;
 
 /// <summary>
 /// 显示器变化通知：插拔屏幕、改分辨率会连着来好几次，合并成稳定后的一次再广播。

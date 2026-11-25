@@ -9,15 +9,15 @@ using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.Threading;
 using Avalonia.VisualTree;
-using MiHome.Models;
-using MiHome.ViewModels;
+using MiHomeHub.Models;
+using MiHomeHub.ViewModels;
 
-namespace MiHome.Views;
+namespace MiHomeHub.Views;
 
 public partial class SceneEditorView : UserControl
 {
     /// <summary>拖拽时在进程内传递的格式标识（只在应用内有效，不经过系统剪贴板）。</summary>
-    private const string RowDragFormat = "MiHome.SceneEditRow";
+    private const string RowDragFormat = "MiHomeHub.SceneEditRow";
 
     private Point _gripStart;
     private SceneEditActionRow? _dragCandidate;

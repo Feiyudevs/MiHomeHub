@@ -3,7 +3,7 @@
 
 using Avalonia.Media;
 
-namespace MiHome.ViewModels;
+namespace MiHomeHub.ViewModels;
 
 /// <summary>
 /// 设备卡右键菜单的图标（24 网格线性图标，与 Themes/Icons.axaml 的 GeoPlus / GeoMin 同形状）。

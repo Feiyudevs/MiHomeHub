@@ -1,16 +1,18 @@
-﻿# Build the self-contained MiHome installer (embedded payload, no Inno Setup).
+﻿# Build the self-contained MiHomeHub installer (embedded payload, no Inno Setup).
 #
 # Usage:
 #   .\scripts\package-setup.ps1                       # use current csproj version, publish main app too
 #   .\scripts\package-setup.ps1 -SkipMainPublish      # main exe already published by release.ps1
 #   .\scripts\package-setup.ps1 -Version 1.0.1
 #   .\scripts\package-setup.ps1 -Channel test -ExpiresDays 7   # 测试通道清单（不覆盖仓库根 update.json）
+#   .\scripts\package-setup.ps1 -PublicBuild          # 纯开源包：不带 MiHomeHub.settings.local.json（无后台、无统计）
 #
-# Output: publish\release\<version>\MiHome-Setup-<version>-win-x64.exe
+# Output: publish\release\<version>\MiHomeHub-Setup-<version>-win-x64.exe
 param(
     [string]$Rid = "win-x64",
     [string]$Version,
     [switch]$SkipMainPublish,
+    [switch]$PublicBuild,
     [string]$Notes = "",
     [ValidateSet("stable", "test")][string]$Channel = "stable",
     [int]$ExpiresDays = 0
@@ -19,11 +21,11 @@ param(
 $ErrorActionPreference = "Stop"
 
 $root = Split-Path -Parent $PSScriptRoot
-$proj = Join-Path $root "MiHome.csproj"
-$shellProj = Join-Path $root "installer\MiHome.Setup\MiHome.Setup.csproj"
+$proj = Join-Path $root "MiHomeHub.csproj"
+$shellProj = Join-Path $root "installer\MiHomeHub.Setup\MiHomeHub.Setup.csproj"
 $publishScript = Join-Path $PSScriptRoot "publish-sc.ps1"
 $publishDir = Join-Path $root "publish\sc-$Rid"
-$exeName = "MiHome.exe"
+$exeName = "MiHomeHub.exe"
 
 function Read-FileText([string]$path) {
     return [System.IO.File]::ReadAllText($path)
@@ -90,13 +92,14 @@ foreach ($name in $payloadDocs) {
 }
 
 # Any extra runtime file in the publish dir (e.g. native dll) is included, except junk/build leftovers.
-# MiHome.settings.local.json 是本机私有覆盖（后台地址/app_id），绝不能进安装包。
+# MiHomeHub.settings.local.json 是后台地址/app_id 的私有覆盖，必须随安装包一起发：更新检查与匿名统计
+# 都靠它，少了它装出来的客户端连不上后台、一条数据也发不出去。纯开源包用 -PublicBuild 明确排除。
 Get-ChildItem -LiteralPath $publishDir -File | Where-Object {
     $_.Name -ne $exeName -and
     $_.Name -notin $payloadDocs -and
-    $_.Name -ne "MiHome.settings.local.json" -and
+    ($_.Name -ne "MiHomeHub.settings.local.json" -or -not $PublicBuild) -and
     $_.Name -notlike "*.old*" -and $_.Name -notlike "*.pre-old" -and
-    $_.Name -notlike "MiHome-Setup-*" -and
+    $_.Name -notlike "MiHomeHub-Setup-*" -and
     $_.Extension -in @(".dll", ".json", ".dat", ".bin")
 } | ForEach-Object {
     Copy-Item -LiteralPath $_.FullName -Destination (Join-Path $payloadDir $_.Name) -Force
@@ -121,14 +124,14 @@ if (-not ${env:ProgramFiles(x86)}) { ${env:ProgramFiles(x86)} = "C:\Program File
 $shellVersion = "$targetVersion.0"
 & dotnet publish $shellProj -c Release -r $Rid -o $shellOut --nologo `
     -p:PayloadPath=$zipPath -p:Version=$targetVersion -p:FileVersion=$shellVersion
-if ($LASTEXITCODE -ne 0) { throw "MiHome.Setup publish failed with exit code $LASTEXITCODE" }
+if ($LASTEXITCODE -ne 0) { throw "MiHomeHub.Setup publish failed with exit code $LASTEXITCODE" }
 
-$shellExe = Join-Path $shellOut "MiHome-Setup.exe"
+$shellExe = Join-Path $shellOut "MiHomeHub-Setup.exe"
 if (-not (Test-Path -LiteralPath $shellExe)) { throw "installer shell not found: $shellExe" }
 
 $releaseDir = Join-Path $root "publish\release\$targetVersion"
 New-Item -ItemType Directory -Path $releaseDir -Force | Out-Null
-$setupName = "MiHome-Setup-$targetVersion-$Rid.exe"
+$setupName = "MiHomeHub-Setup-$targetVersion-$Rid.exe"
 $setupPath = Join-Path $releaseDir $setupName
 Copy-Item -LiteralPath $shellExe -Destination $setupPath -Force
 

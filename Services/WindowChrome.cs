@@ -3,7 +3,7 @@
 
 using System;
 
-namespace MiHome.Services;
+namespace MiHomeHub.Services;
 
 /// <summary>
 /// 独立顶层窗口的「无系统外框」窗口 chrome（自定义窗体路线 B：大圆角 + 全自绘轮廓，不做毛玻璃）。

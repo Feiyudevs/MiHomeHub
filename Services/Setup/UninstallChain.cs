@@ -8,12 +8,12 @@ using System.Linq;
 using System.Text.RegularExpressions;
 using System.Threading;
 
-namespace MiHome.Services.Setup;
+namespace MiHomeHub.Services.Setup;
 
 /// <summary>
 /// 卸载链：正在运行的 exe 无法删除自己所在目录，所以卸载永远是
-/// 「安装根\app\MiHome.exe → 复制自己到 %TEMP% → 中转进程等原进程退出 →
-///  复制 app 目录到 %TEMP% → 从临时目录启动 MiHome.exe --uninstall-worker」。
+/// 「安装根\app\MiHomeHub.exe → 复制自己到 %TEMP% → 中转进程等原进程退出 →
+///  复制 app 目录到 %TEMP% → 从临时目录启动 MiHomeHub.exe --uninstall-worker」。
 /// 外壳与主程序同源编译本文件。
 /// </summary>
 internal static class UninstallChain

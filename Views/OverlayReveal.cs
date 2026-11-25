@@ -10,7 +10,7 @@ using Avalonia.Media;
 using Avalonia.Styling;
 using Avalonia.Threading;
 
-namespace MiHome.Views;
+namespace MiHomeHub.Views;
 
 /// <summary>
 /// 标题栏胶囊浮层的开合动画：打开淡入轻落、关闭反向收起后再隐藏，

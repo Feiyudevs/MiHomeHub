@@ -4,17 +4,17 @@
 using System;
 using System.IO;
 
-namespace MiHome.Services;
+namespace MiHomeHub.Services;
 
 /// <summary>
-/// 贴桌面层的调试日志：只有设了 MIHOME_DESKTOP_DEBUG=1 才写盘。
+/// 贴桌面层的调试日志：只有设了 MIHOMEHUB_DESKTOP_DEBUG=1 才写盘。
 /// 分区窗是 HWND_BOTTOM + NOACTIVATE 的特殊窗口，很多问题（点击没到、菜单被系统失活吞掉）
 /// 在普通日志里看不到，只能在关键节点落一行。
 /// </summary>
 internal static class DesktopLog
 {
     public static readonly bool Enabled =
-        Environment.GetEnvironmentVariable("MIHOME_DESKTOP_DEBUG") == "1";
+        Environment.GetEnvironmentVariable("MIHOMEHUB_DESKTOP_DEBUG") == "1";
 
     private static readonly string File = Path.Combine(AppPaths.Dir, "desktop-debug.log");
 

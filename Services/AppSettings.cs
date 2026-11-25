@@ -5,14 +5,14 @@ using System;
 using System.IO;
 using System.Text.Json;
 
-namespace MiHome.Services;
+namespace MiHomeHub.Services;
 
 /// <summary>
-/// 项目自带的本地配置：仓库根 <c>MiHome.settings.json</c>（随编译复制到 exe 同级目录）。
+/// 项目自带的本地配置：仓库根 <c>MiHomeHub.settings.json</c>（随编译复制到 exe 同级目录）。
 /// 里面是**可留空的两个变量字段**：后台地址与 app_id。更新检查与匿名统计共用同一套后台，
 /// 所以只写一份；开源分发留空时应用就只用 GitHub、不上报。私有值写
-/// <c>MiHome.settings.local.json</c>（已 gitignore，只覆盖非空字段），
-/// 环境变量 <c>MIHOME_API_BASE</c> / <c>MIHOME_APP_ID</c> 可临时覆盖。
+/// <c>MiHomeHub.settings.local.json</c>（已 gitignore，只覆盖非空字段），
+/// 环境变量 <c>MIHOMEHUB_API_BASE</c> / <c>MIHOMEHUB_APP_ID</c> 可临时覆盖。
 /// </summary>
 internal sealed class AppSettings
 {
@@ -23,10 +23,10 @@ internal sealed class AppSettings
     public int AppId { get; set; }
 
     /// <summary>配置文件路径（exe 同级）。</summary>
-    public static string FilePath => Path.Combine(AppContext.BaseDirectory, "MiHome.settings.json");
+    public static string FilePath => Path.Combine(AppContext.BaseDirectory, "MiHomeHub.settings.json");
 
     /// <summary>本机覆盖文件（exe 同级，已被 .gitignore 排除）：只填自己需要的字段，优先于基础文件。</summary>
-    public static string LocalPath => Path.Combine(AppContext.BaseDirectory, "MiHome.settings.local.json");
+    public static string LocalPath => Path.Combine(AppContext.BaseDirectory, "MiHomeHub.settings.local.json");
 
     private static readonly JsonSerializerOptions Json = new()
     {

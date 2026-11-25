@@ -2,32 +2,32 @@
     xmlns="https://github.com/avaloniaui"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:ani="clr-namespace:Avalonia.Animation.Easings;assembly=Avalonia.Base"
-    xmlns:conv="clr-namespace:MiHome.Converters"
-    xmlns:ctl="clr-namespace:MiHome.Controls"
-    xmlns:vm="clr-namespace:MiHome.ViewModels"
-    xmlns:m="clr-namespace:MiHome.Models"
-             x:Class="MiHome.App"
+    xmlns:conv="clr-namespace:MiHomeHub.Converters"
+    xmlns:ctl="clr-namespace:MiHomeHub.Controls"
+    xmlns:vm="clr-namespace:MiHomeHub.ViewModels"
+    xmlns:m="clr-namespace:MiHomeHub.Models"
+             x:Class="MiHomeHub.App"
              RequestedThemeVariant="Dark">
     <Application.Resources>
         <ResourceDictionary>
             <!-- 全局统一字体：避免每个控件重复解析默认字体，防止 GlyphTypeface 只增不减累积到 gen2 -->
             <FontFamily x:Key="DefaultFontFamily">Microsoft YaHei UI</FontFamily>
             <ResourceDictionary.MergedDictionaries>
-                <ResourceInclude Source="avares://MiHome/Themes/Converters.axaml" />
-                <ResourceInclude Source="avares://MiHome/Themes/Icons.axaml" />
-                <ResourceInclude Source="avares://MiHome/Themes/Brushes.axaml" />
-                <ResourceInclude Source="avares://MiHome/Themes/Templates.axaml" />
-                <ResourceInclude Source="avares://MiHome/Themes/DrawerTemplates.axaml" />
+                <ResourceInclude Source="avares://MiHomeHub/Themes/Converters.axaml" />
+                <ResourceInclude Source="avares://MiHomeHub/Themes/Icons.axaml" />
+                <ResourceInclude Source="avares://MiHomeHub/Themes/Brushes.axaml" />
+                <ResourceInclude Source="avares://MiHomeHub/Themes/Templates.axaml" />
+                <ResourceInclude Source="avares://MiHomeHub/Themes/DrawerTemplates.axaml" />
             </ResourceDictionary.MergedDictionaries>
         </ResourceDictionary>
     </Application.Resources>
     <Application.Styles>
         <!-- 基础控件模板来源：缺了它 TextBox / ItemsControl / ScrollViewer 都没有可视模板 -->
         <FluentTheme />
-        <StyleInclude Source="avares://MiHome/Themes/ControlStyles.axaml" />
+        <StyleInclude Source="avares://MiHomeHub/Themes/ControlStyles.axaml" />
         <!-- 全局 ToolTip 胶囊：放在 FluentTheme 之后，压过 Fluent ControlTheme 的同名 Setter；
              配色键在 Themes/Brushes.axaml 顶层，窗口可就地覆盖。见 Themes/ToolTipStyles.axaml -->
-        <StyleInclude Source="avares://MiHome/Themes/ToolTipStyles.axaml" />
+        <StyleInclude Source="avares://MiHomeHub/Themes/ToolTipStyles.axaml" />
         <!-- 注意：文字抗锯齿（RenderOptions.TextRenderingMode="Antialias"）不能在这里全局配置 ——
              11.3 的 RenderOptions 没有 backing AvaloniaProperty，Style Setter 编译不过（AVLN2000）。
              该属性只沿视觉树从各 Window 向下继承，因此每个透明窗口需各写一行（已加 11 个）。

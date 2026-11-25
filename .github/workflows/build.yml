@@ -39,12 +39,12 @@ jobs:
         id: ver
         shell: pwsh
         run: |
-          $v = [regex]::Match((Get-Content MiHome.csproj -Raw), '<Version>([^<]+)</Version>').Groups[1].Value.Trim()
+          $v = [regex]::Match((Get-Content MiHomeHub.csproj -Raw), '<Version>([^<]+)</Version>').Groups[1].Value.Trim()
           "version=$v" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
           Write-Host "version = $v"
 
       - name: Restore
-        run: dotnet restore MiHome.csproj -p:Configuration=Release
+        run: dotnet restore MiHomeHub.csproj -p:Configuration=Release
         shell: pwsh
 
       - name: Publish single-file exe
@@ -69,15 +69,12 @@ jobs:
         run: |
           $v = "${{ steps.ver.outputs.version }}"
           $releaseDir = Join-Path $PWD "publish\release\$v"
-          $exe = Join-Path $PWD "publish\sc-$env:RID\MiHome.exe"
-          $setup = Join-Path $releaseDir "MiHome-Setup-$v-$env:RID.exe"
+          $setup = Join-Path $releaseDir "MiHomeHub-Setup-$v-$env:RID.exe"
           $manifest = Join-Path $releaseDir "update.json"
-          if (-not (Test-Path -LiteralPath $exe)) { throw "published exe not found: $exe" }
           if (-not (Test-Path -LiteralPath $setup)) { throw "installer not found: $setup" }
           if (-not (Test-Path -LiteralPath $manifest)) { throw "update.json not found: $manifest" }
 
-          Copy-Item -LiteralPath $exe -Destination (Join-Path $releaseDir "MiHome.exe") -Force
-          # 校验清单只列实际发到 Release 的安装包：单文件 exe 只留在 CI artifact 里
+          # 版本目录只放发布资产：安装包 + update.json + 校验清单，不放便携 MiHomeHub.exe
           $lines = @()
           foreach ($f in @($setup)) {
             $h = (Get-FileHash -Algorithm SHA256 -LiteralPath $f).Hash.ToLowerInvariant()
@@ -94,7 +91,7 @@ jobs:
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: MiHome-${{ steps.ver.outputs.version }}-${{ env.RID }}
+          name: MiHomeHub-${{ steps.ver.outputs.version }}-${{ env.RID }}
           path: publish/release/${{ steps.ver.outputs.version }}/
           if-no-files-found: error
           retention-days: 30
@@ -104,7 +101,7 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           files: |
-            publish/release/${{ steps.ver.outputs.version }}/MiHome-Setup-${{ steps.ver.outputs.version }}-${{ env.RID }}.exe
+            publish/release/${{ steps.ver.outputs.version }}/MiHomeHub-Setup-${{ steps.ver.outputs.version }}-${{ env.RID }}.exe
             publish/release/${{ steps.ver.outputs.version }}/SHA256SUMS.txt
             publish/release/${{ steps.ver.outputs.version }}/update.json
           generate_release_notes: true
@@ -120,7 +117,7 @@ jobs:
           $v = "${{ steps.ver.outputs.version }}"
           $dir = Join-Path $PWD "publish\release\$v"
           $files = @(
-            (Join-Path $dir "MiHome-Setup-$v-$env:RID.exe"),
+            (Join-Path $dir "MiHomeHub-Setup-$v-$env:RID.exe"),
             (Join-Path $dir "SHA256SUMS.txt"),
             (Join-Path $dir "update.json")
           )
@@ -128,7 +125,7 @@ jobs:
           if ($LASTEXITCODE -ne 0) {
             if (-not (git tag --list test)) { git tag test }
             git push origin test
-            gh release create test @files --title "MiHome 测试通道（内部验证）" --prerelease --notes "内部测试版本，正式通道不会分发。"
+            gh release create test @files --title "MiHomeHub 测试通道（内部验证）" --prerelease --notes "内部测试版本，正式通道不会分发。"
           } else {
             gh release upload test @files --clobber
             gh release edit test --prerelease

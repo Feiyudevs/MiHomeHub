@@ -2,9 +2,9 @@
 // SPDX-License-Identifier: GPL-3.0-only
 
 using Avalonia.Controls;
-using MiHome.Views;
+using MiHomeHub.Views;
 
-namespace MiHome.Views;
+namespace MiHomeHub.Views;
 
 public partial class RoomsView : UserControl
 {
