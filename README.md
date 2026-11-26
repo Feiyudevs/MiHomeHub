@@ -200,7 +200,7 @@ package.cmd -SkipInstaller :: 只出单文件 exe
 - `app_launch`：启动（附版本、平台、是否静默启动）
 - `mijia_login`：登录方式（auto / quick / qr）与结果
 - `devices_loaded`：设备数量区间（0 / 1-5 / 6-20 / 20+）与加载耗时
-- `device_control`：控制设备类别（light / air-conditioner / curtain …）与成败、耗时
+- `device_control`：控制设备类别（light / air-conditioner / curtain …）与成败、耗时；成功的那几次按会话合批上报（一条事件里的 `_merge_n` 就是实际操作次数），失败逐条上报
 - `scene_run`：执行场景的成败与耗时
 - `update_check` / `update_download` / `update_install`：更新通道、结果
 

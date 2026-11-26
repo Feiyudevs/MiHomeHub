@@ -30,12 +30,17 @@
             </DataTemplate>
             <!-- 场景骨架：与场景迷你卡同尺寸同圆角，首次拉取场景时先占住一行 -->
             <DataTemplate x:Key="SceneSkeletonTemplate" x:DataType="x:String">
-                <Border Classes="SkelCard" MinHeight="80">
+                <Border Classes="SkelCard" MinHeight="72" Padding="14,11">
                     <Panel ClipToBounds="True">
-                        <StackPanel VerticalAlignment="Top" HorizontalAlignment="Left" Spacing="10">
-                            <Border Classes="SkelIc" Width="30" Height="30" CornerRadius="10" HorizontalAlignment="Left" />
-                            <Border Classes="SkelBar" Width="88" HorizontalAlignment="Left" />
-                        </StackPanel>
+                        <Grid ColumnDefinitions="Auto,*,Auto">
+                            <Border Classes="SkelIc" Width="38" Height="38" CornerRadius="12" VerticalAlignment="Center" />
+                            <StackPanel Grid.Column="1" Margin="11,0,8,0" VerticalAlignment="Center" Spacing="7">
+                                <Border Classes="SkelBar" Width="96" HorizontalAlignment="Left" />
+                                <Border Classes="SkelBar" Width="62" Height="9" HorizontalAlignment="Left" />
+                            </StackPanel>
+                            <Border Grid.Column="2" Classes="SkelSw" Width="30" Height="30"
+                                    CornerRadius="15" VerticalAlignment="Center" />
+                        </Grid>
                         <Canvas IsHitTestVisible="False">
                             <Border Classes="SkelShine"
                                     Classes.run="{Binding $parent[ItemsControl].((vm:MainViewModel)DataContext).ShowSceneSkeleton}" />
@@ -78,12 +83,44 @@
                     </StackPanel>
                 </Border>
             </DataTemplate>
+            <!-- 趋势卡骨架：与温度/湿度/用电三张真卡同圆角同内衬同高度，首拉期间先占住图表行，
+                 读数到货后整块换成真卡；图表区比文字条淡一档，留出「这里会画曲线」的层次。
+                 内衬与图表行高度要跟 Border.TrendCard / 真卡里的 56 保持一致，改一处要改三处 -->
+            <DataTemplate x:Key="TrendSkeletonTemplate" x:DataType="x:String">
+                <Border CornerRadius="16" Padding="16,12,16,10"
+                        Background="{DynamicResource SkelCardBrush}"
+                        BoxShadow="{DynamicResource CardShadow}">
+                    <Panel ClipToBounds="True">
+                        <Grid RowDefinitions="Auto,Auto,Auto">
+                            <Grid ColumnDefinitions="Auto,*,Auto">
+                                <Border Width="13" Height="13" CornerRadius="4" VerticalAlignment="Center"
+                                        Background="{DynamicResource SkelBarBrush}" />
+                                <Border Grid.Column="1" Classes="SkelBar" Width="56" Height="11"
+                                        Margin="6,0,0,0" HorizontalAlignment="Left" />
+                            </Grid>
+                            <Grid Grid.Row="1" Margin="0,6,0,0" ColumnDefinitions="Auto,*,Auto">
+                                <Border Classes="SkelBar" Width="72" Height="24" CornerRadius="7" VerticalAlignment="Bottom" />
+                                <!-- 大数字右侧那两行小字（舒适度 / 全天高低）的占位 -->
+                                <Border Grid.Column="2" Classes="SkelBar" Width="64" Height="8"
+                                        CornerRadius="4" HorizontalAlignment="Right" VerticalAlignment="Bottom" />
+                            </Grid>
+                            <Border Grid.Row="2" Height="56" Margin="0,8,0,0" CornerRadius="10" Opacity="0.45"
+                                    Background="{DynamicResource SkelBarBrush}" />
+                        </Grid>
+                        <Canvas IsHitTestVisible="False">
+                            <Border Classes="SkelShine"
+                                    Classes.run="{Binding $parent[ItemsControl].((vm:MainViewModel)DataContext).ShowTrendSkeleton}" />
+                        </Canvas>
+                    </Panel>
+                </Border>
+            </DataTemplate>
             <!-- 设备卡右键菜单项（CardMenuItem）：Fluent 默认 MenuItem 的悬停高亮是直角、铺满整行，
                  与圆角外壳不搭。这里给一份精简主题：高亮画在圆角 8 的 ItemRoot 上，底色统一用品牌主色柔色档。
                  注意 MenuItem 的悬停伪类是 :selected（它没有 :pointerover），按压是 :pressed。
                  主题直接内联在本字典里、由菜单项用 Theme 静态引用 —— 不走样式匹配，弹出层里也稳。 -->
             <ControlTheme x:Key="CardMenuItem" TargetType="MenuItem">
-                <Setter Property="Background" Value="Transparent"/>
+                <!-- 静息底 = 悬停紫的零透明版本，悬停时只淡入同一层色（避免从黑透明插值闪灰） -->
+                <Setter Property="Background" Value="{DynamicResource SelBgFromBrush}"/>
                 <Setter Property="Foreground" Value="{DynamicResource MenuTextBrush}"/>
                 <Setter Property="Padding" Value="9,6"/>
                 <Setter Property="MinHeight" Value="30"/>
@@ -112,6 +149,15 @@
                 <!-- 选中底是实心紫，图标要跟文字一起翻白：描边直接绑 MenuItem.Foreground，
                      基础档是 MenuTextBrush、选中档是 SelTextBrush，两头都由下面两条已验证生效的规则供给，
                      绝不会出现描边为空、图标整只消失的情况 -->
+                <!-- 悬停（MenuItem 用 :selected）与按下换底色：走淡变，右键菜单扫过时不闪 -->
+                <Style Selector="^ /template/ Border#ItemRoot">
+                    <Setter Property="Transitions">
+                        <Transitions>
+                            <BrushTransition Property="Background" Duration="0:0:0.16"/>
+                        </Transitions>
+                    </Setter>
+                </Style>
+                <!-- 文字与图标跟着底色一起翻白：颜色直接换，不做过渡 -->
                 <Style Selector="^:selected">
                     <Setter Property="Foreground" Value="{DynamicResource SelTextBrush}"/>
                 </Style>
@@ -218,8 +264,8 @@
                                 <Image Source="{Binding Icon}" Stretch="Uniform"
                                        RenderOptions.BitmapInterpolationMode="MediumQuality" />
                             </Border>
-                            <!-- 「更多」浮在设备图标正中（卡片悬停时淡入）：48×48 圆角方底与设备图同大，
-                                 把图标整个盖住，三个点居中；与图标同格叠放，不占布局槽 -->
+                            <!-- 「更多」浮在设备图标正中（卡片悬停时淡入）：容器透明、不铺方底，
+                                 只把三个点居中；与图标同格叠放，不占布局槽，设备图标照常显示 -->
                             <ctl:DeviceMoreButton Classes="MoreBtn" ctl:MenuOpener.OpenOnClick="True"
                                     HorizontalAlignment="Center" VerticalAlignment="Center"
                                     ToolTip.Tip="更多">
@@ -274,36 +320,44 @@
                     </Panel>
                 </ctl:DeviceCardButton>
             </DataTemplate>
-            <!-- 场景迷你卡（首页条）：点卡片不执行，仅右下角播放按钮执行 -->
+            <!-- 场景迷你卡（首页条）：横向「图标 / 名称+摘要 / 执行」三列，与场景大卡同构；
+                 点卡片本身不执行，只有右侧播放按钮执行 -->
             <DataTemplate x:Key="SceneMiniTemplate" x:DataType="m:SceneCardItem">
-                <Border CornerRadius="16" Margin="8" MinHeight="80"
+                <Border CornerRadius="16" Margin="8" MinHeight="72"
                         Background="{DynamicResource CardBrush}"
                         BoxShadow="{DynamicResource CardShadow}">
                     <Panel>
                         <Border CornerRadius="16" Background="{Binding GlowBrush}" IsHitTestVisible="False"/>
-                        <Border Padding="12">
-                            <Panel>
-                                <StackPanel VerticalAlignment="Top" HorizontalAlignment="Left">
-                                    <Border Width="30" Height="30" CornerRadius="10" Background="{Binding IconBgBrush}"
-                                            HorizontalAlignment="Left">
-                                        <Path Width="16" Height="16" Stretch="Uniform" Stroke="{Binding IconFgBrush}"
-                                              StrokeThickness="1.7" StrokeLineCap="Round" StrokeJoin="Round"
-                                              Data="{Binding Icon}" />
-                                    </Border>
-                                    <TextBlock Text="{Binding Name}" FontSize="12.5" FontWeight="Normal" Margin="0,8,0,0"
-                                               Foreground="{DynamicResource Text2Brush}" />
-                                </StackPanel>
-                                <Border HorizontalAlignment="Right" VerticalAlignment="Top" CornerRadius="20" Padding="7,3"
+                        <Grid ColumnDefinitions="Auto,*,Auto" Margin="14,11">
+                            <!-- 左：场景色图标 -->
+                            <Border Width="38" Height="38" CornerRadius="12" Background="{Binding IconBgBrush}"
+                                    VerticalAlignment="Center">
+                                <Path Width="19" Height="19" Stretch="Uniform" Stroke="{Binding IconFgBrush}"
+                                      StrokeThickness="1.7" StrokeLineCap="Round" StrokeJoin="Round"
+                                      Data="{Binding Icon}" />
+                            </Border>
+                            <!-- 中：名称 + 摘要，与设备卡的「名称 / 副标题」同构 -->
+                            <StackPanel Grid.Column="1" Margin="11,0,8,0" VerticalAlignment="Center" Spacing="4">
+                                <TextBlock Text="{Binding Name}" FontSize="13" FontWeight="Normal"
+                                           MaxLines="1" TextTrimming="CharacterEllipsis"
+                                           Foreground="{DynamicResource TextBrush}" />
+                                <TextBlock Text="{Binding Summary}" FontSize="10.5"
+                                           MaxLines="1" TextTrimming="CharacterEllipsis"
+                                           Foreground="{DynamicResource Text3Brush}" />
+                            </StackPanel>
+                            <!-- 右：运行中角标贴在播放钮左侧 -->
+                            <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="4" VerticalAlignment="Center">
+                                <Border CornerRadius="20" Padding="7,2" VerticalAlignment="Center"
                                         Background="{DynamicResource GreenSoftBrush}" IsVisible="{Binding IsRunning}">
-                                    <TextBlock Text="运行中" FontSize="10.5" FontWeight="Normal"
+                                    <TextBlock Text="运行中" FontSize="10" FontWeight="Normal"
                                                Foreground="{DynamicResource GreenBrush}" />
                                 </Border>
-                                <Button Classes="PlayCircle" Width="30" Height="30"
-                                        HorizontalAlignment="Right" VerticalAlignment="Bottom"
+                                <Button Classes="PlayCircle" Width="30" Height="30" VerticalAlignment="Center"
+                                        ToolTip.Tip="执行"
                                         Command="{Binding $parent[Window].((vm:MainViewModel)DataContext).RunSceneCommand}"
                                         CommandParameter="{Binding}" />
-                            </Panel>
-                        </Border>
+                            </StackPanel>
+                        </Grid>
                     </Panel>
                 </Border>
             </DataTemplate>

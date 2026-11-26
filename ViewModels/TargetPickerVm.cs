@@ -20,7 +20,7 @@ public enum TargetPickerMode
     /// <summary>触发条件 / 添加动作：单选一台设备，确定后带回。</summary>
     SingleDevice,
 
-    /// <summary>全局快捷键：设备 + 场景 + 自动化多选，确定后带回控制卡片。</summary>
+    /// <summary>全局快捷键：设备 + 手动场景多选，确定后带回控制卡片。</summary>
     MultipleTargets,
 }
 
@@ -28,7 +28,7 @@ public enum TargetPickerMode
 /// 全局唯一的设备选择弹窗 VM：三种模式共用同一套房间分组、搜索、卡片网格与选中逻辑。
 /// - 即时提交：勾选 / 取消直接写回桌面组件分区（<see cref="DesktopGroupVm"/>）
 /// - 单选：点一台设备选中，点确定带回
-/// - 多选：设备、手动场景、自动化混排，勾选顺序即执行顺序
+/// - 多选：设备与手动场景混排，勾选顺序即执行顺序
 /// </summary>
 public partial class TargetPickerVm : ObservableObject
 {
@@ -37,14 +37,10 @@ public partial class TargetPickerVm : ObservableObject
     /// <summary>场景组的标题，同时也是筛选条上那枚胶囊的文案。</summary>
     public const string SceneGroupTitle = "场景";
 
-    /// <summary>自动化组的标题。</summary>
-    public const string AutomationGroupTitle = "自动化";
-
     private readonly List<PickerItem> _all = new();
 
     private readonly List<PickerGroup> _rooms = new();
     private PickerGroup? _sceneGroup;
-    private PickerGroup? _automationGroup;
 
     /// <summary>正在显示的那一组；null = 「全部」。</summary>
     private PickerGroup? _active;
@@ -65,7 +61,7 @@ public partial class TargetPickerVm : ObservableObject
 
     public ObservableCollection<PickerGroup> Groups { get; } = new();
 
-    /// <summary>顶部分类筛选条：第一项固定「全部」，随后场景 / 自动化 / 各房间。</summary>
+    /// <summary>顶部分类筛选条：第一项固定「全部」，随后场景 / 各房间。</summary>
     public ObservableCollection<PickerTab> Tabs { get; } = new();
 
     [ObservableProperty] private string _searchText = "";
@@ -84,7 +80,7 @@ public partial class TargetPickerVm : ObservableObject
 
     public string EmptyText => _mode switch
     {
-        TargetPickerMode.MultipleTargets => "没有匹配的设备、场景或自动化",
+        TargetPickerMode.MultipleTargets => "没有匹配的设备或场景",
         _ => _active?.IsScene == true ? $"没有匹配的{_active.Title}" : "没有匹配的设备",
     };
 
@@ -158,7 +154,7 @@ public partial class TargetPickerVm : ObservableObject
         UpdateSubtitle();
     }
 
-    /// <summary>全局快捷键：设备 + 场景 + 自动化多选，勾选顺序即执行顺序。</summary>
+    /// <summary>全局快捷键：设备 + 手动场景多选，勾选顺序即执行顺序。</summary>
     public void ConfigureMultiple(HotkeyTargetPickerRequest request)
     {
         _mode = TargetPickerMode.MultipleTargets;
@@ -174,14 +170,6 @@ public partial class TargetPickerVm : ObservableObject
 
         foreach (var s in request.SceneCandidates)
             _all.Add(new PickerItem { Scene = s, IsIn = request.SelectedIds.Contains(s.Scene.SceneId) });
-
-        foreach (var s in request.Automations)
-            _all.Add(new PickerItem
-            {
-                Scene = s,
-                CategoryOverride = AutomationGroupTitle,
-                IsIn = request.SelectedIds.Contains(s.Scene.SceneId),
-            });
 
         // 预选顺序沿用上次保存的顺序
         foreach (var id in request.SelectedIds)
@@ -393,25 +381,15 @@ public partial class TargetPickerVm : ObservableObject
         }
 
         var scenes = _all
-            .Where(i => i.Scene != null && !i.Scene.IsAutomation)
-            .Where(i => q.Length == 0 || i.Name.Contains(q, StringComparison.OrdinalIgnoreCase))
-            .OrderByDescending(i => i.IsIn)
-            .ThenBy(i => i.Name, StringComparer.CurrentCulture)
-            .ToList();
-
-        var automations = _all
-            .Where(i => i.Scene != null && i.Scene.IsAutomation)
+            .Where(i => i.Scene != null)
             .Where(i => q.Length == 0 || i.Name.Contains(q, StringComparison.OrdinalIgnoreCase))
             .OrderByDescending(i => i.IsIn)
             .ThenBy(i => i.Name, StringComparer.CurrentCulture)
             .ToList();
 
         // 场景组只要列表里有就留着（搜空了也显示一组空态，和桌面组件弹窗一致）
-        _sceneGroup = _all.Any(i => i.Scene is { IsAutomation: false })
+        _sceneGroup = _all.Any(i => i.Scene != null)
             ? new PickerGroup(SceneGroupTitle, scenes, true)
-            : null;
-        _automationGroup = _all.Any(i => i.Scene is { IsAutomation: true })
-            ? new PickerGroup(AutomationGroupTitle, automations, true)
             : null;
 
         _active = null;
@@ -424,7 +402,6 @@ public partial class TargetPickerVm : ObservableObject
         Tabs.Clear();
         Tabs.Add(new PickerTab(null, "全部", true));
         if (_sceneGroup != null) Tabs.Add(new PickerTab(_sceneGroup, SceneGroupTitle, false));
-        if (_automationGroup != null) Tabs.Add(new PickerTab(_automationGroup, AutomationGroupTitle, false));
         foreach (var room in _rooms)
             Tabs.Add(new PickerTab(room, room.Title, false));
     }
@@ -436,7 +413,6 @@ public partial class TargetPickerVm : ObservableObject
         {
             foreach (var room in _rooms) Groups.Add(room);
             if (_sceneGroup != null) Groups.Add(_sceneGroup);
-            if (_automationGroup != null) Groups.Add(_automationGroup);
         }
         else
         {
@@ -469,15 +445,11 @@ public partial class TargetPickerVm : ObservableObject
     private static string KeyOf(PickerItem item) => $"{TypeOf(item)}:{IdOf(item)}";
 
     private static HotkeyTargetType TypeOf(PickerItem item)
-    {
-        if (item.Device != null) return HotkeyTargetType.Device;
-        return item.Scene is { IsAutomation: true } ? HotkeyTargetType.Automation : HotkeyTargetType.Scene;
-    }
+        => item.Device != null ? HotkeyTargetType.Device : HotkeyTargetType.Scene;
 
     private static HotkeyActionKind DefaultKind(HotkeyTargetType type) => type switch
     {
         HotkeyTargetType.Scene => HotkeyActionKind.RunScene,
-        HotkeyTargetType.Automation => HotkeyActionKind.AutomationOn,
         _ => HotkeyActionKind.ToggleDevice,
     };
 }
@@ -487,7 +459,6 @@ public sealed class HotkeyTargetPickerRequest
 {
     public List<MijiaDevice> Devices { get; init; } = new();
     public List<SceneCardItem> SceneCandidates { get; init; } = new();
-    public List<SceneCardItem> Automations { get; init; } = new();
 
     /// <summary>打开弹窗时要预先勾上的目标 id（did / scene_id），顺序即已选顺序。</summary>
     public List<string> SelectedIds { get; init; } = new();
@@ -512,12 +483,9 @@ public partial class PickerItem : ObservableObject
     public string Name => Scene?.Name ?? Device?.Name ?? "";
 
     /// <summary>卡片副标题：设备类别（房间已经做成分组标题了，副标题再写房间是重复信息）。</summary>
-    public string Category => CategoryOverride ?? (Scene != null
+    public string Category => Scene != null
         ? TargetPickerVm.SceneGroupTitle
-        : TargetPickerVm.CategoryOf(Device!));
-
-    /// <summary>副标题覆盖：自动化组里写「自动化」而不是统一的「场景」。</summary>
-    public string? CategoryOverride { get; init; }
+        : TargetPickerVm.CategoryOf(Device!);
 
     [ObservableProperty] private bool _isIn;
 }
@@ -539,7 +507,7 @@ public partial class PickerTab : ObservableObject
     [ObservableProperty] private bool _isActive;
 }
 
-/// <summary>一个分组（标题 = 房间名 / 场景 / 自动化 + 该组的卡片）。</summary>
+/// <summary>一个分组（标题 = 房间名 / 场景 + 该组的卡片）。</summary>
 public sealed class PickerGroup
 {
     public PickerGroup(string title, IEnumerable<PickerItem> items, bool isScene = false)

@@ -43,6 +43,47 @@
         <Style Selector="TextBlock.SecTitle:first-child">
             <Setter Property="Margin" Value="2,0,0,12"/>
         </Style>
+        <!-- 首页房间标题行：整行可点，点一下收起 / 展开该房间的设备卡片。
+             不给整行铺底色，只在悬停时把标题与箭头提亮一档，避免一排房间标题变成一排按钮 -->
+        <Style Selector="Button.RoomHead">
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="Padding" Value="0"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="HorizontalAlignment" Value="Left"/>
+            <Setter Property="Focusable" Value="False"/>
+            <Setter Property="Template">
+                <ControlTemplate>
+                    <Border Name="Bd" CornerRadius="8" Background="{TemplateBinding Background}"
+                            Padding="{TemplateBinding Padding}">
+                        <ContentPresenter Content="{TemplateBinding Content}"
+                                          HorizontalAlignment="Left" VerticalAlignment="Center"/>
+                    </Border>
+                </ControlTemplate>
+            </Setter>
+        </Style>
+        <Style Selector="TextBlock.RoomName">
+            <Setter Property="Foreground" Value="{DynamicResource Text2Brush}"/>
+            <Setter Property="FontSize" Value="13"/>
+            <Setter Property="FontWeight" Value="Normal"/>
+            <Setter Property="VerticalAlignment" Value="Center"/>
+        </Style>
+        <Style Selector="Button.RoomHead:pointerover TextBlock.RoomName">
+            <Setter Property="Foreground" Value="{DynamicResource TextBrush}"/>
+        </Style>
+        <Style Selector="Path.RoomChev">
+            <Setter Property="Stroke" Value="{DynamicResource Text3Brush}"/>
+        </Style>
+        <Style Selector="Button.RoomHead:pointerover Path.RoomChev">
+            <Setter Property="Stroke" Value="{DynamicResource Text2Brush}"/>
+        </Style>
+        <!-- 房间标题左侧的细线图标（玻璃模式改由 Image 画，这条只管细线那套） -->
+        <Style Selector="Path.RoomIc">
+            <Setter Property="Stroke" Value="{DynamicResource Text3Brush}"/>
+        </Style>
+        <Style Selector="Button.RoomHead:pointerover Path.RoomIc">
+            <Setter Property="Stroke" Value="{DynamicResource Text2Brush}"/>
+        </Style>
         <Style Selector="Border.Card">
             <Setter Property="Background" Value="{DynamicResource CardBrush}"/>
             <Setter Property="CornerRadius" Value="{StaticResource R}"/>
@@ -56,6 +97,18 @@
         <!-- 滑动条滑块：白圆点加轻投影，浮在加高的轨道上 -->
         <Style Selector="Slider /template/ Thumb /template/ Border">
             <Setter Property="BoxShadow" Value="0 1 4 #59000000"/>
+        </Style>
+        <!-- ======== 悬停 / 按下的颜色过渡 ========
+             只要鼠标移上去会变色，就必须在一个过渡里淡变过去，不能一帧硬切。
+             但只淡背景：文字与图标是「换色」不是「渐变」，移上去直接换到目标色、
+             不要把两色之间的中间帧画出来，否则字会糊糊地漂一秒。 -->
+        <Style Selector="Button /template/ ContentPresenter#PART_ContentPresenter">
+            <Setter Property="Transitions">
+                <Transitions>
+                    <BrushTransition Property="Background" Duration="0:0:0.16"/>
+                    <BrushTransition Property="BorderBrush" Duration="0:0:0.16"/>
+                </Transitions>
+            </Setter>
         </Style>
         <!-- ======== 按钮 ======== -->
         <Style Selector="Button.BtnPrimary">
@@ -254,7 +307,10 @@
         <Style Selector="Button.ThemeBtn:pointerover">
             <Setter Property="Foreground" Value="{DynamicResource TextBrush}"/>
         </Style>
-        <!-- 圆形图标钮：底色 SurfaceBrush 是分主题的一层轻微抬升（暗底加白、亮底加深），悬停换 HoverBrush -->
+        <!-- 圆形图标钮：底色 SurfaceBrush 是分主题的一层轻微抬升（暗底加白、亮底加深），
+             悬停改用同色覆盖层淡入 —— 不能直接对 Background 做颜色过渡：
+             SurfaceBrush 是 5% 白、HoverBrush 是实心色，逐通道插值会在中途冲出一层浅灰，
+             就是悬停那一下「闪一下」。覆盖层色始终是 HoverBrush，只有透明度在动 -->
         <Style Selector="Button.IconDisc">
             <Setter Property="Width" Value="34"/>
             <Setter Property="Height" Value="34"/>
@@ -264,14 +320,25 @@
             <Setter Property="Template">
                 <ControlTemplate>
                     <Border Name="Bd" CornerRadius="17" Background="{DynamicResource SurfaceBrush}">
-                        <ContentPresenter Content="{TemplateBinding Content}"
-                                          HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        <Panel>
+                            <Border Name="Hov" CornerRadius="17" Background="{DynamicResource HoverBrush}"
+                                    Opacity="0" IsHitTestVisible="False"/>
+                            <ContentPresenter Content="{TemplateBinding Content}"
+                                              HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Panel>
                     </Border>
                 </ControlTemplate>
             </Setter>
         </Style>
-        <Style Selector="Button.IconDisc:pointerover /template/ Border#Bd">
-            <Setter Property="Background" Value="{DynamicResource HoverBrush}"/>
+        <Style Selector="Button.IconDisc /template/ Border#Hov">
+            <Setter Property="Transitions">
+                <Transitions>
+                    <DoubleTransition Property="Opacity" Duration="0:0:0.16"/>
+                </Transitions>
+            </Setter>
+        </Style>
+        <Style Selector="Button.IconDisc:pointerover /template/ Border#Hov">
+            <Setter Property="Opacity" Value="1"/>
         </Style>
         <Style Selector="Button.IconDisc:pointerover">
             <Setter Property="Foreground" Value="{DynamicResource TextBrush}"/>
@@ -284,16 +351,27 @@
             <Setter Property="Cursor" Value="Hand"/>
             <Setter Property="Template">
                 <ControlTemplate>
-                    <Border Name="Bd" CornerRadius="16" Background="{DynamicResource SurfaceBrush}"
-                            Padding="{TemplateBinding Padding}">
-                        <ContentPresenter Content="{TemplateBinding Content}"
-                                          HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                    <Border Name="Bd" CornerRadius="16" Background="{DynamicResource SurfaceBrush}">
+                        <Panel>
+                            <Border Name="Hov" CornerRadius="16" Background="{DynamicResource HoverBrush}"
+                                    Opacity="0" IsHitTestVisible="False"/>
+                            <ContentPresenter Content="{TemplateBinding Content}"
+                                              Margin="{TemplateBinding Padding}"
+                                              HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Panel>
                     </Border>
                 </ControlTemplate>
             </Setter>
         </Style>
-        <Style Selector="Button.IconPill:pointerover /template/ Border#Bd">
-            <Setter Property="Background" Value="{DynamicResource HoverBrush}"/>
+        <Style Selector="Button.IconPill /template/ Border#Hov">
+            <Setter Property="Transitions">
+                <Transitions>
+                    <DoubleTransition Property="Opacity" Duration="0:0:0.16"/>
+                </Transitions>
+            </Setter>
+        </Style>
+        <Style Selector="Button.IconPill:pointerover /template/ Border#Hov">
+            <Setter Property="Opacity" Value="1"/>
         </Style>
         <Style Selector="Button.IconPill:pointerover">
             <Setter Property="Foreground" Value="{DynamicResource TextBrush}"/>
@@ -415,6 +493,8 @@
             <Setter Property="Transitions">
                 <Transitions>
                     <BrushTransition Property="Background" Duration="0:0:0.22"/>
+                    <!-- 悬停只把圆底压暗 15%，同样走过渡，避免按下/移开时闪一下 -->
+                    <DoubleTransition Property="Opacity" Duration="0:0:0.16"/>
                 </Transitions>
             </Setter>
         </Style>
@@ -446,11 +526,6 @@
             <Setter Property="FontSize" Value="13.5"/>
             <Setter Property="HorizontalAlignment" Value="Stretch"/>
             <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
-            <Setter Property="Transitions">
-                <Transitions>
-                    <BrushTransition Property="Foreground" Duration="0:0:0.18"/>
-                </Transitions>
-            </Setter>
             <Setter Property="Template">
                 <ControlTemplate>
                     <!-- 外层 Hit 用 Transparent 背景铺满整行，保证空白区域也能命中 hover/点击 -->
@@ -461,7 +536,7 @@
                                     Background="Transparent"/>
                             <Border Name="Bg" CornerRadius="12" Padding="12,9,12,9" Margin="10,3,10,3"
                                     Background="Transparent">
-                                <Grid ColumnDefinitions="21,*">
+                                <Grid ColumnDefinitions="21,*,Auto">
                                     <!-- 两套画法都备好，靠设置里的图标模式二选一显示 -->
                                     <Image Name="Gx" Grid.Column="0" Width="17" Height="17" Stretch="Uniform"
                                            IsVisible="{Binding ((vm:MainViewModel)DataContext).IconGlass, RelativeSource={RelativeSource AncestorType=Window}}"
@@ -476,6 +551,23 @@
                                                FontSize="{TemplateBinding FontSize}"
                                                FontWeight="{TemplateBinding FontWeight}"
                                                Foreground="{TemplateBinding Foreground}"/>
+                                    <!-- 房间灯还亮着：房间名右侧一枚点着的小灯泡（实心灯身 + 一圈暖黄光晕）。
+                                         所有导航行共用一个模板，这里默认隐藏，由 .lighton 类点亮；
+                                         纯状态标记，不参与命中，点它等同点整行。 -->
+                                    <Panel Name="Lamp" Grid.Column="2" Width="17" Height="17"
+                                           Margin="4,0,0,0" VerticalAlignment="Center"
+                                           IsVisible="False" IsHitTestVisible="False">
+                                        <Ellipse Width="17" Height="17" Fill="{DynamicResource LampGlowBrush}" />
+                                        <Viewbox Width="13" Height="13"
+                                                 HorizontalAlignment="Center" VerticalAlignment="Center">
+                                            <Panel Width="24" Height="24">
+                                                <Path Fill="{DynamicResource AmberBrush}"
+                                                      Data="{StaticResource GeoBulbGlass}" />
+                                                <Path Stroke="{DynamicResource AmberBrush}" StrokeThickness="1.7"
+                                                      StrokeLineCap="Round" Data="{StaticResource GeoBulbBase}" />
+                                            </Panel>
+                                        </Viewbox>
+                                    </Panel>
                                 </Grid>
                             </Border>
                             <!-- 拖拽抓手：六点两列三行，挪到行左缘——和选中竖条共用同一条槽位
@@ -552,6 +644,10 @@
         <!-- 房间行图标：比导航图标再细一档，配合圆头圆角更轻盈 -->
         <Style Selector="Button.NavRow.room /template/ Path#Ic">
             <Setter Property="StrokeThickness" Value="1.2"/>
+        </Style>
+        <!-- 这个房间还有灯开着：点亮行内那枚小灯泡（「全部」永远不会挂这个类） -->
+        <Style Selector="Button.NavRow.lighton /template/ Panel#Lamp">
+            <Setter Property="IsVisible" Value="True"/>
         </Style>
         <!-- 拖拽抓手：所有导航行默认透明、不参与命中（上面三行不参与排序，永远看不见）；
              房间行悬停时只淡淡浮现（三级文字色 + 0.6 透明度，弱化一档），按住行左缘即可拖。
@@ -704,11 +800,12 @@
                                         Margin="-15,-13,-15,-13"
                                         CornerRadius="16">
                                     <Border.Background>
+                                        <!-- 单一紫色、只走透明度渐变：不再从紫过渡到粉，右缘浓度回到原来量级 -->
                                         <LinearGradientBrush StartPoint="0%,50%" EndPoint="100%,50%">
                                             <GradientStop Color="#008B7CFF" Offset="0"/>
                                             <GradientStop Color="#008B7CFF" Offset="0.5"/>
-                                            <GradientStop Color="#338B7CFF" Offset="0.8"/>
-                                            <GradientStop Color="#4DFF9EC4" Offset="1"/>
+                                            <GradientStop Color="#2A8B7CFF" Offset="0.8"/>
+                                            <GradientStop Color="#4A8B7CFF" Offset="1"/>
                                         </LinearGradientBrush>
                                     </Border.Background>
                                 </Border>
@@ -1119,11 +1216,21 @@
         <Style Selector="ComboBox /template/ Border#Background">
             <Setter Property="Background" Value="{DynamicResource Surface4Brush}"/>
             <Setter Property="CornerRadius" Value="10"/>
+            <Setter Property="Transitions">
+                <Transitions>
+                    <BrushTransition Property="Background" Duration="0:0:0.16"/>
+                </Transitions>
+            </Setter>
         </Style>
         <Style Selector="ComboBox /template/ Border#BorderElement">
             <Setter Property="BorderBrush" Value="{DynamicResource LineBrush}"/>
             <Setter Property="BorderThickness" Value="1"/>
             <Setter Property="CornerRadius" Value="10"/>
+            <Setter Property="Transitions">
+                <Transitions>
+                    <BrushTransition Property="BorderBrush" Duration="0:0:0.16"/>
+                </Transitions>
+            </Setter>
         </Style>
         <Style Selector="ComboBox:pointerover /template/ Border#Background">
             <Setter Property="Background" Value="{DynamicResource Surface5Brush}"/>
@@ -1216,6 +1323,8 @@
         </Style>
         <Style Selector="ScrollBar /template/ RepeatButton#PART_LineUpButton,
                         ScrollBar /template/ RepeatButton#PART_LineDownButton">
+            <!-- 箭头已整体隐藏：按钮直接不显示，两端不再各占一行轨道高度，滑块行程占满整条轨道 -->
+            <Setter Property="IsVisible" Value="False"/>
             <Setter Property="IsHitTestVisible" Value="False"/>
         </Style>
         <!-- 滑块换成 8px 居中胶囊。模板里只能有这一个 Border：主题的
@@ -1294,29 +1403,14 @@
         <Style Selector="ctl|DeviceMoreButton.MoreBtn:pointerover">
             <Setter Property="Foreground" Value="{DynamicResource TextBrush}"/>
         </Style>
-        <!-- 底色：铺满整个 48×48 热区（与设备图同大），大圆角方底 + 基本不透明的浅色，
-             把背后的设备图标完全压住，三个点才读得清；
-             自身悬停 / 按下只把底色提亮一档，不出现 Fluent Button 主题自带的实心灰底。
-             底色 / 描边都挂 BrushTransition：方底是半透明层，硬切换会像整块闪一下；
-             桌面分区那侧的本地样式只改颜色值，过渡照样跟着这个 Border 走，不用各写一份 -->
+        <!-- 容器：48×48 与点击热区同大，只负责把三个点居中；不铺底色、不描边，
+             悬停 / 按下都保持透明，画面上只留菜单图标本身；底下的设备图标照常保留显示。 -->
         <Style Selector="ctl|DeviceMoreButton.MoreBtn Border.MoreBtnPill">
             <Setter Property="Width" Value="48"/>
             <Setter Property="Height" Value="48"/>
-            <Setter Property="Background" Value="{DynamicResource MoreBtnBgBrush}"/>
+            <Setter Property="Background" Value="Transparent"/>
             <Setter Property="CornerRadius" Value="14"/>
             <Setter Property="Padding" Value="0"/>
-            <Setter Property="Transitions">
-                <Transitions>
-                    <BrushTransition Property="Background" Duration="0:0:0.2"/>
-                    <BrushTransition Property="BorderBrush" Duration="0:0:0.2"/>
-                </Transitions>
-            </Setter>
-        </Style>
-        <Style Selector="ctl|DeviceMoreButton.MoreBtn:pointerover Border.MoreBtnPill">
-            <Setter Property="Background" Value="{DynamicResource MoreBtnBgHoverBrush}"/>
-        </Style>
-        <Style Selector="ctl|DeviceMoreButton.MoreBtn:pressed Border.MoreBtnPill">
-            <Setter Property="Background" Value="{DynamicResource MoreBtnBgHoverBrush}"/>
         </Style>
         <Style Selector="ctl|DeviceMoreButton.MoreBtn:pointerover /template/ ContentPresenter#PART_ContentPresenter">
             <Setter Property="Background" Value="Transparent"/>
@@ -1326,10 +1420,10 @@
         </Style>
 
         <!-- ======== 弹窗基类 DialogPopup：遮罩 + 居中卡片 + 标题栏 + 可滚动正文 ======== -->
-        <!-- 卡片四周 1px LineBrush 浅描边：暗色下是极淡的白、浅色下是极淡的蓝黑，只负责把卡片从背景里分出来 -->
+        <!-- 卡片四周 1px DialogLineBrush 浅描边：暗色下是极淡的白、浅色下是极淡的蓝黑，只负责把卡片从背景里分出来 -->
         <Style Selector="Border.DialogCard">
             <Setter Property="Background" Value="{DynamicResource DrawerBgBrush}"/>
-            <Setter Property="BorderBrush" Value="{DynamicResource LineBrush}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource DialogLineBrush}"/>
             <Setter Property="BorderThickness" Value="1"/>
             <Setter Property="CornerRadius" Value="24"/>
             <!-- 投影这里不能开 ClipToBounds：Avalonia 的 BoxShadow 画在控件自己的绘制上下文里，
@@ -1575,11 +1669,6 @@
             <Setter Property="Cursor" Value="Hand"/>
             <Setter Property="BorderThickness" Value="0"/>
             <Setter Property="Focusable" Value="False"/>
-            <Setter Property="Transitions">
-                <Transitions>
-                    <BrushTransition Property="Foreground" Duration="0:0:0.18"/>
-                </Transitions>
-            </Setter>
             <Setter Property="Template">
                 <ControlTemplate>
                     <Border Name="Bd" CornerRadius="9" Background="Transparent">
@@ -1833,7 +1922,8 @@
             <Setter Property="Height" Value="24" />
             <Setter Property="Padding" Value="0" />
             <Setter Property="CornerRadius" Value="7" />
-            <Setter Property="Background" Value="Transparent" />
+            <!-- 悬停底是 #26 白：静息也用同一支白的零透明，淡入时才不会先压一层灰 -->
+            <Setter Property="Background" Value="#00FFFFFF" />
             <Setter Property="BorderThickness" Value="0" />
             <Setter Property="Focusable" Value="False" />
             <Setter Property="Cursor" Value="Hand" />
@@ -1905,5 +1995,38 @@
                     </KeyFrame>
                 </Animation>
             </Style.Animations>
+        </Style>
+
+        <!-- ======== 自绘模板补过渡 ========
+             这些按钮的底 / 描边画在自己模板里的具名 Border 上，全局那条只兜到 Fluent 的
+             ContentPresenter，所以要在这里逐类补。只补颜色，时长统一 0.16s，
+             和全局兜底同一档，悬停与移开两个方向同速。 -->
+        <Style Selector="Button.BtnPrimary /template/ Border#Bd,
+                        Button.BtnGhost /template/ Border#Bd,
+                        Button.BtnDanger /template/ Border#Bd,
+                        Button.AddChip /template/ Border#Bd,
+                        Button.IconBtn /template/ Border#Bd,
+                        Button.WinBtn /template/ Border#Bd,
+                        Button.ThemeBtn /template/ Border#Bd,
+                        Button.IconDisc /template/ Border#Bd,
+                        Button.IconPill /template/ Border#Bd,
+                        Button.HeaderAct /template/ Border#Bd,
+                        Button.Chip /template/ Border#Bd,
+                        Button.NavRow /template/ Border#Bg,
+                        ToggleButton.Chip /template/ Border#Bd">
+            <Setter Property="Transitions">
+                <Transitions>
+                    <BrushTransition Property="Background" Duration="0:0:0.16"/>
+                    <BrushTransition Property="BorderBrush" Duration="0:0:0.16"/>
+                </Transitions>
+            </Setter>
+        </Style>
+        <!-- 靠透明度表达悬停的几处：开关轨、预设色点、滚动条 -->
+        <Style Selector="Button.Switch /template/ Border#Track, Button.Swatch, ScrollBar">
+            <Setter Property="Transitions">
+                <Transitions>
+                    <DoubleTransition Property="Opacity" Duration="0:0:0.16"/>
+                </Transitions>
+            </Setter>
         </Style>
 </Styles>

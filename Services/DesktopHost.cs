@@ -36,11 +36,13 @@ public static class DesktopHost
     private static TargetPickerWindow? _picker;
     private static DesktopGroupPickWindow? _groupPicker;
     private static DesktopAppearanceWindow? _appearance;
+    private static IDisposable? _appearanceTimer;
     private static DeviceControlWindow? _deviceWindow;
     private static DesktopMenuWindow? _groupMenu;
     private static DesktopVolumeWindow? _volume;
     private static DesktopSpeakerPickWindow? _speakerPicker;
     private static DesktopRenameWindow? _rename;
+    private static DesktopAcPickWindow? _acPicker;
 
     public static DesktopLayout Layout => _layout;
 
@@ -68,8 +70,8 @@ public static class DesktopHost
         main.DevicesReloaded += SyncDevices;
         DisplayWatcher.Changed += OnDisplayChanged;
 
-        // 双击桌面空白处切换所有分区显隐（设置里可关；钩子常驻，回调里读开关）
-        DesktopDoubleClickHook.Install();
+        // 双击桌面空白处切换所有分区显隐（设置里可关；钩子常驻，回调里读开关）。
+        // 钩子的安装时机由 App 控制：启动早期挂 WH_MOUSE_LL 会让全系统鼠标事件等本进程，见 App/DesktopDoubleClickHook。
 
         // 上次退出时开着的分区，这次启动直接贴回桌面
         if (_layout.Enabled)
@@ -94,7 +96,9 @@ public static class DesktopHost
 
     /// <summary>按模型里的 Kind 造对应类型的分区视图模型。</summary>
     private static DesktopZoneVm CreateVm(MainViewModel main, DesktopGroupModel model)
-        => model.IsMedia ? new DesktopMediaVm(main, model) : new DesktopGroupVm(main, model);
+        => model.IsMedia ? new DesktopMediaVm(main, model)
+        : model.IsAc ? new DesktopAcVm(main, model)
+        : new DesktopGroupVm(main, model);
 
     /// <summary>
     /// 新建分区并放入设备（「添加到桌面组件」弹窗里的「新建并添加」）。
@@ -307,9 +311,11 @@ public static class DesktopHost
     {
         if (_main == null) return;
         EnsureMediaGroup();
+        EnsureAcGroup();
         foreach (var model in _layout.Groups.ToList())
         {
             if (model.IsMedia && _layout.MediaHidden) continue;
+            if (model.IsAc && _layout.AcHidden) continue;
             if (Groups.Any(g => g.Model.Id == model.Id)) continue;
             var vm = CreateVm(_main, model);
             Groups.Add(vm);
@@ -327,6 +333,7 @@ public static class DesktopHost
         foreach (var vm in Groups)
         {
             if (vm is DesktopMediaVm media) media.Detach();
+            if (vm is DesktopAcVm ac) ac.Detach();
             if (vm is DesktopGroupVm group) group.Detach();
             CloseGroupDialogs(vm);
         }
@@ -410,6 +417,7 @@ public static class DesktopHost
             try { win.Close(); } catch { }
         }
         if (vm is DesktopMediaVm media) media.Detach();
+        if (vm is DesktopAcVm ac) ac.Detach();
         if (vm is DesktopGroupVm group) group.Detach();
         // 这个分区开着的弹窗一起收掉，避免对着已解散的分区操作
         CloseGroupDialogs(vm);
@@ -426,8 +434,134 @@ public static class DesktopHost
     {
         if (_main == null || _layout.MediaHidden) return;
         if (_layout.Groups.Any(g => g.IsMedia)) return;
-        _layout.Groups.Add(NewMediaModel());
+        _layout.Groups.Add(RestoredMediaModel());
         Save();
+    }
+
+    /// <summary>
+    /// 开启桌面组件时确保桌面上有一块空调分区：只种一次。
+    /// 用户手动「关闭空调分区」后 <see cref="DesktopLayout.AcHidden"/> 置位，不再自动放回，
+    /// 想再要只能去设置页重新打开。
+    /// </summary>
+    private static void EnsureAcGroup()
+    {
+        if (_main == null || _layout.AcHidden) return;
+        if (_layout.Groups.Any(g => g.IsAc)) return;
+        _layout.Groups.Add(RestoredAcModel());
+        Save();
+    }
+
+    /// <summary>
+    /// 媒体分区重新出现时的模型：上一次摆过就回原位，从没摆过才按默认落点挑空位。
+    /// 位置按模型里的 DIP 坐标（虚拟桌面左上角）还原，换分辨率/多屏也算得回来。
+    /// </summary>
+    private static DesktopGroupModel RestoredMediaModel()
+    {
+        var spot = _layout.MediaSpot;
+        if (spot == null) return NewMediaModel();
+        return new DesktopGroupModel
+        {
+            Kind = DesktopGroupModel.ZoneMedia,
+            Name = "媒体",
+            X = spot.X,
+            Y = spot.Y,
+            Width = SpotWidth(spot.Width),
+            ScreenSig = spot.ScreenSig ?? "",
+        };
+    }
+
+    /// <summary>空调分区重新出现时的模型：规则同媒体分区，上次在哪儿就在哪儿。</summary>
+    private static DesktopGroupModel RestoredAcModel()
+    {
+        var spot = _layout.AcSpot;
+        if (spot == null) return NewAcModel();
+        return new DesktopGroupModel
+        {
+            Kind = DesktopGroupModel.ZoneAc,
+            Name = "空调",
+            X = spot.X,
+            Y = spot.Y,
+            Width = SpotWidth(spot.Width),
+            ScreenSig = spot.ScreenSig ?? "",
+        };
+    }
+
+    /// <summary>记下来的宽度可能缺失或越界（老数据、手工改过的配置），夹回合法范围。</summary>
+    private static double SpotWidth(double width)
+        => width <= 0 ? DesktopGroupModel.DefaultWidth
+        : Math.Clamp(width, DesktopGroupModel.MinWidth, DesktopGroupModel.MaxWidth);
+
+    /// <summary>空调分区默认落在媒体分区下方；被占了就往下/左挪。</summary>
+    private static DesktopGroupModel NewAcModel()
+    {
+        const double width = 320;
+        const double height = 260;
+        const double margin = 24;
+        var media = _layout.Groups.FirstOrDefault(g => g.IsMedia);
+        var (vx, vy, vw, _) = DesktopEmbed.VirtualScreen();
+        double x, y;
+        if (media != null)
+        {
+            x = media.X;
+            y = media.Y + height + margin;
+        }
+        else
+        {
+            x = vx + vw - width - margin;
+            y = vy + margin;
+        }
+        for (var i = 0; i < 6; i++)
+        {
+            var taken = _layout.Groups.Any(g =>
+                Math.Abs(g.Y - y) < height && Math.Abs(g.X - x) < width);
+            if (!taken) break;
+            y += height + 12;
+        }
+        return new DesktopGroupModel
+        {
+            Kind = DesktopGroupModel.ZoneAc,
+            Name = "空调",
+            Width = width,
+            X = Math.Round(x),
+            Y = Math.Round(y),
+        };
+    }
+
+    /// <summary>桌面菜单里的「关闭空调分区」：收掉窗口并记住不再自动放回。</summary>
+    public static void HideAc()
+    {
+        // 模型随关闭被移出清单，眼下在哪儿得先单独记一份：重新打开时回原位，不重新找空位
+        CaptureZoneSpots();
+        _layout.AcHidden = true;
+        var vm = Groups.FirstOrDefault(g => g.IsAc);
+        if (vm != null) RemoveGroup(vm);
+        else
+        {
+            // 总开关关着时 VM 已被清空，但模型还留在配置里：一并删掉，
+            // 否则下次启动 ShowAll 会把这块分区复活，设置开关却显示「关」
+            _layout.Groups.RemoveAll(g => g.IsAc);
+            Save();
+        }
+    }
+
+    /// <summary>设置页重新打开空调分区。</summary>
+    public static DesktopAcVm? ShowAc()
+    {
+        if (_main == null) return null;
+        var existing = Groups.FirstOrDefault(g => g.IsAc);
+        if (existing != null)
+        {
+            OpenWindow(existing);
+            return existing as DesktopAcVm;
+        }
+        var model = _layout.Groups.FirstOrDefault(g => g.IsAc) ?? RestoredAcModel();
+        if (!_layout.Groups.Contains(model)) _layout.Groups.Add(model);
+        _layout.AcHidden = false;
+        Save();
+        var vm = new DesktopAcVm(_main, model);
+        Groups.Add(vm);
+        OpenWindow(vm);
+        return vm;
     }
 
     /// <summary>媒体分区默认落右上角，被占了就往左挪一列。</summary>
@@ -457,6 +591,8 @@ public static class DesktopHost
     /// <summary>桌面菜单里的「关闭媒体分区」：收掉窗口并记住不再自动放回。</summary>
     public static void HideMedia()
     {
+        // 模型随关闭被移出清单，眼下在哪宽多少得先单独记一份：重新打开时回原位
+        CaptureZoneSpots();
         _layout.MediaHidden = true;
         var vm = Groups.FirstOrDefault(g => g.IsMedia);
         if (vm != null) RemoveGroup(vm);
@@ -479,7 +615,7 @@ public static class DesktopHost
             OpenWindow(existing);
             return existing;
         }
-        var model = _layout.Groups.FirstOrDefault(g => g.IsMedia) ?? NewMediaModel();
+        var model = _layout.Groups.FirstOrDefault(g => g.IsMedia) ?? RestoredMediaModel();
         if (!_layout.Groups.Contains(model)) _layout.Groups.Add(model);
         _layout.MediaHidden = false;
         Save();
@@ -489,13 +625,49 @@ public static class DesktopHost
         return vm;
     }
 
-    public static void Save() => DesktopGroupStore.Save(_layout);
+    public static void Save()
+    {
+        // 每次落盘顺手刷新媒体 / 空调分区的「上次落位」：等它们被关掉时模型已不在清单里，
+        // 那时再读就晚了（拖动、拉伸结束都由调用方走到这里）
+        CaptureZoneSpots();
+        DesktopGroupStore.Save(_layout);
+    }
 
-    /// <summary>外观变更：重算所有分区的画刷，并让窗口重打一次磨砂/圆角（落盘由调用方按节流决定）。</summary>
+    /// <summary>把清单里还开着的媒体 / 空调分区的落位记进配置，供隐藏后重新打开时复原。</summary>
+    private static void CaptureZoneSpots()
+    {
+        foreach (var g in _layout.Groups)
+        {
+            if (g.IsMedia) _layout.MediaSpot = ZoneSpot.From(g);
+            else if (g.IsAc) _layout.AcSpot = ZoneSpot.From(g);
+        }
+    }
+
+    /// <summary>外观变更：重算所有分区的画刷，并在停手后让窗口重打一次磨砂（落盘由调用方按节流决定）。</summary>
     public static void ApplyAppearance()
     {
+        var look = Look;
+        DesktopLog.Write($"[appearance] glass={look.Glass} opacity={look.Opacity:0.###} " +
+                         $"density={DesktopPalette.CardDensity(look):0.###} color={look.BgColor} " +
+                         $"windows={Windows.Count} groups={Groups.Count}");
+
+        // 画刷每个 tick 都换：底色 alpha 是纯内容层，Avalonia 自己合并重绘，屏上跟手且不闪。
         foreach (var vm in Groups) vm.RefreshAppearance();
-        foreach (var win in Windows.Values) win.ApplyChrome();
+
+        // 材质不能跟着 tick 走：窗口级 ACCENT 的模糊是 DWM 按窗口 invalidate 取样的快照，
+        // 重建一次要清 ACCENT + 重打 + 推一帧，连续做会在拖动时肉眼可见地抖。
+        // 所以只做去抖：最后一次改动之后 220ms 没新请求，才真正打一次（松手后屏上一定是最终值）。
+        _appearanceTimer?.Dispose();
+        _appearanceTimer = DispatcherTimer.RunOnce(() =>
+        {
+            _appearanceTimer = null;
+            ApplyChromeAndMaterial();
+        }, TimeSpan.FromMilliseconds(220));
+    }
+
+    private static void ApplyChromeAndMaterial()
+    {
+        foreach (var win in Windows.Values) win.ReapplyAppearance();
     }
 
     /// <summary>分区位置/尺寸变化后落盘（拖动、缩放结束时调用）。</summary>
@@ -754,12 +926,33 @@ public static class DesktopHost
         win.Show();
     }
 
+    /// <summary>空调名：弹一个贴着的空调选择窗，选完即写回全局默认空调。</summary>
+    public static void OpenAcPicker(DesktopAcVm vm, PixelRect anchor)
+    {
+        if (_acPicker is { IsVisible: true } open && ReferenceEquals(open.Target, vm))
+        {
+            open.Close();
+            return;
+        }
+        _acPicker?.Close();
+
+        var win = new DesktopAcPickWindow();
+        _acPicker = win;
+        win.Closed += (_, _) =>
+        {
+            if (ReferenceEquals(_acPicker, win)) _acPicker = null;
+        };
+        win.Bind(vm, anchor);
+        win.Show();
+    }
+
     private static void CloseGroupDialogs(DesktopZoneVm vm)
     {
         if (_picker is { IsVisible: true } p && ReferenceEquals(p.Target, vm)) p.Close();
         if (_groupMenu is { IsVisible: true } m && ReferenceEquals(m.Target, vm)) m.Close();
         if (_volume is { IsVisible: true } v && ReferenceEquals(v.Target, vm)) v.Close();
         if (_speakerPicker is { IsVisible: true } s && ReferenceEquals(s.Target, vm)) s.Close();
+        if (_acPicker is { IsVisible: true } a && ReferenceEquals(a.Target, vm)) a.Close();
         if (_rename is { IsVisible: true } r && ReferenceEquals(r.Target, vm)) r.Close();
     }
 

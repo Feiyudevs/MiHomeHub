@@ -42,36 +42,40 @@ public partial class MainViewModel : ObservableObject
     /// <summary>正在回填详情值，期间忽略属性变化，避免把刚读到的值又当成用户改动提交一次。</summary>
     private bool _loadingDetail;
 
+    /// <summary>这次防抖提交里亮度 / 色温各自有没有被拖过：只下发真的变了的那个，不拿本地缓存的另一项去覆盖设备。</summary>
+    private bool _lightCommitBrightness;
+    private bool _lightCommitColorTemp;
+
+    /// <summary>下发失败后回读设备真实值，期间同样忽略属性变化。</summary>
+    private bool _resyncingLight;
+
     /// <summary>高级设置：抽屉侧边栏只留常用控制卡，其余规格属性（按 MIoT 服务分组）与无入参动作全部收进这里。</summary>
     public ObservableCollection<SpecGroupVm> DrawerSpecAdvancedGroups { get; } = new();
     public ObservableCollection<SpecActionVm> DrawerSpecAdvancedActions { get; } = new();
 
-    /// <summary>卡片外显的候选读数：每个设备类型一组，点一下加入/移出卡片副标题。</summary>
-    public ObservableCollection<CardMetricVm> DrawerCardMetrics { get; } = new();
-
-    /// <summary>详情顶部的实时读数卡（功率/电压/电流/温度/湿度/PM2.5/照度等）。</summary>
+    /// <summary>详情顶部的实时读数卡（功率/电压/电流/温度/湿度/PM2.5/照度等）；
+    /// 点一下即切换「是否显示在主页设备卡」，原「卡片外显」配置区已并进这一排。</summary>
     public ObservableCollection<MetricTileVm> DrawerMetricTiles { get; } = new();
 
     [ObservableProperty] private bool _hasAdvancedPanel;
     [ObservableProperty] private bool _hasAdvancedActions;
     [ObservableProperty] private bool _isAdvancedExpanded;
-    [ObservableProperty] private bool _hasCardMetrics;
     [ObservableProperty] private bool _hasDrawerMetricTiles;
-    [ObservableProperty] private string _cardMetricsTitle = "卡片外显";
 
-    /// <summary>外显面板的说明文字，带上类型名，提示改动对同类设备一起生效。</summary>
-    [ObservableProperty] private string _cardMetricsHint = "";
+    /// <summary>读数卡下方的说明，带上类型名，提示改动对同类设备一起生效。</summary>
+    [ObservableProperty] private string _metricTilesHint = "";
+
+    /// <summary>说明文字的悬停提示：改动对哪一类设备一起生效。</summary>
+    [ObservableProperty] private string _metricTilesHintTip = "";
 
     /// <summary>抽屉「智能场景」：默认折叠，点标题展开（与高级设置同一套开合交互）。</summary>
     [ObservableProperty] private bool _isSmartSceneExpanded;
 
-    /// <summary>高级设置区是否有内容（外显候选、属性组或动作任一存在）。</summary>
-    public bool HasAdvanced => HasCardMetrics || HasAdvancedPanel || HasAdvancedActions;
+    /// <summary>高级设置区是否有内容（规格属性组或动作任一存在）。</summary>
+    public bool HasAdvanced => HasAdvancedPanel || HasAdvancedActions;
 
     /// <summary>高级设置里属性组与动作之间那条分割线：两段都有内容才画。</summary>
     public bool HasAdvancedDivider => HasAdvancedPanel && HasAdvancedActions;
-
-    partial void OnHasCardMetricsChanged(bool value) => OnPropertyChanged(nameof(HasAdvanced));
 
     partial void OnHasAdvancedPanelChanged(bool value)
     {
@@ -120,6 +124,7 @@ public partial class MainViewModel : ObservableObject
         if (_detailDevice is { } detailDev && _detailHandler is { } handler)
         {
             detailDev.PropertyChanged -= handler;
+            detailDev.AcTargetTempSink = null;
             _detailDevice = null;
             _detailHandler = null;
         }
@@ -133,11 +138,9 @@ public partial class MainViewModel : ObservableObject
         _actionConfirmTimer = null;
         DrawerSpecAdvancedGroups.Clear();
         DrawerSpecAdvancedActions.Clear();
-        DrawerCardMetrics.Clear();
         DrawerMetricTiles.Clear();
         HasAdvancedPanel = false;
         HasAdvancedActions = false;
-        HasCardMetrics = false;
         HasDrawerMetricTiles = false;
         IsAdvancedExpanded = false;
         IsSmartSceneExpanded = false;
@@ -255,13 +258,18 @@ public partial class MainViewModel : ObservableObject
     private void AttachDrawerDetail(MijiaDevice device)
     {
         if (_detailDevice != null && _detailHandler != null)
+        {
             _detailDevice.PropertyChanged -= _detailHandler;
+            _detailDevice.AcTargetTempSink = null;
+        }
         _detailDevice = device;
+        // 目标温度步进器写进来的绝对值交给这里校准并下发（设备自己不知道网络那层）
+        device.AcTargetTempSink = temp => _ = ApplyAcTargetTempAsync(device, temp);
         _detailHandler = (_, e) =>
         {
-            if (_loadingDetail || _applyingStates) return;
+            if (_loadingDetail || _resyncingLight || _applyingStates) return;
             if (e.PropertyName is nameof(MijiaDevice.Brightness) or nameof(MijiaDevice.ColorTemp))
-                ScheduleLightCommit(device);
+                ScheduleLightCommit(device, e.PropertyName);
             else if (e.PropertyName is nameof(MijiaDevice.SpeakerVolume))
                 ScheduleSpeakerVolumeCommit(device);
             else if (e.PropertyName is nameof(MijiaDevice.FanLevel))
@@ -304,11 +312,12 @@ public partial class MainViewModel : ObservableObject
 
             if (device.IsLight)
             {
-                var st = await client.GetLightStateAsync(device.TargetDid);
+                var st = await client.GetLightStateAsync(device.TargetDid, device.LightSchema);
                 if (st != null)
                 {
-                    device.Brightness = st.Brightness;
-                    device.ColorTemp = st.ColorTemp;
+                    if (st.Brightness is { } b) device.Brightness = b;
+                    if (st.ColorTemp is { } ct) device.ColorTemp = ct;
+                    device.LightMode = st.Mode;
                 }
             }
             else if (device.IsCurtain)
@@ -425,8 +434,10 @@ public partial class MainViewModel : ObservableObject
     /// <summary>只读属性只有在有信息量时才列出：布尔/枚举状态、温湿度等读数、电源类指标。</summary>
     private static readonly HashSet<string> MetricPropNames = new(StringComparer.Ordinal)
     {
-        "temperature", "relative-humidity", "humidity", "pm2.5", "pm10", "illuminance",
-        "co2", "tvoc", "tds-in", "air-quality", "water-level",
+        "temperature", "relative-humidity", "humidity", "pm2.5", "pm2.5-density", "pm10",
+        "pm10-density", "pm1", "pm1-density", "illuminance",
+        "co2", "co2-density", "tvoc", "tvoc-density", "voc-density", "hcho", "hcho-density",
+        "noise", "noise-decibel", "dust", "dust-density", "tds-in", "air-quality", "water-level",
         "power-consumption", "voltage", "electric-current", "motion-detected",
         "contact-state", "occupancy", "smoke-state", "leak", "door-state", "submersion-state"
     };
@@ -439,19 +450,16 @@ public partial class MainViewModel : ObservableObject
     {
         DrawerSpecAdvancedGroups.Clear();
         DrawerSpecAdvancedActions.Clear();
-        DrawerCardMetrics.Clear();
         DrawerMetricTiles.Clear();
         var spec = device.Spec;
         if (spec == null)
         {
             HasAdvancedPanel = false;
             HasAdvancedActions = false;
-            HasCardMetrics = false;
             HasDrawerMetricTiles = false;
             return;
         }
 
-        BuildCardMetricsPanel(device);
         BuildMetricTiles(device);
 
         // 按 siid 分组：多路面板的规格里会有多个同名服务（Light 1/2/3、Curtain 1/2），
@@ -508,33 +516,19 @@ public partial class MainViewModel : ObservableObject
         HasAdvancedActions = DrawerSpecAdvancedActions.Count > 0;
     }
 
-    /// <summary>卡片外显区：列出这台设备能外显的读数，已选中的直接点亮。</summary>
-    private void BuildCardMetricsPanel(MijiaDevice device)
-    {
-        var selected = CardMetricsCatalog.EffectiveNames(device);
-        foreach (var p in CardMetricsCatalog.Candidates(device))
-        {
-            DrawerCardMetrics.Add(new CardMetricVm
-            {
-                Device = device,
-                Name = p.Name,
-                Title = CardMetricsCatalog.DisplayLabel(p),
-                IsShown = selected.Contains(p.Name)
-            });
-        }
-        HasCardMetrics = DrawerCardMetrics.Count > 0;
-        var label = CardMetricsCatalog.TypeLabel(device);
-        CardMetricsTitle = $"卡片外显 · {label}";
-        CardMetricsHint = $"点一下加到卡片副标题，再点移出；{label}类设备一起生效。";
-    }
-
-    /// <summary>详情顶部的读数卡：把这台设备规格里能读的指标各铺一枚，值随轮询刷新。</summary>
+    /// <summary>详情顶部的读数卡：把这台设备规格里能读的指标各铺一枚，值随轮询刷新；
+    /// 卡片自己就是开关，点一下决定它显不显示在主页设备卡上。</summary>
     private void BuildMetricTiles(MijiaDevice device)
     {
         DrawerMetricTiles.Clear();
+        var selected = CardMetricsCatalog.EffectiveNames(device);
         foreach (var p in CardMetricsCatalog.Candidates(device))
-            DrawerMetricTiles.Add(new MetricTileVm { Def = p });
+            DrawerMetricTiles.Add(new MetricTileVm { Def = p, IsShown = selected.Contains(p.Name) });
         HasDrawerMetricTiles = DrawerMetricTiles.Count > 0;
+        var label = CardMetricsCatalog.TypeLabel(device);
+        // 说明只留最短的一句，改动影响哪些设备收进悬停提示，不在正文里堆两行
+        MetricTilesHint = "点亮房子即在主页显示";
+        MetricTilesHintTip = $"改动对{label}类设备一起生效。";
     }
 
     /// <summary>用本轮读到的原始值刷新读数卡；没读到的保持上一次的值。</summary>
@@ -550,12 +544,12 @@ public partial class MainViewModel : ObservableObject
         }
     }
 
-    /// <summary>切换一个外显读数；写回按类型保存，并让同类设备立刻按新配置刷新。</summary>
+    /// <summary>切换一张读数卡的「主页可见」状态；写回按类型保存，并让同类设备立刻按新配置刷新。</summary>
     [RelayCommand]
-    private void ToggleCardMetric(CardMetricVm? item)
+    private void ToggleMetricTile(MetricTileVm? item)
     {
-        if (item == null) return;
-        var typeKey = CardMetricsCatalog.TypeKey(item.Device);
+        if (item == null || DrawerDevice == null) return;
+        var typeKey = CardMetricsCatalog.TypeKey(DrawerDevice);
         var current = CardMetricsCatalog.EffectiveNames(typeKey).ToList();
         if (!current.Remove(item.Name)) current.Add(item.Name);
         AppSettingsStore.SetCardMetrics(typeKey, current);
@@ -575,15 +569,14 @@ public partial class MainViewModel : ObservableObject
     private void AfterCardMetricsChanged(string typeKey)
     {
         var selected = CardMetricsCatalog.EffectiveNames(typeKey);
-        // 同类设备的旧读数缓存作废，重新拼副标题；温湿度要清掉，否则环境概览还拿旧值
+        // 同类设备的副标题缓存作废，重新拼；温湿度读数不受这里影响（它们由轮询单独回填），
+        // 所以清缓存时不动 TemperatureC / Humidity，环境概览不会因为改配置而闪空
         foreach (var d in _allDevices.Where(x => CardMetricsCatalog.TypeKey(x) == typeKey))
         {
             d.CardMetricTexts.Clear();
             d.MetricsText = "";
-            d.TemperatureC = null;
-            d.Humidity = null;
         }
-        foreach (var vm in DrawerCardMetrics) vm.IsShown = selected.Contains(vm.Name);
+        foreach (var vm in DrawerMetricTiles) vm.IsShown = selected.Contains(vm.Name);
         RecomputeEnvironment();
         if (_client != null && IsLoggedIn) _ = RefreshStatesAsync(includeMetrics: true);
     }
@@ -816,26 +809,173 @@ public partial class MainViewModel : ObservableObject
     }
 
     /// <summary>拖动结束后停 600ms 再提交一次亮度/色温，避免连发请求。</summary>
-    private void ScheduleLightCommit(MijiaDevice device)
+    private void ScheduleLightCommit(MijiaDevice device, string? changed)
     {
+        if (changed == nameof(MijiaDevice.Brightness)) _lightCommitBrightness = true;
+        else _lightCommitColorTemp = true;
+
         _lightCommitTimer?.Dispose();
         _lightCommitTimer = DispatcherTimer.RunOnce(
             () => _ = CommitLightAsync(device), TimeSpan.FromMilliseconds(600));
     }
 
+    /// <summary>
+    /// 把拖过的亮度/色温下发给设备。
+    /// 量程与 siid/piid 都按设备规格走：写死 2700–6500 时，量程更窄的灯（3000–6500、3000–6400）
+    /// 收到端点值会被云端按越界拒收，灯一动不动；量程更宽的灯组（1700–7000）又摸不到真正的端点。
+    /// 色温还多一步：灯停在预设场景（阅读/影院等）里时写色温不生效，先把 mode 拨回可调色温档。
+    /// </summary>
     private async Task CommitLightAsync(MijiaDevice device)
     {
-        if (_client == null || !device.IsOnline) return;
+        var brightness = _lightCommitBrightness;
+        var colorTemp = _lightCommitColorTemp;
+        _lightCommitBrightness = _lightCommitColorTemp = false;
+
+        if (_client is not { } client || !device.IsOnline) return;
+
+        var schema = device.LightSchema;
+        var ctSupported = schema?.HasColorTemp ?? true;
+        var failures = new List<string>();
+
+        if (colorTemp && ctSupported && schema is { ResetModeValue: >= 0, ModePiid: > 0 } &&
+            device.LightMode != schema.ResetModeValue)
+        {
+            try
+            {
+                await client.SetPropAsync(device.TargetDid, schema.ModeSiid, schema.ModePiid, schema.ResetModeValue);
+                device.LightMode = schema.ResetModeValue;
+            }
+            catch (Exception ex)
+            {
+                failures.Add($"预设模式 {ex.Message}");
+            }
+        }
+
+        if (brightness)
+        {
+            try
+            {
+                await client.SetLightBrightnessAsync(device.TargetDid, device.Brightness, schema);
+            }
+            catch (Exception ex)
+            {
+                failures.Add($"亮度 {ex.Message}");
+            }
+        }
+
+        if (colorTemp && ctSupported)
+        {
+            try
+            {
+                // 量程用生效中的区间（可能包含用户自定义的超出规格的端点），不拿规格硬夹
+                await client.SetLightColorTempAsync(device.TargetDid, device.ColorTemp, schema,
+                    device.ColorTempMin, device.ColorTempMax);
+            }
+            catch (Exception ex)
+            {
+                failures.Add($"色温 {ex.Message}");
+            }
+        }
+
+        if (failures.Count == 0)
+            Log($"{device.Name} 亮度 {device.Brightness}% · 色温 {device.ColorTemp}K");
+        else
+        {
+            Log($"灯光设置失败（{device.Name}）：{string.Join("；", failures)}");
+            // 被拒收时滑杆停在设备从未采纳的值上，再拖到同一处就不再生效；回读一次真实值把它拉回来
+            await ResyncLightAsync(device);
+        }
+    }
+
+    /// <summary>下发失败后回读设备的真实亮度/色温，避免滑杆停在设备从未采纳的位置。</summary>
+    private async Task ResyncLightAsync(MijiaDevice device)
+    {
+        if (_client is not { } client || !device.IsOnline) return;
         try
         {
-            await _client.SetLightBrightnessAsync(device.TargetDid, device.Brightness);
-            await _client.SetLightColorTempAsync(device.TargetDid, device.ColorTemp);
-            Log($"{device.Name} 亮度 {device.Brightness} · 色温 {device.ColorTemp}K");
+            _resyncingLight = true;
+            var st = await client.GetLightStateAsync(device.TargetDid, device.LightSchema);
+            if (st == null) return;
+            await Dispatcher.UIThread.InvokeAsync(() =>
+            {
+                if (!ReferenceEquals(DrawerDevice, device)) return;
+                if (st.Brightness is { } b) device.Brightness = b;
+                if (st.ColorTemp is { } ct) device.ColorTemp = ct;
+                device.LightMode = st.Mode;
+            });
         }
         catch (Exception ex)
         {
-            Log($"灯光设置失败：{ex.Message}");
+            Log($"回读 {device.Name} 灯光状态失败：{ex.Message}");
         }
+        finally
+        {
+            _resyncingLight = false;
+        }
+    }
+
+    // ===== 灯：色温量程自定义（按设备 did 记在 app.json，端点可超出设备规格标注） =====
+
+    /// <summary>展开 / 收起色温量程编辑区；展开时以当前生效的区间为起点。</summary>
+    [RelayCommand]
+    private void ToggleLightRange()
+    {
+        if (DrawerDevice is not { HasColorTemp: true } d) return;
+        if (d.IsEditingLightRange)
+        {
+            d.IsEditingLightRange = false;
+            return;
+        }
+        d.LightRangeEditMin = Math.Round(d.ColorTempMin);
+        d.LightRangeEditMax = Math.Round(d.ColorTempMax);
+        d.IsEditingLightRange = true;
+    }
+
+    /// <summary>保存自定义量程：写进配置并立刻改写滑杆端点；和规格完全一致时按「没自定义」处理。</summary>
+    [RelayCommand]
+    private void SaveLightRange()
+    {
+        if (DrawerDevice is not { HasColorTemp: true } d || string.IsNullOrEmpty(d.Did)) return;
+
+        var lo = MijiaDevice.ColorTempFloor;
+        var hi = MijiaDevice.ColorTempCeiling;
+        var min = (int)Math.Round(Math.Clamp(d.LightRangeEditMin, lo, hi));
+        var max = (int)Math.Round(Math.Clamp(d.LightRangeEditMax, lo, hi));
+        if (max - min < MijiaDevice.LightRangeGap) max = Math.Min(hi, min + MijiaDevice.LightRangeGap);
+        if (max - min < 1)
+        {
+            Log($"{d.Name} 的色温量程太小，未保存");
+            return;
+        }
+
+        var specMin = (int)Math.Round(d.SpecColorTempMin);
+        var specMax = (int)Math.Round(d.SpecColorTempMax);
+        if (min == specMin && max == specMax)
+        {
+            AppSettingsStore.ClearLightRange(d.Did);
+            d.ApplyLightRangeOverride(null, null);
+        }
+        else
+        {
+            AppSettingsStore.SetLightRange(d.Did, min, max);
+            d.ApplyLightRangeOverride(min, max);
+        }
+
+        d.IsEditingLightRange = false;
+        Log($"{d.Name} 色温量程 {min}–{max}K");
+    }
+
+    /// <summary>删掉这盏灯的自定义量程，回到设备规格的上下限。</summary>
+    [RelayCommand]
+    private void ResetLightRange()
+    {
+        if (DrawerDevice is not { HasColorTemp: true } d) return;
+        AppSettingsStore.ClearLightRange(d.Did);
+        d.ApplyLightRangeOverride(null, null);
+        d.LightRangeEditMin = Math.Round(d.SpecColorTempMin);
+        d.LightRangeEditMax = Math.Round(d.SpecColorTempMax);
+        d.IsEditingLightRange = false;
+        Log($"{d.Name} 色温量程恢复为设备默认");
     }
 
     /// <summary>风扇连续档位滑杆：停 600ms 再提交一次，拖动过程不连发。</summary>
@@ -911,27 +1051,28 @@ public partial class MainViewModel : ObservableObject
         }
     }
 
-    [RelayCommand]
-    private async Task AcTempUp() => await AdjustAcTempAsync(1);
-
-    [RelayCommand]
-    private async Task AcTempDown() => await AdjustAcTempAsync(-1);
-
-    /// <summary>空调目标温度加减（步长与范围取自设备规格），改完立即下发。</summary>
-    private async Task AdjustAcTempAsync(double dir)
+    /// <summary>空调目标温度：步进器写进来的绝对值在这里校准（步长与范围取设备规格）并立即下发。</summary>
+    private async Task ApplyAcTargetTempAsync(MijiaDevice d, double target)
     {
-        if (_client == null || DrawerDevice is not { IsAc: true } d || !d.IsOnline)
+        if (_client == null || !d.IsAc || !d.IsOnline)
         {
             Log("空调离线或未选中，指令未下发");
+            d.RefreshAcTargetTempInput();
             return;
         }
         if (d.AcSchema is not { Valid: true } s)
         {
             Log($"{d.Name} 缺少控制参数，温度未下发");
+            d.RefreshAcTargetTempInput();
             return;
         }
-        var next = Math.Round((d.AcTargetTemp + s.TempStep * dir) / s.TempStep) * s.TempStep;
+
+        var step = s.TempStep > 0 ? s.TempStep : 1;
+        var next = Math.Round(target / step) * step;
         next = Math.Clamp(next, s.TempMin, s.TempMax);
+        if (Math.Abs(next - d.AcTargetTemp) < 0.001) return;
+
+        var prev = d.AcTargetTemp;
         d.AcTargetTemp = next;
         d.PendingUntilMs = Environment.TickCount64 + SuppressMs;
         try
@@ -941,6 +1082,9 @@ public partial class MainViewModel : ObservableObject
         }
         catch (Exception ex)
         {
+            // 云端拒收就把显示拨回上一次的值，别停在设备从未采纳的位置
+            d.AcTargetTemp = prev;
+            d.RefreshAcTargetTempInput();
             Log($"设置空调温度失败：{ex.Message}");
         }
     }

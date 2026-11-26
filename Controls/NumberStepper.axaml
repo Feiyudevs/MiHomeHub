@@ -1,0 +1,77 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             x:Class="MiHomeHub.Controls.NumberStepper">
+    <UserControl.Styles>
+        <!-- 手输框：和旁边的数值文字同宽同高、无底无边，双击切进来时胶囊不变大也不变高 -->
+        <Style Selector="TextBox.StepperNum">
+            <Setter Property="Width" Value="52" />
+            <Setter Property="Height" Value="28" />
+            <Setter Property="MinWidth" Value="0" />
+            <Setter Property="MinHeight" Value="0" />
+            <Setter Property="Padding" Value="0" />
+            <Setter Property="Margin" Value="0" />
+            <Setter Property="FontSize" Value="13" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="BorderThickness" Value="0" />
+            <Setter Property="Foreground" Value="{DynamicResource TextBrush}" />
+            <Setter Property="CaretBrush" Value="{DynamicResource AccentBrush}" />
+            <Setter Property="SelectionBrush" Value="{DynamicResource AccentSoftBrush}" />
+            <Setter Property="TextAlignment" Value="Center" />
+            <Setter Property="HorizontalContentAlignment" Value="Center" />
+            <Setter Property="VerticalContentAlignment" Value="Center" />
+            <Setter Property="VerticalAlignment" Value="Center" />
+        </Style>
+        <Style Selector="TextBox.StepperNum /template/ Border#PART_BorderElement">
+            <Setter Property="Background" Value="{DynamicResource AccentSoftBrush}" />
+            <Setter Property="BorderThickness" Value="0" />
+            <Setter Property="CornerRadius" Value="6" />
+            <Setter Property="MinHeight" Value="0" />
+            <Setter Property="MinWidth" Value="0" />
+            <Setter Property="Padding" Value="0" />
+        </Style>
+        <!-- 加减号跟着按钮悬停一起提亮（和详情页原来绑定 Foreground 的效果一致） -->
+        <Style Selector="Button.SegMini:pointerover Path">
+            <Setter Property="Stroke" Value="{DynamicResource TextBrush}" />
+        </Style>
+    </UserControl.Styles>
+
+    <Border Background="{DynamicResource CardBrush}"
+            BorderBrush="{DynamicResource LineBrush}" BorderThickness="1"
+            CornerRadius="10" Padding="3">
+        <StackPanel Orientation="Horizontal" Spacing="4" VerticalAlignment="Center">
+            <Button Name="DecBtn" Classes="SegMini" Click="OnStepDown" ToolTip.Tip="减小一档">
+                <Path Width="10" Height="2" Stretch="None"
+                      Stroke="{DynamicResource Text2Brush}"
+                      StrokeThickness="1.8" StrokeLineCap="Round"
+                      Data="M0,1 H10" />
+            </Button>
+
+            <!-- 数值区：平时是文字，双击换成只吃数字的输入框（单位紧贴数字、单独标在框外，不跟数字一起选） -->
+            <StackPanel Orientation="Horizontal" Spacing="0" VerticalAlignment="Center">
+                <Panel Name="ValueHost" MinHeight="28" VerticalAlignment="Center"
+                       Background="Transparent"
+                       ToolTip.Tip="双击可直接输入数值"
+                       DoubleTapped="OnValueDoubleTapped">
+                    <TextBlock Name="ValText"
+                               FontSize="13" FontWeight="SemiBold"
+                               Foreground="{DynamicResource TextBrush}"
+                               TextAlignment="Center" VerticalAlignment="Center" />
+                    <TextBox Name="ValBox" Classes="StepperNum" IsVisible="False"
+                             KeyDown="OnBoxKeyDown" LostFocus="OnBoxLostFocus" />
+                </Panel>
+
+                <TextBlock Name="UnitText" FontSize="11" Margin="0,0,2,0"
+                           VerticalAlignment="Center"
+                           Foreground="{DynamicResource Text3Brush}" />
+            </StackPanel>
+
+            <Button Name="IncBtn" Classes="SegMini" Click="OnStepUp" ToolTip.Tip="增大一档">
+                <Path Width="10" Height="10" Stretch="None"
+                      Stroke="{DynamicResource Text2Brush}"
+                      StrokeThickness="1.8" StrokeLineCap="Round"
+                      Data="M0,5 H10 M5,0 V10" />
+            </Button>
+        </StackPanel>
+    </Border>
+</UserControl>

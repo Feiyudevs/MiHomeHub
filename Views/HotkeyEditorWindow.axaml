@@ -128,6 +128,21 @@
         <Style Selector="Button.SegTab:pointerover">
             <Setter Property="Foreground" Value="{DynamicResource TextBrush}"/>
         </Style>
+        <!-- 选中段整块换成主色底：底色与悬停覆盖层都走淡变，切换时不硬切 -->
+        <Style Selector="Button.SegTab /template/ Border#Bd">
+            <Setter Property="Transitions">
+                <Transitions>
+                    <BrushTransition Property="Background" Duration="0:0:0.16"/>
+                </Transitions>
+            </Setter>
+        </Style>
+        <Style Selector="Button.SegTab /template/ Border#Hov">
+            <Setter Property="Transitions">
+                <Transitions>
+                    <DoubleTransition Property="Opacity" Duration="0:0:0.16"/>
+                </Transitions>
+            </Setter>
+        </Style>
         <Style Selector="Button.SegTab:pointerover /template/ Border#Hov">
             <Setter Property="Opacity" Value="1"/>
         </Style>
@@ -148,7 +163,7 @@
             <Setter Property="Height" Value="22"/>
             <Setter Property="Padding" Value="0"/>
             <Setter Property="CornerRadius" Value="6"/>
-            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="Background" Value="{DynamicResource PlayHoverFromBrush}"/>
             <Setter Property="BorderThickness" Value="0"/>
             <Setter Property="Foreground" Value="{DynamicResource Text3Brush}"/>
             <Setter Property="Focusable" Value="False"/>
@@ -313,7 +328,7 @@
                                     <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="6">
                                         <Button Classes="BtnGhost" Height="30" Padding="11,0"
                                                 Click="OnPickTargetsClick"
-                                                ToolTip.Tip="打开设备 / 场景 / 自动化选择弹窗，可多选，按勾选顺序加入">
+                                                ToolTip.Tip="打开设备 / 场景选择弹窗，可多选，按勾选顺序加入">
                                             <StackPanel Orientation="Horizontal" Spacing="6">
                                                 <Path Width="11" Height="11" Stretch="Uniform"
                                                       StrokeThickness="1.8" StrokeLineCap="Round" StrokeJoin="Round"
@@ -334,7 +349,7 @@
                                     </StackPanel>
                                 </Grid>
 
-                                <TextBlock Text="设备、场景、自动化可混着加，逐张选动作"
+                                <TextBlock Text="设备、场景可混着加，逐张选动作"
                                            Classes="Muted"/>
 
                                 <ItemsControl ItemsSource="{Binding HotkeyDraftSteps}">
@@ -496,7 +511,7 @@
                                                Classes="Muted"/>
                                     <TextBlock Text="支持 Ctrl / Alt / Shift / Win + 任意键，或 F1–F24"
                                                Classes="Muted"/>
-                                    <TextBlock Text="当前没有可绑定的目标：先确认当前家庭有可控设备，或在「智能」页新建场景 / 自动化"
+                                    <TextBlock Text="当前没有可绑定的目标：先确认当前家庭有可控设备，或在「智能」页新建场景"
                                                IsVisible="{Binding HasNoHotkeyTarget}"
                                                Classes="Muted"/>
                                     <TextBlock Text="{Binding HotkeyHint}" IsVisible="{Binding HasHotkeyHint}"

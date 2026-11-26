@@ -100,6 +100,9 @@ public partial class ActionEditorWindow : Window
         }
     }
 
+    // 数值 / 等待时长两处步进都交给 ctl:NumberStepper 自己处理（加减档位、量程、
+    // 双击手输与校准全在控件里），弹窗这边不再各写一套步进逻辑。
+
     /// <summary>Esc 等同于「取消」，和遮罩点击、右上角关闭走同一个出口。</summary>
     protected override void OnKeyDown(KeyEventArgs e)
     {

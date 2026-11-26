@@ -3,7 +3,8 @@
         x:Class="MiHomeHub.Views.SetupWindow"
         Title="MiHomeHub"
         Width="540"
-        Height="640"
+        MinHeight="680"
+        SizeToContent="Height"
         CanResize="False"
         SystemDecorations="None"
         WindowStartupLocation="Manual"
@@ -51,7 +52,7 @@
             <Setter Property="Template">
                 <ControlTemplate>
                     <Border Name="CloseBd"
-                            Background="Transparent"
+                            Background="#00FFFFFF"
                             CornerRadius="16">
                         <ContentPresenter Content="{TemplateBinding Content}"
                                           HorizontalAlignment="Center"
@@ -76,7 +77,7 @@
             <Setter Property="Cursor" Value="Hand" />
             <Setter Property="Template">
                 <ControlTemplate>
-                    <Border Name="LinkBd" Background="Transparent" CornerRadius="4"
+                    <Border Name="LinkBd" Background="{DynamicResource PlayHoverFromBrush}" CornerRadius="4"
                             Padding="{TemplateBinding Padding}">
                         <ContentPresenter Content="{TemplateBinding Content}"
                                           HorizontalAlignment="Center"
@@ -87,6 +88,44 @@
         </Style>
         <Style Selector="Button.SetupLink:pointerover /template/ Border#LinkBd">
             <Setter Property="Background" Value="{DynamicResource HoverBrush}" />
+        </Style>
+
+        <!-- 安装器次要按钮：与主按钮同高同圆角的胶囊，只是换成卡面色底 -->
+        <Style Selector="Button.BtnGhost.SetupGhost">
+            <Setter Property="Height" Value="46" />
+            <Setter Property="FontSize" Value="14" />
+            <Setter Property="Template">
+                <ControlTemplate>
+                    <Border Name="SetupGhostBd"
+                            CornerRadius="23"
+                            Background="{DynamicResource Card2Brush}"
+                            Padding="{TemplateBinding Padding}">
+                        <ContentPresenter Name="Cp"
+                                          Content="{TemplateBinding Content}"
+                                          TextBlock.Foreground="{DynamicResource Text2Brush}"
+                                          HorizontalAlignment="Center"
+                                          VerticalAlignment="Center" />
+                    </Border>
+                </ControlTemplate>
+            </Setter>
+        </Style>
+        <Style Selector="Button.BtnGhost.SetupGhost:pointerover /template/ Border#SetupGhostBd">
+            <Setter Property="Background" Value="{DynamicResource HoverBrush}" />
+        </Style>
+        <Style Selector="Button.BtnGhost.SetupGhost:pointerover /template/ ContentPresenter#Cp">
+            <Setter Property="TextBlock.Foreground" Value="{DynamicResource TextBrush}" />
+        </Style>
+
+        <!-- 安装器自绘按钮：悬停换底 / 换主色都走 0.16s 淡变（全局兜底只罩 ContentPresenter） -->
+        <Style Selector="Button.BtnPrimary.SetupPrimary /template/ Border#SetupBd,
+                        Button.BtnGhost.SetupGhost /template/ Border#SetupGhostBd,
+                        Button.SetupClose /template/ Border#CloseBd,
+                        Button.SetupLink /template/ Border#LinkBd">
+            <Setter Property="Transitions">
+                <Transitions>
+                    <BrushTransition Property="Background" Duration="0:0:0.16" />
+                </Transitions>
+            </Setter>
         </Style>
     </Window.Styles>
 
@@ -376,32 +415,32 @@
                 </Grid>
 
                 <!-- ═══════════ 底部（提示 + 整宽按钮） ═══════════ -->
-                <StackPanel Grid.Row="2" Margin="10,0,10,44">
+                <StackPanel Grid.Row="2" Margin="10,16,10,44">
                     <TextBlock Name="TxtHint"
                                FontSize="12.5"
                                Foreground="{DynamicResource Text2Brush}"
                                TextAlignment="Center"
                                TextWrapping="Wrap"
                                HorizontalAlignment="Center"
+                               MaxWidth="420"
                                Margin="0,0,0,16" />
-                    <Grid ColumnDefinitions="Auto,*" Margin="22,0">
+                    <!-- 两颗按钮作为一组整体居中：失败态并排「查看日志 + 重试」时主按钮不再偏右 -->
+                    <StackPanel Orientation="Horizontal"
+                                HorizontalAlignment="Center"
+                                Margin="22,0">
                         <Button Name="BtnSecondary"
-                                Grid.Column="0"
-                                Classes="BtnGhost"
+                                Classes="BtnGhost SetupGhost"
                                 MinWidth="110"
-                                Height="46"
                                 Margin="0,0,10,0"
                                 Content="取消"
                                 IsVisible="False"
                                 Click="OnSecondaryClick" />
                         <Button Name="BtnPrimary"
-                                Grid.Column="1"
                                 Classes="BtnPrimary SetupPrimary"
                                 Width="216"
-                                HorizontalAlignment="Center"
                                 Content="安装"
                                 Click="OnPrimaryClick" />
-                    </Grid>
+                    </StackPanel>
                 </StackPanel>
 
                 <!-- 关闭按钮：圆形命中区，上/右边距一致，完整留在窗体内 -->

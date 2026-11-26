@@ -61,9 +61,12 @@ public class MijiaClient : IDisposable
     /// 底层请求：返回完整响应信封（含 code / message / result），不在这里抛业务错误。
     /// 诊断探针需要看到原始 code 与字段结构，业务层走 <see cref="RequestAsync"/>。
     /// </summary>
-    internal async Task<JsonElement> RequestRawAsync(string uri, object dataObj)
+    internal async Task<JsonElement> RequestRawAsync(string uri, object dataObj) =>
+        await RequestRawAsync(uri, dataObj, ApiBase);
+
+    internal async Task<JsonElement> RequestRawAsync(string uri, object dataObj, string baseUrl)
     {
-        var (bytes, nonce) = await PostSignedAsync(uri, dataObj);
+        var (bytes, nonce) = await PostSignedAsync(uri, dataObj, baseUrl);
 
         JsonElement ret;
         try
@@ -95,14 +98,14 @@ public class MijiaClient : IDisposable
     }
 
     /// <summary>签名并 POST，返回原始响应字节与本次 nonce（解密要用同一个 nonce 推 signedNonce）。</summary>
-    internal async Task<(byte[] Bytes, string Nonce)> PostSignedAsync(string uri, object dataObj)
+    internal async Task<(byte[] Bytes, string Nonce)> PostSignedAsync(string uri, object dataObj, string? baseUrl = null)
     {
         var dataJson = JsonSerializer.Serialize(dataObj);
         var nonce = MijiaCrypto.GenNonce();
         var plain = new Dictionary<string, string> { ["data"] = dataJson };
         var form = MijiaCrypto.BuildEncParams(uri, "POST", _auth.Auth.SSecurity, nonce, plain);
         var content = new FormUrlEncodedContent(form);
-        var resp = await _http.PostAsync(ApiBase + uri, content);
+        var resp = await _http.PostAsync((baseUrl ?? ApiBase) + uri, content);
         return (await resp.Content.ReadAsByteArrayAsync(), nonce);
     }
 
@@ -703,14 +706,31 @@ public class MijiaClient : IDisposable
         return map;
     }
 
-    /// <summary>灯详情：亮度 + 色温。</summary>
-    public sealed record LightState(int Brightness, int ColorTemp);
+    /// <summary>灯详情：亮度 + 色温（+ 预设 mode，型号没有这条属性或没读到为 null）。</summary>
+    public sealed record LightState(int? Brightness, int? ColorTemp, int? Mode);
 
-    public async Task<LightState?> GetLightStateAsync(string did)
+    /// <summary>读灯当前值；siid/piid 由规格解析出的 LightSchema 决定，未解析时回落 light 服务 2/2、2/3。</summary>
+    public async Task<LightState?> GetLightStateAsync(string did, Models.LightControlSchema? schema = null)
     {
-        var m = await GetPropsAsync(did, (2, 2), (2, 3));
+        var bSiid = schema is { HasBrightness: true } s1 ? s1.BrightSiid : 2;
+        var bPiid = schema is { HasBrightness: true } s2 ? s2.BrightPiid : 2;
+        var cSiid = schema is { HasColorTemp: true } s3 ? s3.CtSiid : 2;
+        var cPiid = schema is { HasColorTemp: true } s4 ? s4.CtPiid : 3;
+
+        var props = new List<(int, int)> { (bSiid, bPiid), (cSiid, cPiid) };
+        if (schema is { ModePiid: > 0 } s5) props.Add((s5.ModeSiid, s5.ModePiid));
+
+        var m = await GetPropsAsync(did, props.ToArray());
         if (m.Count == 0) return null;
-        return new LightState(ToInt(m.GetValueOrDefault(2 * 1000 + 2), 100), ToInt(m.GetValueOrDefault(2 * 1000 + 3), 4000));
+
+        var bright = m.TryGetValue(bSiid * 1000 + bPiid, out var bv) && bv != null ? ToInt(bv, 0) : (int?)null;
+        var ct = m.TryGetValue(cSiid * 1000 + cPiid, out var cv) && cv != null ? ToInt(cv, 0) : (int?)null;
+        var mode = schema is { ModePiid: > 0 } s6 &&
+                   m.TryGetValue(s6.ModeSiid * 1000 + s6.ModePiid, out var mv) && mv != null
+            ? ToInt(mv, 0)
+            : (int?)null;
+
+        return new LightState(bright, ct, mode);
     }
 
     /// <summary>空调详情：模式 + 目标温度 + 风速（按设备规格的 siid/piid 读取）。</summary>
@@ -888,13 +908,15 @@ public class MijiaClient : IDisposable
         try
         {
             await SetPropAsync(device.TargetDid, device.PowerSiid, device.PowerPiid, on);
-            TelemetryService.Track("device_control", "开关设备", new Dictionary<string, object?>
-            {
-                ["kind"] = kind,
-                ["action"] = on ? "on" : "off",
-                ["ok"] = true,
-                ["ms"] = (int)Math.Min(sw.ElapsedMilliseconds, 60000),
-            });
+            // 成功分支量最大：同一类别/动作在会话内合批，一条事件代表 _merge_n 次操作；失败仍逐条上报
+            TelemetryService.TrackRollup("device_control", "开关设备", $"{kind}|{(on ? "on" : "off")}|ok",
+                new Dictionary<string, object?>
+                {
+                    ["kind"] = kind,
+                    ["action"] = on ? "on" : "off",
+                    ["ok"] = true,
+                },
+                (int)Math.Min(sw.ElapsedMilliseconds, 60000));
         }
         catch
         {
@@ -928,16 +950,33 @@ public class MijiaClient : IDisposable
         await SetPropAsync(device.TargetDid, channel.Siid, channel.Piid, on);
     }
 
-    /// <summary>灯亮度 1–100（light 服务 piid=2）。</summary>
-    public async Task SetLightBrightnessAsync(string did, int brightness)
+    /// <summary>灯亮度：按规格的 siid/piid 与值域下发；未解析规格时回落 light 服务 2/2、1–100。</summary>
+    public async Task SetLightBrightnessAsync(string did, int brightness, Models.LightControlSchema? schema = null)
     {
-        await SetPropAsync(did, 2, 2, Math.Clamp(brightness, 1, 100));
+        var ls = schema is { HasBrightness: true } ? schema : null;
+        await SetPropAsync(did, ls?.BrightSiid ?? 2, ls?.BrightPiid ?? 2,
+            SnapToRange(brightness, ls?.BrightMin ?? 1, ls?.BrightMax ?? 100, ls?.BrightStep ?? 1));
     }
 
-    /// <summary>灯色温，单位 K（light 服务 piid=3，常见 2700–6500）。</summary>
-    public async Task SetLightColorTempAsync(string did, int kelvin)
+    /// <summary>
+    /// 灯色温，单位 K：siid/piid 按设备规格，量程由调用方给定（设备规格或用户自定义）。
+    /// 自定义可以超出规格标注——不少型号真机能力比规格更宽；真机不认的值云端会拒收，调用方据此回读退回。
+    /// </summary>
+    public async Task SetLightColorTempAsync(string did, int kelvin, Models.LightControlSchema? schema = null,
+                                             double? rangeMin = null, double? rangeMax = null)
     {
-        await SetPropAsync(did, 2, 3, Math.Clamp(kelvin, 1000, 10000));
+        var ls = schema is { HasColorTemp: true } ? schema : null;
+        await SetPropAsync(did, ls?.CtSiid ?? 2, ls?.CtPiid ?? 3,
+            SnapToRange(kelvin, rangeMin ?? ls?.CtMin ?? 1000, rangeMax ?? ls?.CtMax ?? 10000, ls?.CtStep ?? 1));
+    }
+
+    /// <summary>按步进取整再夹进量程：设备只认区间内的整点，越界写入会被直接拒绝。</summary>
+    private static int SnapToRange(int value, double min, double max, double step)
+    {
+        var s = step <= 0 ? 1 : step;
+        var v = Math.Round(value / s) * s;
+        v = Math.Clamp(v, min, max);
+        return (int)Math.Round(v);
     }
 
     /// <summary>空调运行模式（按设备规格的 siid/piid，取值来自该型号 value-list）。</summary>
@@ -1002,6 +1041,66 @@ public class MijiaClient : IDisposable
     }
 
     /// <summary>
+    /// 米家数据统计接口（app/v2/user/statistics，只给最近 365 天）：按小时/按天取某个统计项的累计值。
+    /// 设备没申请统计配置、key 不对时云端回非 0 code，这里统一当“不支持”返回 Ok=false，交给调用方换 key 或放弃。
+    /// </summary>
+    public async Task<StatSeries> GetStatisticsAsync(string did, string key, string dataType, DateTime from, DateTime to)
+    {
+        // user/statistics 只认 api.mijia.tech 这套会话凭证（api.io.mi.com 直接回 auth error），所以只打一个域名
+        var body = new
+        {
+            did,
+            key,
+            data_type = dataType,
+            time_start = new DateTimeOffset(from).ToUnixTimeSeconds(),
+            time_end = new DateTimeOffset(to).ToUnixTimeSeconds(),
+            limit = 0
+        };
+
+        // 只有 api.mijia.tech 这套会话凭证能用（api.io.mi.com 会直接回 auth error），所以只打一个域名
+        var raw = await TryRawAsync("/v2/user/statistics", body);
+        return ParseStatSeries(raw);
+    }
+
+    /// <summary>把统计接口的原始信封解析成 <see cref="StatSeries"/>。</summary>
+    private static StatSeries ParseStatSeries(JsonElement? raw)
+    {
+        if (raw is null) return new StatSeries(false, Array.Empty<(DateTime, double)>(), -999, "no response");
+
+        var code = 0;
+        var message = "";
+        if (raw.Value.TryGetProperty("message", out var m) && m.ValueKind == JsonValueKind.String)
+            message = m.GetString() ?? "";
+        if (!raw.Value.TryGetProperty("code", out var c) ||
+            c.ValueKind != JsonValueKind.Number || (code = c.GetInt32()) != 0)
+            return new StatSeries(false, Array.Empty<(DateTime, double)>(), code, message);
+
+        if (!raw.Value.TryGetProperty("result", out var r) || r.ValueKind != JsonValueKind.Array)
+            return new StatSeries(true, Array.Empty<(DateTime, double)>());
+
+        var items = new List<(DateTime Time, double Value)>();
+        foreach (var item in r.EnumerateArray())
+        {
+            if (!item.TryGetProperty("time", out var t) || t.ValueKind != JsonValueKind.Number) continue;
+            var text = item.TryGetProperty("value", out var v) ? v.ToString() : null;
+            if (ParseStatNumber(text) is not { } number) continue;
+            items.Add((DateTimeOffset.FromUnixTimeSeconds(t.GetInt64()).ToLocalTime().DateTime, number));
+        }
+        return new StatSeries(true, items);
+    }
+
+    /// <summary>统计值形如 "[22638]" / "22638" / "[51.8,56.9]"（多值取第一个）。</summary>
+    private static double? ParseStatNumber(string? text)
+    {
+        if (string.IsNullOrWhiteSpace(text)) return null;
+        var s = text.Trim().TrimStart('[').TrimEnd(']');
+        var first = s.Split(',')[0].Trim().Trim('"');
+        return double.TryParse(first, System.Globalization.NumberStyles.Float,
+            System.Globalization.CultureInfo.InvariantCulture, out var value) ? value : null;
+    }
+
+
+    /// <summary>
     /// 释放底层 HttpClient 与其连接池。每次登录/重登都会新建一个 MijiaClient，
     /// 不复用也不释放就会把旧会话的 socket 与 handler 一直挂在进程里；退出登录、
     /// 切换账号时务必 Dispose，否则常驻内存随登录次数线性增长。
@@ -1011,3 +1110,8 @@ public class MijiaClient : IDisposable
         try { _http.Dispose(); } catch { }
     }
 }
+
+/// <summary>数据统计接口的一次返回：<c>Ok</c> 表示云端认这个 key（哪怕是空结果）；<c>Items</c> 是「时间 → 值」。
+/// 失败时 <c>Code</c>/<c>Message</c> 带上云端原始错误，便于区分「key 不对」和「接口不可用」。</summary>
+public sealed record StatSeries(bool Ok, IReadOnlyList<(DateTime Time, double Value)> Items,
+    int Code = 0, string Message = "");

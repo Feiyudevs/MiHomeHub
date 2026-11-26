@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: GPL-3.0-only
 
 using System;
+using Avalonia;
 using Avalonia.Media;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
@@ -90,6 +91,12 @@ public abstract partial class DesktopZoneVm : ObservableObject
     public abstract string EmptyHint { get; }
 
     public abstract bool IsEmpty { get; }
+
+    /// <summary>是否空调分区（决定标题栏隐藏、内容面板类型与默认宽高）。</summary>
+    public virtual bool IsAc => false;
+
+    /// <summary>是否设备分区（标题栏「＋」按钮只在这里出现）。</summary>
+    public bool IsDevice => !IsMedia && !IsAc;
 
     partial void OnCollapsedChanged(bool value)
     {
@@ -191,4 +198,7 @@ public abstract partial class DesktopZoneVm : ObservableObject
 
     /// <summary>确认之后到底做什么：解散分区或关闭媒体分区。</summary>
     protected abstract void RemoveZone();
+
+    /// <summary>打开分区菜单（外观设置 / 重命名 / 关闭分区）；由面板把触发控件的屏幕矩形传进来。</summary>
+    public void OpenMenu(PixelRect anchor) => DesktopHost.OpenGroupMenu(this, anchor);
 }

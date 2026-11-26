@@ -30,6 +30,11 @@ public partial class MainViewModel : ObservableObject
     [ObservableProperty] private object? _selectedSpeakerValue;
     [ObservableProperty] private bool _hasSpeaker;
 
+    /// <summary>桌面空调组件的候选（did 作为 Value），与音箱下拉同构。</summary>
+    public ObservableCollection<OptionItem> DesktopAcOptions { get; } = new();
+    [ObservableProperty] private object? _selectedDesktopAcValue;
+    [ObservableProperty] private bool _hasDesktopAc;
+
     /// <summary>
     /// 托盘菜单是否需要媒体区（含加载占位）：设备表还没到、音箱未知时也要留出高度，
     /// 否则首次打开先按窄版定位，数据到达后媒体块被挤在窗口外。
@@ -38,6 +43,15 @@ public partial class MainViewModel : ObservableObject
 
     /// <summary>音箱信息尚未就绪：托盘里先画骨架，等设备表和音箱候选到达再换成真控件。</summary>
     public bool TraySpeakerPending => SyncPending && !HasSpeaker;
+
+    /// <summary>桌面空调绑定的那台设备；did 失效或家里没空调时为 null。</summary>
+    public MijiaDevice? DesktopAc =>
+        SelectedDesktopAcValue is string did
+            ? _allDevices.FirstOrDefault(d => d.IsAc && d.Did == did)
+            : null;
+
+    /// <summary>桌面空调组件是否有可控制的设备（加载期由 SyncPending 兜底显示骨架）。</summary>
+    public bool DesktopAcReady => DesktopAc != null;
 
     partial void OnHasSpeakerChanged(bool value)
     {
@@ -106,6 +120,15 @@ public partial class MainViewModel : ObservableObject
         UpdateDefaultSpeakerName();
     }
 
+    partial void OnSelectedDesktopAcValueChanged(object? value)
+    {
+        if (_suppressAcSelect) return;
+        AppSettingsStore.SetDesktopAcDid(value as string ?? "");
+        UpdateDesktopAcBinding();
+    }
+
+    private bool _suppressAcSelect;
+
     private MijiaDevice? DefaultSpeaker =>
         SelectedSpeakerValue is string did
             ? _allDevices.FirstOrDefault(d => d.IsSpeaker && d.Did == did)
@@ -138,11 +161,48 @@ public partial class MainViewModel : ObservableObject
         }
 
         UpdateDefaultSpeakerName();
+        RefreshDesktopAcs();
         if (!HasSpeaker)
         {
             IsVoiceOpen = false;
             IsMusicOpen = false;
         }
+    }
+
+    /// <summary>重建桌面空调候选：优先保留上次绑定的 did，没有则取第一台空调并落盘。</summary>
+    private void RefreshDesktopAcs()
+    {
+        var acs = OrderDevices(_allDevices.Where(d => d.IsAc)).ToList();
+        HasDesktopAc = acs.Count > 0;
+        var wanted = AppSettingsStore.DesktopAcDid;
+
+        _suppressAcSelect = true;
+        try
+        {
+            DesktopAcOptions.Clear();
+            foreach (var a in acs)
+                DesktopAcOptions.Add(new OptionItem { Label = a.Name, Value = a.Did, Meta = SpeakerRoom(a) });
+
+            var pick = DesktopAcOptions.FirstOrDefault(o => Equals(o.Value, wanted))
+                       ?? DesktopAcOptions.FirstOrDefault();
+            SelectedDesktopAcValue = pick?.Value;
+            foreach (var o in DesktopAcOptions) o.IsSelected = o == pick;
+            if (pick != null && !Equals(pick.Value, wanted))
+                AppSettingsStore.SetDesktopAcDid(pick.Value as string ?? "");
+        }
+        finally
+        {
+            _suppressAcSelect = false;
+        }
+
+        UpdateDesktopAcBinding();
+    }
+
+    /// <summary>候选/选中项变化后重推桌面空调绑定面，让桌面分区重绑设备实例。</summary>
+    private void UpdateDesktopAcBinding()
+    {
+        OnPropertyChanged(nameof(DesktopAc));
+        OnPropertyChanged(nameof(DesktopAcReady));
     }
 
     /// <summary>音箱下拉里的房间标注：没归到房间就不显示，别占一列写「未分配房间」。</summary>

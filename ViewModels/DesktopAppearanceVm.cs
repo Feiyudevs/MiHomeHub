@@ -29,12 +29,13 @@ public partial class DesktopAppearanceVm : ObservableObject
     public const double DefaultOpacityPercent = 34;
 
     /// <summary>
-    /// 分区底色预设：直接照抄 Zonex（SettingsWindow.FenceColorPresetList）。
+    /// 分区底色预设：前 7 色照抄 Zonex（SettingsWindow.FenceColorPresetList），
+    /// 末尾加一支白色（纸白磨砂，选中后分区整体切浅色主题，文字转深色）。
     /// 只存 RGB，透明度另由滑杆控制；首位是默认主紫。
     /// </summary>
     public static readonly string[] PresetHexes =
     [
-        "#7043ED", "#101018", "#81F467", "#ED4343", "#43ED61", "#4399ED", "#ED43BD",
+        "#7043ED", "#101018", "#FFFFFF", "#81F467", "#ED4343", "#43ED61", "#4399ED", "#ED43BD",
     ];
 
     private bool _loading;

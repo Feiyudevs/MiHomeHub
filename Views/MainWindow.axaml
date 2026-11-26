@@ -73,8 +73,9 @@
                             <Ellipse Width="5" Height="5" VerticalAlignment="Center"
                                      Fill="{DynamicResource GreenBrush}"
                                      IsVisible="{Binding IsLoggedIn}" />
-                            <!-- 仅多家庭时显示下拉箭头 -->
-                            <Path Width="8" Height="8" Stretch="Uniform" Margin="1,0,0,0"
+                            <!-- 仅多家庭时显示下拉箭头；几何包围盒 12:6，视口按同比例给 8:4 并 Fill，
+                                 否则 Uniform 缩放后箭头整体偏上，和旁边文字对不齐 -->
+                            <Path Width="8" Height="4" Stretch="Fill" Margin="1,0,0,0"
                                   VerticalAlignment="Center" Stroke="{DynamicResource Text3Brush}"
                                   StrokeThickness="1.6" StrokeLineCap="Round" StrokeJoin="Round"
                                   Data="M6 9 L12 15 L18 9"
@@ -289,6 +290,7 @@
                                 <DataTemplate x:DataType="m:RoomChip">
                                     <Button Classes="NavRow room" Classes.on="{Binding IsSelected}"
                                             Classes.locked="{Binding IsLocked}"
+                                            Classes.lighton="{Binding HasLightOn}"
                                             Tag="{Binding IconKey}"
                                             Content="{Binding Name}"
                                             Command="{Binding $parent[Window].((vm:MainViewModel)DataContext).PickRoomCommand}"
@@ -313,12 +315,15 @@
                  会把描边和圆角边的抗锯齿一起切成硬台阶），内容裁剪交给内层，内层圆角比外层小 1，
                  正好落在描边内侧，切出来的台阶盖在同色背景上，看不见。 -->
             <Border Grid.Column="1" CornerRadius="20" Background="{DynamicResource PanelBrush}"
-                    BorderBrush="#10FFFFFF" BorderThickness="1"
+                    BorderBrush="#09FFFFFF" BorderThickness="1"
                     BoxShadow="0 4 26 6 #060F172A" Margin="0">
               <Border CornerRadius="19" ClipToBounds="True">
                 <Grid>
-                    <!-- 环境光晕：面板底层两团超大半径的径向光斑（特效测试时可整体隐藏） -->
-                    <Panel IsHitTestVisible="False">
+                    <!-- 环境光晕：面板底层两团超大半径的径向光斑（特效测试时可整体隐藏）。
+                         跟随「卡片阴影」总开关：阴影关掉时连这层光晕一起收掉，界面彻底走扁平，
+                         不会出现「卡片没投影、背景还在发光」的半吊子观感。 -->
+                    <Panel x:Name="AmbientGlow" IsHitTestVisible="False"
+                           IsVisible="{Binding CardShadow}">
                         <Border Width="560" Height="520" HorizontalAlignment="Left" VerticalAlignment="Top"
                                 Margin="-190,-210,0,0">
                             <Border.Background>
@@ -346,19 +351,44 @@
                          注意别改用 ScrollViewer.Padding 缩正文：那样正文的测量宽度会大于裁剪宽度，
                          自适应网格按测量宽度算列宽 → 最右一列被裁掉半张卡（已踩过）。
                          底部不再留 28 外边距：列表直接铺到面板下沿，避免「下面一条空白 + 末行被切」的假裁切。 -->
+                    <!-- 纵向：Carousel 上外距 20 → 0，原来那 20px 挪进每页正文自己的上内距（下面的 Border Padding 0,24），
+                         静止时版面一模一样；但滚动视口因此上探到面板最上沿，卡片能一路滚到顶，
+                         配合下面的透明度蒙版淡出，不会再在面板上沿留一条「齐刷刷切掉」的硬口。 -->
+                    <!-- 顶部渐隐：不给整张面板盖一条不透明渐隐带，而是给滚动内容自身挂一条 24px 的垂直
+                         透明度蒙版（和正文的 24 上内距等高，静止时正好落在正文上方、一点不吃内容）。
+                         带子式遮罩会把面板底层的环境光晕（AmbientGlow）一起盖住，光晕在面板顶端被切出一条
+                         硬直的横边；蒙版只作用在内容层，卡片滚进这 24px 顺着淡到透明，底下的光晕照旧透出来。
+                         端点用绝对像素（0,24），蒙版只吃顶部这一截，不随面板高度变化。 -->
                     <Carousel x:Name="PageCarousel" SelectedIndex="{Binding SelectedNavIndex}"
-                              Margin="22,20,6,0">
+                              Margin="22,0,6,0">
+                        <Carousel.OpacityMask>
+                            <LinearGradientBrush StartPoint="0,0" EndPoint="0,24">
+                                <GradientStop Color="#00FFFFFF" Offset="0"/>
+                                <GradientStop Color="#00FFFFFF" Offset="0.12"/>
+                                <GradientStop Color="#48FFFFFF" Offset="0.42"/>
+                                <GradientStop Color="#99FFFFFF" Offset="0.7"/>
+                                <GradientStop Color="#FFFFFFFF" Offset="1"/>
+                            </LinearGradientBrush>
+                        </Carousel.OpacityMask>
                         <ScrollViewer HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Auto">
-                            <views:HomeView />
+                            <Border Padding="0,24,0,0">
+                                <views:HomeView />
+                            </Border>
                         </ScrollViewer>
                         <ScrollViewer HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Auto">
-                            <views:RoomsView />
+                            <Border Padding="0,24,0,0">
+                                <views:RoomsView />
+                            </Border>
                         </ScrollViewer>
                         <ScrollViewer HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Auto">
-                            <views:ScenesView />
+                            <Border Padding="0,24,0,0">
+                                <views:ScenesView />
+                            </Border>
                         </ScrollViewer>
                         <ScrollViewer HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Auto">
-                            <views:HotkeysView />
+                            <Border Padding="0,24,0,0">
+                                <views:HotkeysView />
+                            </Border>
                         </ScrollViewer>
                     </Carousel>
                     <!-- ================= 设备遮罩（只盖圆角内容面板，不盖侧栏/标题栏；由外层 Border 裁出圆角） ================= -->
@@ -406,6 +436,8 @@
         <views:UpdateDetailsDialogView Grid.Row="0" Grid.RowSpan="2" />
         <!-- ================= 操作日志弹窗（走 DialogPopup 基类：遮罩 + 居中卡片，跨满整个窗口） ================= -->
         <views:LogDialogView Grid.Row="0" Grid.RowSpan="2" />
+        <!-- ================= 切换渲染管线后的重启确认（压在设置弹窗之上） ================= -->
+        <views:RestartConfirmDialogView Grid.Row="0" Grid.RowSpan="2" />
     </Grid>
       </DataTemplate>
     </Window.Resources>

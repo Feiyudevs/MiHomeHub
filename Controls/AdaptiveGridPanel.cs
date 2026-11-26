@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: GPL-3.0-only
 
 using System;
+using System.Collections.Generic;
 using Avalonia;
 using Avalonia.Controls;
 
@@ -21,6 +22,13 @@ public sealed class AdaptiveGridPanel : Panel
 
     public static readonly StyledProperty<int> MaxRowsProperty =
         AvaloniaProperty.Register<AdaptiveGridPanel, int>(nameof(MaxRows), 0);
+
+    public static readonly StyledProperty<int> MaxColumnsProperty =
+        AvaloniaProperty.Register<AdaptiveGridPanel, int>(nameof(MaxColumns), 0);
+
+    /// <summary>是否只排可见子项。默认 false：所有子项各占一格，隐藏项留空但不挪动其他卡片。</summary>
+    public static readonly StyledProperty<bool> SkipInvisibleProperty =
+        AvaloniaProperty.Register<AdaptiveGridPanel, bool>(nameof(SkipInvisible), false);
 
     /// <summary>单个子项的最小宽度，决定最多能排几列。</summary>
     public double MinItemWidth
@@ -43,13 +51,37 @@ public sealed class AdaptiveGridPanel : Panel
         set => SetValue(MaxRowsProperty, value);
     }
 
+    /// <summary>最多排几列，0 表示不限。子项数量固定的卡片行用它收住列数，避免宽窗口多出空列。</summary>
+    public int MaxColumns
+    {
+        get => GetValue(MaxColumnsProperty);
+        set => SetValue(MaxColumnsProperty, value);
+    }
+
+    /// <summary>只排可见子项：卡片按数据有无隐藏时，剩下的卡片自动补位，不留空档。</summary>
+    public bool SkipInvisible
+    {
+        get => GetValue(SkipInvisibleProperty);
+        set => SetValue(SkipInvisibleProperty, value);
+    }
+
     static AdaptiveGridPanel()
     {
-        AffectsMeasure<AdaptiveGridPanel>(MinItemWidthProperty, SpacingProperty, MaxRowsProperty);
+        AffectsMeasure<AdaptiveGridPanel>(MinItemWidthProperty, SpacingProperty, MaxRowsProperty,
+            MaxColumnsProperty, SkipInvisibleProperty);
     }
 
     /// <summary>被行数上限裁掉的子项统一排到画布外，避免内容画在原点。</summary>
     private static readonly Rect OffScreen = new(-10000, -10000, 0, 0);
+
+    /// <summary>只排可见子项：隐藏的卡片不该继续占一格，否则会留下一块空档。</summary>
+    private List<Control> VisibleChildren()
+    {
+        var list = new List<Control>(Children.Count);
+        foreach (var child in Children)
+            if (!SkipInvisible || child.IsVisible) list.Add(child);
+        return list;
+    }
 
     /// <summary>实际排版的行数：自然行数与 MaxRows 取小。</summary>
     private int VisibleRows(int naturalRows) =>
@@ -57,7 +89,8 @@ public sealed class AdaptiveGridPanel : Panel
 
     protected override Size MeasureOverride(Size availableSize)
     {
-        var count = Children.Count;
+        var items = VisibleChildren();
+        var count = items.Count;
         if (count == 0)
             return default;
 
@@ -70,8 +103,8 @@ public sealed class AdaptiveGridPanel : Panel
             var rowHeight = 0d;
             for (var index = row * layout.Columns; index < Math.Min(count, (row + 1) * layout.Columns); index++)
             {
-                Children[index].Measure(new Size(layout.ItemWidth, double.PositiveInfinity));
-                rowHeight = Math.Max(rowHeight, Children[index].DesiredSize.Height);
+                items[index].Measure(new Size(layout.ItemWidth, double.PositiveInfinity));
+                rowHeight = Math.Max(rowHeight, items[index].DesiredSize.Height);
             }
 
             height += rowHeight;
@@ -79,7 +112,7 @@ public sealed class AdaptiveGridPanel : Panel
 
         // 超出可见行数的子项按零尺寸测量，避免它们残留旧的期望尺寸
         for (var index = rows * layout.Columns; index < count; index++)
-            Children[index].Measure(default);
+            items[index].Measure(default);
 
         height += Spacing * (rows - 1);
         var width = double.IsInfinity(availableSize.Width) ? layout.ItemWidth : availableSize.Width;
@@ -88,7 +121,8 @@ public sealed class AdaptiveGridPanel : Panel
 
     protected override Size ArrangeOverride(Size finalSize)
     {
-        var count = Children.Count;
+        var items = VisibleChildren();
+        var count = items.Count;
         if (count == 0)
             return finalSize;
 
@@ -102,12 +136,12 @@ public sealed class AdaptiveGridPanel : Panel
             var end = Math.Min(count, start + layout.Columns);
             var rowHeight = 0d;
             for (var index = start; index < end; index++)
-                rowHeight = Math.Max(rowHeight, Children[index].DesiredSize.Height);
+                rowHeight = Math.Max(rowHeight, items[index].DesiredSize.Height);
 
             for (var index = start; index < end; index++)
             {
                 var col = index - start;
-                Children[index].Arrange(new Rect(col * (layout.ItemWidth + Spacing), y, layout.ItemWidth, rowHeight));
+                items[index].Arrange(new Rect(col * (layout.ItemWidth + Spacing), y, layout.ItemWidth, rowHeight));
             }
 
             y += rowHeight + Spacing;
@@ -116,7 +150,7 @@ public sealed class AdaptiveGridPanel : Panel
         // 超出可见行数的子项移到画布外：只排成零尺寸矩形还不够，
         // 子控件默认不裁切自身内容，文字/图标仍会画到原点叠在可见卡上
         for (var index = rows * layout.Columns; index < count; index++)
-            Children[index].Arrange(OffScreen);
+            items[index].Arrange(OffScreen);
 
         return finalSize;
     }
@@ -133,6 +167,8 @@ public sealed class AdaptiveGridPanel : Panel
         // 末行设备较少时不拉伸，保持与满行相同的卡片宽度。
         var maxColumns = (int)Math.Floor((availableWidth + spacing) / (minItemWidth + spacing));
         var columns = Math.Max(1, maxColumns);
+        if (MaxColumns > 0)
+            columns = Math.Min(columns, MaxColumns);
 
         var itemWidth = Math.Max(1, (availableWidth - spacing * (columns - 1)) / columns);
         var rows = (int)Math.Ceiling(count / (double)columns);

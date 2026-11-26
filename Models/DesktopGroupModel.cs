@@ -39,7 +39,7 @@ public sealed class DesktopGroupModel
     /// <summary>置顶：脱离桌面层（不再跟随 Win+D），作为普通置顶窗浮在所有软件之上。</summary>
     public bool Topmost { get; set; }
 
-    /// <summary>分区内容形态：device = 设备宫格，media = 音响播放。旧配置缺字段按设备分区处理。</summary>
+    /// <summary>分区内容形态：device = 设备宫格，media = 音响播放，ac = 空调控制卡。旧配置缺字段按设备分区处理。</summary>
     public string Kind { get; set; } = ZoneDevice;
 
     /// <summary>分区里的设备 did，顺序即显示顺序。</summary>
@@ -51,8 +51,37 @@ public sealed class DesktopGroupModel
     [JsonIgnore]
     public bool IsMedia => string.Equals(Kind, ZoneMedia, StringComparison.Ordinal);
 
+    [JsonIgnore]
+    public bool IsAc => string.Equals(Kind, ZoneAc, StringComparison.Ordinal);
+
     public const string ZoneDevice = "device";
     public const string ZoneMedia = "media";
+    public const string ZoneAc = "ac";
+}
+
+/// <summary>
+/// 分区最后一次的落位（位置 / 宽度 / 所在屏）。
+/// 媒体、空调分区被关掉时模型会从清单里移除，但「用户把它摆在哪」得单独记一份，
+/// 从设置里重新打开时回到原地，而不是另找一个空位。
+/// </summary>
+public sealed class ZoneSpot
+{
+    public double X { get; set; }
+
+    public double Y { get; set; }
+
+    public double Width { get; set; } = DesktopGroupModel.DefaultWidth;
+
+    /// <summary>落位时所在显示器的签名；那块屏回来时按它落回同一块屏。</summary>
+    public string ScreenSig { get; set; } = "";
+
+    public static ZoneSpot From(DesktopGroupModel model) => new()
+    {
+        X = model.X,
+        Y = model.Y,
+        Width = model.Width,
+        ScreenSig = model.ScreenSig
+    };
 }
 
 /// <summary>桌面组件外观：背景色 / 背景透明度 / 毛玻璃。三项互相独立。</summary>
@@ -86,6 +115,15 @@ public sealed class DesktopLayout
 
     /// <summary>媒体分区被手动关闭过：为 true 时不再自动放回桌面，重新开启只走设置页开关。</summary>
     public bool MediaHidden { get; set; }
+
+    /// <summary>空调分区被手动关闭过：为 true 时不再自动放回桌面，重新开启只走设置页开关。</summary>
+    public bool AcHidden { get; set; }
+
+    /// <summary>媒体分区最后一次落位。为 null 表示从没摆过，重新打开时才挑默认空位。</summary>
+    public ZoneSpot? MediaSpot { get; set; }
+
+    /// <summary>空调分区最后一次落位。为 null 表示从没摆过，重新打开时才挑默认空位。</summary>
+    public ZoneSpot? AcSpot { get; set; }
 
     /// <summary>
     /// 外观迁移版本。滑杆语义每次变档（下限/上限重映射）都要 +1：

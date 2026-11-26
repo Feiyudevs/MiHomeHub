@@ -1,17 +1,37 @@
 <UserControl xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:vm="clr-namespace:MiHomeHub.ViewModels"
+             xmlns:ctl="clr-namespace:MiHomeHub.Controls"
              xmlns:views="clr-namespace:MiHomeHub.Views"
+             xmlns:ani="clr-namespace:Avalonia.Animation.Easings;assembly=Avalonia.Base"
              x:Class="MiHomeHub.Views.HotkeysView">
     <UserControl.Styles>
-        <!-- 快捷键卡片：网格里一格，固定宽度，内容三行（键帽 / 名称 / 说明）；不描边，靠 CardBrush 的浅底分层 -->
+        <!-- 快捷键卡片：自适应网格里一格，宽度由网格按可用宽度算出来（随窗口宽度增减列数并等比拉伸），
+             内容三行（键帽 / 名称 / 说明）；不描边，靠 CardBrush 的浅底分层 -->
         <Style Selector="Border.HkCard">
-            <Setter Property="Width" Value="332"/>
             <Setter Property="Height" Value="112"/>
             <Setter Property="Background" Value="{DynamicResource CardBrush}"/>
             <Setter Property="CornerRadius" Value="14"/>
             <Setter Property="Padding" Value="14,12"/>
-            <Setter Property="Margin" Value="0,0,12,12"/>
+        </Style>
+        <!-- 卡片右上角的编辑 / 删除：平时隐身（仍占位，键帽行高度不跳），鼠标悬停卡片时渐显；
+             不悬停时同时取消命中测试，避免摸到看不见的按钮误点 -->
+        <Style Selector="Border.HkCard Button.HkAction">
+            <Setter Property="Opacity" Value="0"/>
+            <Setter Property="IsHitTestVisible" Value="False"/>
+            <Setter Property="Transitions">
+                <Transitions>
+                    <DoubleTransition Property="Opacity" Duration="0:0:0.18">
+                        <DoubleTransition.Easing>
+                            <ani:CubicEaseOut/>
+                        </DoubleTransition.Easing>
+                    </DoubleTransition>
+                </Transitions>
+            </Setter>
+        </Style>
+        <Style Selector="Border.HkCard:pointerover Button.HkAction">
+            <Setter Property="Opacity" Value="1"/>
+            <Setter Property="IsHitTestVisible" Value="True"/>
         </Style>
         <!-- 组合键键帽 -->
         <Style Selector="Border.HkKey">
@@ -65,7 +85,7 @@
     </UserControl.Styles>
 
     <StackPanel x:DataType="vm:MainViewModel" Margin="0,0,16,20" Spacing="14"
-                MaxWidth="1040" HorizontalAlignment="Stretch">
+                HorizontalAlignment="Stretch">
 
         <!-- 页头：标题 + 说明；右侧总开关与新建入口 -->
         <Grid ColumnDefinitions="*,Auto">
@@ -154,7 +174,7 @@
             <ItemsControl ItemsSource="{Binding HotkeyItems}">
                 <ItemsControl.ItemsPanel>
                     <ItemsPanelTemplate>
-                        <WrapPanel Orientation="Horizontal" />
+                        <ctl:AdaptiveGridPanel MinItemWidth="320" Spacing="12" />
                     </ItemsPanelTemplate>
                 </ItemsControl.ItemsPanel>
                 <ItemsControl.ItemTemplate>
@@ -168,7 +188,7 @@
                                                    TextTrimming="CharacterEllipsis" />
                                     </Border>
 
-                                    <Button Grid.Column="2" Classes="IconBtn" Width="26" Height="26"
+                                    <Button Grid.Column="2" Classes="IconBtn HkAction" Width="26" Height="26"
                                             VerticalAlignment="Center" Margin="0,0,2,0"
                                             Click="OnEditHotkeyClick" Tag="{Binding}"
                                             ToolTip.Tip="编辑组合键与控制卡片">
@@ -178,7 +198,7 @@
                                               Data="M4,20 L4,16 L16,4 L20,8 L8,20 Z M14,6 L18,10" />
                                     </Button>
 
-                                    <Button Grid.Column="3" Classes="IconBtn" Width="26" Height="26"
+                                    <Button Grid.Column="3" Classes="IconBtn HkAction" Width="26" Height="26"
                                             VerticalAlignment="Center"
                                             IsVisible="{Binding !IsConfirmingDelete}"
                                             Command="{Binding $parent[Window].((vm:MainViewModel)DataContext).RemoveHotkeyCommand}"

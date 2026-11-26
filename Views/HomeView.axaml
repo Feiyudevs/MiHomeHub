@@ -11,12 +11,197 @@
              
     xmlns:views="clr-namespace:MiHomeHub.Views"
              x:Class="MiHomeHub.Views.HomeView">
+    <UserControl.Styles>
+        <!-- 趋势卡右上角的数据来源下拉平时不露面：卡片悬停才淡进来，静止时那一角是空的，
+             不跟「较昨日」抢位置。透明度不参与布局，浮出/退场不会让标题行重排 -->
+        <Style Selector="Border.TrendCard ctl|OptionPicker.TrendPick">
+            <Setter Property="Opacity" Value="0" />
+            <Setter Property="Transitions">
+                <Transitions>
+                    <DoubleTransition Property="Opacity" Duration="0:0:0.16" Easing="CubicEaseOut" />
+                </Transitions>
+            </Setter>
+        </Style>
+        <Style Selector="Border.TrendCard:pointerover ctl|OptionPicker.TrendPick, ctl|OptionPicker.TrendPick.open">
+            <Setter Property="Opacity" Value="1" />
+        </Style>
+    </UserControl.Styles>
+    <UserControl.Resources>
+        <!-- 三张趋势卡抽成模板：常规状态排进宫格，只剩一张时同一份模板也能挪到与快捷场景并排的位置 -->
+        <DataTemplate x:Key="TrendTempCardTemplate" x:DataType="vm:MainViewModel">
+            <Border Classes="TrendCard">
+                <Grid RowDefinitions="Auto,Auto,Auto">
+                    <Grid ColumnDefinitions="Auto,*,Auto">
+                        <Viewbox Width="13" Height="13" VerticalAlignment="Center">
+                            <Panel Width="24" Height="24">
+                                <Path Classes="StatIc" Stroke="{DynamicResource TrendTempBrush}"
+                                      Data="{StaticResource GeoThermo}" />
+                            </Panel>
+                        </Viewbox>
+                        <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="6"
+                                    Margin="6,0,0,0" VerticalAlignment="Center">
+                            <TextBlock Classes="TrendLab" Text="温度" />
+                            <Border Classes="TrendChip" IsVisible="{Binding HasTempDelta}">
+                                <TextBlock Text="{Binding TempTrendDelta}" FontSize="10"
+                                           Foreground="{DynamicResource Text3Brush}" />
+                            </Border>
+                        </StackPanel>
+                        <!-- 卡片右上角的数据来源：悬停才浮出来，点一下展开（共用项目里的 OptionPicker） -->
+                        <ctl:OptionPicker Grid.Column="2" Classes="TrendPick" Compact="True" Pill="True"
+                                          MaxWidth="104" VerticalAlignment="Center"
+                                          IsVisible="{Binding CanPickTempSource}"
+                                          Options="{Binding TempSources}"
+                                          SelectedValue="{Binding SelectedTempSource, Mode=TwoWay}"
+                                          ToolTip.Tip="选择这张卡读哪台设备的数据" />
+                    </Grid>
+                    <Grid Grid.Row="1" ColumnDefinitions="Auto,Auto,*" Margin="0,6,0,0">
+                        <TextBlock Classes="TrendValue" Text="{Binding TempTrendValue}"
+                                   Foreground="{DynamicResource TrendTempBrush}" />
+                        <TextBlock Grid.Column="1" Classes="TrendUnit" Text="℃" />
+                        <!-- 右侧两行小字：上一句舒适度，下一句全天高低；卡片最底下整块留给曲线 -->
+                        <StackPanel Grid.Column="2" HorizontalAlignment="Right" VerticalAlignment="Bottom"
+                                    Spacing="2" Margin="0,0,0,5">
+                            <TextBlock Classes="TrendNote" Text="{Binding TempTrendNote}" Margin="0" />
+                            <TextBlock Classes="TrendFoot" Text="{Binding TempTrendRange}"
+                                       HorizontalAlignment="Right" />
+                        </StackPanel>
+                    </Grid>
+                    <Panel Grid.Row="2" Height="56" Margin="0,8,0,0">
+                        <ctl:TrendChart Values="{Binding TempTrendSeries}"
+                                        Stroke="{DynamicResource TrendTempBrush}"
+                                        Fill="{DynamicResource TrendTempFill}"
+                                        GridBrush="{DynamicResource LineBrush}"
+                                        UnitText="℃"
+                                        TipBackground="{DynamicResource CardBrush}"
+                                        TipForeground="{DynamicResource TextBrush}"
+                                        IsVisible="{Binding ShowTempChart}" />
+                        <TextBlock Classes="TrendStub" Text="{Binding TempTrendPlaceholder}"
+                                   IsVisible="{Binding !ShowTempChart}" />
+                    </Panel>
+                </Grid>
+            </Border>
+        </DataTemplate>
+        <DataTemplate x:Key="TrendHumCardTemplate" x:DataType="vm:MainViewModel">
+            <Border Classes="TrendCard">
+                <Grid RowDefinitions="Auto,Auto,Auto">
+                    <Grid ColumnDefinitions="Auto,*,Auto">
+                        <Viewbox Width="13" Height="13" VerticalAlignment="Center">
+                            <Panel Width="24" Height="24">
+                                <Path Classes="StatIc" Stroke="{DynamicResource TrendHumBrush}"
+                                      Data="{StaticResource GeoDrop}" />
+                            </Panel>
+                        </Viewbox>
+                        <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="6"
+                                    Margin="6,0,0,0" VerticalAlignment="Center">
+                            <TextBlock Classes="TrendLab" Text="湿度" />
+                            <Border Classes="TrendChip" IsVisible="{Binding HasHumDelta}">
+                                <TextBlock Text="{Binding HumTrendDelta}" FontSize="10"
+                                           Foreground="{DynamicResource Text3Brush}" />
+                            </Border>
+                        </StackPanel>
+                        <ctl:OptionPicker Grid.Column="2" Classes="TrendPick" Compact="True" Pill="True"
+                                          MaxWidth="104" VerticalAlignment="Center"
+                                          IsVisible="{Binding CanPickHumSource}"
+                                          Options="{Binding HumSources}"
+                                          SelectedValue="{Binding SelectedHumSource, Mode=TwoWay}"
+                                          ToolTip.Tip="选择这张卡读哪台设备的数据" />
+                    </Grid>
+                    <Grid Grid.Row="1" ColumnDefinitions="Auto,Auto,*" Margin="0,6,0,0">
+                        <TextBlock Classes="TrendValue" Text="{Binding HumTrendValue}"
+                                   Foreground="{DynamicResource TrendHumBrush}" />
+                        <TextBlock Grid.Column="1" Classes="TrendUnit" Text="%" />
+                        <StackPanel Grid.Column="2" HorizontalAlignment="Right" VerticalAlignment="Bottom"
+                                    Spacing="2" Margin="0,0,0,5">
+                            <TextBlock Classes="TrendNote" Text="{Binding HumTrendNote}" Margin="0" />
+                            <TextBlock Classes="TrendFoot" Text="{Binding HumTrendRange}"
+                                       HorizontalAlignment="Right" />
+                        </StackPanel>
+                    </Grid>
+                    <Panel Grid.Row="2" Height="56" Margin="0,8,0,0">
+                        <ctl:TrendChart Values="{Binding HumTrendSeries}"
+                                        Stroke="{DynamicResource TrendHumBrush}"
+                                        Fill="{DynamicResource TrendHumFill}"
+                                        GridBrush="{DynamicResource LineBrush}"
+                                        UnitText="%"
+                                        TipBackground="{DynamicResource CardBrush}"
+                                        TipForeground="{DynamicResource TextBrush}"
+                                        IsVisible="{Binding ShowHumChart}" />
+                        <TextBlock Classes="TrendStub" Text="{Binding HumTrendPlaceholder}"
+                                   IsVisible="{Binding !ShowHumChart}" />
+                    </Panel>
+                </Grid>
+            </Border>
+        </DataTemplate>
+        <DataTemplate x:Key="TrendPowerCardTemplate" x:DataType="vm:MainViewModel">
+            <Border Classes="TrendCard">
+                <Grid RowDefinitions="Auto,Auto,Auto">
+                    <Grid ColumnDefinitions="Auto,*,Auto,Auto">
+                        <Viewbox Width="13" Height="13" VerticalAlignment="Center">
+                            <Panel Width="24" Height="24">
+                                <Path Classes="StatIc" Stroke="{DynamicResource TrendPowerBrush}"
+                                      Data="{StaticResource GeoBolt}" />
+                            </Panel>
+                        </Viewbox>
+                        <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="6"
+                                    Margin="6,0,0,0" VerticalAlignment="Center">
+                            <TextBlock Classes="TrendLab" Text="{Binding PowerTitle}" />
+                            <Border Classes="TrendChip" IsVisible="{Binding HasPowerDelta}">
+                                <TextBlock Text="{Binding PowerTrendDelta}" FontSize="10"
+                                           Foreground="{DynamicResource Text3Brush}" />
+                            </Border>
+                        </StackPanel>
+                        <!-- 先选看几天，再选看哪台：范围放在来源下拉左边 -->
+                        <ctl:OptionPicker Grid.Column="2" Classes="TrendPick" Compact="True" Pill="True"
+                                          MaxWidth="72" Margin="0,0,6,0" VerticalAlignment="Center"
+                                          IsVisible="{Binding HasMetering}"
+                                          Options="{Binding PowerRangeOptions}"
+                                          SelectedValue="{Binding SelectedPowerRange, Mode=TwoWay}"
+                                          ToolTip.Tip="看今天的逐小时，或最近几天每天用了几度" />
+                        <!-- 用电与众不同的一项：列表末尾的「全部设备（叠加）」把全屋各表加在一起 -->
+                        <ctl:OptionPicker Grid.Column="3" Classes="TrendPick" Compact="True" Pill="True"
+                                          MaxWidth="104" VerticalAlignment="Center"
+                                          IsVisible="{Binding CanPickPowerSource}"
+                                          Options="{Binding PowerSources}"
+                                          SelectedValue="{Binding SelectedPowerSource, Mode=TwoWay}"
+                                          ToolTip.Tip="选哪台计量设备，或看全部设备的叠加" />
+                    </Grid>
+                    <Grid Grid.Row="1" ColumnDefinitions="Auto,Auto,*" Margin="0,6,0,0">
+                        <TextBlock Classes="TrendValue" Text="{Binding PowerTrendValue}"
+                                   Foreground="{DynamicResource TrendPowerBrush}" />
+                        <TextBlock Grid.Column="1" Classes="TrendUnit" Text="kWh（度）" />
+                        <StackPanel Grid.Column="2" HorizontalAlignment="Right" VerticalAlignment="Bottom"
+                                    Spacing="2" Margin="0,0,0,5">
+                            <TextBlock Classes="TrendNote" Text="{Binding PowerTrendNow}" Margin="0" />
+                            <TextBlock Classes="TrendFoot" Text="{Binding PowerTrendRange}"
+                                       HorizontalAlignment="Right"
+                                       IsVisible="{Binding ShowPowerChart}" />
+                        </StackPanel>
+                    </Grid>
+                    <Panel Grid.Row="2" Height="56" Margin="0,8,0,0">
+                        <ctl:TrendChart Values="{Binding PowerTrendSeries}" IsBars="True"
+                                        IsDailyBars="{Binding PowerIsDailyBars}"
+                                        HighlightIndex="{Binding PowerTrendFocus}"
+                                        Stroke="{DynamicResource TrendPowerBrush}"
+                                        Fill="{DynamicResource TrendPowerFill}"
+                                        GridBrush="{DynamicResource LineBrush}"
+                                        UnitText="{Binding PowerChartUnit}"
+                                        TipBackground="{DynamicResource CardBrush}"
+                                        TipForeground="{DynamicResource TextBrush}"
+                                        IsVisible="{Binding ShowPowerChart}" />
+                        <TextBlock Classes="TrendStub" Text="{Binding PowerTrendPlaceholder}"
+                                   IsVisible="{Binding !ShowPowerChart}" />
+                    </Panel>
+                </Grid>
+            </Border>
+        </DataTemplate>
+    </UserControl.Resources>
     <!-- 右 16 内距 + 底 20 内距：右侧是给页面滚动条让出的空白（Carousel 右外距 6 + 16 = 原 22，正文宽度不变），
          底部留白只在滚到末尾时露出来，静止时不占版面 -->
     <StackPanel x:DataType="vm:MainViewModel" Margin="0,0,16,20">
         <!-- Hero：透明底；左侧问候+概览按钮，右侧统计卡+环境概览。
-             左列 Auto、右列 *：统计卡整行占宽更大，反过来写会把问候语挤到裁字，右侧也就没有换行的余量 -->
-        <Grid ColumnDefinitions="Auto,*" Margin="28,26">
+             左列 Auto、右列 *：统计卡整行占宽更大，反过来写会把问候语挤到裁字，右侧也就没有换行的余量。
+             底边只留 16：下面紧接「环境与能耗」，两段之间的空白不再叠两次 -->
+        <Grid ColumnDefinitions="Auto,*" Margin="28,26,28,16">
             <StackPanel VerticalAlignment="Top" Spacing="0">
                 <StackPanel Orientation="Horizontal" Spacing="0">
                     <TextBlock Text="{Binding Greet}" FontSize="24" FontWeight="Bold"
@@ -24,7 +209,7 @@
                     <TextBlock Text="，" FontSize="24" FontWeight="Bold"
                                    Foreground="{DynamicResource TextBrush}" />
                     <TextBlock Text="欢迎回家" FontSize="24" FontWeight="Bold"
-                                   Foreground="{DynamicResource PinkBrush}" />
+                                   Foreground="{DynamicResource WarmTextBrush}" />
                 </StackPanel>
                 <StackPanel Orientation="Horizontal" Spacing="10" Margin="0,8,0,0">
                     <TextBlock Text="{Binding ClockText}" FontSize="13"
@@ -78,24 +263,24 @@
                 </ItemsControl>
                 <!-- 环境概览：温湿度聚合 + 耗材提醒，三枚胶囊都可点开明细；统计卡下方，底部右对齐 -->
                 <WrapPanel Margin="0,0,0,0" IsVisible="{Binding ShowEnvOverview}" HorizontalAlignment="Right">
-                    <Button Classes="EnvPill" Margin="0,0,8,6" ToolTip.Tip="点击查看明细"
+                    <Button Classes="EnvPill PillTemp" Margin="0,0,8,6" ToolTip.Tip="点击查看明细"
                         Command="{Binding OpenEnvDetailCommand}">
                         <StackPanel Orientation="Horizontal" Spacing="6">
-                            <TextBlock Classes="EnvLab" Text="温度" />
-                            <TextBlock Classes="EnvVal" Text="{Binding EnvTemperatureText}" />
+                            <TextBlock Classes="EnvLab LabTemp" Text="温度" />
+                            <TextBlock Classes="EnvVal ValTemp" Text="{Binding EnvTemperatureText}" />
                         </StackPanel>
                     </Button>
-                    <Button Classes="EnvPill" Margin="0,0,8,6" ToolTip.Tip="点击查看明细"
+                    <Button Classes="EnvPill PillHum" Margin="0,0,8,6" ToolTip.Tip="点击查看明细"
                         Command="{Binding OpenEnvDetailCommand}">
                         <StackPanel Orientation="Horizontal" Spacing="6">
-                            <TextBlock Classes="EnvLab" Text="湿度" />
-                            <TextBlock Classes="EnvVal" Text="{Binding EnvHumidityText}" />
+                            <TextBlock Classes="EnvLab LabHum" Text="湿度" />
+                            <TextBlock Classes="EnvVal ValHum" Text="{Binding EnvHumidityText}" />
                         </StackPanel>
                     </Button>
-                    <Button Classes="EnvPill" Margin="0,0,0,6" ToolTip.Tip="点击查看明细"
+                    <Button Classes="EnvPill PillCons" Margin="0,0,0,6" ToolTip.Tip="点击查看明细"
                         Classes.is-warn="{Binding HasConsumableWarning}"
                         Command="{Binding OpenEnvDetailCommand}">
-                        <TextBlock Classes="EnvVal" Classes.is-warn="{Binding HasConsumableWarning}"
+                        <TextBlock Classes="EnvVal ValCons" Classes.is-warn="{Binding HasConsumableWarning}"
                                Text="{Binding ConsumablePillText}" />
                     </Button>
                 </WrapPanel>
@@ -103,14 +288,14 @@
                 <ItemsControl ItemsSource="{Binding StatSkeletonSlots}"
                           ItemTemplate="{StaticResource StatSkeletonTemplate}"
                           IsVisible="{Binding ShowSkeleton}" HorizontalAlignment="Right"
-                          Margin="0,0,-10,-10">
+                          Margin="0,0,0,0">
                     <ItemsControl.ItemsPanel>
                         <ItemsPanelTemplate>
                             <WrapPanel />
                         </ItemsPanelTemplate>
                     </ItemsControl.ItemsPanel>
                 </ItemsControl>
-                <WrapPanel HorizontalAlignment="Right" Margin="0,0,-10,-10"
+                <WrapPanel HorizontalAlignment="Right" Margin="0,0,0,0"
                            IsVisible="{Binding !ShowSkeleton}">
                     <!-- 五张统计卡都可点：在线→离线设备弹窗、总设备→设备页、灯光/窗帘/空调→对应全屋弹窗。
                          卡片图标套 Viewbox 按 24 网格缩放：Path 单用 Stretch 会贴框左上角，还把描边一起放大。
@@ -137,10 +322,10 @@
                                                    Foreground="{DynamicResource Text3Brush}" VerticalAlignment="Bottom"
                                                    Margin="0,0,0,3" />
                                     </StackPanel>
-                                    <!-- 离线数量写全称摆在数字同一行；0 台走中性灰，真有掉线才转琥珀提醒 -->
+                                    <!-- 离线数量写全称摆在数字同一行；0 台走中性灰，真有掉线才转琥珀提醒。左留 8 与「/74」分开 -->
                                     <TextBlock Grid.Column="1" Classes="OfflineTag" Classes.is-warn="{Binding HasOffline}"
                                                Text="{Binding OfflineText}" HorizontalAlignment="Right"
-                                               VerticalAlignment="Bottom" Margin="0,0,0,3" />
+                                               VerticalAlignment="Bottom" Margin="8,0,0,3" />
                                 </Grid>
                             </StackPanel>
                             <Viewbox Classes="StatGo">
@@ -275,33 +460,134 @@
                 </WrapPanel>
             </StackPanel>
         </Grid>
-        <!-- 快捷场景：标题行右侧「更多」进场景页；没有场景时整条不出现 -->
-        <Grid ColumnDefinitions="*,Auto" IsVisible="{Binding ShowQuickScenes}">
-            <TextBlock Classes="SecTitle" Text="快捷场景" VerticalAlignment="Center" />
-            <Button Grid.Column="1" Classes="BtnGhost" Content="更多"
-                Height="28" Padding="12,0" FontSize="12" VerticalAlignment="Center"
-                IsVisible="{Binding HasScenes}" ToolTip.Tip="查看全部场景"
-                Click="OnGotoScenes" />
-        </Grid>
-        <!-- 默认只显示一行，其余场景进场景页查看 -->
-        <ItemsControl ItemsSource="{Binding SceneItems}" ItemTemplate="{StaticResource SceneMiniTemplate}"
-                  IsVisible="{Binding HasScenes}">
-            <ItemsControl.ItemsPanel>
-                <ItemsPanelTemplate>
-                    <ctl:AdaptiveGridPanel MinItemWidth="180" Spacing="0" MaxRows="1" />
-                </ItemsPanelTemplate>
-            </ItemsControl.ItemsPanel>
-        </ItemsControl>
-        <!-- 场景首次拉取：先铺一行骨架，到货后整块换成真卡片 -->
-        <ItemsControl ItemsSource="{Binding SkeletonSlots}"
-                  ItemTemplate="{StaticResource SceneSkeletonTemplate}"
-                  IsVisible="{Binding ShowSceneSkeleton}">
-            <ItemsControl.ItemsPanel>
-                <ItemsPanelTemplate>
-                    <ctl:AdaptiveGridPanel MinItemWidth="180" Spacing="0" MaxRows="1" />
-                </ItemsPanelTemplate>
-            </ItemsControl.ItemsPanel>
-        </ItemsControl>
+        <!-- 环境与能耗：还剩两张以上趋势卡时独占一行。
+             只剩一张时改走下面的合并行，和快捷场景并排；三条数据都没有时整块不出现。
+             在这行标题上双击会切到一份演示数据（供预览样式），再双击回到真实；这层操作不写成可见文案。 -->
+        <StackPanel IsVisible="{Binding ShowTrendSolo}">
+            <Grid ColumnDefinitions="*,Auto" Margin="2,4,0,12" Background="Transparent"
+                  PointerPressed="OnTrendHeaderPressed">
+                <StackPanel Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+                    <TextBlock Classes="SecTitle" Margin="0" Text="环境与能耗" />
+                    <Border Classes="TrendBadge" IsVisible="{Binding IsTrendPreview}">
+                        <TextBlock Text="预览 · 演示数据" FontSize="10"
+                                   Foreground="{DynamicResource AmberTextBrush}" />
+                    </Border>
+                </StackPanel>
+                <TextBlock Grid.Column="1" Text="{Binding EnvTrendCaption}"
+                           FontSize="11" Foreground="{DynamicResource Text3Brush}"
+                           VerticalAlignment="Center" />
+            </Grid>
+            <ctl:AdaptiveGridPanel MinItemWidth="300" Spacing="14" MaxColumns="3" SkipInvisible="True">
+                <!-- 温度：家里没有能报温度的传感器就不铺这张卡 -->
+                <ContentControl Content="{Binding}" ContentTemplate="{StaticResource TrendTempCardTemplate}"
+                                HorizontalContentAlignment="Stretch" VerticalContentAlignment="Stretch"
+                                IsVisible="{Binding HasTempReading}" />
+                <!-- 湿度：只有能报湿度的设备才出现 -->
+                <ContentControl Content="{Binding}" ContentTemplate="{StaticResource TrendHumCardTemplate}"
+                                HorizontalContentAlignment="Stretch" VerticalContentAlignment="Stretch"
+                                IsVisible="{Binding HasHumReading}" />
+                <!-- 用电：逐小时平均功率柱状；没有能回读用电的设备就不铺这张卡 -->
+                <ContentControl Content="{Binding}" ContentTemplate="{StaticResource TrendPowerCardTemplate}"
+                                HorizontalContentAlignment="Stretch" VerticalContentAlignment="Stretch"
+                                IsVisible="{Binding HasMetering}" />
+                </ctl:AdaptiveGridPanel>
+        </StackPanel>
+        <!-- 只剩一张趋势卡时，把它和快捷场景并到同一行：左边一张卡，右边场景铺两行 -->
+        <DockPanel IsVisible="{Binding ShowTrendQuickRow}" Margin="0,4,0,0">
+            <StackPanel DockPanel.Dock="Left" Width="300" VerticalAlignment="Top">
+                <Grid ColumnDefinitions="*,Auto" Margin="2,0,0,12" Background="Transparent"
+                      PointerPressed="OnTrendHeaderPressed">
+                    <StackPanel Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+                        <TextBlock Classes="SecTitle" Margin="0" Text="环境与能耗" />
+                        <Border Classes="TrendBadge" IsVisible="{Binding IsTrendPreview}">
+                            <TextBlock Text="预览 · 演示数据" FontSize="10"
+                                       Foreground="{DynamicResource AmberTextBrush}" />
+                        </Border>
+                    </StackPanel>
+                    <TextBlock Grid.Column="1" Text="{Binding EnvTrendCaption}"
+                               FontSize="11" Foreground="{DynamicResource Text3Brush}"
+                               VerticalAlignment="Center" />
+                </Grid>
+                <ContentControl Content="{Binding}" ContentTemplate="{StaticResource TrendTempCardTemplate}"
+                                HorizontalContentAlignment="Stretch" VerticalContentAlignment="Stretch"
+                                IsVisible="{Binding HasTempReading}" />
+                <ContentControl Content="{Binding}" ContentTemplate="{StaticResource TrendHumCardTemplate}"
+                                HorizontalContentAlignment="Stretch" VerticalContentAlignment="Stretch"
+                                IsVisible="{Binding HasHumReading}" />
+                <ContentControl Content="{Binding}" ContentTemplate="{StaticResource TrendPowerCardTemplate}"
+                                HorizontalContentAlignment="Stretch" VerticalContentAlignment="Stretch"
+                                IsVisible="{Binding HasMetering}" />
+            </StackPanel>
+            <StackPanel Margin="14,0,0,0">
+                <Grid ColumnDefinitions="*,Auto">
+                    <TextBlock Classes="SecTitle" Text="快捷场景" Margin="2,0,0,12" VerticalAlignment="Center" />
+                    <Button Grid.Column="1" Classes="BtnGhost" Content="更多"
+                        Height="28" Padding="12,0" FontSize="12" VerticalAlignment="Center"
+                        IsVisible="{Binding HasScenes}" ToolTip.Tip="查看全部场景"
+                        Click="OnGotoScenes" />
+                </Grid>
+                <ItemsControl ItemsSource="{Binding SceneItems}" ItemTemplate="{StaticResource SceneMiniTemplate}"
+                          IsVisible="{Binding HasScenes}">
+                    <ItemsControl.ItemsPanel>
+                        <ItemsPanelTemplate>
+                            <ctl:AdaptiveGridPanel MinItemWidth="220" Spacing="0" MaxRows="2" />
+                        </ItemsPanelTemplate>
+                    </ItemsControl.ItemsPanel>
+                </ItemsControl>
+                <ItemsControl ItemsSource="{Binding SkeletonSlots}"
+                          ItemTemplate="{StaticResource SceneSkeletonTemplate}"
+                          IsVisible="{Binding ShowSceneSkeleton}">
+                    <ItemsControl.ItemsPanel>
+                        <ItemsPanelTemplate>
+                            <ctl:AdaptiveGridPanel MinItemWidth="220" Spacing="0" MaxRows="2" />
+                        </ItemsPanelTemplate>
+                    </ItemsControl.ItemsPanel>
+                </ItemsControl>
+            </StackPanel>
+        </DockPanel>
+        <!-- 趋势首拉骨架：环境读数到货前先铺三张图表骨架卡，到货后整块换成上面的真趋势卡 -->
+        <StackPanel IsVisible="{Binding ShowTrendSkeleton}">
+            <Grid ColumnDefinitions="*,Auto" Margin="2,4,0,12" Background="Transparent">
+                <TextBlock Classes="SecTitle" Margin="0" Text="环境与能耗" />
+            </Grid>
+            <ItemsControl ItemsSource="{Binding TrendSkeletonSlots}"
+                      ItemTemplate="{StaticResource TrendSkeletonTemplate}">
+                <ItemsControl.ItemsPanel>
+                    <ItemsPanelTemplate>
+                        <ctl:AdaptiveGridPanel MinItemWidth="300" Spacing="14" MaxColumns="3" />
+                    </ItemsPanelTemplate>
+                </ItemsControl.ItemsPanel>
+            </ItemsControl>
+        </StackPanel>
+        <!-- 快捷场景：正常铺在趋势区下方，一行放不下的进场景页；只剩一张趋势卡时这一块并到上面同一行去 -->
+        <StackPanel IsVisible="{Binding ShowQuickScenesSolo}">
+            <Grid ColumnDefinitions="*,Auto">
+                <TextBlock Classes="SecTitle" Text="快捷场景" VerticalAlignment="Center" />
+                <Button Grid.Column="1" Classes="BtnGhost" Content="更多"
+                    Height="28" Padding="12,0" FontSize="12" VerticalAlignment="Center"
+                    IsVisible="{Binding HasScenes}" ToolTip.Tip="查看全部场景"
+                    Click="OnGotoScenes" />
+            </Grid>
+            <!-- 默认只显示一行，其余场景进场景页查看 -->
+            <ItemsControl ItemsSource="{Binding SceneItems}" ItemTemplate="{StaticResource SceneMiniTemplate}"
+                      IsVisible="{Binding HasScenes}">
+                <ItemsControl.ItemsPanel>
+                    <ItemsPanelTemplate>
+                        <ctl:AdaptiveGridPanel MinItemWidth="220" Spacing="0" MaxRows="1" />
+                    </ItemsPanelTemplate>
+                </ItemsControl.ItemsPanel>
+            </ItemsControl>
+            <!-- 场景首次拉取：先铺一行骨架，到货后整块换成真卡片 -->
+            <ItemsControl ItemsSource="{Binding SkeletonSlots}"
+                      ItemTemplate="{StaticResource SceneSkeletonTemplate}"
+                      IsVisible="{Binding ShowSceneSkeleton}">
+                <ItemsControl.ItemsPanel>
+                    <ItemsPanelTemplate>
+                        <ctl:AdaptiveGridPanel MinItemWidth="220" Spacing="0" MaxRows="1" />
+                    </ItemsPanelTemplate>
+                </ItemsControl.ItemsPanel>
+            </ItemsControl>
+        </StackPanel>
         <!-- 首次拉取：先铺骨架宫格，设备一到就整块换成真卡片 -->
         <StackPanel IsVisible="{Binding ShowSkeleton}">
             <StackPanel Orientation="Horizontal" Spacing="10" Margin="2,26,0,12">
@@ -330,11 +616,48 @@
             <ItemsControl.ItemTemplate>
                 <DataTemplate x:DataType="m:DeviceGroup">
                     <StackPanel>
-                        <TextBlock Classes="SecTitle" Text="{Binding TitleText}" />
+                        <!-- 房间标题行整行可点：收起后只留这一行，卡片区整块让位。
+                             上下间距按"标题跟着自己的卡片"来分：上面留 20 与上一段分开，下面只留 4，
+                             加上卡片自带的 8 外距，标题与卡片挨得近，段与段之间才看得出层次 -->
+                        <Button Classes="RoomHead" Margin="2,20,0,4"
+                                Command="{Binding $parent[UserControl].((vm:MainViewModel)DataContext).ToggleRoomCommand}"
+                                CommandParameter="{Binding}"
+                                ToolTip.Tip="展开 / 收起该房间的设备">
+                            <StackPanel Orientation="Horizontal" Spacing="7">
+                                <!-- 房间图标与侧栏同款：玻璃 SVG / 细线两套画法按设置二选一 -->
+                                <Image Width="17" Height="17" Stretch="Uniform" VerticalAlignment="Center"
+                                       IsVisible="{Binding $parent[UserControl].((vm:MainViewModel)DataContext).IconGlass}"
+                                       Source="{Binding IconKey, Converter={StaticResource NavSvg}}" />
+                                <Path Classes="RoomIc" Width="15" Height="15" Stretch="Uniform"
+                                      VerticalAlignment="Center" StrokeThickness="1.4"
+                                      StrokeLineCap="Round" StrokeJoin="Round"
+                                      IsVisible="{Binding !$parent[UserControl].((vm:MainViewModel)DataContext).IconGlass}"
+                                      Data="{Binding IconKey, Converter={StaticResource NavLine}}" />
+                                <TextBlock Classes="RoomName" Text="{Binding TitleText}" />
+                                <Viewbox Width="12" Height="12" Stretch="Uniform" VerticalAlignment="Center"
+                                         RenderTransformOrigin="50%,50%">
+                                    <Viewbox.RenderTransform>
+                                        <RotateTransform Angle="{Binding ChevronAngle}">
+                                            <RotateTransform.Transitions>
+                                                <Transitions>
+                                                    <DoubleTransition Property="Angle" Duration="0:0:0.09" />
+                                                </Transitions>
+                                            </RotateTransform.Transitions>
+                                        </RotateTransform>
+                                    </Viewbox.RenderTransform>
+                                    <Panel Width="24" Height="24">
+                                        <Path Classes="RoomChev" StrokeThickness="1.92"
+                                              StrokeLineCap="Round" StrokeJoin="Round"
+                                              Data="{StaticResource GeoChevron}" />
+                                    </Panel>
+                                </Viewbox>
+                            </StackPanel>
+                        </Button>
                         <!-- 虚拟化：每组卡片仅生成视口内的可视树 -->
                         <!-- 虚拟化自适应网格：每组仅生成视口内可见的卡片容器 -->
                         <ctl:RecyclingItemsControl x:Name="DeviceItemsControl" ItemsSource="{Binding Items}"
-                                      ItemTemplate="{StaticResource DeviceCardTemplate}">
+                                      ItemTemplate="{StaticResource DeviceCardTemplate}"
+                                      IsVisible="{Binding ItemsVisible}">
                             <ItemsControl.ItemsPanel>
                                 <ItemsPanelTemplate>
                                     <ctl:VirtualizingAdaptiveGridPanel MinItemWidth="240" Spacing="0" />

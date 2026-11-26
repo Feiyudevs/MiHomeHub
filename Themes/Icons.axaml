@@ -11,6 +11,13 @@
             <PathGeometry x:Key="GeoRooms">M3,21 L3,8 L12,3 L21,8 L21,21 M9,21 L9,13 L15,13 L15,21</PathGeometry>
             <!-- 灯泡：与 DeviceIconConverter 里设备卡的 light 几何一致（整圆用两段半弧拼），两处同形才不会出现「卡片图标与统计卡图标不是一个灯」 -->
             <PathGeometry x:Key="GeoLight">M7.8,9.6 A4.2,4.2 0 0 1 16.2,9.6 A4.2,4.2 0 0 1 7.8,9.6 Z M9.9,15.2 H14.1 M10.8,17.6 H13.2</PathGeometry>
+            <!-- 侧栏「这个房间还亮着灯」：同一只灯泡拆成两层画（灯身填实 + 灯座描线），
+                 小尺寸下实心灯身才看得出是「亮着的」，描线版一行 13px 会糊成一团 -->
+            <PathGeometry x:Key="GeoBulbGlass">M7.8,9.6 A4.2,4.2 0 0 1 16.2,9.6 A4.2,4.2 0 0 1 7.8,9.6 Z</PathGeometry>
+            <PathGeometry x:Key="GeoBulbBase">M9.9,15.2 H14.1 M10.8,17.6 H13.2</PathGeometry>
+            <!-- 首页趋势卡：温度计（胶囊管 + 底部球泡）与水滴 -->
+            <PathGeometry x:Key="GeoThermo">M14,4 V14.6 A2.6,2.6 0 1 1 10,14.6 V4 A2,2 0 1 1 14,4</PathGeometry>
+            <PathGeometry x:Key="GeoDrop">M12,3 C12,3 17.5,9.4 17.5,13.8 A5.5,5.5 0 0 1 6.5,13.8 C6.5,9.4 12,3 12,3 Z</PathGeometry>
             <!-- 窗帘 / 空调：与 DeviceIconConverter 里设备卡同形，统计卡图标与卡片图标必须一个模子 -->
             <PathGeometry x:Key="GeoCurtain">M3.5,6 H20.5 M7,6 V17.5 M17,6 V17.5 M3.5,20 H20.5</PathGeometry>
             <PathGeometry x:Key="GeoAirCon">M4,5 H20 V11.5 H4 Z M7.5,15.5 H13.5 M10.5,19 H16.5</PathGeometry>

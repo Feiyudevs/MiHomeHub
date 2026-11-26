@@ -46,6 +46,8 @@ public partial class MainWindow : CustomWindow
 
     // 拖动/缩放期间位置连续变化，等变化停下（视为拖动结束）才写盘
     private IDisposable? _settleTimer;
+    // 普通态边界采集也去抖：拖动时每个像素都会触发 PositionChanged，逐帧采集等于每帧枚举一次显示器
+    private IDisposable? _boundsCaptureTimer;
 
     private DispatcherTimer? _gpuReleaseTimer;
 
@@ -103,6 +105,10 @@ public partial class MainWindow : CustomWindow
 
     private void OnClosing(object? sender, WindowClosingEventArgs e)
     {
+        // 去抖中的采集先落地，否则最后 120ms 内的挪动会丢
+        _boundsCaptureTimer?.Dispose();
+        _boundsCaptureTimer = null;
+        CaptureNormalBounds();
         Persist();
         if (_allowExit)
         {
@@ -327,6 +333,69 @@ public partial class MainWindow : CustomWindow
         SurfaceClip.CornerRadius = innerRadius;
     }
 
+    private IBrush? _resizePageMask;
+    private bool _resizeLite;
+    private Size? _frozenContentSize;
+
+    /// <summary>
+    /// 拖边框改尺寸时整窗每帧都要重绘，先卸掉两处最贵的全窗特效：
+    /// 24px 模糊的窗口投影、页面顶部的渐变 OpacityMask（Skia 会为它建一整块离屏图层再合成）。
+    /// 松手立刻装回去，静止观感不变。纯移动不触发（移动不重排内容，卸了反而白闪一下）。
+    /// </summary>
+    protected override void OnResizeInteractionChanged(bool resizing)
+    {
+        if (resizing)
+        {
+            if (_resizeLite) return;
+            _resizeLite = true;
+            SurfaceShadow.IsVisible = false;
+            if (PageCarousel is { } liteCarousel)
+            {
+                _resizePageMask = liteCarousel.OpacityMask;
+                liteCarousel.OpacityMask = null;
+            }
+            return;
+        }
+
+        if (_resizeLite)
+        {
+            _resizeLite = false;
+            SurfaceShadow.IsVisible = EffectiveShadowMargin > 0;
+            if (PageCarousel is { } carousel)
+                carousel.OpacityMask = _resizePageMask;
+            _resizePageMask = null;
+        }
+        // 纯移动也会走到这里：拖动期间的分帧事件被跳过，松手后必须补记最终落位，否则下次启动回旧位置。
+        QueueCaptureNormalBounds();
+    }
+
+    /// <summary>
+    /// 缩小时把内容钉在当时的尺寸（内容被裁，但不再每变 1px 就整页重排）；
+    /// 一旦拖大到超过进入尺寸就解冻，内容跟着重排，右侧 / 底部不会露出底色。
+    /// </summary>
+    protected override void OnResizeContentFreezeChanged(bool frozen)
+    {
+        if (frozen)
+        {
+            if (_frozenContentSize is not null) return;
+            var size = SurfaceContentHost.Bounds.Size;
+            if (size.Width <= 1 || size.Height <= 1) return;
+            _frozenContentSize = size;
+            SurfaceContentHost.HorizontalAlignment = Avalonia.Layout.HorizontalAlignment.Left;
+            SurfaceContentHost.VerticalAlignment = Avalonia.Layout.VerticalAlignment.Top;
+            SurfaceContentHost.Width = size.Width;
+            SurfaceContentHost.Height = size.Height;
+            return;
+        }
+
+        if (_frozenContentSize is null) return;
+        _frozenContentSize = null;
+        SurfaceContentHost.Width = double.NaN;
+        SurfaceContentHost.Height = double.NaN;
+        SurfaceContentHost.HorizontalAlignment = Avalonia.Layout.HorizontalAlignment.Stretch;
+        SurfaceContentHost.VerticalAlignment = Avalonia.Layout.VerticalAlignment.Stretch;
+    }
+
     /// <summary>系统（Win+↑、贴边）发起的最大化同样会溢出屏幕，转成自己实现的铺满工作区。</summary>
     protected override void OnPropertyChanged(AvaloniaPropertyChangedEventArgs change)
     {
@@ -367,9 +436,21 @@ public partial class MainWindow : CustomWindow
         }
     }
 
-    /// <summary>系统最大化时尺寸变化早于 WindowState 更新，延后一拍再取，避免把最大化边界记成普通边界。</summary>
-    private void QueueCaptureNormalBounds() =>
-        Dispatcher.UIThread.Post(CaptureNormalBounds, DispatcherPriority.Background);
+    /// <summary>
+    /// 尺寸 / 位置变化的采集不逐帧做：去抖到变化停下 120ms 再算一次。
+    /// 拖动时每帧都会触发事件，逐次采集会让 UI 线程在每一帧枚举一遍显示器（EnumDisplayMonitors + DPI 查询）。
+    /// 最大化的正常路径由 <see cref="ToggleMaximize"/> 同步采集，不依赖这里。
+    /// </summary>
+    private void QueueCaptureNormalBounds()
+    {
+        if (IsInSizeMove) return;
+        _boundsCaptureTimer?.Dispose();
+        _boundsCaptureTimer = DispatcherTimer.RunOnce(() =>
+        {
+            _boundsCaptureTimer = null;
+            CaptureNormalBounds();
+        }, TimeSpan.FromMilliseconds(120));
+    }
 
     private void CaptureNormalBounds()
     {

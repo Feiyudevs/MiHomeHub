@@ -10,6 +10,7 @@ using System.Globalization;
 using System.IO;
 using System.Linq;
 using System.Runtime;
+using System.Threading;
 using System.Threading.Tasks;
 using System.Text.Json.Nodes;
 using Avalonia;
@@ -109,6 +110,21 @@ public partial class MainViewModel : ObservableObject
     [ObservableProperty] private bool _closeToTray = AppSettingsStore.CloseToTray;
     /// <summary>true = 卡片带投影；false = 扁平无投影。</summary>
     [ObservableProperty] private bool _cardShadow = AppSettingsStore.CardShadow;
+
+    /// <summary>硬件加速渲染开关：只写偏好，下次启动才真正换渲染管线。</summary>
+    [ObservableProperty] private bool _useGpu = AppSettingsStore.UseGpu;
+
+    /// <summary>切换渲染管线必须重启，开关落盘前先弹这层确认。</summary>
+    [ObservableProperty] private bool _isGpuRestartConfirmOpen;
+
+    /// <summary>确认弹窗正文：按开 / 关分别说明。</summary>
+    [ObservableProperty] private string _gpuRestartMessage = "";
+
+    /// <summary>程序内部回拨开关时置位，避免再次弹确认。</summary>
+    private bool _gpuToggleSuppressed;
+
+    /// <summary>弹窗确认前暂存的目标值；取消时据此把开关拨回原状。</summary>
+    private bool _pendingGpuValue;
 
     /// <summary>摄像头画面桥（go2rtc）地址，改动即写回 app.json。</summary>
     [ObservableProperty] private string _go2rtcBase = AppSettingsStore.Go2rtcBase;
@@ -342,6 +358,7 @@ public partial class MainViewModel : ObservableObject
     {
         OnPropertyChanged(nameof(ShowEnvOverview));
         OnPropertyChanged(nameof(ShowEnvSkeleton));
+        OnPropertyChanged(nameof(ShowTrendSkeleton));
     }
     partial void OnHasConsumablesChanged(bool value)
     {
@@ -385,6 +402,22 @@ public partial class MainViewModel : ObservableObject
         OnPropertyChanged(nameof(HiddenSectionAngle));
 
     public ObservableCollection<DeviceGroup> HomeGroups { get; } = new();
+
+    /// <summary>用户手动收起的房间名：刷新设备重建分组时沿用，已收起的房间不会自己弹开。</summary>
+    private readonly HashSet<string> _collapsedRooms = new(StringComparer.Ordinal);
+
+    /// <summary>复用的临时集合：当前还有灯开着的房间名，供侧栏房间灯泡逐行比对（避免每拍新建 HashSet）。</summary>
+    private readonly HashSet<string> _litRooms = new(StringComparer.Ordinal);
+
+    /// <summary>点首页房间标题行：展开 ⇄ 收起该房间的设备卡片。</summary>
+    [RelayCommand]
+    private void ToggleRoom(DeviceGroup? group)
+    {
+        if (group is null) return;
+        group.IsExpanded = !group.IsExpanded;
+        if (group.IsExpanded) _collapsedRooms.Remove(group.Name);
+        else _collapsedRooms.Add(group.Name);
+    }
     public ObservableCollection<SceneCardItem> SceneItems { get; } = new();
 
     /// <summary>自动化（如果…就…）：和手动场景同一个接口返回，客户端按 IsAutomation 归类。</summary>
@@ -483,6 +516,8 @@ public partial class MainViewModel : ObservableObject
         OnPropertyChanged(nameof(ShowSceneSkeleton));
         OnPropertyChanged(nameof(ShowQuickScenes));
         OnPropertyChanged(nameof(ShowEnvSkeleton));
+        OnPropertyChanged(nameof(ShowTrendSkeleton));
+        RaiseTrendRowFlags();
         OnPropertyChanged(nameof(ShowEmptyHint));
         OnPropertyChanged(nameof(ShowHomeEmpty));
         OnPropertyChanged(nameof(ShowSceneEmpty));
@@ -506,11 +541,18 @@ public partial class MainViewModel : ObservableObject
     public IReadOnlyList<string> EnvSkeletonSlots { get; } =
         Enumerable.Range(0, 3).Select(i => i.ToString()).ToArray();
 
+    /// <summary>环境趋势卡的骨架槽位：温度/湿度/用电三张，与真卡一一对应。</summary>
+    public IReadOnlyList<string> TrendSkeletonSlots { get; } =
+        Enumerable.Range(0, 3).Select(i => i.ToString()).ToArray();
+
     /// <summary>列表还空着时铺骨架；已有设备只是刷新状态，不动内容。</summary>
     public bool ShowSkeleton => SyncPending && TotalCount == 0;
 
     /// <summary>还在首拉且环境读数没到货时铺胶囊占位；读数到了立刻换真胶囊。</summary>
     public bool ShowEnvSkeleton => SyncPending && !ShowEnvOverview;
+
+    /// <summary>还在首拉且趋势区还没成形时，先铺图表骨架卡；任何一类数据到货就整块换成真卡。</summary>
+    public bool ShowTrendSkeleton => SyncPending && !ShowEnvTrend;
 
     /// <summary>场景首次拉取期间铺骨架；已有场景只是刷新时不动内容。</summary>
     public bool ShowSceneSkeleton => SyncPending && !HasScenes;
@@ -751,6 +793,42 @@ public partial class MainViewModel : ObservableObject
         CardShadowScope.Apply(value);
     }
 
+    partial void OnUseGpuChanged(bool value)
+    {
+        // 拨开关只是改了内存里的值；写盘与真正换管线都等确认弹窗，
+        // 取消时把开关拨回已保存的偏好（不落盘）。
+        if (_gpuToggleSuppressed) return;
+
+        _pendingGpuValue = value;
+        GpuRestartMessage = value
+            ? "开启后界面改由显卡绘制。这项设置需要下次启动应用才生效，是否现在重启？"
+            : "关闭后界面改回软件绘制。这项设置需要下次启动应用才生效，是否现在重启？";
+        IsGpuRestartConfirmOpen = true;
+    }
+
+    /// <summary>确认弹窗里选了「稍后」：丢弃这次切换，开关回到当前已保存的值。</summary>
+    [RelayCommand]
+    private void CancelGpuRestart()
+    {
+        IsGpuRestartConfirmOpen = false;
+        _gpuToggleSuppressed = true;
+        try { UseGpu = AppSettingsStore.UseGpu; }
+        finally { _gpuToggleSuppressed = false; }
+    }
+
+    /// <summary>确认弹窗里选了「立即重启」：先落盘，再交给 View 拉起重进程。</summary>
+    public void CommitGpuChoice()
+    {
+        AppSettingsStore.SetUseGpu(_pendingGpuValue);
+        _gpuToggleSuppressed = true;
+        try { UseGpu = _pendingGpuValue; }
+        finally { _gpuToggleSuppressed = false; }
+        IsGpuRestartConfirmOpen = false;
+        Log(_pendingGpuValue
+            ? "已开启硬件加速，重启应用后生效"
+            : "已关闭硬件加速，重启应用后生效");
+    }
+
     partial void OnDoubleClickDesktopTogglesChanged(bool value)
     {
         AppSettingsStore.SetDoubleClickDesktopToggles(value);
@@ -846,6 +924,7 @@ public partial class MainViewModel : ObservableObject
         OnPropertyChanged(nameof(ShowSceneSkeleton));
         OnPropertyChanged(nameof(ShowQuickScenes));
         OnPropertyChanged(nameof(ShowEnvSkeleton));
+        OnPropertyChanged(nameof(ShowTrendSkeleton));
     }
 
     partial void OnTotalCountChanged(int value)
@@ -862,6 +941,7 @@ public partial class MainViewModel : ObservableObject
         OnPropertyChanged(nameof(ShowSceneEmpty));
         OnPropertyChanged(nameof(ShowSceneSkeleton));
         OnPropertyChanged(nameof(ShowQuickScenes));
+        RaiseTrendRowFlags();
     }
 
     private void TickClock()
@@ -1104,6 +1184,7 @@ public partial class MainViewModel : ObservableObject
         {
             await ResolveSpecsAsync(devices, generation);
             if (generation != _loadGeneration) return;
+            await ResolveAcSchemasAsync(devices, generation);
             await RefreshStatesAsync(includeMetrics: true);
         }
         catch (Exception ex)
@@ -1156,12 +1237,73 @@ public partial class MainViewModel : ObservableObject
             }
         }));
         if (ok > 0) Log($"已解析 {ok}/{groups.Count} 种设备的控制规格");
+
+        await ResolveAcSchemasAsync(devices, generation);
         if (generation != _loadGeneration) return;
 
         // 规格解析后才知道哪些是音箱、哪些有耗材；这里统一刷新这两块的候选与汇总
         RefreshSpeakers();
         RebuildConsumables();
         RecomputeEnvironment();
+        _ = RefreshEnergyStatsAsync(true);
+    }
+
+    /// <summary>
+    /// 空调控制参数（模式/温度/风速的 siid/piid 与选项）按 spec_type 拉取并缓存到设备实例；
+    /// 规格服务自带缓存，重复调用不重复请求。拉到后补读一次空调三态，桌面空调卡开机即可见真实值。
+    /// </summary>
+    private async Task ResolveAcSchemasAsync(List<MijiaDevice> devices, int generation)
+    {
+        var acs = devices.Where(d => d.IsAc && d.AcSchema == null).ToList();
+        if (acs.Count == 0) return;
+
+        using var gate = new SemaphoreSlim(4);
+        foreach (var group in acs.GroupBy(d => string.IsNullOrEmpty(d.SpecType) ? d.Did : d.SpecType))
+        {
+            await gate.WaitAsync();
+            try
+            {
+                var schema = await MijiaSpecService.GetAcSchemaAsync(group.Key);
+                if (generation != _loadGeneration) return;
+                await Dispatcher.UIThread.InvokeAsync(() =>
+                {
+                    foreach (var d in group)
+                    {
+                        d.AcSchema = schema;
+                        if (schema is { Valid: true } && d.IsOnline && _client != null)
+                            _ = LoadAcStateAsync(_client, d);
+                    }
+                });
+            }
+            catch
+            {
+                // 单个型号失败不阻塞其余设备
+            }
+            finally
+            {
+                gate.Release();
+            }
+        }
+    }
+
+    /// <summary>按规格读一次空调模式/目标温度/风速回填（规格刚就位时用一次）。</summary>
+    private async Task LoadAcStateAsync(MijiaClient client, MijiaDevice d)
+    {
+        if (d.AcSchema is not { Valid: true } s) return;
+        try
+        {
+            var st = await client.GetAcStateAsync(d.TargetDid, s);
+            if (st != null)
+            {
+                d.AcMode = st.Mode;
+                d.AcTargetTemp = st.TargetTemp;
+                d.AcFanLevel = st.FanLevel;
+            }
+        }
+        catch
+        {
+            // 读取失败留待下一拍轮询
+        }
     }
 
     /// <summary>
@@ -1201,14 +1343,35 @@ public partial class MainViewModel : ObservableObject
             // 外显字段里近实时的那部分（功率/电压/电流等）每拍都读，卡片读数才跟得上
             foreach (var p in CardMetricsCatalog.FastProps(d)) Add((did, p.Siid, p.Piid));
 
+            // 空调：模式 / 目标温度 / 风速（桌面空调卡与详情抽屉都靠这份回读；规格缺失就跳过）
+            if (d.IsAc && d.AcSchema is { Valid: true } ac)
+            {
+                if (ac.ModePiid > 0) Add((did, ac.ModeSiid, ac.ModePiid));
+                if (ac.TempPiid > 0) Add((did, ac.TempSiid, ac.TempPiid));
+                if (ac.FanPiid > 0) Add((did, ac.FanSiid, ac.FanPiid));
+            }
+
+            // 用电卡要的是全屋所有报功率的设备：空调、浴霸这类默认外显温湿度，
+            // 以前从没请求过 electric-power，整台设备就被漏在「全部设备（叠加）」之外
+            if (d.Spec is { } powerSpec)
+            {
+                if ((powerSpec.FindMetric("electric-power") ?? powerSpec.FindProp("electric-power")) is { } powerProp)
+                    Add((did, powerProp.Siid, powerProp.Piid));
+                // 空调之类只报累计耗电量（power-consumption，kWh）：读它的计数器，用差值算电量
+                if ((powerSpec.FindMetric("power-consumption") ?? powerSpec.FindProp("power-consumption")) is { } counterProp)
+                    Add((did, counterProp.Siid, counterProp.Piid));
+            }
+
             // 抽屉打开时，顶部读数卡的指标也每拍读一遍，数值才跟手
             if (ReferenceEquals(d, DrawerDevice))
                 foreach (var p in CardMetricsCatalog.Candidates(d)) Add((did, p.Siid, p.Piid));
 
             if (includeMetrics)
             {
+                // 温湿度总是回读，不管设备卡上有没有选它们：环境概览和首页趋势卡都靠这份读数
                 if (d.Spec?.FindMetric("temperature") is { } t) Add((did, t.Siid, t.Piid));
-                if (d.Spec?.FindMetric("relative-humidity") is { } h) Add((did, h.Siid, h.Piid));
+                var humProp = d.Spec?.FindMetric("relative-humidity") ?? d.Spec?.FindMetric("humidity");
+                if (humProp != null) Add((did, humProp.Siid, humProp.Piid));
                 // 耗材变化慢，跟着温湿度这一拍（约 16s）读一次即可
                 foreach (var c in d.Consumables) Add((did, c.Siid, c.Piid));
             }
@@ -1308,14 +1471,25 @@ public partial class MainViewModel : ObservableObject
                     if (d.IsPlaying != playing) d.IsPlaying = playing;
                 }
 
+                // 空调模式 / 目标温度 / 风速回读：桌面空调卡与抽屉共用设备实例，一处回填两处都跟着变
+                if (ApplyAcState(d, map)) changed = true;
+
                 // 卡片副标题外显读数：每拍按已缓存的文本重算，慢速读数不会中间消失
                 if (ApplyCardMetrics(d, map)) changed = true;
+
+                // 瞬时功率：规格里有 electric-power 的设备（插座、空调、浴霸……）都回读，
+                // 首页用电卡按它求和；跟卡片副标题上勾没勾「功率」无关
+                if (ApplyPowerReading(d, map)) changed = true;
 
                 // 抽屉顶部读数卡
                 if (ReferenceEquals(d, DrawerDevice)) UpdateDrawerMetricTiles(d, map);
 
                 if (includeMetrics)
                 {
+                    // 温湿度是环境概览与趋势卡的输入，不能被「卡片上显不显示」绑住：
+                    // 即使用户在详情里把湿度从设备卡上关掉，这里照样回填读数
+                    if (ApplyEnvReading(d, map)) changed = true;
+
                     var consChanged = false;
                     foreach (var c in d.Consumables)
                     {
@@ -1364,33 +1538,155 @@ public partial class MainViewModel : ObservableObject
 
         foreach (var name in names)
         {
-            var prop = spec.FindMetric(name) ?? spec.FindProp(name);
+            var prop = CardMetricsCatalog.FindSelectedMetric(spec, name);
             if (prop == null) continue;
+            var metricKey = CardMetricsCatalog.StandardMetricName(prop.Name) ?? name;
             if (!map.TryGetValue((d.TargetDid, prop.Siid, prop.Piid), out var raw) || raw == null)
                 continue;
 
             var value = ToDouble(raw);
             var text = CardMetricsCatalog.FormatValue(prop, value);
-            if (!d.CardMetricTexts.TryGetValue(name, out var old) || old != text)
+            if (!d.CardMetricTexts.TryGetValue(metricKey, out var old) || old != text)
             {
-                d.CardMetricTexts[name] = text;
+                d.CardMetricTexts[metricKey] = text;
                 changed = true;
             }
 
-            if (name == "temperature") d.TemperatureC = CardMetricsCatalog.NormalizeTemperature(value);
-            else if (name is "relative-humidity" or "humidity")
+            if (metricKey == "temperature") d.TemperatureC = CardMetricsCatalog.NormalizeTemperature(value);
+            else if (metricKey is "relative-humidity" or "humidity")
                 d.Humidity = CardMetricsCatalog.NormalizeHumidity(value);
         }
 
         var parts = new List<string>(names.Count);
+        // 副标题顺序跟详情页那排读数卡一致（左→右），不看点击先后；
+        // 候选里没有的旧名字仍按存储顺序补在后面，不让已配好的读数静默消失
+        var ordered = new List<string>(names.Count);
+        foreach (var p in CardMetricsCatalog.Candidates(d))
+        {
+            var key = CardMetricsCatalog.StandardMetricName(p.Name) ?? p.Name;
+            if (names.Contains(key)) ordered.Add(key);
+        }
         foreach (var name in names)
+            if (!ordered.Contains(name)) ordered.Add(name);
+        foreach (var name in ordered)
             if (d.CardMetricTexts.TryGetValue(name, out var t) && t.Length > 0)
                 parts.Add(t);
 
-        var text2 = string.Join(" · ", parts);
+        // 卡片副标题只有一行，最多给 3 段，多出来的折成 +N，免得截断在半截数字上
+        const int MaxOnCard = 3;
+        var text2 = parts.Count <= MaxOnCard
+            ? string.Join(" · ", parts)
+            : string.Join(" · ", parts.Take(MaxOnCard)) + $" +{parts.Count - MaxOnCard}";
         if (d.MetricsText == text2) return changed;
         d.MetricsText = text2;
         return true;
+    }
+
+    /// <summary>
+    /// 温湿度单独回填：读写口径与卡片副标题无关，只认规格里有没有这两个属性。
+    /// 环境概览、首页趋势卡都读 <see cref="MijiaDevice.TemperatureC"/> / <see cref="MijiaDevice.Humidity"/>，
+    /// 所以用户在详情里把湿度从设备卡上关掉，也不该让这两处断粮。
+    /// </summary>
+    private static bool ApplyEnvReading(MijiaDevice d,
+        Dictionary<(string Did, int Siid, int Piid), object?> map)
+    {
+        var spec = d.Spec;
+        if (spec == null) return false;
+        var changed = false;
+
+        if (spec.FindMetric("temperature") is { } tp &&
+            map.TryGetValue((d.TargetDid, tp.Siid, tp.Piid), out var tr) && tr != null)
+        {
+            var t = CardMetricsCatalog.NormalizeTemperature(ToDouble(tr));
+            if (d.TemperatureC != t)
+            {
+                d.TemperatureC = t;
+                changed = true;
+            }
+        }
+
+        var hp = spec.FindMetric("relative-humidity") ?? spec.FindMetric("humidity");
+        if (hp != null &&
+            map.TryGetValue((d.TargetDid, hp.Siid, hp.Piid), out var hr) && hr != null)
+        {
+            var h = CardMetricsCatalog.NormalizeHumidity(ToDouble(hr));
+            if (d.Humidity != h)
+            {
+                d.Humidity = h;
+                changed = true;
+            }
+        }
+
+        return changed;
+    }
+
+    /// <summary>
+    /// 用电读数单独回填：瞬时功率认 electric-power（W）；空调、浴霸这类只有
+    /// power-consumption（累计耗电量，kWh）的，读它的计数器，交给历史按差值算电量。
+    /// 首页用电卡的全屋叠加靠它，所以不受「卡片副标题上勾没勾功率」影响——
+    /// 这些设备默认只显示温湿度，以前连功率都没被请求过，全屋用电因此漏了一截。
+    /// </summary>
+    private static bool ApplyPowerReading(MijiaDevice d,
+        Dictionary<(string Did, int Siid, int Piid), object?> map)
+    {
+        var spec = d.Spec;
+        if (spec == null) return false;
+
+        var changed = false;
+
+        if ((spec.FindMetric("electric-power") ?? spec.FindProp("electric-power")) is { } prop &&
+            map.TryGetValue((d.TargetDid, prop.Siid, prop.Piid), out var raw) && raw != null)
+        {
+            // 与 FormatValue 的口径一致：上限过百万的型号是 0.01W 编码，按百分之一瓦缩回
+            var value = ToDouble(raw);
+            var watts = prop.HasRange && prop.Max >= 1_000_000 ? value / 100 : value;
+            if (d.PowerWatts is not { } oldW || Math.Abs(oldW - watts) >= 0.01)
+            {
+                d.PowerWatts = watts;
+                changed = true;
+            }
+        }
+
+        if ((spec.FindMetric("power-consumption") ?? spec.FindProp("power-consumption")) is { } counter &&
+            map.TryGetValue((d.TargetDid, counter.Siid, counter.Piid), out var craw) && craw != null)
+        {
+            // 计数器本身就是 kWh（0~999999.99，步长 0.01），不按 0.01 缩
+            var kwh = ToDouble(craw);
+            if (d.EnergyKwh is not { } oldKwh || Math.Abs(oldKwh - kwh) >= 0.001)
+            {
+                d.EnergyKwh = kwh;
+                changed = true;
+            }
+        }
+
+        return changed;
+    }
+
+    /// <summary>把轮询到的空调模式 / 目标温度 / 风速回填到设备实例（与规格面板无关的三态直读）。</summary>
+    private bool ApplyAcState(MijiaDevice d,
+        Dictionary<(string Did, int Siid, int Piid), object?> map)
+    {
+        if (d.IsAc && d.AcSchema is { Valid: true } s)
+        {
+            var changed = false;
+            if (s.ModePiid > 0 && map.TryGetValue((d.TargetDid, s.ModeSiid, s.ModePiid), out var mv) && mv != null)
+            {
+                var mode = ToInt(mv);
+                if (d.AcMode != mode) { d.AcMode = mode; changed = true; }
+            }
+            if (s.TempPiid > 0 && map.TryGetValue((d.TargetDid, s.TempSiid, s.TempPiid), out var tv) && tv != null)
+            {
+                var temp = ToDouble(tv);
+                if (Math.Abs(d.AcTargetTemp - temp) > s.TempStep / 2) { d.AcTargetTemp = temp; changed = true; }
+            }
+            if (s.FanPiid > 0 && map.TryGetValue((d.TargetDid, s.FanSiid, s.FanPiid), out var fv) && fv != null)
+            {
+                var fan = ToInt(fv);
+                if (d.AcFanLevel != fan) { d.AcFanLevel = fan; changed = true; }
+            }
+            return changed;
+        }
+        return false;
     }
 
     private void ApplySpecValues(MijiaDevice d,
@@ -1628,6 +1924,7 @@ public partial class MainViewModel : ObservableObject
             {
                 RoomCount = names.Count;
                 SyncRoomChips();
+                SyncRoomLightBulbs();
                 return;
             }
         }
@@ -1638,6 +1935,7 @@ public partial class MainViewModel : ObservableObject
             Rooms.Add(new RoomChip(n));
         RoomCount = names.Count;
         SyncRoomChips();
+        SyncRoomLightBulbs();
     }
 
     /// <summary>
@@ -1730,6 +2028,15 @@ public partial class MainViewModel : ObservableObject
         // 单独隐藏状态只认 did：设备实例换代（缓存上屏 / 刷新合并）后重新标一遍
         foreach (var d in _visibleDevices)
             d.IsHidden = !string.IsNullOrEmpty(d.Did) && _hiddenDids.Contains(d.Did);
+
+        // 自定义色温区间同样只认 did：实例换代、规格重解析后重新套一遍
+        foreach (var d in _visibleDevices)
+        {
+            if (AppSettingsStore.TryGetLightRange(d.Did, out var ctMin, out var ctMax))
+                d.ApplyLightRangeOverride(ctMin, ctMax);
+            else
+                d.ApplyLightRangeOverride(null, null);
+        }
     }
 
     private void ApplyFilter()
@@ -1769,6 +2076,8 @@ public partial class MainViewModel : ObservableObject
 
     private void RebuildHomeGroups()
     {
+        // 搜索时一律展开：命中结果藏在收起的房间里会看起来「搜不到」
+        var forceExpand = !string.IsNullOrWhiteSpace(SearchText);
         var groups = new List<DeviceGroup>();
         foreach (var g in _visibleDevices
                      .Where(d => !d.IsHidden)
@@ -1777,7 +2086,13 @@ public partial class MainViewModel : ObservableObject
         {
             var items = OrderDevices(g.Where(MatchesSearch)).ToList();
             if (items.Count == 0) continue;
-            groups.Add(new DeviceGroup { Name = g.Key, Total = g.Count(), Items = items });
+            groups.Add(new DeviceGroup
+            {
+                Name = g.Key,
+                Total = g.Count(),
+                Items = items,
+                IsExpanded = forceExpand || !_collapsedRooms.Contains(g.Key)
+            });
         }
 
         if (SameGroups(HomeGroups, groups))
@@ -1888,6 +2203,7 @@ public partial class MainViewModel : ObservableObject
         var curtains = _visibleDevices.Where(d => d.IconKey == "curtain").ToList();
         var acs = _visibleDevices.Where(d => d.IconKey == "ac").ToList();
         LightOnCount = lights.Count(d => d.IsOnline && d.IsOn);
+        SyncRoomLightBulbs();
         CurtainOnCount = curtains.Count(d => d.IsOnline && d.IsOn);
         AcOnCount = acs.Count(d => d.IsOnline && d.IsOn);
         LightTotalText = $"/ {lights.Count}";
@@ -1897,6 +2213,28 @@ public partial class MainViewModel : ObservableObject
         UpdateBanner();
         // 桌面分区按 did 从这里取实例：列表换代后让它们重绑一次（同实例时内部直接跳过）
         RaiseDevicesReloaded();
+    }
+
+    /// <summary>
+    /// 侧栏房间行右侧的小灯泡：哪些房间还有灯开着（在线且开，与「灯光」统计卡同一口径）。
+    /// 每拍轮询、每次开关灯都会走到这里，房间数只十几条，按房间名归拢一次哈希再逐行比对，
+    /// 值没变时 <see cref="RoomChip.HasLightOn"/> 的 setter 自己会跳过通知，不会白刷界面。
+    /// </summary>
+    private void SyncRoomLightBulbs()
+    {
+        _litRooms.Clear();
+        foreach (var d in _visibleDevices)
+        {
+            if (d.IsOnline && d.IsOn && d.IconKey == "light" && !string.IsNullOrEmpty(d.RoomName))
+                _litRooms.Add(d.RoomName);
+        }
+
+        foreach (var chip in Rooms)
+        {
+            // 「全部」是伪房间，不对应某一间房，永远不点亮
+            if (chip.IsLocked) chip.HasLightOn = false;
+            else chip.HasLightOn = _litRooms.Contains(chip.Name);
+        }
     }
 
     /// <summary>
@@ -2028,6 +2366,12 @@ public partial class MainViewModel : ObservableObject
         EnvSourceText = source != null
             ? $"数据来自 {source.Name}"
             : (temp.HasValue || hum.HasValue ? "全屋读数平均" : "");
+
+        // 首页趋势卡与概览共用同一份读数；每拍都调，内部按 5 分钟一格节流
+        _liveTemp = temp;
+        _liveHumidity = hum;
+        SampleTrendNow();
+        _ = RefreshEnergyStatsAsync();  // 云端电量统计 10 分钟刷一次，内部自己节流
     }
 
     /// <summary>全屋耗材汇总：不足的排前面，同组内余量低的更靠前。</summary>

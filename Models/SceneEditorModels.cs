@@ -99,6 +99,7 @@ public sealed partial class SceneActionEditItem : ObservableObject
         try { write(); } catch { }
         OnPropertyChanged(nameof(Summary));
         OnPropertyChanged(nameof(ActionText));
+        OnPropertyChanged(nameof(ValueDisplay));
     }
 
     /// <summary>整数量程保持整数，避免 26 变成 26.0 被设备拒绝。</summary>
@@ -107,6 +108,10 @@ public sealed partial class SceneActionEditItem : ObservableObject
         var rounded = Math.Round(v);
         return Step >= 1 && Math.Abs(v - rounded) < 0.0001 ? (long)rounded : Math.Round(v, 2);
     }
+
+    /// <summary>步进器中间显示的「数值 + 单位」，如 20000K、26℃（单位紧贴数字，不留空格）。</summary>
+    public string ValueDisplay =>
+        NumValue.ToString("0.##", CultureInfo.InvariantCulture) + Unit;
 
     /// <summary>一行值的可读描述，用于面板上的实时回显。</summary>
     public string Summary => IsBool

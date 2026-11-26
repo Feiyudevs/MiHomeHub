@@ -9,6 +9,7 @@ using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.Markup.Xaml;
 using Avalonia.Media;
+using Avalonia.Threading;
 using Avalonia.VisualTree;
 using MiHomeHub.Services;
 using MiHomeHub.Services.Setup;
@@ -60,7 +61,10 @@ public partial class App : Application
             StartupRegistration.Sync();
 
             // 静默启动只创建窗口句柄供托盘使用，不构建完整主界面。
-            var silent = !AppSettingsStore.ShowMainWindowOnStartup;
+            // --show 是「立即重启」带过来的：主动重启必须看到主界面，否则用户会以为程序没起来。
+            var forceShow = Array.Exists(Environment.GetCommandLineArgs(),
+                argument => string.Equals(argument, "--show", StringComparison.OrdinalIgnoreCase));
+            var silent = !AppSettingsStore.ShowMainWindowOnStartup && !forceShow;
             var window = new MainWindow(deferInitialContent: silent)
             {
                 DataContext = new MainViewModel()
@@ -82,8 +86,10 @@ public partial class App : Application
             }
             // 可选匿名统计：默认关闭，只有用户在设置里开启后才会有网络请求
             Services.Telemetry.TelemetryService.Init();
-            // 窗口打开后立即回收启动期临时对象和原生渲染资源，降低基础常驻内存
-            window.Opened += (_, _) => Services.MemoryTrimmer.TrimForce();
+            // 启动期不做阻塞式内存整理：窗口刚打开就做完整压缩 GC + 收缩工作集，页面会被系统
+            // 立刻换出，紧接着首帧渲染又全部换入（实测启动后几秒硬缺页 300~700 次/秒），
+            // 这段时间整机跟着发虚。延后到首屏稳定再回收，占用峰值只高一小会儿。
+            Services.MemoryTrimmer.TrimDelayed(6000);
             desktop.MainWindow.AddHandler(Thumb.DragStartedEvent, OnThumbDragStarted,
                 RoutingStrategies.Bubble, handledEventsToo: true);
             desktop.MainWindow.AddHandler(Thumb.DragCompletedEvent, OnThumbDragCompleted,
@@ -92,6 +98,12 @@ public partial class App : Application
 
             // 单实例：重复启动的进程会发信号过来，弹出主界面
             Services.SingleInstance.BeginWatch(() => ShowMainWindow(window));
+
+            // 全局低层输入钩子（鼠标双击桌面 / 全局快捷键）推迟到界面彻底空闲再装：
+            // 钩子回调跑在本进程线程，系统会让每一次鼠标、按键都先等它返回；启动那几秒
+            // UI 线程还在建窗口、贴桌面，钩子早挂一秒就等于整机输入卡一秒（用户感受就是
+            // 「一启动电脑就卡一下」）。晚挂的代价只是快捷键在开头一两秒内不响应。
+            Dispatcher.UIThread.Post(() => InstallInputHooks(window), DispatcherPriority.ApplicationIdle);
 
             // 预热默认字体：强制创建并缓存 GlyphTypeface，避免运行时每排版一次就新建一份
             // 导致 gen2 老生代累积大量字体对象（实测可达 100 MB+）
@@ -111,6 +123,14 @@ public partial class App : Application
 
     private TrayIconHost? _trayIcon;
     private TrayMenuWindow? _trayMenu;
+
+    /// <summary>界面空闲后安装两个低层输入钩子，并把真实的安装结果同步给「快捷键」页。</summary>
+    private static void InstallInputHooks(MainWindow window)
+    {
+        Services.DesktopDoubleClickHook.Install();
+        Services.GlobalHotkeyService.InstallHook();
+        if (window.DataContext is MainViewModel vm) vm.SyncHotkeyHookState();
+    }
 
     private void SetupTray(MainWindow main, IClassicDesktopStyleApplicationLifetime desktop, bool silent)
     {
@@ -192,13 +212,15 @@ public partial class App : Application
         Application.Current!.RequestedThemeVariant = ThemeStore.CurrentVariant;
     }
 
-    // 重新拉起一个实例后再退出当前进程；重启后是否弹主界面看「启动后显示主界面」
-    private static void RestartApplication(MainWindow main)
+    // 重新拉起一个实例后再退出当前进程。
+    // 「立即重启」要看到主界面，所以带 --show（否则偏好是静默启动时会收进托盘，像没重启）；
+    // 托盘菜单的重启也走这里，同样回到主界面。
+    internal static void RestartApplication(MainWindow main)
     {
         // 先放掉单实例互斥体再拉新进程：否则新进程会判定已有实例在跑、弹一下旧窗口就退出
         Services.SingleInstance.Release();
         if (Environment.ProcessPath is { } exe)
-            Process.Start(new ProcessStartInfo(exe) { UseShellExecute = true });
+            Process.Start(new ProcessStartInfo(exe, "--show") { UseShellExecute = true });
         main.ExitApplication();
     }
 }

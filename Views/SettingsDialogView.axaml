@@ -84,6 +84,23 @@
                             <ToggleButton Grid.Column="2" Classes="Switch" VerticalAlignment="Center"
                                           IsChecked="{Binding CardShadow}" />
                         </Grid>
+                        <Grid ColumnDefinitions="Auto,*,Auto">
+                            <Border Classes="SetIc" Background="{DynamicResource AmberSoftBrush}">
+                                <Viewbox HorizontalAlignment="Center" VerticalAlignment="Center">
+                                    <Panel Width="24" Height="24">
+                                        <Path Stroke="{DynamicResource AmberBrush}" Data="{StaticResource GeoBolt}" />
+                                    </Panel>
+                                </Viewbox>
+                            </Border>
+                            <StackPanel Grid.Column="1" Margin="12,0" VerticalAlignment="Center">
+                                <TextBlock Text="硬件加速" FontSize="13.5" FontWeight="Normal"
+                                           Foreground="{DynamicResource TextBrush}" />
+                                <TextBlock Text="开启后界面改由显卡绘制，需重启应用"
+                                           Classes="Hint Sub" Margin="0,2,0,0" TextWrapping="Wrap" />
+                            </StackPanel>
+                            <ToggleButton Grid.Column="2" Classes="Switch" VerticalAlignment="Center"
+                                          IsChecked="{Binding UseGpu}" />
+                        </Grid>
                     </StackPanel>
                 </Border>
                 <Border Classes="Card">
@@ -181,6 +198,23 @@
                             </StackPanel>
                             <ToggleButton Grid.Column="2" Classes="Switch" VerticalAlignment="Center"
                                           IsChecked="{Binding DesktopMediaZone}" />
+                        </Grid>
+                        <Grid ColumnDefinitions="Auto,*,Auto">
+                            <Border Classes="SetIc" Background="{DynamicResource BlueSoftBrush}">
+                                <Viewbox HorizontalAlignment="Center" VerticalAlignment="Center">
+                                    <Panel Width="24" Height="24">
+                                        <Path Stroke="{DynamicResource BlueBrush}" Data="{StaticResource GeoAirCon}" />
+                                    </Panel>
+                                </Viewbox>
+                            </Border>
+                            <StackPanel Grid.Column="1" Margin="12,0" VerticalAlignment="Center">
+                                <TextBlock Text="在桌面显示空调分区" FontSize="13.5" FontWeight="Normal"
+                                           Foreground="{DynamicResource TextBrush}" />
+                                <TextBlock Text="一张空调控制卡，温度、模式、风速都能在桌面直接调；关掉后不会自动放回"
+                                           Classes="Hint Sub" Margin="0,2,0,0" TextWrapping="Wrap" />
+                            </StackPanel>
+                            <ToggleButton Grid.Column="2" Classes="Switch" VerticalAlignment="Center"
+                                          IsChecked="{Binding DesktopAcZone}" />
                         </Grid>
                         <Grid ColumnDefinitions="Auto,*,Auto">
                             <Border Classes="SetIc" Background="{DynamicResource GreenSoftBrush}">

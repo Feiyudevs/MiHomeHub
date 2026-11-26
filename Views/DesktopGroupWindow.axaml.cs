@@ -7,6 +7,7 @@ using System.ComponentModel;
 using System.Runtime.InteropServices;
 using Avalonia;
 using Avalonia.Controls;
+using Avalonia.Styling;
 using Avalonia.Threading;
 using MiHomeHub.Services;
 using MiHomeHub.ViewModels;
@@ -77,6 +78,7 @@ public partial class DesktopGroupWindow : Window
         _group = vm as DesktopGroupVm;
         DataContext = vm;
         Width = vm.Width;
+        // 空调分区按内容高自适应（与媒体分区一致），不参与「加一列就加宽」那套推算
         Root.Host = this;
 
         vm.PropertyChanged += OnVmPropertyChanged;
@@ -241,6 +243,12 @@ public partial class DesktopGroupWindow : Window
 
         // 材质先打
         var look = DesktopHost.Look;
+
+        // 底色是浅色（白色预设）时，整块分区切浅色主题：文字、图标、描边全部跟着主题资源走深色版，
+        // 否则白底上还是近白字，等于没有文字。切主题会让 DynamicResource 重新解析，换回来也自动还原。
+        var variant = DesktopPalette.IsLight(look) ? ThemeVariant.Light : ThemeVariant.Dark;
+        if (RequestedThemeVariant != variant) RequestedThemeVariant = variant;
+
         if (look.Glass)
             DesktopEmbed.ApplyAcrylic(h, DesktopPalette.TintColor(look), DesktopPalette.TintOpacity(look));
         else
@@ -257,6 +265,25 @@ public partial class DesktopGroupWindow : Window
             DesktopEmbed.RoundCorners(h, Corner);   // Win10 无 DWMWCP_ROUND：回退 RGN（磨砂角部会方，accept）
         else
             DesktopEmbed.RoundCorners(h, 0);        // DWM 收角成功：Region 归零，避免双弧
+    }
+
+    /// <summary>
+    /// 外观（背景浓度 / 毛玻璃 / 底色）改动后立即作用到这块分区：
+    /// 1) 让 Avalonia 内容重画一帧 —— 底色是从 VM 换进来的画刷，必须真落到画面上；
+    /// 2) 清掉旧 ACCENT 再按新参数重打，DWM 才会重建模糊层；
+    /// 3) 把这一帧推出去等合成 —— 全程**不动窗口几何**，否则拖动时整块分区会跟着 1px 抖动。
+    /// </summary>
+    public void ReapplyAppearance()
+    {
+        InvalidateVisual();
+        Root.InvalidateVisual();
+
+        var h = Hwnd;
+        if (h == nint.Zero || !IsVisible || _dragging || _resizing) return;
+        DesktopEmbed.ClearAcrylic(h);
+        ApplyChrome();
+        DesktopEmbed.NudgePresent(h);
+        DesktopLog.Write($"[chrome] 重打磨砂 reason=appearance hwnd={h}");
     }
 
     /// <summary>

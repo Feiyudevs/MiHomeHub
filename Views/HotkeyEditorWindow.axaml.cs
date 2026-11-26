@@ -251,7 +251,7 @@ public partial class HotkeyEditorWindow : Window
     private async void OnPickTargetsClick(object? sender, RoutedEventArgs e)
     {
         var request = _vm.BuildHotkeyTargetPickerRequest();
-        if (request.Devices.Count == 0 && request.SceneCandidates.Count == 0 && request.Automations.Count == 0) return;
+        if (request.Devices.Count == 0 && request.SceneCandidates.Count == 0) return;
 
         try
         {

@@ -9,10 +9,12 @@
     xmlns:svc="clr-namespace:MiHomeHub.Services"
     x:Class="MiHomeHub.Views.DeviceDrawerView"
     x:DataType="vm:MainViewModel">
+        <!-- 边距对齐主内容面板（设备列表卡片）外沿：父级主体网格左右下各留 10、上留 0，
+             抽屉右/上/下三边因此贴着面板边框铺开，不再四周悬空 5px、右下探出面板。 -->
         <Border x:Name="DeviceDrawer" Width="380" HorizontalAlignment="Right"
                 VerticalAlignment="Stretch"
                 Background="{DynamicResource DrawerBgBrush}"
-                CornerRadius="20" Margin="0,5,5,5"
+                CornerRadius="20" Margin="0,0,10,10"
                 BorderBrush="{DynamicResource LineBrush}" BorderThickness="1"
                 ClipToBounds="True"
                 BoxShadow="0 16 36 0 #2A0F172A" IsVisible="False">
@@ -36,10 +38,11 @@
                                        RenderOptions.BitmapInterpolationMode="MediumQuality" />
                             </Border>
                         </Panel>
-                        <!-- 名称/房间与「添加到桌面组件」圆钮同处一行：钮靠右并垂直居中对齐这两行文字 -->
+                        <!-- 名称/房间与右侧操作胶囊同处一行：胶囊靠右并垂直居中对齐这两行文字 -->
                         <Grid ColumnDefinitions="*,Auto">
                             <StackPanel Grid.Column="0" Spacing="0">
                                 <TextBlock Text="{Binding DrawerDevice.Name}" FontSize="19" FontWeight="Bold"
+                                           TextWrapping="Wrap"
                                            Foreground="{DynamicResource TextBrush}" />
                                 <StackPanel Orientation="Horizontal" Spacing="8" Margin="0,6,0,0">
                                     <TextBlock Text="{Binding DrawerDevice.RoomName}" Foreground="{DynamicResource Text3Brush}"
@@ -51,24 +54,55 @@
                                                Text="离线" />
                                 </StackPanel>
                             </StackPanel>
-                            <!-- 胶囊钮：加号 + 「桌面」两个字，告诉用户这颗钮是把设备放到桌面上 -->
-                            <Button Grid.Column="1" Classes="IconPill" Margin="10,0,0,0" VerticalAlignment="Center"
-                                    Command="{Binding AddToDesktopCommand}"
-                                    CommandParameter="{Binding DrawerDevice}"
-                                    ToolTip.Tip="添加到桌面组件">
-                                <StackPanel Orientation="Horizontal" Spacing="5">
-                                    <Viewbox Width="13" Height="13" Stretch="Uniform"
-                                             HorizontalAlignment="Center" VerticalAlignment="Center">
-                                        <Panel Width="24" Height="24">
-                                            <Path StrokeThickness="2" StrokeLineCap="Round"
-                                                  Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}"
-                                                  Data="{StaticResource GeoPlus}" />
-                                        </Panel>
-                                    </Viewbox>
-                                    <TextBlock Text="桌面" FontSize="12.5" VerticalAlignment="Center"
-                                               Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" />
-                                </StackPanel>
-                            </Button>
+                            <!-- 右侧两颗胶囊并排一行：「桌面」把设备放上桌面，「隐藏 / 恢复」把它
+                                 从房间宫格收进列表末尾的「已隐藏」区（与卡片右键同一套动作、同一个命令）。
+                                 标题放在左边换行，长设备名不再被按钮挤掉 -->
+                            <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="6" Margin="10,0,0,0"
+                                        VerticalAlignment="Center" HorizontalAlignment="Right">
+                                <!-- 胶囊钮：加号 + 「桌面」两个字，告诉用户这颗钮是把设备放到桌面上 -->
+                                <Button Classes="IconPill"
+                                        Command="{Binding AddToDesktopCommand}"
+                                        CommandParameter="{Binding DrawerDevice}"
+                                        ToolTip.Tip="添加到桌面组件">
+                                    <StackPanel Orientation="Horizontal" Spacing="5">
+                                        <Viewbox Width="13" Height="13" Stretch="Uniform"
+                                                 HorizontalAlignment="Center" VerticalAlignment="Center">
+                                            <Panel Width="24" Height="24">
+                                                <Path StrokeThickness="2" StrokeLineCap="Round"
+                                                      Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}"
+                                                      Data="{StaticResource GeoPlus}" />
+                                            </Panel>
+                                        </Viewbox>
+                                        <TextBlock Text="桌面" FontSize="12.5" VerticalAlignment="Center"
+                                                   Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" />
+                                    </StackPanel>
+                                </Button>
+                                <!-- 隐藏 / 恢复：未隐藏时是划掉的眼睛 + 「隐藏」，隐藏后同一颗钮变回眼睛 + 「恢复」，
+                                     就地可撤销，不用再去列表末尾找 -->
+                                <Button Classes="IconPill"
+                                        Command="{Binding HideDeviceCommand}"
+                                        CommandParameter="{Binding DrawerDevice}"
+                                        ToolTip.Tip="{Binding DrawerDevice.IsHidden, Converter={x:Static conv:BoolTextConverter.Instance}, ConverterParameter='取消隐藏，放回原房间宫格|隐藏后从房间宫格收起，可在列表末尾「已隐藏」里找回'}">
+                                    <StackPanel Orientation="Horizontal" Spacing="5">
+                                        <Viewbox Width="13" Height="13" Stretch="Uniform"
+                                                 HorizontalAlignment="Center" VerticalAlignment="Center">
+                                            <Panel Width="24" Height="24">
+                                                <Path StrokeThickness="2" StrokeLineCap="Round" StrokeJoin="Round"
+                                                      Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}"
+                                                      IsVisible="{Binding !DrawerDevice.IsHidden}"
+                                                      Data="M2,12 C5,7 8.5,5 12,5 C15.5,5 19,7 22,12 C19,17 15.5,19 12,19 C8.5,19 5,17 2,12 Z M12,8.6 A3.4,3.4 0 1,1 11.99,8.6 M4,4 L20,20" />
+                                                <Path StrokeThickness="2" StrokeLineCap="Round" StrokeJoin="Round"
+                                                      Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}"
+                                                      IsVisible="{Binding DrawerDevice.IsHidden}"
+                                                      Data="M2,12 C5,7 8.5,5 12,5 C15.5,5 19,7 22,12 C19,17 15.5,19 12,19 C8.5,19 5,17 2,12 Z M12,8.6 A3.4,3.4 0 1,1 11.99,8.6" />
+                                            </Panel>
+                                        </Viewbox>
+                                        <TextBlock FontSize="12.5" VerticalAlignment="Center"
+                                                   Text="{Binding DrawerDevice.IsHidden, Converter={x:Static conv:BoolTextConverter.Instance}, ConverterParameter='恢复|隐藏'}"
+                                                   Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" />
+                                    </StackPanel>
+                                </Button>
+                            </StackPanel>
                         </Grid>
                     </StackPanel>
                     <Button Classes="ThemeBtn" Width="32" Height="32" Padding="8"

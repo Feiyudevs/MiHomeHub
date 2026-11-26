@@ -16,7 +16,28 @@ public sealed class RecyclingItemsControl : ItemsControl
 {
     private RetainedDataTemplate? _retainedTemplate;
 
+    /// <summary>入场动画的有效窗口：这段时间内新准备的容器在测量前就压成全透明。</summary>
+    private const int RevealWindowMs = 80;
+    private long _revealUntilTicks;
+
     protected override Type StyleKeyOverride => typeof(ItemsControl);
+
+    /// <summary>
+    /// 页内列表的入场动画由列表自己接管：已经上屏的容器当场归零，之后这一小段窗口里
+    /// 才实例化的容器在准备阶段（测量、上屏之前）就归零，动画再按索引依次追上。
+    /// 这样卡片不会先整块亮一帧、再被拉回透明重放 —— 那一下看起来就像列表在重新排序。
+    /// 返回 false 表示这个列表这次不做入场（没数据、或整块被收起），交给调用方按老办法处理。
+    /// </summary>
+    public bool BeginEnterReveal()
+    {
+        if (ItemCount == 0 || !IsEffectivelyVisible) return false;
+
+        _revealUntilTicks = Environment.TickCount64 + RevealWindowMs;
+        for (var i = 0; i < ItemCount; i++)
+            if (ContainerFromIndex(i) is Control card)
+                CardReveal.Play(card, CardReveal.DelayFor(i));
+        return true;
+    }
 
     protected override void PrepareContainerForItemOverride(Control container, object? item, int index)
     {
@@ -42,6 +63,9 @@ public sealed class RecyclingItemsControl : ItemsControl
         // 容器可能来自回收池；不能用基类的 SetIfUnset 跳过数据更新。
         presenter.SetCurrentValue(ContentPresenter.ContentProperty, item);
         base.PrepareContainerForItemOverride(container, item, index);
+
+        if (_revealUntilTicks > Environment.TickCount64)
+            CardReveal.Play(container, CardReveal.DelayFor(index));
     }
 
     protected override void ClearContainerForItemOverride(Control container)

@@ -1,0 +1,112 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="clr-namespace:MiHomeHub.ViewModels"
+        x:Class="MiHomeHub.Views.DesktopAcPickWindow"
+        x:DataType="vm:DesktopAcVm"
+        Title="选择空调"
+        Width="240" SizeToContent="Height"
+        SystemDecorations="None" CanResize="False"
+        ShowInTaskbar="False" Topmost="True"
+        WindowStartupLocation="Manual"
+        TransparencyLevelHint="Transparent"
+        Background="Transparent"
+        RenderOptions.TextRenderingMode="Antialias"
+        RequestedThemeVariant="Light">
+
+    <Window.Styles>
+        <!-- 一行一台空调：整行可点，当前这台只用品牌主色的柔色底 + 同色文字区分，不加勾 -->
+        <Style Selector="Button.SPItem">
+            <Setter Property="Height" Value="30" />
+            <Setter Property="Padding" Value="8,0" />
+            <Setter Property="CornerRadius" Value="7" />
+            <Setter Property="HorizontalAlignment" Value="Stretch" />
+            <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+            <Setter Property="Background" Value="{DynamicResource SelBgFromBrush}" />
+            <Setter Property="BorderThickness" Value="0" />
+            <Setter Property="Focusable" Value="False" />
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="FontSize" Value="12.5" />
+            <Setter Property="Transitions">
+                <Transitions>
+                    <BrushTransition Property="Background" Duration="0:0:0.1" />
+                </Transitions>
+            </Setter>
+        </Style>
+        <Style Selector="Button.SPItem TextBlock">
+            <Setter Property="Foreground" Value="{DynamicResource DskText2Brush}" />
+        </Style>
+        <Style Selector="TextBlock.Room">
+            <Setter Property="FontSize" Value="10.5" />
+            <Setter Property="Foreground" Value="{DynamicResource DskText3Brush}" />
+            <Setter Property="VerticalAlignment" Value="Center" />
+        </Style>
+        <Style Selector="Button.SPItem:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+            <Setter Property="Background" Value="{DynamicResource SelBgHoverBrush}" />
+        </Style>
+        <Style Selector="Button.SPItem.current /template/ ContentPresenter#PART_ContentPresenter">
+            <Setter Property="Background" Value="{DynamicResource SelBgBrush}" />
+        </Style>
+        <Style Selector="Button.SPItem:pointerover TextBlock">
+            <Setter Property="Foreground" Value="{DynamicResource SelTextBrush}" />
+        </Style>
+        <Style Selector="Button.SPItem.current TextBlock">
+            <Setter Property="Foreground" Value="{DynamicResource SelTextBrush}" />
+        </Style>
+        <Style Selector="Button.SPItem.current:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+            <Setter Property="Background" Value="{DynamicResource SelBgBrush}" />
+        </Style>
+        <Style Selector="Button.SPItem.current:pressed /template/ ContentPresenter#PART_ContentPresenter">
+            <Setter Property="Background" Value="{DynamicResource SelBgPressBrush}" />
+        </Style>
+        <Style Selector="Border.PopupCard">
+            <Setter Property="Opacity" Value="0" />
+            <Setter Property="RenderTransformOrigin" Value="50%, 0%" />
+            <Setter Property="RenderTransform" Value="scale(0.94) translate(0px,8px)" />
+            <Setter Property="Transitions">
+                <Transitions>
+                    <DoubleTransition Property="Opacity" Duration="0:0:0.14" Easing="CubicEaseOut" />
+                    <TransformOperationsTransition Property="RenderTransform" Duration="0:0:0.22" Easing="CubicEaseOut" />
+                </Transitions>
+            </Setter>
+        </Style>
+        <Style Selector="Border.PopupCard.open">
+            <Setter Property="Opacity" Value="1" />
+            <Setter Property="RenderTransform" Value="scale(1) translate(0px,0px)" />
+        </Style>
+    </Window.Styles>
+
+    <Border x:Name="Card" Classes="PopupCard"
+            Background="{DynamicResource DrawerBgBrush}"
+            BorderBrush="{DynamicResource LineBrush}"
+            BorderThickness="1"
+            CornerRadius="12"
+            Padding="6"
+            BoxShadow="0 2 6 0 #140F172A, 0 12 28 0 #1F0F172A">
+        <StackPanel>
+            <TextBlock Text="选择控制的空调" FontSize="10.5" FontWeight="Normal"
+                       Margin="8,3,8,5" Foreground="{DynamicResource DskText3Brush}" />
+            <ItemsControl ItemsSource="{Binding AcPicks}">
+                <ItemsControl.ItemsPanel>
+                    <ItemsPanelTemplate>
+                        <StackPanel Spacing="2" />
+                    </ItemsPanelTemplate>
+                </ItemsControl.ItemsPanel>
+                <ItemsControl.ItemTemplate>
+                    <DataTemplate x:DataType="vm:AcPickItem">
+                        <Button Classes="SPItem" Classes.current="{Binding IsCurrent}"
+                                Tag="{Binding Did}" Click="OnPick">
+                            <Grid ColumnDefinitions="*,Auto">
+                                <TextBlock Text="{Binding Label}" TextTrimming="CharacterEllipsis"
+                                           VerticalAlignment="Center" />
+                                <Border Classes="RoomTag" Grid.Column="1" Margin="8,0,0,0"
+                                        IsVisible="{Binding Meta, Converter={x:Static StringConverters.IsNotNullOrEmpty}}">
+                                    <TextBlock Classes="RoomTagTx" Text="{Binding Meta}" />
+                                </Border>
+                            </Grid>
+                        </Button>
+                    </DataTemplate>
+                </ItemsControl.ItemTemplate>
+            </ItemsControl>
+        </StackPanel>
+    </Border>
+</Window>

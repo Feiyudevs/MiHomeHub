@@ -1,0 +1,29 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="clr-namespace:MiHomeHub.ViewModels"
+             xmlns:ctl="clr-namespace:MiHomeHub.Controls"
+             x:Class="MiHomeHub.Views.RestartConfirmDialogView"
+             x:DataType="vm:MainViewModel">
+    <!-- 切换渲染管线（硬件加速）后的重启确认：单独一层，压在设置弹窗之上 -->
+    <ctl:DialogPopup CardWidth="440" Title="需要重启应用"
+                     IsOpen="{Binding IsGpuRestartConfirmOpen}"
+                     CloseCommand="{Binding CancelGpuRestartCommand}">
+        <ctl:DialogPopup.Footer>
+            <Border BorderBrush="{DynamicResource LineBrush}" BorderThickness="0,1,0,0"
+                    Padding="0,14,0,0" Margin="28,0,22,20">
+                <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Spacing="8">
+                    <Button Classes="BtnGhost" Height="34" Content="稍后"
+                            Command="{Binding CancelGpuRestartCommand}" />
+                    <Button Classes="BtnPrimary" Height="34" Content="立即重启"
+                            Click="OnRestartNow" />
+                </StackPanel>
+            </Border>
+        </ctl:DialogPopup.Footer>
+        <StackPanel Spacing="10">
+            <TextBlock Text="{Binding GpuRestartMessage}" FontSize="13.5" FontWeight="Normal"
+                       Foreground="{DynamicResource TextBrush}" TextWrapping="Wrap" />
+            <TextBlock Text="选「稍后」会保持当前绘制方式，本次运行不受影响。"
+                       Classes="Hint Sub" TextWrapping="Wrap" />
+        </StackPanel>
+    </ctl:DialogPopup>
+</UserControl>

@@ -62,7 +62,7 @@
                         <Button Grid.Column="1" Classes="BtnGhost" Height="26" Padding="10,0" FontSize="11.5"
                                 Content="恢复默认" Command="{Binding RestoreDefaultCommand}" />
                     </Grid>
-                    <!-- 预设色板：Zonex 同款 7 色，点一下即设为分区底色（并自动关掉「跟随主题」） -->
+                    <!-- 预设色板：Zonex 同款 7 色 + 一支纸白，点一下即设为分区底色（并自动关掉「跟随主题」） -->
                     <ItemsControl ItemsSource="{Binding Presets}">
                         <ItemsControl.ItemsPanel>
                             <ItemsPanelTemplate>

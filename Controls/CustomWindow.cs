@@ -40,6 +40,14 @@ public class CustomWindow : Window
     private bool _surfaceMaximized;
     private PixelRect? _lastNormalOuter;
 
+    // 系统模态「移动 / 缩放」循环（WM_ENTERSIZEMOVE → WM_EXITSIZEMOVE）。
+    // 这期间窗口矩形每帧都在变：任何对几何的改写都会变成肉眼可见的回弹，
+    // chrome 修复与普通态记录也必须让路，否则拖动时每个像素都多花一次跨进程调用。
+    private bool _inSizeMove;
+    private bool _sizeMoveIsResize;
+    private PixelRect? _sizeMoveStartOuter;
+    private bool _contentFrozen;
+
     /// <summary>卡片圆角（DIP）。必须与派生窗 Border.CornerRadius 用同一个数。</summary>
     public double SurfaceCornerRadius { get; set; } = 20d;
 
@@ -100,8 +108,23 @@ public class CustomWindow : Window
             DesktopNative.SWP_NOZORDER | DesktopNative.SWP_NOOWNERZORDER | DesktopNative.SWP_NOACTIVATE);
     }
 
+    /// <summary>是否处于系统模态的移动 / 缩放循环里（用户正按住标题栏或边框拖动）。</summary>
+    protected bool IsInSizeMove => _inSizeMove;
+
     /// <summary>派生窗在这里把 Border 的 Margin / CornerRadius 对齐到 Effective* 值。</summary>
     protected virtual void OnSurfaceGeometryChanged() { }
+
+    /// <summary>
+    /// 用户开始 / 结束拖拽缩放（WM_ENTERSIZEMOVE / WM_EXITSIZEMOVE）。
+    /// 缩放期间整窗每帧重绘，派生窗可在此临时卸掉大面积特效；纯移动不触发。
+    /// </summary>
+    protected virtual void OnResizeInteractionChanged(bool resizing) { }
+
+    /// <summary>
+    /// 缩放过程中内容是否要钉在原尺寸：缩小时钉住（内容被裁、不重排），
+    /// 任一维度超过进入时的尺寸就解冻（内容跟着重排，避免拖大时露出底色）。
+    /// </summary>
+    protected virtual void OnResizeContentFreezeChanged(bool frozen) { }
 
     protected override void OnOpened(EventArgs e)
     {
@@ -235,12 +258,53 @@ public class CustomWindow : Window
 
     private nint OnNativeMessage(nint hWnd, uint uMsg, nint wParam, nint lParam)
     {
+        // 系统模态移动 / 缩放循环的起点：记下进入时的外层矩形，用来区分「纯移动」与「改尺寸」。
+        if (uMsg == DesktopNative.WM_ENTERSIZEMOVE)
+        {
+            _inSizeMove = true;
+            _sizeMoveIsResize = false;
+            _contentFrozen = false;
+            _sizeMoveStartOuter = DesktopNative.GetWindowRect(hWnd, out var entering)
+                ? new PixelRect(entering.Left, entering.Top, entering.Right - entering.Left, entering.Bottom - entering.Top)
+                : null;
+        }
+
+        // 拖拽期间系统每帧都在提交新矩形：这里只负责判断「开始改尺寸了」，绝不改写几何。
+        // 一旦回写尺寸，拖边框时就会看到窗口和自己的边框抢方向，表现为回弹 / 抖动。
+        if (uMsg == DesktopNative.WM_WINDOWPOSCHANGING && _inSizeMove)
+        {
+            var proposed = Marshal.PtrToStructure<DesktopNative.WINDOWPOS>(lParam);
+            if (_sizeMoveStartOuter is { } start && proposed.cx > 0 && proposed.cy > 0)
+            {
+                if (!_sizeMoveIsResize && (proposed.cx != start.Width || proposed.cy != start.Height))
+                {
+                    _sizeMoveIsResize = true;
+                    OnResizeInteractionChanged(true);
+                }
+
+                // 内容冻结只在「不比进入时更大」的方向生效：
+                // 拖小时钉住内容（被裁但不重排），一旦任一维度超过进入尺寸就解冻重排 ——
+                // 否则拖大时右侧 / 底部会露出一条底色，观感比掉帧更差。
+                var beyondStart = proposed.cx > start.Width || proposed.cy > start.Height;
+                var shrunkFromStart = proposed.cx < start.Width || proposed.cy < start.Height;
+                if (beyondStart && _contentFrozen)
+                {
+                    _contentFrozen = false;
+                    OnResizeContentFreezeChanged(false);
+                }
+                else if (!beyondStart && shrunkFromStart && !_contentFrozen)
+                {
+                    _contentFrozen = true;
+                    OnResizeContentFreezeChanged(true);
+                }
+            }
+        }
         // 从最小化恢复的瞬间，系统/Avalonia 提交的是「客户区 + 7px 缩放边」的放大矩形，
         // 放行后再去纠正就会看到窗口先弹大、再缩回（抖动一下）。
         // 窗口此刻还处在最小化态，直接在 WM_WINDOWPOSCHANGING 里把矩形改成记忆里的普通态矩形。
         // 首次显示同理：Avalonia 会把 Width/Height 按 WS_THICKFRAME 换算成外层（每次都多加 14），
         // 这里按声明尺寸纠回去，否则启动一次胖一圈。
-        if (uMsg == DesktopNative.WM_WINDOWPOSCHANGING && !IsSurfaceMaximized)
+        if (uMsg == DesktopNative.WM_WINDOWPOSCHANGING && !_inSizeMove && !IsSurfaceMaximized)
         {
             var pos = Marshal.PtrToStructure<DesktopNative.WINDOWPOS>(lParam);
             if (DesktopNative.IsIconic(hWnd) && _lastNormalOuter is { } restore)
@@ -294,13 +358,37 @@ public class CustomWindow : Window
         // SetWindowPos(FRAMECHANGED) 只修样式，修完下轮检查全绿，不会递归。
         if (uMsg == DesktopNative.WM_SIZE || uMsg == DesktopNative.WM_WINDOWPOSCHANGED)
         {
-            if (!_repairing)
+            // 这两个消息在拖拽 / 缩放时每帧都来。先问一句「样式到底脏没脏」再动手：
+            // 干净时 EnsureClean 只会白跑 4 次跨进程 DWM 调用；拖拽期间整体跳过，松手时补一次。
+            if (!_inSizeMove && !_repairing && WindowChrome.NeedsRepair(hWnd, CanResize))
             {
                 _repairing = true;
                 try { WindowChrome.EnsureClean(hWnd, CanResize); }
                 finally { _repairing = false; }
             }
+            if (!_inSizeMove) RememberNormalOuter(hWnd);
+        }
+
+        // 松手：把拖拽期间让路的 chrome 修复补上，再记最终的普通态矩形。
+        if (uMsg == DesktopNative.WM_EXITSIZEMOVE)
+        {
+            _inSizeMove = false;
+            _sizeMoveIsResize = false;
+            _sizeMoveStartOuter = null;
+            if (_contentFrozen)
+            {
+                _contentFrozen = false;
+                OnResizeContentFreezeChanged(false);
+            }
             RememberNormalOuter(hWnd);
+            if (!_repairing && WindowChrome.NeedsRepair(hWnd, CanResize))
+            {
+                _repairing = true;
+                try { WindowChrome.EnsureClean(hWnd, CanResize); }
+                finally { _repairing = false; }
+            }
+            // 松手一律通知一次：缩放要解冻内容，纯移动也要让派生窗补记最终落位。
+            OnResizeInteractionChanged(false);
         }
 
         return result;

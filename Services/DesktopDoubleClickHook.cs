@@ -22,7 +22,11 @@ internal static class DesktopDoubleClickHook
     private static int _lastDownY;
     private static long _lastFireMs;
 
-    /// <summary>在 UI 线程安装（WH_MOUSE_LL 的回调也投递到这条线程的消息循环）。</summary>
+    /// <summary>
+    /// 在 UI 线程安装（WH_MOUSE_LL 的回调也投递到这条线程的消息循环）。
+    /// **启动早期不要调用**：低层鼠标钩子会让全系统的鼠标事件先等本进程处理，
+    /// 启动那几秒 UI 线程还没忙完，钩子早挂就等于整机鼠标卡顿；由 App 在界面空闲后调用。
+    /// </summary>
     public static void Install()
     {
         if (_hook != nint.Zero) return;
@@ -36,6 +40,8 @@ internal static class DesktopDoubleClickHook
             // 钩子装不上不影响程序其余功能，只是双击桌面不生效
             _hook = nint.Zero;
         }
+
+        DesktopLog.Write($"desktop mouse hook install → {(_hook == nint.Zero ? "failed" : "ok")}");
     }
 
     private static nint OnMouse(int nCode, nint wParam, nint lParam)

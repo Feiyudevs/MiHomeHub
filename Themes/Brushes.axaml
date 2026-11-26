@@ -55,32 +55,35 @@
             <BoxShadows x:Key="CardShadowHover">0 3 8 0 #0D0F172A, 0 10 24 0 #140F172A</BoxShadows>
             <ResourceDictionary.ThemeDictionaries>
                 <ResourceDictionary x:Key="Dark">
-                    <SolidColorBrush x:Key="BgBrush" Color="#07090E"/>
-                    <SolidColorBrush x:Key="PanelBrush" Color="#0E1118"/>
+                    <SolidColorBrush x:Key="BgBrush" Color="#07080C"/>
+                    <SolidColorBrush x:Key="PanelBrush" Color="#0E1014"/>
                     <!-- 卡片：不另设色值，改用原卡色带一点透明度（82%），透出下层底色后
-                         自然沉一档，也能吃到底下的色温 -->
-                    <SolidColorBrush x:Key="CardBrush" Color="#D11A1F2C"/>
-                    <SolidColorBrush x:Key="Card2Brush" Color="#D1222838"/>
+                         自然沉一档，也能吃到底下的色温；色相在中性灰与冷蓝灰之间取中 -->
+                    <SolidColorBrush x:Key="CardBrush" Color="#D11D1F26"/>
+                    <SolidColorBrush x:Key="Card2Brush" Color="#D1272932"/>
                     <!-- 设置页内卡片：比全局 CardBrush 再淡一档，降低存在感 -->
-                    <SolidColorBrush x:Key="CardSoftBrush" Color="#D1161A24"/>
+                    <SolidColorBrush x:Key="CardSoftBrush" Color="#D117181E"/>
                     <!-- 卡中卡（高级设置里的规格分组）：不能复用 CardBrush —— 它是 82% 半透明，
                          两层同色叠加会自抵消（合成色差只有 1~2 级），内层卡会彻底融进外层。
-                         这里改成一层淡白提亮，只靠色阶分层，不描边。 -->
-                    <SolidColorBrush x:Key="SubCardBrush" Color="#10FFFFFF"/>
+                         这里只提亮 3.5% 白（原来 6%），够说明「这是一组」，又不跟外层卡抢层次；
+                         不描边、不叠投影，边界交给色阶。 -->
+                    <SolidColorBrush x:Key="SubCardBrush" Color="#09FFFFFF"/>
                     <!-- 浮层专用：Popup / 独立置顶窗口背后的东西是屏幕上的其它内容（甚至桌面壁纸），
                          卡片那种半透会直接透出它们，所以这里给一支不透明的合成色（= 卡片叠在面板上的结果） -->
-                    <SolidColorBrush x:Key="CardSolidBrush" Color="#181C28"/>
+                    <SolidColorBrush x:Key="CardSolidBrush" Color="#1A1C23"/>
                     <!-- 搜索框底：CardBrush 50% 透明，比卡片更轻 -->
-                    <SolidColorBrush x:Key="SearchBgBrush" Color="#801A1F2C"/>
+                    <SolidColorBrush x:Key="SearchBgBrush" Color="#801D1F26"/>
                     <!-- 搜索框边框：LineBrush 一半透明度 -->
                     <SolidColorBrush x:Key="SearchLineBrush" Color="#09FFFFFF"/>
                     <!-- 下拉触发器：比搜索框再轻一档，靠浮层投影而不是描边区分层次 -->
                     <SolidColorBrush x:Key="PickFillBrush" Color="#08FFFFFF"/>
                     <SolidColorBrush x:Key="PickLineBrush" Color="#0AFFFFFF"/>
-                    <SolidColorBrush x:Key="HoverBrush" Color="#282F42"/>
+                    <SolidColorBrush x:Key="HoverBrush" Color="#272934"/>
                     <!-- 淡入起点：必须与 HoverBrush 同色、只把透明位拉满，配色改一处要改两处 -->
-                    <SolidColorBrush x:Key="PlayHoverFromBrush" Color="#00282F42"/>
+                    <SolidColorBrush x:Key="PlayHoverFromBrush" Color="#00272934"/>
                     <SolidColorBrush x:Key="LineBrush" Color="#12FFFFFF"/>
+                    <!-- 弹窗基类卡片描边：比全局 LineBrush 略亮一档，浮层卡片压在遮罩上轮廓更立得住 -->
+                    <SolidColorBrush x:Key="DialogLineBrush" Color="#16FFFFFF"/>
                     <!-- 主窗口卡片外轮廓：比全局 LineBrush 深一档，窗口贴在桌面上时才立得住 -->
                     <SolidColorBrush x:Key="WindowLineBrush" Color="#15FFFFFF"/>
                     <!-- 桌面分区卡片外轮廓：比全局 LineBrush 重一档、仍轻于主窗口，透出壁纸时轮廓才立得住。
@@ -91,6 +94,9 @@
                     <SolidColorBrush x:Key="TextBrush" Color="#EEF1F6"/>
                     <SolidColorBrush x:Key="Text2Brush" Color="#99A1B3"/>
                     <SolidColorBrush x:Key="Text3Brush" Color="#646C7E"/>
+                    <!-- 环境概览胶囊的读数：比主文字弱一档的柔白，压在浅底胶囊上不刺眼，
+                         仍要亮于左侧「温度 / 湿度」标签（Text3Brush），读数不能读成注释 -->
+                    <SolidColorBrush x:Key="EnvValBrush" Color="#C9D1DF"/>
                     <!-- 输入框占位文字（TextBox.PlaceholderForeground）：中性白带 alpha，不再叠整块半透明。
                          压在深色卡/搜索框上合成约 #8B8F94（≈5:1），笔画是实的；换回 Text3Brush 那种次级灰会偏青、发脏 -->
                     <SolidColorBrush x:Key="WatermarkBrush" Color="#80FFFFFF"/>
@@ -119,6 +125,11 @@
                     <!-- 分区标题栏图钉的开启态：品牌紫提亮一档，压得住卡片底色 -->
                     <SolidColorBrush x:Key="PinBrush" Color="#8B7CFF"/>
                     <SolidColorBrush x:Key="AccentSoftBrush" Color="#247C5CFC"/>
+                    <!-- 分段按钮的悬停档：品牌紫兑白的柔光（偏白、只留一点紫味）。
+                         悬停要一眼看得出来，又不能重到像「已选中」——选中是实心紫（PrimaryBtnBrush），
+                         这里只留一层浅白紫；配套 *From 是同色零透明起点，淡入时不会先闪灰 -->
+                    <SolidColorBrush x:Key="AccentSoft2Brush" Color="#70E7E3FF"/>
+                    <SolidColorBrush x:Key="AccentSoft2FromBrush" Color="#00E7E3FF"/>
                     <!-- 菜单 / 下拉的选中底：全应用统一走品牌主色 #7C5CFC 的实心档（与电源键开启态同色相）。
                          选中 = 提亮一档的实心紫 + 互补白字；悬停是同色相压暗一档的预览，按压再亮一档。 -->
                     <SolidColorBrush x:Key="SelBgBrush" Color="#8B7CFF"/>
@@ -146,10 +157,29 @@
                     <SolidColorBrush x:Key="DangerBrush" Color="#FF5A5A"/>
                     <SolidColorBrush x:Key="DangerSoftBrush" Color="#2AFF5A5A"/>
                     <SolidColorBrush x:Key="BlueSoftBrush" Color="#244D8DFF"/>
+                    <!-- 环境胶囊三件套（温度 / 湿度 / 耗材）：底色、悬停底色、文字各一支，只给首页那三枚胶囊用。
+                         深色主题维持原来的暖橙 / 天蓝 / 绿；浅色主题另配一套更淡的（见 Light 段），
+                         两个主题要分开调密度，所以不共用 BlueSoft / GreenSoft 这类通用软底 -->
+                    <SolidColorBrush x:Key="PillTempBgBrush" Color="#2AFFC07A"/>
+                    <SolidColorBrush x:Key="PillTempBgHoverBrush" Color="#40FFC07A"/>
+                    <SolidColorBrush x:Key="PillTempInkBrush" Color="#FFC07A"/>
+                    <SolidColorBrush x:Key="PillHumBgBrush" Color="#244D8DFF"/>
+                    <SolidColorBrush x:Key="PillHumBgHoverBrush" Color="#3D4D8DFF"/>
+                    <SolidColorBrush x:Key="PillHumInkBrush" Color="#8FD9FF"/>
+                    <SolidColorBrush x:Key="PillConsBgBrush" Color="#242FD573"/>
+                    <SolidColorBrush x:Key="PillConsBgHoverBrush" Color="#3D2FD573"/>
+                    <SolidColorBrush x:Key="PillConsInkBrush" Color="#6BE894"/>
                     <SolidColorBrush x:Key="AmberBrush" Color="#FFD97A"/>
                     <SolidColorBrush x:Key="AmberSoftBrush" Color="#33FFC868"/>
-                    <!-- 耗材胶囊悬停档：比 AmberSoftBrush 再深一点，只给可点控件用 -->
-                    <SolidColorBrush x:Key="AmberSoft2Brush" Color="#4DFFC868"/>
+                    <!-- 耗材不足转琥珀：同样只给胶囊，密度跟着上面三枚走 -->
+                    <SolidColorBrush x:Key="PillWarnBgBrush" Color="#33FFC868"/>
+                    <SolidColorBrush x:Key="PillWarnBgHoverBrush" Color="#4DFFC868"/>
+                    <!-- 侧栏房间「灯还亮着」的光晕：中心一团暖黄、边缘收干净，
+                         灯身实心叠在它上面才像一盏点着的灯泡，而不是一块黄底标签 -->
+                    <RadialGradientBrush x:Key="LampGlowBrush" Center="50%,50%" GradientOrigin="50%,50%">
+                        <GradientStop Color="#8CFFC868" Offset="0"/>
+                        <GradientStop Color="#00FFC868" Offset="1"/>
+                    </RadialGradientBrush>
                     <SolidColorBrush x:Key="AmberTextBrush" Color="#FFE7AE"/>
                     <SolidColorBrush x:Key="PurpleBrush" Color="#C7BFFF"/>
                     <SolidColorBrush x:Key="PurpleSoftBrush" Color="#26A78BFA"/>
@@ -160,6 +190,22 @@
                     <!-- 窗帘走青绿、空调走天蓝：与在线（绿）、灯光（紫）拉开色相，四张卡才不会看成同色 -->
                     <SolidColorBrush x:Key="StatTealBrush" Color="#93E8DC"/>
                     <SolidColorBrush x:Key="StatCyanBrush" Color="#8FD9FF"/>
+                    <!-- 首页趋势卡：温度暖橙、湿度天蓝、用电淡紫；填充是同色向下渐隐，压在卡底上不抢文字 -->
+                    <SolidColorBrush x:Key="TrendTempBrush" Color="#FFC07A"/>
+                    <SolidColorBrush x:Key="TrendHumBrush" Color="#8FD9FF"/>
+                    <SolidColorBrush x:Key="TrendPowerBrush" Color="#B3A6FF"/>
+                    <LinearGradientBrush x:Key="TrendTempFill" StartPoint="0%,0%" EndPoint="0%,100%">
+                        <GradientStop Color="#47FFC07A" Offset="0"/>
+                        <GradientStop Color="#00FFC07A" Offset="1"/>
+                    </LinearGradientBrush>
+                    <LinearGradientBrush x:Key="TrendHumFill" StartPoint="0%,0%" EndPoint="0%,100%">
+                        <GradientStop Color="#3D8FD9FF" Offset="0"/>
+                        <GradientStop Color="#008FD9FF" Offset="1"/>
+                    </LinearGradientBrush>
+                    <LinearGradientBrush x:Key="TrendPowerFill" StartPoint="0%,0%" EndPoint="0%,100%">
+                        <GradientStop Color="#3DB3A6FF" Offset="0"/>
+                        <GradientStop Color="#00B3A6FF" Offset="1"/>
+                    </LinearGradientBrush>
                     <SolidColorBrush x:Key="CoolBrush" Color="#9FC9FF"/>
                     <SolidColorBrush x:Key="SurfaceBrush" Color="#0DFFFFFF"/>
                     <SolidColorBrush x:Key="Surface4Brush" Color="#0FFFFFFF"/>
@@ -179,14 +225,15 @@
                     <SolidColorBrush x:Key="SliderThumbBackground" Color="#FFFFFF"/>
                     <SolidColorBrush x:Key="SliderThumbBackgroundPointerOver" Color="#FFFFFF"/>
                     <SolidColorBrush x:Key="SliderThumbBackgroundPressed" Color="#EDEFF6"/>
-                    <!-- 胶囊滑杆（深色）：色温轨道走一整条冷→暖的渐变（百分比单位，普通数字会按像素解析导致整条只剩末端色），
+                    <!-- 胶囊滑杆（深色）：色温轨道走一整条暖→冷的渐变（百分比单位，普通数字会按像素解析导致整条只剩末端色），
+                         方向必须跟着滑块值走：左端 2700K 是暖黄橙，右端 6500K 是冷蓝，K 越大越冷。
                          亮度轨道只用纯色（不带渐变），靠已填段长度表达档位 -->
                     <LinearGradientBrush x:Key="ColorTempTrackBrush" StartPoint="0%,0%" EndPoint="100%,0%">
-                        <GradientStop Color="#3B63E2" Offset="0"/>
-                        <GradientStop Color="#7585DE" Offset="0.3"/>
+                        <GradientStop Color="#C27A1B" Offset="0"/>
+                        <GradientStop Color="#CE9550" Offset="0.22"/>
                         <GradientStop Color="#B49AB2" Offset="0.55"/>
-                        <GradientStop Color="#CE9550" Offset="0.78"/>
-                        <GradientStop Color="#C27A1B" Offset="1"/>
+                        <GradientStop Color="#7585DE" Offset="0.7"/>
+                        <GradientStop Color="#3B63E2" Offset="1"/>
                     </LinearGradientBrush>
                     <SolidColorBrush x:Key="PillFillBrush" Color="#8B7CFF"/>
                     <SolidColorBrush x:Key="MaskBrush" Color="#4A000000"/>
@@ -195,7 +242,7 @@
                     <!-- 浅色遮罩层：叠在 DrawerMaskBrush 之上再补一点点深度 -->
                     <SolidColorBrush x:Key="MaskLightBrush" Color="#14000000"/>
                     <!-- 抽屉托盘：与主内容面板同色，卡片在其上浮起 -->
-                    <SolidColorBrush x:Key="DrawerBgBrush" Color="#0E1118"/>
+                    <SolidColorBrush x:Key="DrawerBgBrush" Color="#0E1014"/>
                     <LinearGradientBrush x:Key="HeroBrush" StartPoint="0,0" EndPoint="1,1">
                         <GradientStop Color="#171B24" Offset="0"/>
                         <GradientStop Color="#141822" Offset="1"/>
@@ -207,12 +254,21 @@
                     <LinearGradientBrush x:Key="DevOnBrush" StartPoint="0.1,0" EndPoint="0.5,1">
                         <GradientStop Color="#247C5CFC" Offset="0"/>
                         <GradientStop Color="#0D7C5CFC" Offset="0.55"/>
-                        <GradientStop Color="#D11A1F2C" Offset="1"/>
+                        <GradientStop Color="#D11D1F26" Offset="1"/>
                     </LinearGradientBrush>
-                    <!-- 添加设备（选择器）里的设备卡：只在弹窗底 #0E1118 上淡淡浮起一层，
+                    <!-- 首页统计卡拟物底：参照设备卡参考图 —— 深紫灰卡面带极弱的纵向明暗（上略亮、下略沉），
+                         四周一圈细描边收轮廓，立体起伏交给厚重的分层投影。卡面不铺彩色晕，色调只留在图标与数字上。 -->
+                    <LinearGradientBrush x:Key="StatCardBrush" StartPoint="0,0" EndPoint="0,1">
+                        <GradientStop Color="#2E2B38" Offset="0"/>
+                        <GradientStop Color="#26242F" Offset="0.5"/>
+                        <GradientStop Color="#1E1D26" Offset="1"/>
+                    </LinearGradientBrush>
+                    <SolidColorBrush x:Key="StatCardLineBrush" Color="#10FFFFFF"/>
+                    <SolidColorBrush x:Key="StatCardLineHoverBrush" Color="#1EFFFFFF"/>
+                    <!-- 添加设备（选择器）里的设备卡：只在弹窗底 #0E1014 上淡淡浮起一层，
                          做成「可点的卡」但不抢镜 -->
-                    <SolidColorBrush x:Key="PickCardBrush" Color="#12161F"/>
-                    <SolidColorBrush x:Key="PickCardHoverBrush" Color="#1B212D"/>
+                    <SolidColorBrush x:Key="PickCardBrush" Color="#14161B"/>
+                    <SolidColorBrush x:Key="PickCardHoverBrush" Color="#1E2027"/>
                     <!-- 房间直达条的选中胶囊仍用实心主色（单选、只有一枚，不会铺满屏） -->
                     <SolidColorBrush x:Key="PickCardOnBrush" Color="#6A55D8"/>
                     <!-- 已选中的设备卡：整片铺主色在多选场景下会一屏紫底，压眼。
@@ -230,12 +286,6 @@
                     <!-- 分区里的电源键：底也是半透明白，不能压住磨砂 -->
                     <SolidColorBrush x:Key="DskSwitchBrush" Color="#33FFFFFF"/>
                     <SolidColorBrush x:Key="DskSwitchOnBrush" Color="#9984ECFF"/>
-                    <!-- 设备卡「更多」：铺满设备图标位置的圆角方底，只做一层薄薄的压暗（55%），
-                         背后的图标透出来一点、整体不再是一块死黑。
-                         自身悬停/按下只再提亮一丁点（55% → 61%），配合 BrushTransition 渐变：
-                         方底是压在图标上的半透明层，颜色一大幅跳变整块会「闪一下」 -->
-                    <SolidColorBrush x:Key="MoreBtnBgBrush" Color="#8C1A1F2C"/>
-                    <SolidColorBrush x:Key="MoreBtnBgHoverBrush" Color="#9C212939"/>
                     <LinearGradientBrush x:Key="PrimaryBtnBrush" StartPoint="0,0" EndPoint="1,1">
                         <GradientStop Color="#7C5CFC" Offset="0"/>
                         <GradientStop Color="#8B7CFF" Offset="1"/>
@@ -259,8 +309,8 @@
                     <SolidColorBrush x:Key="StatPinkBrush" Color="#FF8FAB"/>
                     <!-- 骨架占位：卡底比真卡略沉，占位块略亮，白色高光带扫过才看得出来。
                          渐变端点必须写百分号，纯数字会被当成绝对像素，整条渐变缩成 1px。 -->
-                    <SolidColorBrush x:Key="SkelCardBrush" Color="#D1161A24"/>
-                    <SolidColorBrush x:Key="SkelBarBrush" Color="#242938"/>
+                    <SolidColorBrush x:Key="SkelCardBrush" Color="#D117181E"/>
+                    <SolidColorBrush x:Key="SkelBarBrush" Color="#252730"/>
                     <LinearGradientBrush x:Key="SkelShineBrush" StartPoint="0%,0%" EndPoint="100%,0%">
                         <GradientStop Color="Transparent" Offset="0"/>
                         <GradientStop Color="#40FFFFFF" Offset="0.5"/>
@@ -305,9 +355,10 @@
                     <SolidColorBrush x:Key="Card2Brush" Color="#F0F3F8"/>
                     <!-- 设置页内卡片：比全局 CardBrush 再淡一档，降低存在感 -->
                     <SolidColorBrush x:Key="CardSoftBrush" Color="#F6F8FC"/>
-                    <!-- 卡中卡（高级设置里的规格分组）：浅色卡本身是纯白，内层必须压深一档才分得开，
+                    <!-- 卡中卡（高级设置里的规格分组）：外层卡是纯白，内层压深一档分出层次。
+                         原来 #EDF1F7 偏灰、组块太跳，这里收到 #F5F7FB，只留淡淡的底色，
                          同样只靠色阶分层，不描边 -->
-                    <SolidColorBrush x:Key="SubCardBrush" Color="#EDF1F7"/>
+                    <SolidColorBrush x:Key="SubCardBrush" Color="#F5F7FB"/>
                     <!-- 浮层专用：与 CardBrush 同色（浅色主题卡片本来就是实白） -->
                     <SolidColorBrush x:Key="CardSolidBrush" Color="#FFFFFF"/>
                     <!-- 搜索框底：Card2Brush 50% 透明，比面板更轻 -->
@@ -320,6 +371,8 @@
                     <SolidColorBrush x:Key="HoverBrush" Color="#E8EDF5"/>
                     <SolidColorBrush x:Key="PlayHoverFromBrush" Color="#00E8EDF5"/>
                     <SolidColorBrush x:Key="LineBrush" Color="#140F172A"/>
+                    <!-- 弹窗基类卡片描边：浅色下与全局 LineBrush 同值 -->
+                    <SolidColorBrush x:Key="DialogLineBrush" Color="#140F172A"/>
                     <!-- 主窗口卡片外轮廓：比全局 LineBrush 深一档，窗口贴在桌面上时才立得住 -->
                     <SolidColorBrush x:Key="WindowLineBrush" Color="#260F172A"/>
                     <SolidColorBrush x:Key="ZoneLineBrush" Color="#1F0F172A"/>
@@ -328,6 +381,8 @@
                     <SolidColorBrush x:Key="TextBrush" Color="#0F172A"/>
                     <SolidColorBrush x:Key="Text2Brush" Color="#5A6478"/>
                     <SolidColorBrush x:Key="Text3Brush" Color="#8A93A6"/>
+                    <!-- 浅底上同样把读数往下一档压，比主文字浅、比标签深 -->
+                    <SolidColorBrush x:Key="EnvValBrush" Color="#3D4759"/>
                     <!-- 输入框占位文字：浅底上要压深，同样用带 alpha 的深色而不是半透明灰 -->
                     <SolidColorBrush x:Key="WatermarkBrush" Color="#990F172A"/>
                     <x:Double x:Key="TextControlPlaceholderOpacity">1</x:Double>
@@ -351,6 +406,8 @@
                     </LinearGradientBrush>
                     <SolidColorBrush x:Key="PinBrush" Color="#7C5CFC"/>
                     <SolidColorBrush x:Key="AccentSoftBrush" Color="#1F6D5BE3"/>
+                    <SolidColorBrush x:Key="AccentSoft2Brush" Color="#33B4ADFA"/>
+                    <SolidColorBrush x:Key="AccentSoft2FromBrush" Color="#00B4ADFA"/>
                     <!-- 菜单 / 下拉的选中底：浅底上直接用取色到的实心紫 #7C5CFC，悬停亮一档、按压深一档 -->
                     <SolidColorBrush x:Key="SelBgBrush" Color="#7C5CFC"/>
                     <SolidColorBrush x:Key="SelBgHoverBrush" Color="#9C8BFF"/>
@@ -370,6 +427,18 @@
                     <SolidColorBrush x:Key="BlueBrush" Color="#60A5FA"/>
                     <Color x:Key="BlueColor">#60A5FA</Color>
                     <SolidColorBrush x:Key="BlueSoftBrush" Color="#1C2563EB"/>
+                    <!-- 浅色胶囊：底色只留 8% 左右的一层染色，压在卡片上几乎是白的；
+                         文字从高饱和的橙 / 蓝 / 亮绿换成去饱和的暖赭 #BF7F46、雾蓝 #428FBE、灰绿 #43956A，
+                         亮度压在 3:1 上下——看得清，但不再抢眼。悬停只比静止深一点点，别又窜回原色 -->
+                    <SolidColorBrush x:Key="PillTempBgBrush" Color="#16D98338"/>
+                    <SolidColorBrush x:Key="PillTempBgHoverBrush" Color="#23D98338"/>
+                    <SolidColorBrush x:Key="PillTempInkBrush" Color="#BF7F46"/>
+                    <SolidColorBrush x:Key="PillHumBgBrush" Color="#142563EB"/>
+                    <SolidColorBrush x:Key="PillHumBgHoverBrush" Color="#1F2563EB"/>
+                    <SolidColorBrush x:Key="PillHumInkBrush" Color="#428FBE"/>
+                    <SolidColorBrush x:Key="PillConsBgBrush" Color="#1516A34A"/>
+                    <SolidColorBrush x:Key="PillConsBgHoverBrush" Color="#2216A34A"/>
+                    <SolidColorBrush x:Key="PillConsInkBrush" Color="#43956A"/>
                     <SolidColorBrush x:Key="PinkBrush" Color="#EC4899"/>
                     <Color x:Key="PinkColor">#EC4899</Color>
                     <SolidColorBrush x:Key="PinkSoftBrush" Color="#1AEC4899"/>
@@ -377,7 +446,14 @@
                     <SolidColorBrush x:Key="DangerSoftBrush" Color="#1ADC2626"/>
                     <SolidColorBrush x:Key="AmberBrush" Color="#FBBF24"/>
                     <SolidColorBrush x:Key="AmberSoftBrush" Color="#24E9A05C"/>
-                    <SolidColorBrush x:Key="AmberSoft2Brush" Color="#38E9A05C"/>
+                    <!-- 耗材不足的琥珀胶囊：底色比全局 AmberSoftBrush 再淡一档，和新建的浅色胶囊一个密度 -->
+                    <SolidColorBrush x:Key="PillWarnBgBrush" Color="#1CE9A05C"/>
+                    <SolidColorBrush x:Key="PillWarnBgHoverBrush" Color="#2AE9A05C"/>
+                    <!-- 浅色主题同一只灯泡的光晕：暖橙中心略压深一档，白底上也看得出在发光 -->
+                    <RadialGradientBrush x:Key="LampGlowBrush" Center="50%,50%" GradientOrigin="50%,50%">
+                        <GradientStop Color="#66E9A05C" Offset="0"/>
+                        <GradientStop Color="#00E9A05C" Offset="1"/>
+                    </RadialGradientBrush>
                     <SolidColorBrush x:Key="AmberTextBrush" Color="#C9843C"/>
                     <SolidColorBrush x:Key="PurpleBrush" Color="#A78BFA"/>
                     <SolidColorBrush x:Key="PurpleSoftBrush" Color="#1F7C3AED"/>
@@ -388,6 +464,22 @@
                     <!-- 浅色主题同对：窗帘青绿、空调天蓝，饱和度对齐其余统计色 -->
                     <SolidColorBrush x:Key="StatTealBrush" Color="#3FAE9F"/>
                     <SolidColorBrush x:Key="StatCyanBrush" Color="#2E9FD6"/>
+                    <!-- 浅色主题同一套语义色，压深一档保证白底上的可读性 -->
+                    <SolidColorBrush x:Key="TrendTempBrush" Color="#D98338"/>
+                    <SolidColorBrush x:Key="TrendHumBrush" Color="#2E9FD6"/>
+                    <SolidColorBrush x:Key="TrendPowerBrush" Color="#7A69E8"/>
+                    <LinearGradientBrush x:Key="TrendTempFill" StartPoint="0%,0%" EndPoint="0%,100%">
+                        <GradientStop Color="#33D98338" Offset="0"/>
+                        <GradientStop Color="#00D98338" Offset="1"/>
+                    </LinearGradientBrush>
+                    <LinearGradientBrush x:Key="TrendHumFill" StartPoint="0%,0%" EndPoint="0%,100%">
+                        <GradientStop Color="#2E2E9FD6" Offset="0"/>
+                        <GradientStop Color="#002E9FD6" Offset="1"/>
+                    </LinearGradientBrush>
+                    <LinearGradientBrush x:Key="TrendPowerFill" StartPoint="0%,0%" EndPoint="0%,100%">
+                        <GradientStop Color="#2E7A69E8" Offset="0"/>
+                        <GradientStop Color="#007A69E8" Offset="1"/>
+                    </LinearGradientBrush>
                     <SolidColorBrush x:Key="CoolBrush" Color="#3B82F6"/>
                     <SolidColorBrush x:Key="SurfaceBrush" Color="#0D0F172A"/>
                     <SolidColorBrush x:Key="Surface4Brush" Color="#120F172A"/>
@@ -407,13 +499,13 @@
                     <SolidColorBrush x:Key="SliderThumbBackground" Color="#FFFFFF"/>
                     <SolidColorBrush x:Key="SliderThumbBackgroundPointerOver" Color="#FFFFFF"/>
                     <SolidColorBrush x:Key="SliderThumbBackgroundPressed" Color="#EDEFF6"/>
-                    <!-- 胶囊滑杆（浅色）：同一套冷→暖渐变，端点压深一点保证浅底可辨 -->
+                    <!-- 胶囊滑杆（浅色）：同一套暖→冷渐变（左 2700K 暖橙、右 6500K 冷蓝），端点压深一点保证浅底可辨 -->
                     <LinearGradientBrush x:Key="ColorTempTrackBrush" StartPoint="0%,0%" EndPoint="100%,0%">
-                        <GradientStop Color="#2F55D4" Offset="0"/>
-                        <GradientStop Color="#5F72CC" Offset="0.3"/>
+                        <GradientStop Color="#A86714" Offset="0"/>
+                        <GradientStop Color="#B7772E" Offset="0.22"/>
                         <GradientStop Color="#94799F" Offset="0.55"/>
-                        <GradientStop Color="#B7772E" Offset="0.78"/>
-                        <GradientStop Color="#A86714" Offset="1"/>
+                        <GradientStop Color="#5F72CC" Offset="0.7"/>
+                        <GradientStop Color="#2F55D4" Offset="1"/>
                     </LinearGradientBrush>
                     <SolidColorBrush x:Key="PillFillBrush" Color="#6D5BE3"/>
                     <SolidColorBrush x:Key="MaskBrush" Color="#340F172A"/>
@@ -436,6 +528,15 @@
                         <GradientStop Color="#0A6D5BE3" Offset="0.55"/>
                         <GradientStop Color="#FFFFFF" Offset="1"/>
                     </LinearGradientBrush>
+                    <!-- 浅色下统计卡拟物底：白到浅冷灰的弱纵向渐变。底端压灰只留在卡内一小段，
+                         渐变全程覆盖整卡容易从边缘晕出一圈灰边，所以末段压得浅、收得快。 -->
+                    <LinearGradientBrush x:Key="StatCardBrush" StartPoint="0,0" EndPoint="0,1">
+                        <GradientStop Color="#FFFFFF" Offset="0"/>
+                        <GradientStop Color="#F2F5F9" Offset="0.6"/>
+                        <GradientStop Color="#E7ECF3" Offset="1"/>
+                    </LinearGradientBrush>
+                    <SolidColorBrush x:Key="StatCardLineBrush" Color="#0C0F172A"/>
+                    <SolidColorBrush x:Key="StatCardLineHoverBrush" Color="#160F172A"/>
                     <!-- 添加设备（选择器）里的设备卡：浅色下用纯白卡 + 悬停淡灰 -->
                     <SolidColorBrush x:Key="PickCardBrush" Color="#FFFFFF"/>
                     <SolidColorBrush x:Key="PickCardHoverBrush" Color="#EDF1F8"/>
@@ -446,14 +547,12 @@
                     <SolidColorBrush x:Key="PickCardOnFillHoverBrush" Color="#EFEAFB"/>
                     <SolidColorBrush x:Key="PickCardOnLineBrush" Color="#CFC4F2"/>
                     <SolidColorBrush x:Key="PickCardOnTextBrush" Color="#6D5BE3"/>
-                    <!-- 桌面分区里的设备卡：开/关同一种半透明白底 -->
-                    <SolidColorBrush x:Key="DskCardBrush" Color="#B8FFFFFF"/>
+                    <!-- 桌面分区里的设备卡：开/关同一种底色。
+                         深色主题是极淡白（在暗底上提亮一档）；浅色（纸白）主题必须反过来沉一档，
+                         否则「白底 + 白卡」两层糊在一起、只剩一圈阴影，看起来又脏又平。 -->
+                    <SolidColorBrush x:Key="DskCardBrush" Color="#E6E9EDF4"/>
                     <SolidColorBrush x:Key="DskSwitchBrush" Color="#B3E7EBF3"/>
                     <SolidColorBrush x:Key="DskSwitchOnBrush" Color="#CC8E83F0"/>
-                    <!-- 设备卡「更多」：同样收薄（浅色下是淡灰蓝，不再压成一块实底），
-                         悬停只再压一档（比原来那档浅很多），并走 BrushTransition 渐变 -->
-                    <SolidColorBrush x:Key="MoreBtnBgBrush" Color="#BFDDE4F0"/>
-                    <SolidColorBrush x:Key="MoreBtnBgHoverBrush" Color="#C6D6DFEC"/>
                     <LinearGradientBrush x:Key="PrimaryBtnBrush" StartPoint="0,0" EndPoint="1,1">
                         <GradientStop Color="#6D5BE3" Offset="0"/>
                         <GradientStop Color="#8B7CFF" Offset="1"/>

@@ -1,4 +1,4 @@
-# One-click release: sync version -> publish single-file exe -> build installer -> collect artifacts
+﻿# One-click release: sync version -> publish single-file exe -> build installer -> collect artifacts
 #
 # Usage:
 #   .\scripts\release.ps1                     # package current version from csproj (built-in installer)
@@ -9,6 +9,8 @@
 #   .\scripts\release.ps1 -SkipInstaller      # publish only, no installer
 #   .\scripts\release.ps1 -Channel test -ExpiresDays 7   # 测试通道清单（不会覆盖仓库根 update.json）
 #   .\scripts\release.ps1 -PublicBuild         # 纯开源包：安装包不带 MiHomeHub.settings.local.json（无后台/无统计）
+#   .\scripts\release.ps1 -AllowMissingChangelog  # 有代码改动但没写变更说明时不拦截（默认会报错）
+#   .\scripts\release.ps1 -NoChangelogSeal        # 打包后不封存变更说明到 changelog/released.md
 #
 # Output: publish\release\<version>\ (Setup + update.json + SHA256SUMS.txt)
 param(
@@ -20,7 +22,9 @@ param(
     [switch]$PublicBuild,
     [string]$Notes = "",
     [ValidateSet("stable", "test")][string]$Channel = "stable",
-    [int]$ExpiresDays = 0
+    [int]$ExpiresDays = 0,
+    [switch]$AllowMissingChangelog,
+    [switch]$NoChangelogSeal
 )
 
 $ErrorActionPreference = "Stop"
@@ -45,8 +49,25 @@ function Write-FileText([string]$path, [string]$text) {
     [System.IO.File]::WriteAllText($path, $text, $encoding)
 }
 
-function Get-Sha256([string]$path) {
-    $sha = [System.Security.Cryptography.SHA256]::Create()
+# 版本目录里的 RELEASE-NOTES.md 是给用户看的发布日志（Markdown）：取正文行当 update.json 的 notes，
+# 标题行与 HTML 注释丢掉、列表符号去掉，换行原样保留。
+function Convert-NotesMarkdown([string]$text) {
+    $lines = New-Object System.Collections.ArrayList
+    $inComment = $false
+    foreach ($raw in ($text -split "`r?`n")) {
+        $t = $raw.Trim()
+        if ($inComment) { if ($t.Contains("-->")) { $inComment = $false }; continue }
+        if ($t.StartsWith("<!--")) { if (-not $t.Contains("-->")) { $inComment = $true }; continue }
+        if (-not $t) { continue }
+        if ($t -match "^#+\s") { continue }
+        if ($t -match "^[*-]\s+(.+)$") { $t = $Matches[1].Trim() }
+        elseif ($t -match "^\d+\.\s+(.+)$") { $t = $Matches[1].Trim() }
+        if ($t) { [void]$lines.Add($t) }
+    }
+    return ($lines -join "`n")
+}
+
+function Get-Sha256([string]$path) {    $sha = [System.Security.Cryptography.SHA256]::Create()
     $stream = [System.IO.File]::OpenRead($path)
     try {
         $bytes = $sha.ComputeHash($stream)
@@ -174,6 +195,28 @@ if ($Version) {
 
 Write-Host "Release version: $targetVersion (was $currentVersion)"
 
+# ---- 版本目录（提前建好）：发版日志 RELEASE-NOTES.md 就放在这里，打包时读到就用它当对外文案 ----
+$releaseDir = Join-Path $root "publish\release\$targetVersion"
+if (-not (Test-Path -LiteralPath $releaseDir)) {
+    New-Item -ItemType Directory -Path $releaseDir -Force | Out-Null
+}
+$releaseNotesPath = Join-Path $releaseDir "RELEASE-NOTES.md"
+
+# ---- changelog: 先拦截漏写说明，再取本次更新说明（放在改版本号之前，避免半途失败留下脏版本） ----
+if (-not $Notes -and (Test-Path -LiteralPath $releaseNotesPath)) {
+    $Notes = Convert-NotesMarkdown (Read-FileText $releaseNotesPath)
+    if ($Notes) { Write-Host "Release notes: 取自 $releaseNotesPath（$($Notes.Length) 字）" }
+}
+$changeScript = Join-Path $PSScriptRoot "changelog.ps1"
+$hasChangelog = Test-Path -LiteralPath $changeScript
+if ($hasChangelog) {
+    & $changeScript -Check -AllowMissing:$AllowMissingChangelog
+    if (-not $Notes) {
+        $Notes = (@(& $changeScript -Notes -Version $targetVersion) -join "`n")
+    }
+}
+if ($Notes) { Write-Host "Update notes: $($Notes.Length) chars" }
+
 Update-ProjectVersion $proj $targetVersion
 Update-SetupProjectVersion $setupProj $targetVersion
 Update-InstallerVersion $iss $targetVersion
@@ -190,12 +233,6 @@ $staleExes = @(Get-ChildItem -LiteralPath $publishDir -Filter *.exe -File | Wher
 if ($staleExes.Count -gt 0) {
     Write-Warning ("Extra exe files in publish dir will be bundled into the installer: " +
         (($staleExes | ForEach-Object { $_.Name }) -join ", "))
-}
-
-# ---- release dir (ISCC writes the Setup straight into it) ----
-$releaseDir = Join-Path $root "publish\release\$targetVersion"
-if (-not (Test-Path -LiteralPath $releaseDir)) {
-    New-Item -ItemType Directory -Path $releaseDir -Force | Out-Null
 }
 
 # ---- build installer ----
@@ -242,6 +279,15 @@ if ($hashLines.Count -gt 0) {
         (New-Object System.Text.UTF8Encoding($false)))
 } elseif (Test-Path -LiteralPath $sumsPath) {
     Remove-Item -LiteralPath $sumsPath -Force
+}
+
+# ---- changelog: 打包成功后，把未发布条目整段封存进 changelog/released.md 并清空未发布区 ----
+if ($hasChangelog -and -not $SkipInstaller -and -not $NoChangelogSeal) {
+    try {
+        & $changeScript -Seal -Version $targetVersion
+    } catch {
+        Write-Warning "changelog/released.md 未封存（不影响本次产物）: $_"
+    }
 }
 
 # ---- summary ----

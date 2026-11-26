@@ -40,51 +40,8 @@
             <Setter Property="Foreground" Value="{DynamicResource DskText2Brush}" />
         </Style>
 
-        <!-- ======== 卡片「更多」（三个点）在玻璃分区里不铺深色方底 ========
-             全局那档 MoreBtnPill 用 MoreBtnBgBrush(#E61A1F2C，90% 实底深蓝)，
-             压在主窗口的深色卡(#1A1F2C)上几乎融成一片，所以主程序看着正常；
-             但分区卡是透出壁纸的紫色磨砂玻璃，同一块深蓝实底就成了贴上去的一块黑板。
-             这里改成与卡面同档的 DskCardBrush（极淡玻璃底）+ 一圈淡白细边：
-             悬停/按下只把描边和底提亮一档，不再切成实心深色。
-             底下那枚设备图标改用悬停淡出（下面两条），否则会透过玻璃底和三个点叠成一团——
-             主程序里它是被不透明方底盖住的，视觉结果一致：悬停只看得到三个点。 -->
-        <Style Selector="ctl|DeviceCardButton.DevCard ctl|DeviceMoreButton.MoreBtn Border.MoreBtnPill">
-            <Setter Property="Background" Value="{DynamicResource DskCardBrush}" />
-            <Setter Property="BorderBrush" Value="#1AFFFFFF" />
-            <Setter Property="BorderThickness" Value="1" />
-        </Style>
-        <!-- 悬停 / 按下只挪一小格（底 +1~6% 白、描边 +7~14% 白），并且由全局那档
-             BrushTransition 渐变过去 —— 玻璃卡上的半透明方底一旦色值大跳就是整块闪一下 -->
-        <Style Selector="ctl|DeviceCardButton.DevCard ctl|DeviceMoreButton.MoreBtn:pointerover Border.MoreBtnPill">
-            <Setter Property="Background" Value="#12FFFFFF" />
-            <Setter Property="BorderBrush" Value="#2AFFFFFF" />
-        </Style>
-        <Style Selector="ctl|DeviceCardButton.DevCard ctl|DeviceMoreButton.MoreBtn:pressed Border.MoreBtnPill">
-            <Setter Property="Background" Value="#1AFFFFFF" />
-            <Setter Property="BorderBrush" Value="#38FFFFFF" />
-        </Style>
-        <!-- 图标淡出与「更多」的淡入同为 0.22s（同一档过渡时长），悬停切换不闪；
-             这里若比全局那档短，悬停移开时图标先弹回、方底还在渐隐，会露出半透明底压着图标的一瞬 -->
-        <Style Selector="ctl|DeviceCardButton.DevCard Border.DevIc">
-            <Setter Property="Transitions">
-                <Transitions>
-                    <DoubleTransition Property="Opacity" Duration="0:0:0.22" />
-                </Transitions>
-            </Setter>
-        </Style>
-        <Style Selector="ctl|DeviceCardButton.DevCard Border.DevPhoto">
-            <Setter Property="Transitions">
-                <Transitions>
-                    <DoubleTransition Property="Opacity" Duration="0:0:0.22" />
-                </Transitions>
-            </Setter>
-        </Style>
-        <Style Selector="ctl|DeviceCardButton.DevCard:pointerover Border.DevIc">
-            <Setter Property="Opacity" Value="0" />
-        </Style>
-        <Style Selector="ctl|DeviceCardButton.DevCard:pointerover Border.DevPhoto">
-            <Setter Property="Opacity" Value="0" />
-        </Style>
+        <!-- 卡片「更多」按钮的方底与图标淡出都走全局样式（透明容器 + 悬停图标让位），
+             这里只按玻璃卡面提亮三个点的颜色，不再另铺底色或描边。 -->
         <!-- 三个点：全局那档是 Text2Brush（#99A1B3），压在半透明玻璃卡面上偏暗 ——
              分区里改用提亮后的次级色 DskText2Brush，自身悬停再上一档到近纯白。
              与 DevName / DevMeta 同一条思路。 -->

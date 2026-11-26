@@ -1,4 +1,4 @@
-# Publish the packaged release to GitHub: push tag v<version> + create GitHub Release with artifacts
+﻿# Publish the packaged release to GitHub: push tag v<version> + create GitHub Release with artifacts
 #
 # Usage:
 #   .\scripts\release-github.ps1                        # use version from csproj
@@ -51,9 +51,25 @@ if ($Version) {
 }
 $tag = if ($Channel -eq "test") { "test" } else { "v$targetVersion" }
 
+# ---- release notes: 版本目录里的 RELEASE-NOTES.md 优先，其次从 changelog/released.md 或未发布区生成 ----
+$releaseDir = Join-Path $root "publish\release\$targetVersion"
+$versionNotes = Join-Path $releaseDir "RELEASE-NOTES.md"
+if (-not $Notes -and -not $NotesFile -and (Test-Path -LiteralPath $versionNotes)) {
+    $NotesFile = $versionNotes
+    Write-Host "Release notes: 取自 $versionNotes"
+}
+if (-not $Notes -and -not $NotesFile) {
+    $changeScript = Join-Path $PSScriptRoot "changelog.ps1"
+    if (Test-Path -LiteralPath $changeScript) {
+        $tmpNotes = Join-Path ([System.IO.Path]::GetTempPath()) "mihomehub-release-notes-$targetVersion.md"
+        if (Test-Path -LiteralPath $tmpNotes) { Remove-Item -LiteralPath $tmpNotes -Force }
+        & $changeScript -Notes -Version $targetVersion -Format md -OutFile $tmpNotes
+        if (Test-Path -LiteralPath $tmpNotes) { $NotesFile = $tmpNotes }
+    }
+}
+
 # ---- collect artifacts ----
 # 只发安装包、校验清单与更新清单：单文件 exe 不再作为 Release 资产（用户要求）。
-$releaseDir = Join-Path $root "publish\release\$targetVersion"
 if (-not (Test-Path -LiteralPath $releaseDir)) {
     throw ("Release dir not found: $releaseDir`nBuild it first with: .\package.cmd -Version $targetVersion")
 }

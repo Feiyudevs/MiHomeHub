@@ -23,7 +23,9 @@
 
     <Window.Styles>
         <Style Selector="Button.TrayItem">
-            <Setter Property="Background" Value="Transparent" />
+            <!-- 静息底 = 悬停紫的零透明版本：悬停时只是这层紫淡进来，
+                 不会从黑透明插值、中途闪一层灰紫 -->
+            <Setter Property="Background" Value="{DynamicResource SelBgFromBrush}" />
             <Setter Property="Height" Value="40" />
             <Setter Property="Padding" Value="10,0" />
             <Setter Property="HorizontalAlignment" Value="Stretch" />
@@ -45,6 +47,10 @@
         </Style>
         <Style Selector="Button.TrayItem:pressed /template/ Border#Bd">
             <Setter Property="Background" Value="{DynamicResource SelBgPressBrush}" />
+        </Style>
+        <!-- 危险项自己一套起点色：悬停是浅红，起点也用浅红的零透明版本 -->
+        <Style Selector="Button.Danger">
+            <Setter Property="Background" Value="#00FEE2E2" />
         </Style>
         <Style Selector="Button.Danger:pointerover /template/ Border#Bd">
             <Setter Property="Background" Value="#FEE2E2" />
@@ -97,7 +103,7 @@
             </Setter>
         </Style>
         <Style Selector="Button.TrayMedia">
-            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="Background" Value="{DynamicResource SelBgFromBrush}" />
             <Setter Property="CornerRadius" Value="11" />
         </Style>
         <Style Selector="Button.TrayPlay">
@@ -121,6 +127,22 @@
         </Style>
         <Style Selector="Button.TrayPlay:pressed">
             <Setter Property="Opacity" Value="0.78" />
+        </Style>
+        <!-- 悬停过渡：菜单项 / 媒体键的底、主键的透明度、媒体图标的填充色，
+             都跟着鼠标淡进淡出，不再硬切 -->
+        <Style Selector="Button.TrayItem /template/ Border#Bd, Button.TrayMedia /template/ Border#Bd">
+            <Setter Property="Transitions">
+                <Transitions>
+                    <BrushTransition Property="Background" Duration="0:0:0.16" />
+                </Transitions>
+            </Setter>
+        </Style>
+        <Style Selector="Button.TrayPlay">
+            <Setter Property="Transitions">
+                <Transitions>
+                    <DoubleTransition Property="Opacity" Duration="0:0:0.12" />
+                </Transitions>
+            </Setter>
         </Style>
         <!-- 媒体骨架的扫光：托盘卡只有 ~216px 宽，全局 SkelShineSm 的 190px 扫程会扫不满 -->
         <Style Selector="Border.TrayShine">

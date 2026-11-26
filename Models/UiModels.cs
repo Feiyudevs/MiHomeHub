@@ -28,8 +28,15 @@ public sealed partial class RoomChip : ObservableObject
 
     [ObservableProperty] private bool _isSelected;
 
+    /// <summary>
+    /// 这个房间里还有灯开着（在线且开，与首页「灯光」统计卡同一口径）：
+    /// 侧栏在房间名右侧点亮一枚小灯泡，一眼看出哪个房间忘了关灯。
+    /// 伪房间「全部」永不点亮 —— 它不指某一间房。
+    /// </summary>
+    [ObservableProperty] private bool _hasLightOn;
+
     /// <summary>按房间名关键词匹配图标，覆盖米家返回的常见房型命名。</summary>
-    private static string ResolveIcon(string name)
+    internal static string ResolveIcon(string name)
     {
         if (Has(name, "全部", "全屋", "所有", "整个"))
             return "house";
@@ -116,12 +123,30 @@ public sealed partial class OptionItem : ObservableObject, IPickOption
 }
 
 /// <summary>首页按房间分组的设备区块。</summary>
-public sealed class DeviceGroup
+public sealed partial class DeviceGroup : ObservableObject
 {
     public required string Name { get; init; }
     public required int Total { get; init; }
     public required List<MijiaDevice> Items { get; init; }
     public string TitleText => $"{Name} · {Items.Count} 台设备";
+
+    /// <summary>房间图标 key：与侧栏房间同一套匹配规则，标题左侧显示的图标因此两处一致。</summary>
+    public string IconKey => RoomChip.ResolveIcon(Name);
+
+    /// <summary>该房间是否展开：点标题行切换，收起后卡片全部让位，只留一行标题。</summary>
+    [ObservableProperty] private bool _isExpanded = true;
+
+    /// <summary>房间卡片区是否可见（收起时整块不参与布局）。</summary>
+    public bool ItemsVisible => IsExpanded;
+
+    /// <summary>折叠箭头角度：展开朝下（0），收起朝右（-90），与「已隐藏」区一致。</summary>
+    public double ChevronAngle => IsExpanded ? 0 : -90;
+
+    partial void OnIsExpandedChanged(bool value)
+    {
+        OnPropertyChanged(nameof(ItemsVisible));
+        OnPropertyChanged(nameof(ChevronAngle));
+    }
 }
 
 /// <summary>场景卡包装：按名称关键词分配装饰色与图标（米家接口不返回这些）。</summary>
@@ -251,4 +276,6 @@ public sealed class ConsumableItem
     /// <summary>0–100 的余量，未知为 -1；用于「不足的排前面、低的更靠前」排序。</summary>
     public int Percent { get; init; } = -1;
     public bool IsLow { get; init; }
+    /// <summary>行内进度条填充宽度：固定 92px 轨道按百分比取宽，圆角由两端 Border 自己画，不走 ProgressBar 模板。</summary>
+    public double BarWidth => Percent < 0 ? 0 : Math.Clamp(Percent, 0, 100) * 92.0 / 100.0;
 }

@@ -65,6 +65,14 @@ if (-not [regex]::IsMatch($targetVersion, '^\d+\.\d+\.\d+$')) {
     throw "Invalid version '$targetVersion' (expected major.minor.patch)"
 }
 
+# ---- update notes: 未显式传入时从 changelog 读取（已封存的按版本取，未封存取未发布区） ----
+if (-not $Notes) {
+    $changeScript = Join-Path $PSScriptRoot "changelog.ps1"
+    if (Test-Path -LiteralPath $changeScript) {
+        $Notes = (@(& $changeScript -Notes -Version $targetVersion) -join "`n")
+    }
+}
+
 if (-not $SkipMainPublish) {
     & $publishScript -Rid $Rid -Configuration Release
     if ($LASTEXITCODE -ne 0) { throw "publish-sc.ps1 failed with exit code $LASTEXITCODE" }

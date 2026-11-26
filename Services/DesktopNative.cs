@@ -92,6 +92,9 @@ internal static class DesktopNative
     public const uint WM_SIZE = 0x0005;
     public const uint WM_WINDOWPOSCHANGING = 0x0046;
     public const uint WM_WINDOWPOSCHANGED = 0x0047;
+    /// <summary>用户按住标题栏 / 边框进入系统的模态移动-缩放循环（松手时对应 WM_EXITSIZEMOVE）。</summary>
+    public const uint WM_ENTERSIZEMOVE = 0x0231;
+    public const uint WM_EXITSIZEMOVE = 0x0232;
     public const int MA_NOACTIVATE = 3;
 
     // ---- WM_NCHITTEST 返回值 ----
@@ -223,6 +226,21 @@ internal static class DesktopNative
     [DllImport("user32.dll")]
     [return: MarshalAs(UnmanagedType.Bool)]
     public static extern bool InvalidateRect(nint hWnd, nint lpRect, [MarshalAs(UnmanagedType.Bool)] bool bErase);
+
+    // RedrawWindow 的标记位（RDW_*）
+    public const uint RDW_INVALIDATE = 0x0001;
+    public const uint RDW_FRAME = 0x0400;
+    public const uint RDW_ALLCHILDREN = 0x0080;
+    public const uint RDW_UPDATENOW = 0x0100;
+
+    /// <summary>按标记位重画窗口（含非客户区）。用来在**不改窗口尺寸**的前提下把这一帧推出去。</summary>
+    [DllImport("user32.dll")]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    public static extern bool RedrawWindow(nint hWnd, nint lprcUpdate, nint hrgnUpdate, uint flags);
+
+    /// <summary>等 DWM 把已提交的帧合成出去（阻塞到合成完成）。</summary>
+    [DllImport("dwmapi.dll")]
+    public static extern int DwmFlush();
 
     /// <summary>注册「跨进程同名同 ID」的消息（TaskbarCreated 这类 shell 广播）。</summary>
     [DllImport("user32.dll", CharSet = CharSet.Unicode)]

@@ -1,0 +1,396 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="clr-namespace:MiHomeHub.ViewModels"
+             xmlns:m="clr-namespace:MiHomeHub.Models"
+             xmlns:ctl="clr-namespace:MiHomeHub.Controls"
+             x:Class="MiHomeHub.Views.DesktopAcPanel"
+             x:DataType="vm:DesktopAcVm"
+             ClipToBounds="False">
+
+    <UserControl.Styles>
+        <!-- ===== 身份胶囊：只包「房间 + 名称 + 状态」，悬停淡进一层浅色 ===== -->
+        <Style Selector="Button.DskPick">
+            <Setter Property="Padding" Value="10,7" />
+            <Setter Property="HorizontalAlignment" Value="Stretch" />
+            <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+            <Setter Property="VerticalAlignment" Value="Center" />
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="Focusable" Value="False" />
+        </Style>
+        <Style Selector="Button.DskPick /template/ ContentPresenter#PART_ContentPresenter">
+            <Setter Property="Background" Value="{DynamicResource DskCardBrush}" />
+            <Setter Property="BorderBrush" Value="{DynamicResource LineBrush}" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="CornerRadius" Value="13" />
+            <Setter Property="Transitions">
+                <Transitions>
+                    <BrushTransition Property="Background" Duration="0:0:0.16" />
+                    <BrushTransition Property="BorderBrush" Duration="0:0:0.16" />
+                </Transitions>
+            </Setter>
+        </Style>
+        <Style Selector="Button.DskPick:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+            <Setter Property="Background" Value="#1FFFFFFF" />
+            <Setter Property="BorderBrush" Value="#33FFFFFF" />
+        </Style>
+        <Style Selector="Button.DskPick:pressed /template/ ContentPresenter#PART_ContentPresenter">
+            <Setter Property="Background" Value="#2BFFFFFF" />
+        </Style>
+
+        <!-- ===== 温度环里的加减钮：24 圆，按住可以连续加减 ===== -->
+        <Style Selector="RepeatButton.RingStep">
+            <Setter Property="Width" Value="24" />
+            <Setter Property="Height" Value="24" />
+            <Setter Property="MinWidth" Value="0" />
+            <Setter Property="MinHeight" Value="0" />
+            <Setter Property="Padding" Value="0" />
+            <Setter Property="CornerRadius" Value="12" />
+            <Setter Property="Background" Value="{DynamicResource DskSwitchBrush}" />
+            <Setter Property="Foreground" Value="{DynamicResource DskText2Brush}" />
+            <Setter Property="FontSize" Value="14" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="Focusable" Value="False" />
+            <Setter Property="Template">
+                <ControlTemplate>
+                    <Border Name="Bd" CornerRadius="{TemplateBinding CornerRadius}"
+                            Background="{TemplateBinding Background}"
+                            BorderThickness="0">
+                        <ContentPresenter Name="Cp" Content="{TemplateBinding Content}"
+                                          HorizontalAlignment="Center" VerticalAlignment="Center"
+                                          TextBlock.Foreground="{TemplateBinding Foreground}"
+                                          TextBlock.FontSize="{TemplateBinding FontSize}"
+                                          TextBlock.FontWeight="{TemplateBinding FontWeight}" />
+                    </Border>
+                </ControlTemplate>
+            </Setter>
+            <Setter Property="Transitions">
+                <Transitions>
+                    <BrushTransition Property="Background" Duration="0:0:0.16" />
+                </Transitions>
+            </Setter>
+        </Style>
+        <Style Selector="RepeatButton.RingStep:pointerover /template/ Border#Bd">
+            <Setter Property="Background" Value="{DynamicResource AccentSoft2Brush}" />
+        </Style>
+        <Style Selector="RepeatButton.RingStep:pressed /template/ Border#Bd">
+            <Setter Property="Background" Value="{DynamicResource AccentSoftBrush}" />
+        </Style>
+
+        <!-- ===== 分段轨道：一条浅色内槽，选项在槽里等宽铺开 ===== -->
+        <Style Selector="Border.AcSegTrack">
+            <Setter Property="CornerRadius" Value="10" />
+            <Setter Property="Padding" Value="3" />
+            <Setter Property="Background" Value="{DynamicResource SurfaceBrush}" />
+        </Style>
+        <Style Selector="Button.AcSeg">
+            <Setter Property="Height" Value="26" />
+            <Setter Property="MinWidth" Value="42" />
+            <Setter Property="Padding" Value="9,0" />
+            <Setter Property="FontSize" Value="11.5" />
+            <Setter Property="FontWeight" Value="Medium" />
+            <Setter Property="HorizontalAlignment" Value="Left" />
+            <Setter Property="VerticalAlignment" Value="Center" />
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="BorderThickness" Value="0" />
+            <Setter Property="Foreground" Value="{DynamicResource DskText2Brush}" />
+            <Setter Property="HorizontalContentAlignment" Value="Center" />
+            <Setter Property="VerticalContentAlignment" Value="Center" />
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="Focusable" Value="False" />
+            <Setter Property="Template">
+                <ControlTemplate>
+                    <Border Name="Bd" CornerRadius="8"
+                            Background="{TemplateBinding Background}"
+                            Padding="{TemplateBinding Padding}">
+                        <ContentPresenter Name="Cp" Content="{TemplateBinding Content}"
+                                          HorizontalAlignment="Center" VerticalAlignment="Center"
+                                          TextBlock.Foreground="{TemplateBinding Foreground}"
+                                          TextBlock.FontSize="{TemplateBinding FontSize}"
+                                          TextBlock.FontWeight="{TemplateBinding FontWeight}" />
+                    </Border>
+                </ControlTemplate>
+            </Setter>
+            <Setter Property="Transitions">
+                <Transitions>
+                    <BrushTransition Property="Background" Duration="0:0:0.16" />
+                </Transitions>
+            </Setter>
+        </Style>
+        <Style Selector="Button.AcSeg:pointerover /template/ Border#Bd">
+            <Setter Property="Background" Value="{DynamicResource AccentSoft2Brush}" />
+        </Style>
+        <Style Selector="Button.AcSeg.is-on">
+            <Setter Property="Background" Value="{DynamicResource PrimaryBtnBrush}" />
+            <Setter Property="Foreground" Value="White" />
+        </Style>
+        <Style Selector="Button.AcSeg.is-on:pointerover /template/ Border#Bd">
+            <Setter Property="Background" Value="{DynamicResource PrimaryBtnBrush}" />
+        </Style>
+
+        <!-- ===== 右侧一行条目：浅玻璃底板，整行等高对齐 ===== -->
+        <Style Selector="Border.AcRow">
+            <Setter Property="CornerRadius" Value="14" />
+            <Setter Property="Padding" Value="12,8" />
+            <Setter Property="Background" Value="{DynamicResource DskCardBrush}" />
+            <Setter Property="BorderBrush" Value="{DynamicResource LineBrush}" />
+            <Setter Property="BorderThickness" Value="1" />
+        </Style>
+
+        <!-- ===== 骨架占位块 ===== -->
+        <Style Selector="Border.AcSkelBar">
+            <Setter Property="Height" Value="11" />
+            <Setter Property="CornerRadius" Value="5" />
+            <Setter Property="Background" Value="{DynamicResource DskSwitchBrush}" />
+        </Style>
+
+        <!-- ===== 电源键：46 圆，开启态实心紫、关机态透明描边 ===== -->
+        <Style Selector="Button.AcPower">
+            <Setter Property="Width" Value="46" />
+            <Setter Property="Height" Value="46" />
+            <Setter Property="Padding" Value="0" />
+            <Setter Property="CornerRadius" Value="23" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="BorderBrush" Value="{DynamicResource ZoneLineBrush}" />
+            <Setter Property="Focusable" Value="False" />
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="Foreground" Value="{DynamicResource DskText2Brush}" />
+            <Setter Property="HorizontalContentAlignment" Value="Center" />
+            <Setter Property="VerticalContentAlignment" Value="Center" />
+            <Setter Property="Transitions">
+                <Transitions>
+                    <DoubleTransition Property="Opacity" Duration="0:0:0.12" />
+                </Transitions>
+            </Setter>
+        </Style>
+        <Style Selector="Button.AcPower.on">
+            <Setter Property="Background" Value="{DynamicResource PowerOnBrush}" />
+            <Setter Property="BorderThickness" Value="0" />
+            <Setter Property="Foreground" Value="#FFFFFF" />
+        </Style>
+        <Style Selector="Button.AcPower:pointerover">
+            <Setter Property="Opacity" Value="0.9" />
+        </Style>
+        <Style Selector="Button.AcPower:pressed">
+            <Setter Property="Opacity" Value="0.78" />
+        </Style>
+    </UserControl.Styles>
+
+    <Panel>
+        <StackPanel Spacing="13">
+            <!-- ===== 加载骨架 ===== -->
+            <Panel IsVisible="{Binding IsLoading}" ClipToBounds="True">
+                <Border CornerRadius="16" Padding="12"
+                        Background="{DynamicResource DskCardBrush}"
+                        BorderBrush="{DynamicResource LineBrush}" BorderThickness="1">
+                    <Grid ColumnDefinitions="Auto,*">
+                        <Border Width="80" Height="80" CornerRadius="40"
+                                Background="{DynamicResource DskSwitchBrush}" />
+                        <StackPanel Grid.Column="1" VerticalAlignment="Center" Spacing="9" Margin="14,0,0,0">
+                            <Border Classes="AcSkelBar" Width="120" />
+                            <Border Classes="AcSkelBar" Width="80" />
+                        </StackPanel>
+                    </Grid>
+                </Border>
+                <Canvas IsHitTestVisible="False">
+                    <Border Classes="SkelShine" Classes.run="{Binding IsLoading}" />
+                </Canvas>
+            </Panel>
+
+            <!-- 空态提示 -->
+            <TextBlock Text="{Binding EmptyHint}" FontSize="11.5"
+                       Margin="2,4,2,6" TextAlignment="Center" TextWrapping="Wrap"
+                       Foreground="{DynamicResource DskText3Brush}"
+                       IsVisible="{Binding IsEmpty}" />
+
+            <StackPanel Spacing="13" IsVisible="{Binding ShowControls}">
+                <!-- ===== 身份行：一枚紧凑胶囊（点它换空调）+ 独立的分区菜单 ===== -->
+                <Grid ColumnDefinitions="*,Auto" ColumnSpacing="6">
+                    <Button Classes="DskPick" Grid.Column="0" Click="OnAcClick" ToolTip.Tip="更换控制的空调">
+                        <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="7">
+                            <Border Classes="RoomTag" VerticalAlignment="Center"
+                                    IsVisible="{Binding AcRoom, Converter={x:Static StringConverters.IsNotNullOrEmpty}}">
+                                <TextBlock Text="{Binding AcRoom}" FontSize="10"
+                                           Foreground="{DynamicResource DskText2Brush}" />
+                            </Border>
+                            <TextBlock Grid.Column="1" Text="{Binding AcName}" FontSize="13"
+                                       FontWeight="SemiBold" TextTrimming="CharacterEllipsis"
+                                       VerticalAlignment="Center"
+                                       Foreground="{DynamicResource DskTextBrush}" />
+                            <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="5"
+                                        VerticalAlignment="Center">
+                                <Ellipse Width="5" Height="5" Fill="{DynamicResource GreenBrush}"
+                                         IsVisible="{Binding IsRunning}" />
+                                <TextBlock Text="{Binding AcMeta}" FontSize="10"
+                                           TextTrimming="CharacterEllipsis"
+                                           Foreground="{DynamicResource DskText3Brush}" />
+                                <Viewbox Width="11" Height="11" Stretch="Uniform" VerticalAlignment="Center">
+                                    <Panel Width="24" Height="24">
+                                        <Path StrokeThickness="2" StrokeLineCap="Round" StrokeJoin="Round"
+                                              Stroke="{DynamicResource DskText3Brush}"
+                                              Data="{StaticResource GeoChevron}" />
+                                    </Panel>
+                                </Viewbox>
+                            </StackPanel>
+                        </Grid>
+                    </Button>
+
+                    <Button Grid.Column="1" Classes="DskIcon" Width="26" Height="26"
+                            VerticalAlignment="Center" HorizontalAlignment="Right"
+                            Click="OnMoreClick" ToolTip.Tip="分区菜单">
+                        <StackPanel Orientation="Horizontal" Spacing="2.4"
+                                    HorizontalAlignment="Center" VerticalAlignment="Center">
+                            <Ellipse Width="2.4" Height="2.4"
+                                     Fill="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" />
+                            <Ellipse Width="2.4" Height="2.4"
+                                     Fill="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" />
+                            <Ellipse Width="2.4" Height="2.4"
+                                     Fill="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" />
+                        </StackPanel>
+                    </Button>
+                </Grid>
+
+                <!-- ===== 主区：左温度环，右侧开机插画 + 室内温度 ===== -->
+                <Grid ColumnDefinitions="Auto,*" ColumnSpacing="16"
+                      IsEnabled="{Binding IsOnline}">
+
+                    <!-- 温度环：底轨圆环 + 已填弧，中心目标温度 -->
+                    <StackPanel Width="136" HorizontalAlignment="Center" VerticalAlignment="Center" Spacing="10">
+                        <Panel Width="124" Height="124">
+                            <Ellipse Width="124" Height="124" Stroke="{DynamicResource DskSwitchBrush}"
+                                     StrokeThickness="9" Fill="Transparent" />
+                            <Path x:Name="RingArc" Width="124" Height="124"
+                                  Stroke="{DynamicResource Accent2Brush}"
+                                  StrokeThickness="9" StrokeLineCap="Round" Fill="Transparent" />
+                            <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" Spacing="7">
+                                <!-- 数值和 ℃ 同一行：单位跟在数字后面当后缀，读数整体上移 -->
+                                <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Spacing="1">
+                                    <TextBlock Text="{Binding TargetTempText}" FontSize="34" FontWeight="Bold"
+                                               Foreground="{DynamicResource DskTextBrush}" />
+                                    <TextBlock Text="℃" FontSize="12" VerticalAlignment="Bottom"
+                                               Margin="0,0,0,5"
+                                               Foreground="{DynamicResource DskText3Brush}" />
+                                </StackPanel>
+                                <!-- 加减直接点环里这两颗钮：一下一档，按住连续加减（原来的底部滑杆已去掉） -->
+                                <StackPanel Orientation="Horizontal" Spacing="9" HorizontalAlignment="Center">
+                                    <RepeatButton x:Name="TempDownBtn" Classes="RingStep" Content="−"
+                                                  ToolTip.Tip="调低目标温度"
+                                                  Command="{Binding TempDownCommand}" />
+                                    <RepeatButton x:Name="TempUpBtn" Classes="RingStep" Content="+"
+                                                  ToolTip.Tip="调高目标温度"
+                                                  Command="{Binding TempUpCommand}" />
+                                </StackPanel>
+                            </StackPanel>
+                        </Panel>
+                        <TextBlock Text="目标温度" FontSize="10.5" TextAlignment="Center"
+                                   Foreground="{DynamicResource DskText3Brush}" />
+                    </StackPanel>
+
+                    <!-- 右侧：电源与室内温度上下叠放，两格等高，整体与温度环齐平 -->
+                    <Grid Grid.Column="1" RowDefinitions="*,*" RowSpacing="10">
+
+                        <!-- 上格：电源。整格都是一枚大圆钮的底座，点圆钮开关机 -->
+                        <Border Classes="AcRow" Padding="0" IsVisible="{Binding HasPower}">
+                            <Button Classes="AcPower" Width="40" Height="40"
+                                    Classes.on="{Binding IsOn}" Command="{Binding TogglePowerCommand}"
+                                    ToolTip.Tip="电源"
+                                    HorizontalAlignment="Center" VerticalAlignment="Center">
+                                <Viewbox Width="17" Height="17" Stretch="Uniform"
+                                         HorizontalAlignment="Center" VerticalAlignment="Center">
+                                    <Panel Width="24" Height="24">
+                                        <Path StrokeThickness="1.9" StrokeLineCap="Round" StrokeJoin="Round"
+                                              Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}"
+                                              Data="{StaticResource GeoPower}" />
+                                    </Panel>
+                                </Viewbox>
+                            </Button>
+                        </Border>
+
+                        <!-- 下格：室内温度，标签带一支温度计，读数放大一档 -->
+                        <Border Classes="AcRow" Grid.Row="1" Padding="10,8">
+                            <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center" Spacing="4">
+                                <StackPanel Orientation="Horizontal" Spacing="5" HorizontalAlignment="Center">
+                                    <Viewbox Width="11" Height="11" Stretch="Uniform" VerticalAlignment="Center">
+                                        <Panel Width="24" Height="24">
+                                            <Path StrokeThickness="1.9" StrokeLineCap="Round" StrokeJoin="Round"
+                                                  Stroke="{DynamicResource DskText3Brush}"
+                                                  Data="{StaticResource GeoThermo}" />
+                                        </Panel>
+                                    </Viewbox>
+                                    <TextBlock Text="室内温度" FontSize="10"
+                                               Foreground="{DynamicResource DskText3Brush}" />
+                                </StackPanel>
+                                <TextBlock Text="{Binding RoomTempText}" FontSize="19" FontWeight="SemiBold"
+                                           HorizontalAlignment="Center"
+                                           Foreground="{DynamicResource DskTextBrush}" />
+                            </StackPanel>
+                        </Border>
+                    </Grid>
+                </Grid>
+
+                <!-- ===== 模式行：整卡通铺，选项跟着文字宽度排开，一行放不下自动换行 ===== -->
+                <Border Classes="AcRow" IsVisible="{Binding HasModeOptions}">
+                    <Grid ColumnDefinitions="Auto,*" ColumnSpacing="10">
+                        <TextBlock Text="模式" FontSize="12" VerticalAlignment="Center"
+                                   Foreground="{DynamicResource DskText2Brush}" />
+                        <Border Classes="AcSegTrack" Grid.Column="1">
+                            <ItemsControl ItemsSource="{Binding ModeOptions}">
+                                <ItemsControl.ItemsPanel>
+                                    <ItemsPanelTemplate>
+                                        <WrapPanel Orientation="Horizontal" />
+                                    </ItemsPanelTemplate>
+                                </ItemsControl.ItemsPanel>
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate x:DataType="m:AcOptionItem">
+                                        <Button Classes="AcSeg" Classes.is-on="{Binding IsSelected}"
+                                                Content="{Binding Label}" Margin="0,0,4,4"
+                                                Command="{Binding $parent[ItemsControl].DataContext.SetModeCommand}"
+                                                CommandParameter="{Binding Value}" />
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                        </Border>
+                    </Grid>
+                </Border>
+
+                <!-- ===== 风速行：档位柱抽成了 ctl:FanSpeedGauge，详情抽屉里那一行也是它 ===== -->
+                <Border Classes="AcRow" IsVisible="{Binding HasFanOptions}">
+                    <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="10">
+                        <TextBlock Text="风速" FontSize="12" VerticalAlignment="Center"
+                                   Foreground="{DynamicResource DskText2Brush}" />
+                        <Border Classes="AcSegTrack" Grid.Column="1">
+                            <ctl:FanSpeedGauge x:Name="FanGauge"
+                                               Options="{Binding FanOptions}"
+                                               Value="{Binding FanLevel}"
+                                               SelectCommand="{Binding SetFanCommand}"
+                                               BarBrush="{DynamicResource DskSwitchBrush}"
+                                               BarActiveBrush="{DynamicResource Accent2Brush}" />
+                        </Border>
+                        <TextBlock Grid.Column="2" Text="{Binding #FanGauge.CurrentLabel}" FontSize="11.5"
+                                   VerticalAlignment="Center" MinWidth="30" TextAlignment="Right"
+                                   TextTrimming="CharacterEllipsis"
+                                   IsVisible="{Binding #FanGauge.CurrentLabel, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"
+                                   Foreground="{DynamicResource DskText2Brush}" />
+                    </Grid>
+                </Border>
+            </StackPanel>
+        </StackPanel>
+
+        <!-- 空态兜底菜单 -->
+        <Button Classes="DskIcon" Width="26" Height="26" Margin="0,10,8,0"
+                HorizontalAlignment="Right" VerticalAlignment="Top"
+                IsVisible="{Binding ShowCornerMenu}"
+                Click="OnMoreClick" ToolTip.Tip="分区菜单">
+            <StackPanel Orientation="Horizontal" Spacing="2.4"
+                        HorizontalAlignment="Center" VerticalAlignment="Center">
+                <Ellipse Width="2.4" Height="2.4"
+                         Fill="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" />
+                <Ellipse Width="2.4" Height="2.4"
+                         Fill="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" />
+                <Ellipse Width="2.4" Height="2.4"
+                         Fill="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" />
+            </StackPanel>
+        </Button>
+    </Panel>
+</UserControl>

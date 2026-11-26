@@ -105,6 +105,43 @@ internal static class PopupPlacement
     }
 
     /// <summary>
+    /// 把无边框卡片贴到主屏工作区右下角（桌面通知这类「不锚定任何控件」的浮层）。
+    /// 尺寸一律取布局后的实测 ClientSize：SizeToContent 的窗口在布局跑完前量出来是 0，
+    /// 按常量估算会让卡片高度一变就偏上、偏中。
+    /// </summary>
+    public static bool BottomRight(Window win, int marginDip = 18)
+    {
+        win.UpdateLayout();
+
+        var screens = ScreensOf(win);
+        if (screens == null) return false;
+
+        var screen = screens.Primary ?? (screens.All.Count > 0 ? screens.All[0] : null);
+        if (screen == null) return false;
+
+        var scale = screen.Scaling > 0 ? screen.Scaling : win.RenderScaling;
+        if (scale <= 0) scale = 1;
+
+        var dipW = win.ClientSize.Width > 1 ? win.ClientSize.Width : win.Width;
+        var dipH = win.ClientSize.Height > 1 ? win.ClientSize.Height : win.Bounds.Height;
+        if (!double.IsFinite(dipW) || dipW <= 0) dipW = 342;
+        if (!double.IsFinite(dipH) || dipH <= 0) dipH = 96;
+
+        var w = (int)Math.Ceiling(dipW * scale);
+        var h = (int)Math.Ceiling(dipH * scale);
+        var wa = screen.WorkingArea;
+        var margin = (int)Math.Round(marginDip * scale);
+
+        // 右下角；卡片比工作区还大时夹到左上，任何情况下都不越过工作区边界
+        var x = Math.Clamp(wa.Right - w - margin, wa.X, Math.Max(wa.X, wa.Right - w));
+        var y = Math.Clamp(wa.Bottom - h - margin, wa.Y, Math.Max(wa.Y, wa.Bottom - h));
+
+        win.Position = new PixelPoint(x, y);
+        DesktopLog.Write($"[popup] {win.GetType().Name} bottom-right size={w}x{h} scale={scale:F2} wa={wa} → ({x},{y})");
+        return true;
+    }
+
+    /// <summary>
     /// 把固定尺寸的弹窗夹进「当前屏幕」工作区（单位 DIP），返回收敛后的 (宽, 高)。
     /// 小屏、或 125%/150% 缩放把 1080p 折成几百 DIP 时，固定的 956×736 会顶出工作区，
     /// 卡片底部（以及滚动区最后几行）就被屏幕边缘切掉 —— 这种弹窗先过这一道再定位。

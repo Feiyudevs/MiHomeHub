@@ -5,9 +5,9 @@
              xmlns:svc="clr-namespace:MiHomeHub.Services"
              x:Class="MiHomeHub.Views.HomePanelView"
              x:DataType="vm:MainViewModel">
-    <!-- 与小爱 / 音乐浮层同一套开合动画（OverlayReveal）；宽度按家庭列表内容收窄，
-         不再跟着 344 的宽卡片走 —— 里面没有输入框/滑块，撑那么宽只会显空 -->
-    <Border x:Name="HomePanel" Classes="HomePanel" Width="260"
+    <!-- 与小爱 / 音乐浮层同一套开合动画（OverlayReveal）；宽度只够容纳家庭名 + 行尾勾选，
+         菜单项整行拉满，不再跟着 344 的宽卡片走 —— 里面没有输入框/滑块，撑那么宽只会显空 -->
+    <Border x:Name="HomePanel" Classes="HomePanel" Width="240"
             HorizontalAlignment="Left" VerticalAlignment="Top" Margin="12,2,0,0"
             Opacity="0" IsVisible="False">
         <Border.RenderTransform>

@@ -297,6 +297,24 @@ internal static class DesktopEmbed
         DesktopNative.SetWindowPos(hwnd, nint.Zero, 0, 0, w, h, flags);
     }
 
+    /// <summary>
+    /// 把刚生成的这一帧推出去，**不动窗口尺寸**。
+    /// <para>
+    /// 与 <see cref="ForcePresent"/> 的区别：那个靠「高度 -1px 再还原」拿一帧真 WM_SIZE，
+    /// 开机 settle 阶段用户看不见，用来救「已显示但屏上一像素没有」；但把它用在拖滑杆这种
+    /// 连续变更上，窗口每次都会真缩 1px 再弹回，内容跟着重排 —— 肉眼就是整块分区在抖。
+    /// 这里改成标记 frame 无效 + 等 DWM 合成，几何不动，画面不跳。
+    /// </para>
+    /// </summary>
+    public static void NudgePresent(nint hwnd)
+    {
+        if (hwnd == nint.Zero || !DesktopNative.IsWindow(hwnd)) return;
+        DesktopNative.RedrawWindow(hwnd, nint.Zero, nint.Zero,
+            DesktopNative.RDW_INVALIDATE | DesktopNative.RDW_FRAME
+            | DesktopNative.RDW_ALLCHILDREN | DesktopNative.RDW_UPDATENOW);
+        try { DesktopNative.DwmFlush(); } catch { }
+    }
+
     /// <summary>虚拟桌面矩形（多屏按逻辑坐标拼接）。</summary>
     public static (int X, int Y, int Width, int Height) VirtualScreen()
         => (DesktopNative.GetSystemMetrics(DesktopNative.SM_XVIRTUALSCREEN),

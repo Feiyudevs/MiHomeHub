@@ -1,0 +1,145 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:ctl="clr-namespace:MiHomeHub.Controls"
+             x:Class="MiHomeHub.Controls.FanSpeedGauge">
+    <!-- 空调风速档位条：左边「自动」这类非阶梯档做成胶囊，右边一档到最高档排成一列逐级升高的柱子。
+         桌面空调卡和设备详情抽屉用的是同一个控件，档位表、当前值、下发命令从宿主传进来，
+         柱子的配色也由宿主指定（玻璃卡与抽屉卡的底不一样，同一种透明白在两边轻重不同）。 -->
+    <UserControl.Styles>
+        <!-- 「自动」胶囊：与详情/桌面的分段钮同一套观感（悬停淡进一层浅紫，选中实心紫 + 白字） -->
+        <Style Selector="Button.FsgChip">
+            <Setter Property="Height" Value="24" />
+            <Setter Property="MinWidth" Value="40" />
+            <Setter Property="MinHeight" Value="0" />
+            <Setter Property="Padding" Value="9,0" />
+            <Setter Property="Margin" Value="0,3,6,3" />
+            <Setter Property="FontSize" Value="11.5" />
+            <Setter Property="HorizontalAlignment" Value="Left" />
+            <Setter Property="VerticalAlignment" Value="Center" />
+            <Setter Property="HorizontalContentAlignment" Value="Center" />
+            <Setter Property="VerticalContentAlignment" Value="Center" />
+            <Setter Property="Background" Value="{DynamicResource AccentSoft2FromBrush}" />
+            <Setter Property="BorderThickness" Value="0" />
+            <Setter Property="Foreground" Value="{DynamicResource Text2Brush}" />
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="Focusable" Value="False" />
+            <Setter Property="Template">
+                <ControlTemplate>
+                    <Border Name="Bd" CornerRadius="8"
+                            Background="{TemplateBinding Background}"
+                            Padding="{TemplateBinding Padding}">
+                        <ContentPresenter Content="{TemplateBinding Content}"
+                                          HorizontalAlignment="Center"
+                                          VerticalAlignment="Center" />
+                    </Border>
+                </ControlTemplate>
+            </Setter>
+            <Setter Property="Transitions">
+                <Transitions>
+                    <BrushTransition Property="Background" Duration="0:0:0.16" />
+                </Transitions>
+            </Setter>
+        </Style>
+        <Style Selector="Button.FsgChip:pointerover /template/ Border#Bd">
+            <Setter Property="Background" Value="{DynamicResource AccentSoft2Brush}" />
+        </Style>
+        <Style Selector="Button.FsgChip:pointerover">
+            <Setter Property="Foreground" Value="{DynamicResource TextBrush}" />
+        </Style>
+        <Style Selector="Button.FsgChip:pressed /template/ Border#Bd">
+            <Setter Property="Background" Value="{DynamicResource Surface5Brush}" />
+        </Style>
+        <Style Selector="Button.FsgChip.on">
+            <Setter Property="Background" Value="{DynamicResource PrimaryBtnBrush}" />
+            <Setter Property="Foreground" Value="White" />
+        </Style>
+        <Style Selector="Button.FsgChip.on:pointerover /template/ Border#Bd">
+            <Setter Property="Background" Value="{DynamicResource PrimaryBtnBrush}" />
+        </Style>
+        <Style Selector="Button.FsgChip.on:pressed /template/ Border#Bd">
+            <Setter Property="Background" Value="{DynamicResource PrimaryBtnBrush}" />
+        </Style>
+
+        <!-- 档位柱：只负责点击热区，颜色画在内层两条 Border 上（点亮的一层直接盖上去） -->
+        <Style Selector="Button.FsgStep">
+            <Setter Property="Width" Value="13" />
+            <Setter Property="MinWidth" Value="0" />
+            <Setter Property="MinHeight" Value="0" />
+            <Setter Property="Height" Value="26" />
+            <Setter Property="Padding" Value="0" />
+            <Setter Property="Margin" Value="0" />
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="BorderThickness" Value="0" />
+            <Setter Property="HorizontalAlignment" Value="Center" />
+            <Setter Property="VerticalAlignment" Value="Bottom" />
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="Focusable" Value="False" />
+            <Setter Property="Template">
+                <ControlTemplate>
+                    <ContentPresenter Content="{TemplateBinding Content}"
+                                      HorizontalAlignment="Stretch"
+                                      VerticalAlignment="Stretch" />
+                </ControlTemplate>
+            </Setter>
+            <Setter Property="Transitions">
+                <Transitions>
+                    <DoubleTransition Property="Opacity" Duration="0:0:0.16" />
+                </Transitions>
+            </Setter>
+        </Style>
+        <Style Selector="Button.FsgStep:pointerover">
+            <Setter Property="Opacity" Value="0.86" />
+        </Style>
+        <Style Selector="Button.FsgStep:pressed">
+            <Setter Property="Opacity" Value="0.7" />
+        </Style>
+    </UserControl.Styles>
+
+    <!-- 柱子底部对齐、胶囊纵向居中：高矮参差的柱子从同一条线上长起来 -->
+    <Grid ColumnDefinitions="Auto,*" ColumnSpacing="2" Height="30">
+        <ItemsControl Name="AutoHost" VerticalAlignment="Center"
+                      ItemsSource="{Binding $parent[ctl:FanSpeedGauge].AutoChips}"
+                      IsVisible="{Binding $parent[ctl:FanSpeedGauge].HasAuto}">
+            <ItemsControl.ItemsPanel>
+                <ItemsPanelTemplate>
+                    <WrapPanel Orientation="Horizontal" />
+                </ItemsPanelTemplate>
+            </ItemsControl.ItemsPanel>
+            <ItemsControl.ItemTemplate>
+                <DataTemplate x:DataType="ctl:FanGaugeChip">
+                    <Button Classes="FsgChip" Classes.on="{Binding IsSelected}"
+                            Content="{Binding Label}"
+                            ToolTip.Tip="{Binding Label}"
+                            Command="{Binding $parent[ctl:FanSpeedGauge].SelectCommand}"
+                            CommandParameter="{Binding Value}" />
+                </DataTemplate>
+            </ItemsControl.ItemTemplate>
+        </ItemsControl>
+
+        <ItemsControl Grid.Column="1" VerticalAlignment="Bottom"
+                      ItemsSource="{Binding $parent[ctl:FanSpeedGauge].Bars}">
+            <ItemsControl.ItemsPanel>
+                <ItemsPanelTemplate>
+                    <!-- 列数 = 柱数：几档就铺几根，最后一根永远贴住右边缘 -->
+                    <UniformGrid Columns="{Binding $parent[ctl:FanSpeedGauge].Bars.Count}" />
+                </ItemsPanelTemplate>
+            </ItemsControl.ItemsPanel>
+            <ItemsControl.ItemTemplate>
+                <DataTemplate x:DataType="ctl:FanGaugeBar">
+                    <Button Classes="FsgStep" Height="{Binding BarHeight}"
+                            ToolTip.Tip="{Binding Label}"
+                            Command="{Binding $parent[ctl:FanSpeedGauge].SelectCommand}"
+                            CommandParameter="{Binding Value}">
+                        <Panel>
+                            <Border CornerRadius="4"
+                                    Background="{Binding $parent[ctl:FanSpeedGauge].BarBrush}" />
+                            <Border CornerRadius="4"
+                                    Background="{Binding $parent[ctl:FanSpeedGauge].BarActiveBrush}"
+                                    IsVisible="{Binding IsLit}" />
+                        </Panel>
+                    </Button>
+                </DataTemplate>
+            </ItemsControl.ItemTemplate>
+        </ItemsControl>
+    </Grid>
+</UserControl>

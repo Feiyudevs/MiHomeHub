@@ -67,10 +67,19 @@ internal static class GlobalHotkeyService
 
     public static bool Capturing => _capturing;
 
-    /// <summary>启动时装载绑定并安装钩子（幂等，重复调用只更新绑定）。</summary>
+    /// <summary>启动时装载绑定；钩子由 <see cref="InstallHook"/> 在界面空闲后再装。</summary>
     public static void Initialize(bool enabled, IEnumerable<HotkeyBinding> bindings)
     {
         SetBindings(enabled, bindings);
+    }
+
+    /// <summary>
+    /// 安装低层键盘钩子（幂等）。**不要**在启动早期调用：WH_KEYBOARD_LL 的回调跑在本进程线程，
+    /// 系统会把全系统的按键都投递给它并等它返回；启动那几秒 UI 线程正忙着建窗口、贴桌面，
+    /// 钩子早挂一时，整机输入就跟着卡一时。App 在 ApplicationIdle 时才调用这里。
+    /// </summary>
+    public static void InstallHook()
+    {
         if (_hook != nint.Zero) return;
         try
         {

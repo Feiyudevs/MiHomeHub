@@ -55,8 +55,24 @@ internal static class DesktopPalette
     /// <summary>默认浓度：DeskBox 那一档的等效观感（配合 tint 后约 0.4）。</summary>
     public const double DefaultDensity = 0.34;
 
-    /// <summary>关掉毛玻璃时的实心底（没有模糊兜底，得靠浓度撑）。</summary>
-    private const double OpaqueDensity = 0.92;
+    /// <summary>
+    /// 关掉毛玻璃时的浓度下限：没有模糊兜底，底色得更实一点才能压住文字。
+    /// 这里是**下限**而不是固定值 —— 以前写死 0.92，于是「关掉毛玻璃之后浓度滑杆怎么拖都没反应」。
+    /// </summary>
+    private const double OpaqueBase = 0.50;
+
+    /// <summary>关掉毛玻璃时、滑杆拉满对应的浓度（与旧固定值同档）。</summary>
+    private const double OpaqueMax = 0.92;
+
+    /// <summary>
+    /// 纸白档的浓度下限。白色的坑在「半透」：34% 的白叠在深色壁纸上出来是一块脏灰，
+    /// 还会把壁纸的紫红光透上来染成脏粉。所以白底整体抬高 —— 滑杆最左也是干净的浅灰纸，拉满是近白。
+    /// 留 0.20 的跨度，拖起来仍然看得出深浅，不至于又变成「拖了没反应」。
+    /// </summary>
+    private const double PaperBase = 0.78;
+
+    /// <summary>纸白档的浓度上限（拉满时的近白）。</summary>
+    private const double PaperMax = 0.985;
 
     /// <summary>
     /// 分区卡片底色：浓度直接就是 alpha，用户滑杆在 [MinDensity, MaxDensity] 之间调。
@@ -65,16 +81,34 @@ internal static class DesktopPalette
     public static IBrush CardBrush(DesktopAppearance look)
     {
         var baseColor = TintColor(look);
-        var density = look.Glass
-            ? Math.Clamp(look.ClampedOpacity, MinDensity, MaxDensity)
-            : OpaqueDensity;
-        var a = (byte)Math.Clamp(Math.Round(255 * density), 0, 255);
+        var a = (byte)Math.Clamp(Math.Round(255 * CardDensity(look)), 0, 255);
         return new SolidColorBrush(Color.FromArgb(a, baseColor.R, baseColor.G, baseColor.B));
+    }
+
+    /// <summary>
+    /// 底色不透明度：毛玻璃开 = 滑杆原值（夹在 [MinDensity, MaxDensity] 内保通透）；
+    /// 毛玻璃关 = 同一根滑杆映射到更实的一档；纸白档 = 抬到 [PaperBase, PaperMax]（白不能半透）。
+    /// </summary>
+    public static double CardDensity(DesktopAppearance look)
+    {
+        var density = Math.Clamp(look.ClampedOpacity, MinDensity, MaxDensity);
+        var t = density / MaxDensity;
+
+        if (IsLight(look)) return PaperBase + (PaperMax - PaperBase) * t;
+        if (look.Glass) return density;
+        return OpaqueBase + (OpaqueMax - OpaqueBase) * t;
     }
 
     /// <summary>悬停抬亮一档的底色（图标格、标题栏按钮用）；低浓度下也要看得见。</summary>
     public static IBrush HoverBrush(DesktopAppearance look)
     {
+        // 浅底上「抬亮」根本看不出来，悬停改成压一档灰，深色文字上才有反馈。
+        if (IsLight(look))
+        {
+            var paperAlpha = (byte)Math.Clamp(Math.Round(255 * (0.05 + 0.06 * look.ClampedOpacity)), 0, 255);
+            return new SolidColorBrush(Color.FromArgb(paperAlpha, Dark.R, Dark.G, Dark.B));
+        }
+
         var c = BaseColor(look);
         var a = (byte)Math.Clamp(Math.Round(255 * (0.07 + 0.07 * look.ClampedOpacity)), 0, 255);
         return new SolidColorBrush(Color.FromArgb(a, c.R, c.G, c.B));
@@ -96,15 +130,58 @@ internal static class DesktopPalette
     /// 实际参与着色的底色：自定义色只贡献色相，亮度统一压到 <see cref="TargetLuma"/> 以下。
     /// 分区固定深色主题、文字是近白色 —— 浅底 + 白字等于没有文字
     /// （用户挑的紫色 #7043ED 亮度 0.35，直接铺上去白字只有 3.2:1，压暗后回到 4.7:1）。
+    /// <para>
+    /// 例外是「纸白」这一档（白色预设）：它反而要往上提到近白，文字也跟着切深色，
+    /// 见 <see cref="IsLight"/> 与 DesktopGroupWindow 里的主题切换。
+    /// </para>
     /// </summary>
     public static Color TintColor(DesktopAppearance look)
     {
         var c = BaseColor(look);
         var luma = Luma(c);
+
+        if (IsLight(look))
+        {
+            var lift = Math.Clamp((LightTargetLuma - luma) / Math.Max(0.01, 1.0 - luma), 0, 1);
+            return Blend(c, Paper, lift);
+        }
+
         if (luma <= TargetLuma) return c;
 
         var t = Math.Clamp((luma - TargetLuma) / Math.Max(0.01, luma - Luma(Dark)), 0, 1);
         return Blend(c, Dark, t);
+    }
+
+    /// <summary>浅底亮度门槛。</summary>
+    private const double LightThreshold = 0.72;
+
+    /// <summary>
+    /// 浅底还要求「接近中性」：亮绿色 #81F467 亮度虽高，但它是彩色底，
+    /// 该走压暗那套（深底白字）；只有白/灰这种低饱和的才切「纸白 + 深字」。
+    /// </summary>
+    private const double LightMaxChroma = 0.18;
+
+    /// <summary>浅底的最低亮度：白色预设也要留住一点纸感，不刺眼。</summary>
+    private const double LightTargetLuma = 0.90;
+
+    /// <summary>浅色底的上提目标色（带一点冷的纸白）。</summary>
+    private static readonly Color Paper = Color.Parse("#F4F6FA");
+
+    /// <summary>
+    /// 当前外观是否走「纸白」一套：只认用户亲手挑的近中性浅色（白色预设 / 手输白灰）。
+    /// 跟随主题时不参与 —— 分区窗固定深色这件事是有意为之，不因为主程序切浅色就翻过来。
+    /// </summary>
+    public static bool IsLight(DesktopAppearance look)
+        => !string.IsNullOrWhiteSpace(look.BgColor) && TryParse(look.BgColor, out var c) && IsPaper(c);
+
+    private static bool IsPaper(Color c)
+        => Luma(c) >= LightThreshold && Chroma(c) <= LightMaxChroma;
+
+    /// <summary>色度（最大通道差）：白灰≈0，彩色底接近 0.5 以上。</summary>
+    private static double Chroma(Color c)
+    {
+        double r = c.R / 255.0, g = c.G / 255.0, b = c.B / 255.0;
+        return Math.Max(r, Math.Max(g, b)) - Math.Min(r, Math.Min(g, b));
     }
 
     /// <summary>自定义底色的亮度上限：与深色主题 CardBrush #1A1F2C（亮度 0.12）同档。</summary>

@@ -164,11 +164,32 @@ internal sealed class Program
         BuildAvaloniaApp().StartWithClassicDesktopLifetime(args);
     }
 
-    // 常驻控制台默认使用软件渲染，避免为低频界面常驻 ANGLE/D3D 驱动资源。
-    // 本机同界面隔离实测约省 119 MiB 私有提交；显式 --gpu 可回到 DirectComposition。
+    // 渲染管线默认走显卡（AngleEgl + WinUIComposition），拖窗口和滚动不会再靠 CPU 逐帧重绘。
+    // 代价是常驻 ANGLE/D3D 资源（同界面约多 119 MiB 私有提交）；要省内存可在设置里关掉硬件加速，
+    // 或命令行带 --lowmem。没有可用显卡时 Avalonia 会自动回退软件渲染，所以默认打开不会让老机器起不来。
+    // 渲染管线只在启动时决定，改设置后必须重启进程才生效。
     // COM 调试登记表的持续增长由 csproj 的 Release 运行时选项单独规避。
-    private static bool UseGpuRendering => Environment.GetCommandLineArgs().Any(argument =>
-        argument is "--gpu");
+    private static bool UseGpuRendering
+    {
+        get
+        {
+            var args = Environment.GetCommandLineArgs();
+            if (args.Any(argument => argument is "--lowmem")) return false;
+            if (args.Any(argument => argument is "--gpu")) return true;
+            return AppSettingsStore.UseGpu;
+        }
+    }
+
+    /// <summary>
+    /// 合成后端：默认用 WinUIComposition（Windows.UI.Composition），**不再默认走 DirectComposition**。
+    /// 11.3.x 的 DirectComposition 合成循环不按垂直同步等待（WaitForCommitCompletion 常立即返回），
+    /// 窗口最小化/收起进托盘后仍会满速空转：实测常驻吃满 1 个核，dwm.exe 也被拖着常年 20%~30%，
+    /// 开机自启那一下整机跟着掉帧（表现为「一启动电脑就卡一下」）。上游 #16750/#20873 的结论与建议
+    /// 都是把 DirectComposition 从合成列表里去掉。仍想复现旧行为可带 --directcomp。
+    /// </summary>
+    private static bool UseDirectComposition =>
+        Environment.GetCommandLineArgs().Any(argument =>
+            string.Equals(argument, "--directcomp", StringComparison.OrdinalIgnoreCase));
 
     public static AppBuilder BuildAvaloniaApp()
         => AppBuilder.Configure<App>()
@@ -178,8 +199,12 @@ internal sealed class Program
                 RenderingMode = UseGpuRendering
                     ? new[] { Win32RenderingMode.AngleEgl, Win32RenderingMode.Software }
                     : new[] { Win32RenderingMode.Software },
+                // Win10 17134 起才支持 WinUIComposition；老版本会自动落到 RedirectionSurface。
+                // 顺序里不放 DirectComposition：它在 Win11 上同样有满速空转问题。
                 CompositionMode = UseGpuRendering
-                    ? new[] { Win32CompositionMode.DirectComposition }
+                    ? (UseDirectComposition
+                        ? new[] { Win32CompositionMode.DirectComposition, Win32CompositionMode.RedirectionSurface }
+                        : new[] { Win32CompositionMode.WinUIComposition, Win32CompositionMode.RedirectionSurface })
                     : new[] { Win32CompositionMode.RedirectionSurface }
             })
             // 默认字族必须显式指定为系统里「名字能自解析、字形自足」的字体。

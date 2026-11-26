@@ -136,8 +136,8 @@ public partial class DesktopGroupView : UserControl
 
     private void UpdateZoneContent()
     {
-        // 媒体卡展开时仍由卡面承担拖动；折叠后留下同一标题壳，才能再次展开。
-        Header.IsVisible = _zone is { } zone && (!zone.IsMedia || zone.Collapsed);
+        // 媒体卡 / 空调卡展开时仍由卡面承担拖动；折叠后留下同一标题壳，才能再次展开。
+        Header.IsVisible = _zone is { } zone && (!zone.IsMedia && !zone.IsAc || zone.Collapsed);
         if (_zone is not { ContentVisible: true } activeZone)
         {
             UnloadZoneContent();
@@ -149,6 +149,7 @@ public partial class DesktopGroupView : UserControl
         {
             DesktopGroupVm => new DesktopDevicesPanel(),
             DesktopMediaVm => new DesktopMediaPanel(),
+            DesktopAcVm => new DesktopAcPanel(),
             _ => null
         };
         if (content is null) return;
@@ -457,7 +458,7 @@ public partial class DesktopGroupView : UserControl
 
     private void OnBodyPressed(object? sender, PointerPressedEventArgs e)
     {
-        if (DataContext is not DesktopZoneVm { IsMedia: true }) return;
+        if (DataContext is not DesktopZoneVm vm || (!vm.IsMedia && !vm.IsAc)) return;
         if (!e.GetCurrentPoint(this).Properties.IsLeftButtonPressed) return;
         if (IsOnHeaderButton(e.Source)) return;
 
@@ -584,7 +585,7 @@ public partial class DesktopGroupView : UserControl
     /// </summary>
     public void BeginRename()
     {
-        if (DataContext is not DesktopZoneVm vm || vm.IsMedia) return;
+        if (DataContext is not DesktopZoneVm vm || vm.IsMedia || vm.IsAc) return;
         CancelPendingClick();
         if (TitleAnchor() is { } anchor) DesktopHost.OpenRename(vm, anchor);
     }

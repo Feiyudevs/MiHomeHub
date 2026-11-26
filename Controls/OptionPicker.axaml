@@ -51,6 +51,38 @@
         <Style Selector="controls|OptionPicker.wide Button.PickBtn">
             <Setter Property="HorizontalAlignment" Value="Stretch" />
         </Style>
+        <!-- ======== 小号档（Compact = True）：压成小胶囊，嵌在信息卡角上不抢主视觉 ========
+             这里的类挂在内部元素上（触发器 / 浮层），不用「OptionPicker.compact」这种以自身打头的
+             选择器——控件自己的 Styles 只覆盖子树，选择器根写自身类型是匹配不到的。 -->
+        <Style Selector="Button.PickBtn.mini">
+            <Setter Property="MinWidth" Value="0" />
+            <Setter Property="Height" Value="24" />
+            <Setter Property="Padding" Value="8,0,6,0" />
+        </Style>
+        <Style Selector="Button.PickBtn.mini TextBlock.Cur">
+            <Setter Property="FontSize" Value="10.5" />
+        </Style>
+        <Style Selector="Button.PickBtn.mini Path#Chev">
+            <Setter Property="Margin" Value="6,0,0,0" />
+        </Style>
+        <Style Selector="Button.PickBtn.mini Border.RoomTag">
+            <Setter Property="Padding" Value="4,0" />
+        </Style>
+        <!-- ======== 胶囊形（Pill = True）：24 高配 12 圆角，左右各半个圆；文字弱一档，
+             卡片角上的小控件不跟主读数抢眼 ======== -->
+        <Style Selector="Button.PickBtn.pill /template/ Border#Bd">
+            <Setter Property="CornerRadius" Value="12" />
+        </Style>
+        <Style Selector="Button.PickBtn.pill /template/ Border#Hov">
+            <Setter Property="CornerRadius" Value="12" />
+        </Style>
+        <Style Selector="Button.PickBtn.pill TextBlock.Cur">
+            <Setter Property="Foreground" Value="{DynamicResource Text2Brush}" />
+        </Style>
+        <!-- 箭头与文字的间距写在基础样式里（不写在元素上），这样 .mini 才有机会压过它 -->
+        <Style Selector="Button.PickBtn Path#Chev">
+            <Setter Property="Margin" Value="10,0,0,0" />
+        </Style>
         <!-- 箭头展开时翻转 180°，让「开/合」有交代 -->
         <Style Selector="Button.PickBtn Path#Chev">
             <Setter Property="Transitions">
@@ -67,6 +99,8 @@
             <Setter Property="Background" Value="{DynamicResource CardSolidBrush}" />
             <Setter Property="BorderBrush" Value="{DynamicResource LineBrush}" />
             <Setter Property="BorderThickness" Value="1" />
+            <!-- 行内字号由浮层统一给、列表项继承：小号档只改这一处就能整体收一档（Border 不是 TextElement，得用附加属性） -->
+            <Setter Property="TextBlock.FontSize" Value="12.5" />
             <Setter Property="CornerRadius" Value="12" />
             <Setter Property="Padding" Value="5" />
             <!-- 选项多时收成内部滚动，浮层本身不再无限拉长 -->
@@ -127,20 +161,20 @@
             <Setter Property="Foreground" Value="{DynamicResource Text2Brush}" />
             <Setter Property="VerticalAlignment" Value="Center" />
         </Style>
-        <!-- 行尾的房间等补充信息：比主文字更弱一档，选中行也不提色，避免和名称抢焦点 -->
+        <!-- 名称后面的房间等补充信息：做成淡紫小胶囊。原来走 Text3 灰，压在深色卡上几乎读不出字；
+             主文字本来就是亮白，副信息改用品牌淡紫，跟名称分得开又不抢焦点 -->
         <Style Selector="TextBlock.Meta">
             <Setter Property="FontSize" Value="10.5" />
-            <Setter Property="Foreground" Value="{DynamicResource Text3Brush}" />
+            <Setter Property="Foreground" Value="{DynamicResource Accent2Brush}" />
             <Setter Property="VerticalAlignment" Value="Center" />
         </Style>
-        <!-- 触发器上的同一份补充信息挪到名称左边：先认房间、再认设备 -->
-        <Style Selector="TextBlock.Pre">
-            <Setter Property="FontSize" Value="10.5" />
-            <Setter Property="Foreground" Value="{DynamicResource Text3Brush}" />
-            <Setter Property="VerticalAlignment" Value="Center" />
+        <!-- 胶囊底也带一点淡紫，不再用白到看不见的 Surface5 -->
+        <Style Selector="Border.RoomTag">
+            <Setter Property="Background" Value="{DynamicResource AccentSoftBrush}" />
         </Style>
         <!-- 触发器主文字：默认强色；挂 .muted 的实例（如托盘里的音箱选择）弱一档 -->
         <Style Selector="TextBlock.Cur">
+            <Setter Property="FontSize" Value="12.5" />
             <Setter Property="Foreground" Value="{DynamicResource TextBrush}" />
         </Style>
         <Style Selector="controls|OptionPicker.muted TextBlock.Cur">
@@ -170,19 +204,39 @@
         <Style Selector="Button.PickItem.is-on TextBlock.Lbl">
             <Setter Property="FontWeight" Value="Normal" />
         </Style>
+        <!-- ======== 小号档（Compact = True）：浮层比标准档再收一圈 ========
+             卡片角上的小胶囊弹出一行 32 高、12.5 字的菜单太占地方，这里把行高、字号、
+             内距、最大高度一起压下来；行数超过 6 条仍走内部滚动，浮层不会拉得比卡片还长 -->
+        <Style Selector="Border.PickPanel.mini">
+            <Setter Property="Padding" Value="4" />
+            <Setter Property="CornerRadius" Value="10" />
+            <Setter Property="MaxHeight" Value="188" />
+        </Style>
+        <Style Selector="Border.PickPanel.mini Button.PickItem">
+            <Setter Property="Height" Value="26" />
+            <Setter Property="Padding" Value="7,0" />
+        </Style>
+        <Style Selector="Border.PickPanel.mini TextBlock.Lbl">
+            <Setter Property="FontSize" Value="11" />
+        </Style>
+        <Style Selector="Border.PickPanel.mini TextBlock.Meta">
+            <Setter Property="FontSize" Value="9.5" />
+        </Style>
     </UserControl.Styles>
     <Grid>
         <Button Name="Trigger" Classes="PickBtn">
-            <Grid ColumnDefinitions="Auto,*,Auto">
-                <Border Name="Pre" Grid.Column="0" Classes="RoomTag" Margin="0,0,6,0" IsVisible="False">
-                    <TextBlock Name="PreTxt" Classes="Pre" />
-                </Border>
-                <TextBlock Name="Cur" Grid.Column="1" Classes="Cur" Text="选择" FontSize="12.5" FontWeight="Normal"
+            <Grid ColumnDefinitions="*,Auto,Auto">
+                <TextBlock Name="Cur" Grid.Column="0" Classes="Cur" Text="选择" FontWeight="Normal"
                            VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
+                <!-- 房间胶囊跟在名称后面（和浮层列表同一顺序）：名称吃掉剩余宽度、放不下就截断，
+                     胶囊占 Auto 一列，永远留着自己的位置，不会被长名字挤掉 -->
+                <Border Name="Room" Grid.Column="1" Classes="RoomTag" Margin="8,0,0,0" IsVisible="False">
+                    <TextBlock Name="RoomTx" Classes="Meta" />
+                </Border>
                 <!-- Fill 而非 Uniform：几何包围盒 12:6 与视口 9:4.5 等比，形状必铺满视口、
                      中心即控件中心；Uniform 缩放后的内容不落在视口垂直中心，箭头会整体偏上 -->
                 <Path Name="Chev" Grid.Column="2" Width="9" Height="4.5" Stretch="Fill"
-                      Margin="10,0,0,0" VerticalAlignment="Center" RenderTransformOrigin="50%, 50%"
+                      VerticalAlignment="Center" RenderTransformOrigin="50%, 50%"
                       Stroke="{DynamicResource Text3Brush}" StrokeThickness="1.2"
                       StrokeLineCap="Round" StrokeJoin="Round" Data="M6 9 L12 15 L18 9" />
             </Grid>
@@ -192,10 +246,9 @@
                HorizontalOffset="18" VerticalOffset="-4" WindowManagerAddShadowHint="False">
             <Border Name="Panel" Classes="PickPanel">
                 <ScrollViewer Name="Scroller" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
-                    <!-- Fluent 的滚动条是 overlay 画在视口右缘的，不占独立轨道。
-                         内容右侧留出 14px，让胶囊落在留白里，不压菜单项的文字 /
-                         房间标签 / 选中高亮条；滚动条本身位置不动。 -->
-                    <ItemsControl Name="List" Margin="0,0,14,0">
+                    <!-- 右侧 14px 留白只在出现纵向滚动条时由代码补上（overlay 滚动条压在视口右缘，
+                         给房间胶囊让位）；内容不够高、没有滚动条时不留这道空白。 -->
+                    <ItemsControl Name="List">
                         <ItemsControl.ItemsPanel>
                             <ItemsPanelTemplate>
                                 <StackPanel Spacing="2" />
@@ -205,7 +258,7 @@
                             <DataTemplate x:DataType="m:IPickOption">
                                 <Button Classes="PickItem" Classes.is-on="{Binding IsSelected}" Tag="{Binding}">
                                     <Grid ColumnDefinitions="*,Auto">
-                                        <TextBlock Classes="Lbl" Text="{Binding Label}" FontSize="12.5"
+                                        <TextBlock Classes="Lbl" Text="{Binding Label}"
                                                    TextTrimming="CharacterEllipsis" />
                                         <Border Classes="RoomTag" Grid.Column="1" Margin="8,0,0,0"
                                                 IsVisible="{Binding Meta, Converter={x:Static StringConverters.IsNotNullOrEmpty}}">

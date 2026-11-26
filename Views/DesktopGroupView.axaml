@@ -18,6 +18,9 @@
         <Style Selector="StackPanel.ZoneBody.media">
             <Setter Property="Margin" Value="12" />
         </Style>
+        <Style Selector="StackPanel.ZoneBody.ac">
+            <Setter Property="Margin" Value="12" />
+        </Style>
         <!-- 这里刻意不给 TextBlock 加轮廓阴影（试过，已撤）：Avalonia 的 DropShadowEffect
              对 12.5px 小字相当于每笔画外糊一圈 9px 灰雾，在中等亮度的磨砂底上会整片发脏。
              DeskBox 也开了文字阴影，但它的背景是 60~145 的暗底，黑影落在上面本来就看不见；
@@ -88,6 +91,7 @@
                                  对齐的，非正方几何（chevron 是 12×6）在框里会偏；套一层 24 网格才真正居中。
                                  StrokeThickness 用 1.92（24 网格坐标）= 15px 下 1.2px，与主窗口图标同线宽 -->
                             <Button Name="CollapseBtn" Classes="DskIcon" Click="OnCollapseClick"
+                                    IsVisible="{Binding IsDevice}"
                                     ToolTip.Tip="折叠 / 展开">
                                 <Viewbox Width="15" Height="15" Stretch="Uniform"
                                          HorizontalAlignment="Center" VerticalAlignment="Center"
@@ -110,7 +114,7 @@
                             </Button>
                             <!-- 添加设备只在设备分区出现；媒体分区换音箱是点卡里那一行音箱 -->
                             <!-- 加号同时管设备和场景，具体加什么在弹窗顶部分组条里切 -->
-                            <Button Classes="DskIcon" Click="OnAddDeviceClick" IsVisible="{Binding !IsMedia}"
+                            <Button Classes="DskIcon" Click="OnAddDeviceClick" IsVisible="{Binding IsDevice}"
                                     ToolTip.Tip="添加设备 / 场景">
                                 <Viewbox Width="15" Height="15" Stretch="Uniform"
                                          HorizontalAlignment="Center" VerticalAlignment="Center">
@@ -139,7 +143,7 @@
 
                 <!-- ===== 内容区：展开时才创建设备/场景宫格或媒体卡，淡出完成后卸载整棵子树 =====
                      边距由上面 ZoneBody / ZoneBody.media 两条样式控制（媒体分区四边 12，与标题栏留白对齐） -->
-                <StackPanel Grid.Row="1" Classes="ZoneBody" Classes.media="{Binding IsMedia}"
+                <StackPanel Grid.Row="1" Classes="ZoneBody" Classes.media="{Binding IsMedia}" Classes.ac="{Binding IsAc}"
                             IsVisible="{Binding ContentVisible}"
                             Opacity="{Binding ContentOpacity}">
                     <StackPanel.Transitions>

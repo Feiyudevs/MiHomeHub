@@ -27,8 +27,19 @@ public static class AppSettingsStore
     /// <summary>小爱语音指令默认下发的音箱 did；空串表示还没选过。</summary>
     public static string DefaultSpeakerDid { get; private set; } = "";
 
+    /// <summary>桌面空调组件绑定的空调 did；空串表示自动取第一台在线空调。</summary>
+    public static string DesktopAcDid { get; private set; } = "";
+
     /// <summary>true = 卡片带投影；false = 扁平无投影。</summary>
     public static bool CardShadow { get; private set; } = true;
+
+    /// <summary>
+    /// 硬件加速渲染：true = 走 AngleEgl + DirectComposition，false = 软件渲染。
+    /// 默认打开：没有可用显卡的机器由 Avalonia 的渲染回退自动降到软件渲染，不会起不来；
+    /// 需要省内存的用户可在设置里关掉（或命令行 --lowmem）。
+    /// 只在启动构建 AppBuilder 时生效，改完必须重启应用。
+    /// </summary>
+    public static bool UseGpu { get; private set; } = true;
 
     /// <summary>双击桌面空白处：显示 / 隐藏所有桌面分区卡片（运行期状态，不写回分区总开关）。</summary>
     public static bool DoubleClickDesktopToggles { get; private set; } = true;
@@ -63,6 +74,12 @@ public static class AppSettingsStore
 
     private static Dictionary<string, string[]> _cardMetrics = new(StringComparer.Ordinal);
 
+    /// <summary>趋势卡选中的数据来源：key = temp / hum / power，value = 设备 did；空串（缺键）= 全屋口径。</summary>
+    private static Dictionary<string, string> _trendSources = new(StringComparer.Ordinal);
+
+    /// <summary>每盏灯自定义的色温区间：key = 设备 did，value = [最小K, 最大K]；没设过的灯按设备规格量程。</summary>
+    private static Dictionary<string, int[]> _lightRanges = new(StringComparer.Ordinal);
+
     static AppSettingsStore()
     {
         try
@@ -78,8 +95,12 @@ public static class AppSettingsStore
                 ShowMainWindowOnStartup = w.ValueKind == JsonValueKind.True;
             if (root.TryGetProperty("defaultSpeakerDid", out var s) && s.ValueKind == JsonValueKind.String)
                 DefaultSpeakerDid = s.GetString() ?? "";
+            if (root.TryGetProperty("desktopAcDid", out var ad) && ad.ValueKind == JsonValueKind.String)
+                DesktopAcDid = ad.GetString() ?? "";
             if (root.TryGetProperty("cardShadow", out var d))
                 CardShadow = d.ValueKind != JsonValueKind.False;
+            if (root.TryGetProperty("useGpu", out var ug))
+                UseGpu = ug.ValueKind == JsonValueKind.True;
             if (root.TryGetProperty("doubleClickDesktopToggles", out var dc))
                 DoubleClickDesktopToggles = dc.ValueKind != JsonValueKind.False;
             if (root.TryGetProperty("hoverExpand", out var he))
@@ -117,6 +138,13 @@ public static class AppSettingsStore
                     _cardMetrics[item.Name] = names.ToArray();
                 }
             }
+            if (root.TryGetProperty("trendSources", out var ts) && ts.ValueKind == JsonValueKind.Object)
+            {
+                foreach (var item in ts.EnumerateObject())
+                    if (item.Value.ValueKind == JsonValueKind.String &&
+                        item.Value.GetString() is { Length: > 0 } did)
+                        _trendSources[item.Name] = did;
+            }
             if (root.TryGetProperty("roomOrder", out var ro) && ro.ValueKind == JsonValueKind.Array)
             {
                 var order = new List<string>();
@@ -124,6 +152,19 @@ public static class AppSettingsStore
                     if (item.ValueKind == JsonValueKind.String && item.GetString() is { Length: > 0 } name)
                         order.Add(name);
                 RoomOrder = order.ToArray();
+            }
+            if (root.TryGetProperty("lightRanges", out var lr) && lr.ValueKind == JsonValueKind.Object)
+            {
+                foreach (var item in lr.EnumerateObject())
+                {
+                    if (item.Value.ValueKind != JsonValueKind.Array) continue;
+                    var pair = item.Value.EnumerateArray()
+                        .Where(v => v.ValueKind == JsonValueKind.Number)
+                        .Select(v => (int)Math.Round(v.GetDouble()))
+                        .ToArray();
+                    if (pair.Length == 2 && pair[0] > 0 && pair[1] > pair[0])
+                        _lightRanges[item.Name] = pair;
+                }
             }
         }
         catch
@@ -156,9 +197,22 @@ public static class AppSettingsStore
         Save();
     }
 
+    public static void SetDesktopAcDid(string did)
+    {
+        DesktopAcDid = did;
+        Save();
+    }
+
     public static void SetCardShadow(bool on)
     {
         CardShadow = on;
+        Save();
+    }
+
+    /// <summary>硬件加速开关；下次启动构建渲染管线时读取，当前会话不切换。</summary>
+    public static void SetUseGpu(bool on)
+    {
+        UseGpu = on;
         Save();
     }
 
@@ -236,6 +290,31 @@ public static class AppSettingsStore
     public static string GetHubIp(string did) =>
         string.IsNullOrWhiteSpace(did) ? "" : (_hubIps.TryGetValue(did, out var ip) ? ip : "");
 
+    /// <summary>趋势卡选中的数据来源；<paramref name="key"/> 取 temp / hum / power。</summary>
+    public static string GetTrendSource(string key) =>
+        _trendSources.TryGetValue(key, out var did) ? did : "";
+
+    /// <summary>记住趋势卡用哪台设备的值；写空表示回到全屋口径。</summary>
+    public static void SetTrendSource(string key, string? did)
+    {
+        var raw = (did ?? "").Trim();
+        if (GetTrendSource(key) == raw) return;
+        if (raw.Length == 0) _trendSources.Remove(key);
+        else _trendSources[key] = raw;
+        Save();
+    }
+
+    /// <summary>用电卡选中的范围：0 = 今日逐小时，7 / 30 = 近 7 / 30 天逐日；没选过默认近 30 天。</summary>
+    public static int GetPowerRange()
+    {
+        var raw = GetTrendSource("powerRange");
+        return int.TryParse(raw, out var days) && days is 0 or 7 or 30 ? days : 30;
+    }
+
+    /// <summary>记住用电卡看的是今天的逐小时还是几天来的逐日。</summary>
+    public static void SetPowerRange(int days) =>
+        SetTrendSource("powerRange", (days is 7 or 30 ? days : 0).ToString());
+
     /// <summary>卡片外显参数按设备类型写入；空数组表示这类设备一张读数都不外显。</summary>
     public static void SetCardMetrics(string typeKey, IEnumerable<string> names)
     {
@@ -252,6 +331,30 @@ public static class AppSettingsStore
         if (_cardMetrics.Remove(typeKey)) Save();
     }
 
+    /// <summary>记住某盏灯的色温区间（只认 did：同一 physical 灯换 did 不共享，符合「每台设备各自设」）。</summary>
+    public static bool TryGetLightRange(string did, out int min, out int max)
+    {
+        min = max = 0;
+        if (string.IsNullOrEmpty(did) || !_lightRanges.TryGetValue(did, out var pair) || pair.Length != 2) return false;
+        min = pair[0];
+        max = pair[1];
+        return min > 0 && max > min;
+    }
+
+    /// <summary>写入某盏灯的自定义色温区间。</summary>
+    public static void SetLightRange(string did, int min, int max)
+    {
+        if (string.IsNullOrEmpty(did) || min <= 0 || max <= min) return;
+        _lightRanges[did] = new[] { min, max };
+        Save();
+    }
+
+    /// <summary>删掉某盏灯的自定义区间，回到设备规格量程。</summary>
+    public static void ClearLightRange(string did)
+    {
+        if (!string.IsNullOrEmpty(did) && _lightRanges.Remove(did)) Save();
+    }
+
     private static void Save()
     {
         var payload = JsonSerializer.Serialize(new
@@ -260,7 +363,9 @@ public static class AppSettingsStore
             closeToTray = CloseToTray,
             showMainWindowOnStartup = ShowMainWindowOnStartup,
             defaultSpeakerDid = DefaultSpeakerDid,
+            desktopAcDid = DesktopAcDid,
             cardShadow = CardShadow,
+            useGpu = UseGpu,
             doubleClickDesktopToggles = DoubleClickDesktopToggles,
             hoverExpand = HoverExpandEnabled,
             hideSwitches = HideSwitches,
@@ -269,7 +374,9 @@ public static class AppSettingsStore
             roomOrder = RoomOrder,
             go2rtcBase = Go2rtcBase,
             hubIps = _hubIps,
-            cardMetrics = _cardMetrics
+            cardMetrics = _cardMetrics,
+            trendSources = _trendSources,
+            lightRanges = _lightRanges
         });
         // 写盘出 UI 线程；进程被强杀时可能丢最后一次偏好，可接受
         _ = Task.Run(() =>

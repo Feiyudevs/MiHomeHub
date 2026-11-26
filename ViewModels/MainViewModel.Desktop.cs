@@ -99,6 +99,23 @@ public partial class MainViewModel : IDeviceCardHost
         }
     }
 
+    /// <summary>
+    /// 桌面空调分区开关：与总开关彼此独立。
+    /// 关掉 = 收起这块分区并记住「不再自动放回」；打开 = 重新放一块回桌面。
+    /// </summary>
+    public bool DesktopAcZone
+    {
+        get => !DesktopHost.Layout.AcHidden;
+        set
+        {
+            if (DesktopHost.Layout.AcHidden == !value) return;
+            if (value) DesktopHost.ShowAc();
+            else DesktopHost.HideAc();
+            OnPropertyChanged(nameof(DesktopAcZone));
+            Log(value ? "桌面空调分区已显示" : "桌面空调分区已关闭");
+        }
+    }
+
     /// <summary>分区外观编辑器（背景色 / 浓度 / 毛玻璃），设置页内联复用同一份 VM。</summary>
     public DesktopAppearanceVm DesktopAppearance { get; } = new();
 
@@ -109,6 +126,7 @@ public partial class MainViewModel : IDeviceCardHost
         {
             SettingsTab = 0;
             OnPropertyChanged(nameof(DesktopMediaZone));
+            OnPropertyChanged(nameof(DesktopAcZone));
             DesktopAppearance.Reload();
         }
     }

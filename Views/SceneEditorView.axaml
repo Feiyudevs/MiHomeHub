@@ -17,6 +17,13 @@
             <Setter Property="CornerRadius" Value="10" />
             <Setter Property="Padding" Value="10,8" />
             <Setter Property="Margin" Value="0,0,0,6" />
+            <!-- 可编辑行悬停会换底色与描边：走淡变，鼠标扫过一排条件时不会一片闪 -->
+            <Setter Property="Transitions">
+                <Transitions>
+                    <BrushTransition Property="Background" Duration="0:0:0.16" />
+                    <BrushTransition Property="BorderBrush" Duration="0:0:0.16" />
+                </Transitions>
+            </Setter>
         </Style>
         <Style Selector="Border.TrigRow.editable">
             <Setter Property="Cursor" Value="Hand" />
@@ -61,6 +68,14 @@
         </Style>
         <Style Selector="Button.TrigDel:pointerover">
             <Setter Property="Foreground" Value="{DynamicResource DangerBrush}" />
+        </Style>
+        <!-- 删除钮的悬停淡变（自绘 Border 不在全局兜底范围内） -->
+        <Style Selector="Button.TrigDel /template/ Border#Bd">
+            <Setter Property="Transitions">
+                <Transitions>
+                    <BrushTransition Property="Background" Duration="0:0:0.16" />
+                </Transitions>
+            </Setter>
         </Style>
         <!-- 弱确认待删态：叉常驻红色 + 淡红底，明确"再点一次就没了" -->
         <Style Selector="Button.TrigDel.confirm /template/ Border#Bd">
@@ -112,51 +127,6 @@
             </Setter>
         </Style>
 
-        <!-- 延时秒数步进器：− [数字] +，比 NumericUpDown 的白色按钮条干净 -->
-        <Style Selector="Border.Stepper">
-            <Setter Property="Background" Value="{DynamicResource Surface4Brush}" />
-            <Setter Property="BorderBrush" Value="{DynamicResource LineBrush}" />
-            <Setter Property="BorderThickness" Value="1" />
-            <Setter Property="CornerRadius" Value="10" />
-            <Setter Property="Padding" Value="2" />
-        </Style>
-        <Style Selector="Button.StepBtn">
-            <Setter Property="Width" Value="26" />
-            <Setter Property="Height" Value="26" />
-            <Setter Property="Padding" Value="0" />
-            <Setter Property="CornerRadius" Value="7" />
-            <Setter Property="Background" Value="Transparent" />
-            <Setter Property="BorderThickness" Value="0" />
-            <Setter Property="Foreground" Value="{DynamicResource Text2Brush}" />
-            <Setter Property="Cursor" Value="Hand" />
-            <Setter Property="Focusable" Value="False" />
-            <Setter Property="Template">
-                <ControlTemplate>
-                    <Border Name="Bd" CornerRadius="7" Background="{TemplateBinding Background}">
-                        <ContentPresenter Content="{TemplateBinding Content}"
-                                          HorizontalAlignment="Center" VerticalAlignment="Center" />
-                    </Border>
-                </ControlTemplate>
-            </Setter>
-        </Style>
-        <Style Selector="Button.StepBtn:pointerover /template/ Border#Bd">
-            <Setter Property="Background" Value="{DynamicResource HoverBrush}" />
-        </Style>
-        <!-- 数字本体：不画自己的边框，融进步进器里 -->
-        <Style Selector="TextBox.StepValue">
-            <Setter Property="Width" Value="58" />
-            <Setter Property="Height" Value="26" />
-            <Setter Property="Padding" Value="0" />
-            <Setter Property="FontSize" Value="12.5" />
-            <Setter Property="FontWeight" Value="Normal" />
-            <Setter Property="TextAlignment" Value="Center" />
-            <Setter Property="Background" Value="Transparent" />
-            <Setter Property="BorderThickness" Value="0" />
-        </Style>
-        <Style Selector="TextBox.StepValue /template/ Border#PART_BorderElement">
-            <Setter Property="Background" Value="Transparent" />
-            <Setter Property="BorderThickness" Value="0" />
-        </Style>
     </UserControl.Styles>
 
     <ctl:DialogPopup CardWidth="672" CardMaxHeight="740"
@@ -444,6 +414,7 @@
                                     <Grid ColumnDefinitions="Auto,Auto,*,Auto" Margin="4,10,12,10">
                                     <!-- 拖拽手柄：2×3 点阵，所有卡片都能拖，延时卡也是独立一步 -->
                                     <Border Width="18" Background="Transparent" Cursor="SizeAll"
+                                            VerticalAlignment="Center"
                                             PointerPressed="OnRowGripPressed">
                                         <StackPanel Orientation="Horizontal" Spacing="3"
                                                     HorizontalAlignment="Center" VerticalAlignment="Center">
@@ -464,20 +435,19 @@
                                          没取到产品图时按设备类型画线性图标；场景/通知/延时等
                                          非设备动作由 SceneRowIcon 给出语义图标。
                                          Device.Icon 会随产品图异步加载刷新，故可见性直接绑它。 -->
-                                    <Border Grid.Column="1" Width="34" Height="34" Margin="6,0,0,0"
+                                    <Border Grid.Column="1" Classes="RowIco" Margin="6,0,0,0"
                                             VerticalAlignment="Center">
                                         <Panel>
-                                            <Border Classes="RowIco"
-                                                    IsVisible="{Binding Device.Icon, Converter={x:Static ObjectConverters.IsNull}}">
-                                                <Path Classes="RowIco" Classes.amber="{Binding IsDelay}"
-                                                      Width="19" Height="19" Stretch="Uniform"
-                                                      HorizontalAlignment="Center" VerticalAlignment="Center"
-                                                      StrokeThickness="1.6" StrokeLineCap="Round" StrokeJoin="Round"
-                                                      Data="{Binding Converter={StaticResource SceneRowIcon}}" />
-                                            </Border>
-                                            <Image Width="34" Height="34" Stretch="Uniform"
+                                            <Path IsVisible="{Binding Device.Icon, Converter={x:Static ObjectConverters.IsNull}}"
+                                                  Classes="RowIco" Classes.amber="{Binding IsDelay}"
+                                                  Width="19" Height="19" Stretch="Uniform"
+                                                  HorizontalAlignment="Center" VerticalAlignment="Center"
+                                                  StrokeThickness="1.6" StrokeLineCap="Round" StrokeJoin="Round"
+                                                  Data="{Binding Converter={StaticResource SceneRowIcon}}" />
+                                            <Image Width="30" Height="30" Stretch="Uniform"
                                                    Source="{Binding Device.Icon}"
                                                    IsVisible="{Binding Device.Icon, Converter={x:Static ObjectConverters.IsNotNull}}"
+                                                   HorizontalAlignment="Center" VerticalAlignment="Center"
                                                    RenderOptions.BitmapInterpolationMode="MediumQuality" />
                                         </Panel>
                                     </Border>
@@ -511,36 +481,12 @@
                                                            Foreground="{DynamicResource Text3Brush}" />
                                             </StackPanel>
 
-                                            <!-- 延时秒数：自绘步进器（−  180  +） -->
-                                            <StackPanel Grid.Column="1" Orientation="Horizontal"
-                                                        Spacing="6" VerticalAlignment="Center"
-                                                        IsVisible="{Binding IsDelay}">
-                                                <Border Classes="Stepper">
-                                                    <Grid ColumnDefinitions="Auto,Auto,Auto">
-                                                        <Button Classes="StepBtn" Click="OnDelayStepDown"
-                                                                ToolTip.Tip="减少 10 秒">
-                                                            <!-- 减号不能用 GeoMin + Stretch=Uniform：该几何是 M4,12 L20,12，
-                                                                 外接框高为 0，Uniform 缩放会把它压成不可见。直接用一条横线画。 -->
-                                                            <Border Width="9" Height="1.6" CornerRadius="1"
-                                                                    HorizontalAlignment="Center"
-                                                                    VerticalAlignment="Center"
-                                                                    Background="{Binding $parent[Button].Foreground}" />
-                                                        </Button>
-                                                        <TextBox Grid.Column="1" Classes="StepValue"
-                                                                 Text="{Binding DelaySeconds, Mode=TwoWay}" />
-                                                        <Button Grid.Column="2" Classes="StepBtn" Click="OnDelayStepUp"
-                                                                ToolTip.Tip="增加 10 秒">
-                                                            <Path Width="10" Height="10" Stretch="Uniform"
-                                                                  Stroke="{Binding $parent[Button].Foreground}"
-                                                                  StrokeThickness="1.6" StrokeLineCap="Round"
-                                                                  Data="{StaticResource GeoPlus}" />
-                                                        </Button>
-                                                    </Grid>
-                                                </Border>
-                                                <TextBlock Text="秒" FontSize="11.5"
-                                                           VerticalAlignment="Center"
-                                                           Foreground="{DynamicResource Text3Brush}" />
-                                            </StackPanel>
+                                            <!-- 延时秒数：胶囊步进器（−  180秒  +），与属性数值同一个控件 -->
+                                            <ctl:NumberStepper Grid.Column="1" HorizontalAlignment="Left"
+                                                               VerticalAlignment="Center"
+                                                               IsVisible="{Binding IsDelay}"
+                                                               Value="{Binding DelaySeconds, Mode=TwoWay}"
+                                                               Minimum="0" Maximum="86400" Step="10" Unit="秒" />
 
                                             <!-- 场景启停 -->
                                             <ToggleButton Grid.Column="1" Classes="Switch"
@@ -554,12 +500,14 @@
                                                 <ToggleButton Classes="Switch"
                                                               IsVisible="{Binding Primary.IsBool}"
                                                               IsChecked="{Binding Primary.BoolValue, Mode=TwoWay}" />
-                                                <NumericUpDown IsVisible="{Binding Primary.IsNumber}" Width="120"
+                                            <!-- 数值步进器：− 数值 单位 +，和详情页、添加动作弹窗用同一个控件 -->
+                                            <ctl:NumberStepper IsVisible="{Binding Primary.IsNumber}"
+                                                               HorizontalAlignment="Left"
+                                                               Value="{Binding Primary.NumValue, Mode=TwoWay}"
                                                                Minimum="{Binding Primary.Min}"
                                                                Maximum="{Binding Primary.Max}"
-                                                               Increment="{Binding Primary.Step}"
-                                                               FormatString="0.##"
-                                                               Value="{Binding Primary.NumValue, Mode=TwoWay}" />
+                                                               Step="{Binding Primary.Step}"
+                                                               Unit="{Binding Primary.Unit}" />
                                                 <ctl:OptionPicker IsVisible="{Binding Primary.IsOption}" Width="140"
                                                                   VerticalAlignment="Center"
                                                                   Options="{Binding Primary.OptionItems}"
@@ -590,10 +538,13 @@
                                                         <Panel Grid.Column="1" VerticalAlignment="Center">
                                                             <ToggleButton Classes="Switch" IsVisible="{Binding IsBool}"
                                                                           IsChecked="{Binding BoolValue, Mode=TwoWay}" />
-                                                            <NumericUpDown IsVisible="{Binding IsNumber}" Width="120"
-                                                                           Minimum="{Binding Min}" Maximum="{Binding Max}"
-                                                                           Increment="{Binding Step}" FormatString="0.##"
-                                                                           Value="{Binding NumValue, Mode=TwoWay}" />
+                                                            <ctl:NumberStepper IsVisible="{Binding IsNumber}"
+                                                                               HorizontalAlignment="Left"
+                                                                               Value="{Binding NumValue, Mode=TwoWay}"
+                                                                               Minimum="{Binding Min}"
+                                                                               Maximum="{Binding Max}"
+                                                                               Step="{Binding Step}"
+                                                                               Unit="{Binding Unit}" />
                                                             <ctl:OptionPicker IsVisible="{Binding IsOption}" Width="140"
                                                                               VerticalAlignment="Center"
                                                                               Options="{Binding OptionItems}"

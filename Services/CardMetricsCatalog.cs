@@ -20,11 +20,25 @@ public static class CardMetricsCatalog
     /// 后者是累计用电量（无单位），当功率显示会读出完全错误的数字。</summary>
     private static readonly HashSet<string> MetricNames = new(StringComparer.Ordinal)
     {
-        "temperature", "relative-humidity", "humidity", "pm2.5", "pm10", "illuminance",
-        "co2", "tvoc", "tds-in", "air-quality", "water-level",
+        "temperature", "relative-humidity", "humidity", "pm2.5", "pm10", "pm1", "illuminance",
+        "co2", "tvoc", "hcho", "noise", "dust", "tds-in", "air-quality", "water-level",
         "electric-power", "voltage", "electric-current",
         "motion-detected", "contact-state", "occupancy",
         "smoke-state", "leak", "door-state", "submersion-state"
+    };
+
+    /// <summary>标准指标键 → MIoT 规格里可能出现的短名别名。</summary>
+    private static readonly Dictionary<string, string[]> Aliases = new(StringComparer.Ordinal)
+    {
+        ["relative-humidity"] = new[] { "humidity" },
+        ["pm2.5"] = new[] { "pm2.5-density" },
+        ["pm10"] = new[] { "pm10-density" },
+        ["pm1"] = new[] { "pm1-density" },
+        ["co2"] = new[] { "co2-density" },
+        ["tvoc"] = new[] { "tvoc-density", "voc-density", "etvoc-density" },
+        ["hcho"] = new[] { "hcho-density", "formaldehyde-density", "formaldehyde" },
+        ["noise"] = new[] { "noise-decibel", "noise" },
+        ["dust"] = new[] { "dust-density", "dust" }
     };
 
     /// <summary>慢速读数：每 4 拍读一次（温湿度、耗材），其余外显字段跟普通轮询一拍读一次。</summary>
@@ -99,11 +113,14 @@ public static class CardMetricsCatalog
         var list = new List<SpecPropertyDef>();
         foreach (var name in EffectiveNames(d))
         {
-            var p = spec.FindMetric(name) ?? spec.FindProp(name);
+            var p = FindSelectedMetric(spec, name);
             if (p != null) list.Add(p);
         }
         return list;
     }
+
+    /// <summary>把规格短名归一到外显配置使用的标准键；不在指标表内返回 null。</summary>
+    public static string? StandardMetricName(string name) => StandardName(name);
 
     /// <summary>普通轮询每拍要读的外显字段（不含温度/湿度这类慢速读数）。</summary>
     public static List<SpecPropertyDef> FastProps(MijiaDevice d) =>
@@ -119,11 +136,28 @@ public static class CardMetricsCatalog
         foreach (var p in spec.Properties)
         {
             if (!p.Readable || !p.IsNumeric || p.Options.Count > 0) continue;
-            if (!MetricNames.Contains(p.Name)) continue;
+            if (StandardName(p.Name) == null) continue;
             if (!seen.Add((p.Siid, p.Piid))) continue;
             list.Add(p);
         }
         return list;
+    }
+
+    /// <summary>按标准键找属性，先认标准名，再认 `-density` 等厂商别名。</summary>
+    public static SpecPropertyDef? FindSelectedMetric(DeviceSpec spec, string name) =>
+        spec.FindMetric(name) ??
+        spec.Properties.FirstOrDefault(x => x.Readable &&
+            Aliases.TryGetValue(name, out var aliases) && aliases.Contains(x.Name));
+
+    /// <summary>把规格短名归一到卡片配置使用的标准键；不在指标表内返回 null。</summary>
+    private static string? StandardName(string name)
+    {
+        if (MetricNames.Contains(name)) return name;
+        foreach (var (standard, aliases) in Aliases)
+        {
+            if (aliases.Contains(name)) return standard;
+        }
+        return null;
     }
 
     /// <summary>面板上的候选标题：属性中文名 + 单位（如「功耗 W」）。</summary>
@@ -140,6 +174,12 @@ public static class CardMetricsCatalog
             p.Unit.Length > 0 ? p.Unit : "W",
         "voltage" => p.Unit.Length > 0 ? p.Unit : "V",
         "electric-current" or "current" => p.Unit.Length > 0 ? p.Unit : "A",
+        "pm2.5" or "pm2.5-density" or "pm10" or "pm10-density" or "pm1" or "pm1-density" =>
+            p.Unit.Length > 0 ? p.Unit : "µg/m³",
+        "co2" or "co2-density" => p.Unit.Length > 0 ? p.Unit : "ppm",
+        "hcho" or "hcho-density" => p.Unit.Length > 0 ? p.Unit : "mg/m³",
+        "noise" or "noise-decibel" => p.Unit.Length > 0 ? p.Unit : "dB",
+        "tvoc" or "tvoc-density" or "voc-density" => p.Unit,
         _ => p.Unit
     };
 

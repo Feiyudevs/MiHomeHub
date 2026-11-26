@@ -23,12 +23,6 @@
                     Command="{Binding $parent[Window].((vm:MainViewModel)DataContext).SetAcModeCommand}"
                     CommandParameter="{Binding Value}" />
         </DataTemplate>
-        <DataTemplate x:Key="AcFanOptionTemplate" x:DataType="m:AcOptionItem">
-            <Button Classes="SegBtn" Content="{Binding Label}" Classes.is-on="{Binding IsSelected}"
-                    HorizontalAlignment="Stretch" VerticalAlignment="Center"
-                    Command="{Binding $parent[Window].((vm:MainViewModel)DataContext).SetAcFanCommand}"
-                    CommandParameter="{Binding Value}" />
-        </DataTemplate>
         <!-- 风扇档位/模式：与空调同一套分段按钮，命令换成风扇自己的 -->
         <DataTemplate x:Key="FanLevelOptionTemplate" x:DataType="m:AcOptionItem">
             <Button Classes="SegBtn" Content="{Binding Label}" Classes.is-on="{Binding IsSelected}"
@@ -61,32 +55,41 @@
                     Command="{Binding $parent[Window].((vm:MainViewModel)DataContext).SetSpecChoiceCommand}"
                     CommandParameter="{Binding}" />
         </DataTemplate>
-        <!-- 详情顶部实时读数卡：标题 + 格式化读数 -->
+        <!-- 详情顶部实时读数卡：标题 + 格式化读数，整张卡就是开关。
+             右上角小房子 = 已显示在主页设备卡上；灰=未显示，点一下切换（同类设备一起生效） -->
         <DataTemplate x:Key="MetricTileTemplate" x:DataType="vm:MetricTileVm">
-            <Border Classes="MetricTile" Width="104" Margin="0,0,8,8">
+            <Button Classes="MetricTile" Classes.is-on="{Binding IsShown}"
+                    Margin="0,0,8,8"
+                    ToolTip.Tip="点一下切换：是否显示在主页设备卡"
+                    Command="{Binding $parent[ItemsControl].((vm:MainViewModel)DataContext).ToggleMetricTileCommand}"
+                    CommandParameter="{Binding}">
                 <StackPanel Spacing="4">
-                    <TextBlock Text="{Binding Title}" FontSize="11.5"
-                               Foreground="{DynamicResource Text3Brush}"
-                               TextTrimming="CharacterEllipsis" />
+                    <Grid ColumnDefinitions="*,Auto">
+                        <TextBlock Text="{Binding Title}" FontSize="11.5"
+                                   Foreground="{DynamicResource Text3Brush}"
+                                   TextTrimming="CharacterEllipsis" VerticalAlignment="Center" />
+                        <Path Grid.Column="1" Width="11" Height="11" Stretch="Uniform"
+                              Margin="4,0,0,0" VerticalAlignment="Center" Opacity="0.45"
+                              Stroke="{DynamicResource Text3Brush}" StrokeThickness="1.5"
+                              StrokeJoin="Round" StrokeLineCap="Round"
+                              Data="M3,10.5 L12,3 L21,10.5 M5.5,9.5 L5.5,20 L18.5,20 L18.5,9.5 M9.5,20 L9.5,14 L14.5,14 L14.5,20" />
+                    </Grid>
                     <TextBlock Text="{Binding ValueText}" FontSize="16" FontWeight="SemiBold"
                                Foreground="{DynamicResource TextBrush}"
                                TextTrimming="CharacterEllipsis" />
                 </StackPanel>
-            </Border>
-        </DataTemplate>
-        <!-- 卡片外显：一个读数一枚胶囊，点亮=已在卡片副标题上，点一下即加/移 -->
-        <DataTemplate x:Key="CardMetricChipTemplate" x:DataType="vm:CardMetricVm">
-            <Button Classes="SegBtn" Classes.is-on="{Binding IsShown}"
-                    Content="{Binding Title}" HorizontalAlignment="Left"
-                    MinWidth="58" Margin="0,0,6,6" Padding="12,0"
-                    Command="{Binding $parent[Window].((vm:MainViewModel)DataContext).ToggleCardMetricCommand}"
-                    CommandParameter="{Binding}" />
+            </Button>
         </DataTemplate>
         <DataTemplate x:Key="SpecPropTemplate" x:DataType="vm:SpecPropVm">
-            <StackPanel Spacing="7" Margin="0,0,0,12">
-                <Grid ColumnDefinitions="*,Auto">
+            <StackPanel Spacing="7" Margin="0,0,0,12" HorizontalAlignment="Stretch">
+                <Grid ColumnDefinitions="*,Auto" HorizontalAlignment="Stretch">
                     <TextBlock Text="{Binding Title}" FontSize="13" VerticalAlignment="Center"
-                               Foreground="{DynamicResource Text2Brush}" TextTrimming="CharacterEllipsis" />
+                               HorizontalAlignment="Stretch"
+                               Foreground="{DynamicResource Text2Brush}" TextTrimming="CharacterEllipsis">
+                        <ToolTip.Tip>
+                            <TextBlock Text="{Binding FullTitle}" TextWrapping="Wrap" />
+                        </ToolTip.Tip>
+                    </TextBlock>
                     <TextBlock Grid.Column="1" Text="{Binding ValueText}" FontSize="12.5"
                                VerticalAlignment="Center" IsVisible="{Binding IsValue}"
                                Foreground="{DynamicResource Text3Brush}" />

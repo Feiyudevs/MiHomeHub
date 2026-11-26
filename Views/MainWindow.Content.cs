@@ -6,8 +6,6 @@ using System.Collections.Generic;
 using System.ComponentModel;
 using System.Linq;
 using Avalonia;
-using Avalonia.Animation;
-using Avalonia.Animation.Easings;
 using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
 using Avalonia.Input;
@@ -156,13 +154,16 @@ public partial class MainWindow
         // 切页（含键盘 1/2/3）：滑块滑过去，同时让新页里的列表卡片逐张移入
         if (e.PropertyName == nameof(MainViewModel.SelectedNavIndex))
         {
+            // 入场动画必须在卡片上屏之前挂好：Layout 优先级（高于 Render）先把新页的
+            // 容器实例化、布局跑完，Render 再动手，于是这一帧还没有「亮着的卡片」，
+            // 也就不会出现「整页设备先闪一下、再从头淡入」的观感。
             Dispatcher.UIThread.Post(() =>
             {
                 // 快捷键页不该留着展开的搜索框（离开时也不该把关键词带回去）
                 if (Vm?.SelectedNavIndex == 3 && _searchOpen) SetSearchOpen(false);
                 SyncNavSlider(true);
                 PlayPageEnter(Vm?.SelectedNavIndex ?? 0);
-            }, DispatcherPriority.Background);
+            }, DispatcherPriority.Render);
             return;
         }
         if (e.PropertyName is not (nameof(MainViewModel.IsDrawerOpen)
@@ -230,6 +231,7 @@ public partial class MainWindow
         _navSliderRect = null;
         _navSliderReady = false;
         _pendingEnterIndex = null;
+        _lastEnterIndex = -1;
     }
 
     private void OnNavSliderLayoutUpdated(object? sender, EventArgs e)
@@ -346,19 +348,45 @@ public partial class MainWindow
     // 房间切换后卡片容器可能还没实例化，先记下页索引，等下一轮 LayoutUpdated 再播
     private int? _pendingEnterIndex;
 
+    // 同一次切页可能被「渲染前」与「LayoutUpdated 补播」各叫一次：短窗口内重放会让
+    // 动画从头抖一下，这里只认第一次。
+    private int _lastEnterIndex = -1;
+    private long _lastEnterAt;
+
     /// <summary>
     /// 切页/切房间后让该页各列表里的卡片依次从右侧向左移入并淡入（最多错开 10 张，避免长列表拖太久）。
-    /// 位移挂在卡片的 item 容器上：容器没有别处设置的 RenderTransform，不会和卡片自身的悬停抬起冲突。
+    /// 设备这类可回收列表自己管入场（<see cref="RecyclingItemsControl.BeginEnterReveal"/>）：
+    /// 这一帧之后才实例化的容器也会在准备阶段就归零，不会先亮一次再重放。
     /// </summary>
     private void PlayPageEnter(int index)
     {
-        if (PageCarousel?.ContainerFromIndex(index) is not Control page) return;
+        // 页容器还没实例化：挂起，等这一轮布局完成再补播（否则这一次切页就彻底没有入场动画）
+        if (PageCarousel?.ContainerFromIndex(index) is not Control page)
+        {
+            _pendingEnterIndex = index;
+            return;
+        }
+
+        var now = Environment.TickCount64;
+        if (_lastEnterIndex == index && now - _lastEnterAt < 200) return;
 
         var seen = new HashSet<Control>();
         var order = 0;
+        var handled = 0;
         var unrealized = false;
         foreach (var items in page.GetVisualDescendants().OfType<ItemsControl>())
         {
+            // 收起的房间、没展开的「已隐藏」区不上屏，不参与入场，
+            // 也别把它们算成「容器没拿到」，否则补播会一直挂着。
+            if (items.ItemCount == 0 || !items.IsEffectivelyVisible) continue;
+
+            // 列表自己接管：已上屏的容器当场归零，后到的容器在准备时归零
+            if (items is RecyclingItemsControl recycling && recycling.BeginEnterReveal())
+            {
+                handled++;
+                continue;
+            }
+
             var count = items.ItemCount;
             for (var i = 0; i < count; i++)
             {
@@ -373,43 +401,16 @@ public partial class MainWindow
             }
         }
 
-        // 一张都没拿到但列表里有数据：说明容器还没实例化，挂起，别让动画落空
-        _pendingEnterIndex = seen.Count == 0 && unrealized ? index : null;
+        // 一张都没拿到但列表里有数据：说明容器还没实例化，挂起，别让动画落空。
+        // 只在真的播到了东西时才记下这次切页，挂起状态下的补播不能被去重挡掉。
+        if (handled > 0 || seen.Count > 0)
+        {
+            _lastEnterIndex = index;
+            _lastEnterAt = now;
+        }
+        _pendingEnterIndex = handled == 0 && seen.Count == 0 && unrealized ? index : null;
     }
 
-    private static void PlayCardEnter(Control card, int delayMs)
-    {
-        // 关键帧不能直接写 RenderTransform（Avalonia 11 没有该动画器），
-        // 固定挂一个 TranslateTransform 只动它的 X，与骨架动画同一套写法。
-        card.RenderTransform = new TranslateTransform(20, 0);
-        card.Opacity = 0;
-
-        var anim = new Animation
-        {
-            Duration = TimeSpan.FromMilliseconds(240),
-            Delay = TimeSpan.FromMilliseconds(delayMs),
-            Easing = new CubicEaseOut(),
-            FillMode = FillMode.Forward,
-        };
-        anim.Children.Add(new KeyFrame
-        {
-            Cue = new Cue(0d),
-            Setters =
-            {
-                new Setter(OpacityProperty, 0d),
-                new Setter(TranslateTransform.XProperty, 20d),
-            }
-        });
-        anim.Children.Add(new KeyFrame
-        {
-            Cue = new Cue(1d),
-            Setters =
-            {
-                new Setter(OpacityProperty, 1d),
-                new Setter(TranslateTransform.XProperty, 0d),
-            }
-        });
-        _ = anim.RunAsync(card);
-    }
+    private static void PlayCardEnter(Control card, int delayMs) => CardReveal.Play(card, delayMs);
 
 }

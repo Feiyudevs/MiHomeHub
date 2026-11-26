@@ -41,6 +41,9 @@ public sealed class SpecPropertyDef
     /// <summary>展示名：云端中文 description，缺失时退回短名。</summary>
     public required string Desc { get; init; }
 
+    /// <summary>未做括号/长度清理的原始展示名，供悬停气泡展示完整含义；为空时回落 <see cref="Desc"/>。</summary>
+    public string RawDesc { get; init; } = "";
+
     /// <summary>所属服务的短名与中文名，用于分组标题。</summary>
     public required string ServiceName { get; init; }
     public required string ServiceDesc { get; init; }
@@ -152,10 +155,27 @@ public sealed class DeviceSpec
     {
         var p = Properties.FirstOrDefault(x => x.Readable && x.Name == name);
         if (p != null) return p;
-        if (name == "relative-humidity")
-            return Properties.FirstOrDefault(x => x.Readable && x.Name == "humidity");
+        if (MetricAliases.TryGetValue(name, out var aliases))
+            return Properties.FirstOrDefault(x => x.Readable && aliases.Contains(x.Name));
         return null;
     }
+
+    /// <summary>
+    /// 同一指标在不同厂商规格里的短名别名。米家标准名常带 `-density` 后缀
+    /// （如 pm2.5-density、hcho-density），这里统一归到卡片与轮询使用的标准键。
+    /// </summary>
+    private static readonly Dictionary<string, string[]> MetricAliases = new(StringComparer.Ordinal)
+    {
+        ["relative-humidity"] = new[] { "humidity" },
+        ["pm2.5"] = new[] { "pm2.5-density" },
+        ["pm10"] = new[] { "pm10-density" },
+        ["pm1"] = new[] { "pm1-density" },
+        ["co2"] = new[] { "co2-density" },
+        ["tvoc"] = new[] { "tvoc-density", "voc-density", "etvoc-density" },
+        ["hcho"] = new[] { "hcho-density", "formaldehyde-density", "formaldehyde" },
+        ["noise"] = new[] { "noise-decibel", "noise" },
+        ["dust"] = new[] { "dust-density", "dust" }
+    };
 
     public SpecPropertyDef? FindProp(string name) =>
         Properties.FirstOrDefault(x => x.Readable && x.Name == name);

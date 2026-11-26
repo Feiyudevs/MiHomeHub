@@ -23,6 +23,15 @@
         <Style Selector="Button.DskPick:pointerover /template/ Border#Pk">
             <Setter Property="Background" Value="#2EFFFFFF" />
         </Style>
+        <!-- 音箱行的玻璃底换档也走淡变（这一层是内容里的 Border，不吃模板兜底） -->
+        <Style Selector="Button.DskPick Border#Pk">
+            <Setter Property="Transitions">
+                <Transitions>
+                    <BrushTransition Property="Background" Duration="0:0:0.16" />
+                    <BrushTransition Property="BorderBrush" Duration="0:0:0.16" />
+                </Transitions>
+            </Setter>
+        </Style>
         <Style Selector="Button.DskPick:pressed /template/ Border#Pk">
             <Setter Property="Background" Value="#3AFFFFFF" />
         </Style>

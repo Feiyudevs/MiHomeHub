@@ -2,7 +2,7 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         x:Class="MiHomeHub.Views.HotkeyToastWindow"
         Title="MiHomeHubHotkeyToast"
-        Width="342"
+        Width="356"
         SizeToContent="Height"
         ShowInTaskbar="False"
         ShowActivated="False"
@@ -16,6 +16,12 @@
         Background="Transparent"
         RenderOptions.TextRenderingMode="Antialias">
 
+    <Window.Resources>
+        <!-- 部分完成用的琥珀色，主题里没有现成的 Amber 键，单独放一对 -->
+        <SolidColorBrush x:Key="ToastWarnBrush" Color="#F2B45C"/>
+        <SolidColorBrush x:Key="ToastWarnSoftBrush" Color="#33F2B45C"/>
+    </Window.Resources>
+
     <Window.Styles>
         <!-- 桌面通知卡：和弹窗同一套 DrawerBgBrush + LineBrush，右下角轻投影 -->
         <Style Selector="Border.TCard">
@@ -24,7 +30,7 @@
             <Setter Property="BorderThickness" Value="1"/>
             <Setter Property="CornerRadius" Value="16"/>
             <Setter Property="BoxShadow" Value="0 10 26 0 #40000000"/>
-            <Setter Property="Padding" Value="14,12"/>
+            <Setter Property="Padding" Value="14,12,14,12"/>
             <Setter Property="Margin" Value="14,14,14,18"/>
         </Style>
         <Style Selector="Border.TIc">
@@ -34,16 +40,13 @@
             <Setter Property="Background" Value="{DynamicResource AccentSoftBrush}"/>
             <Setter Property="VerticalAlignment" Value="Top"/>
         </Style>
+        <!-- 图标按 24 网格画，交给 Viewbox 等比缩放居中：Path 单独 Stretch=Uniform 时
+             贴的是盒子左上角而不是正中，闪电包围盒 15×20 非正方形，直接缩会整体偏左 -->
         <Style Selector="Path.TIc">
-            <Setter Property="Width" Value="16"/>
-            <Setter Property="Height" Value="16"/>
-            <Setter Property="Stretch" Value="Uniform"/>
-            <Setter Property="StrokeThickness" Value="1.7"/>
+            <Setter Property="StrokeThickness" Value="2.2"/>
             <Setter Property="StrokeLineCap" Value="Round"/>
             <Setter Property="StrokeJoin" Value="Round"/>
             <Setter Property="Stroke" Value="{DynamicResource Accent2Brush}"/>
-            <Setter Property="HorizontalAlignment" Value="Center"/>
-            <Setter Property="VerticalAlignment" Value="Center"/>
         </Style>
         <Style Selector="TextBlock.THead">
             <Setter Property="FontSize" Value="13"/>
@@ -57,18 +60,153 @@
             <Setter Property="TextWrapping" Value="Wrap"/>
             <Setter Property="MaxLines" Value="2"/>
         </Style>
+
+        <!-- 状态徽标：圆点 + 文案，颜色随状态切换 -->
+        <Style Selector="Border.TPill">
+            <Setter Property="CornerRadius" Value="9"/>
+            <Setter Property="Padding" Value="7,2.5"/>
+            <Setter Property="Margin" Value="10,0,0,0"/>
+            <Setter Property="VerticalAlignment" Value="Center"/>
+            <Setter Property="Background" Value="{DynamicResource AccentSoftBrush}"/>
+        </Style>
+        <Style Selector="Border.TDot">
+            <Setter Property="Width" Value="5"/>
+            <Setter Property="Height" Value="5"/>
+            <Setter Property="CornerRadius" Value="3"/>
+            <Setter Property="VerticalAlignment" Value="Center"/>
+            <Setter Property="Background" Value="{DynamicResource Accent2Brush}"/>
+        </Style>
+        <Style Selector="TextBlock.TState">
+            <Setter Property="FontSize" Value="10.5"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="Foreground" Value="{DynamicResource Accent2Brush}"/>
+            <Setter Property="VerticalAlignment" Value="Center"/>
+        </Style>
+
+        <!-- 底部进度条：提示停留倒计时，用 ScaleX 从右往左收 -->
+        <Style Selector="Border.TProgTrack">
+            <Setter Property="Height" Value="2"/>
+            <Setter Property="Margin" Value="0,11,0,0"/>
+            <Setter Property="CornerRadius" Value="1"/>
+            <Setter Property="Background" Value="{DynamicResource LineBrush}"/>
+            <Setter Property="IsHitTestVisible" Value="False"/>
+        </Style>
+        <Style Selector="Border.TProgFill">
+            <Setter Property="CornerRadius" Value="1"/>
+            <Setter Property="Background" Value="{DynamicResource AccentBrush}"/>
+            <Setter Property="RenderTransformOrigin" Value="0%,50%"/>
+        </Style>
+
+        <!-- 开机态：绿灯 + 绿光晕 -->
+        <Style Selector="Border.TCard.on Border.TIc">
+            <Setter Property="Background" Value="{DynamicResource GreenSoftBrush}"/>
+            <Setter Property="BoxShadow" Value="0 0 14 0 #336BE894"/>
+        </Style>
+        <Style Selector="Border.TCard.on Path.TIc">
+            <Setter Property="Stroke" Value="{DynamicResource GreenBrush}"/>
+        </Style>
+        <Style Selector="Border.TCard.on Border.TPill">
+            <Setter Property="Background" Value="{DynamicResource GreenSoftBrush}"/>
+        </Style>
+        <Style Selector="Border.TCard.on Border.TDot">
+            <Setter Property="Background" Value="{DynamicResource GreenBrush}"/>
+        </Style>
+        <Style Selector="Border.TCard.on TextBlock.TState">
+            <Setter Property="Foreground" Value="{DynamicResource GreenBrush}"/>
+        </Style>
+        <Style Selector="Border.TCard.on Border.TProgFill">
+            <Setter Property="Background" Value="{DynamicResource GreenBrush}"/>
+        </Style>
+
+        <!-- 关闭态：整体压暗 -->
+        <Style Selector="Border.TCard.off Border.TIc">
+            <Setter Property="Background" Value="{DynamicResource Surface5Brush}"/>
+        </Style>
+        <Style Selector="Border.TCard.off Path.TIc">
+            <Setter Property="Stroke" Value="{DynamicResource Text3Brush}"/>
+        </Style>
+        <Style Selector="Border.TCard.off Border.TPill">
+            <Setter Property="Background" Value="{DynamicResource Surface5Brush}"/>
+        </Style>
+        <Style Selector="Border.TCard.off Border.TDot">
+            <Setter Property="Background" Value="{DynamicResource Text3Brush}"/>
+        </Style>
+        <Style Selector="Border.TCard.off TextBlock.TState">
+            <Setter Property="Foreground" Value="{DynamicResource Text2Brush}"/>
+        </Style>
+        <Style Selector="Border.TCard.off Border.TProgFill">
+            <Setter Property="Background" Value="{DynamicResource Text3Brush}"/>
+        </Style>
+
+        <!-- 部分完成：琥珀色 -->
+        <Style Selector="Border.TCard.warn Border.TIc">
+            <Setter Property="Background" Value="{DynamicResource ToastWarnSoftBrush}"/>
+        </Style>
+        <Style Selector="Border.TCard.warn Path.TIc">
+            <Setter Property="Stroke" Value="{DynamicResource ToastWarnBrush}"/>
+        </Style>
+        <Style Selector="Border.TCard.warn Border.TPill">
+            <Setter Property="Background" Value="{DynamicResource ToastWarnSoftBrush}"/>
+        </Style>
+        <Style Selector="Border.TCard.warn Border.TDot">
+            <Setter Property="Background" Value="{DynamicResource ToastWarnBrush}"/>
+        </Style>
+        <Style Selector="Border.TCard.warn TextBlock.TState">
+            <Setter Property="Foreground" Value="{DynamicResource ToastWarnBrush}"/>
+        </Style>
+        <Style Selector="Border.TCard.warn Border.TProgFill">
+            <Setter Property="Background" Value="{DynamicResource ToastWarnBrush}"/>
+        </Style>
+
+        <!-- 未执行 / 失败：红 -->
+        <Style Selector="Border.TCard.failed Border.TIc">
+            <Setter Property="Background" Value="{DynamicResource DangerSoftBrush}"/>
+        </Style>
+        <Style Selector="Border.TCard.failed Path.TIc">
+            <Setter Property="Stroke" Value="{DynamicResource DangerBrush}"/>
+        </Style>
+        <Style Selector="Border.TCard.failed Border.TPill">
+            <Setter Property="Background" Value="{DynamicResource DangerSoftBrush}"/>
+        </Style>
+        <Style Selector="Border.TCard.failed Border.TDot">
+            <Setter Property="Background" Value="{DynamicResource DangerBrush}"/>
+        </Style>
+        <Style Selector="Border.TCard.failed TextBlock.TState">
+            <Setter Property="Foreground" Value="{DynamicResource DangerBrush}"/>
+        </Style>
+        <Style Selector="Border.TCard.failed Border.TProgFill">
+            <Setter Property="Background" Value="{DynamicResource DangerBrush}"/>
+        </Style>
     </Window.Styles>
 
-    <Border Classes="TCard">
-        <Grid ColumnDefinitions="Auto,*">
-            <Border Classes="TIc">
-                <Path Classes="TIc" Data="{StaticResource GeoBolt}"/>
-            </Border>
+    <Border x:Name="Card" Classes="TCard">
+        <Grid RowDefinitions="Auto,Auto">
+            <Grid ColumnDefinitions="Auto,*,Auto">
+                <Border x:Name="IconTile" Classes="TIc">
+                    <Viewbox Width="18" Height="18" Stretch="Uniform"
+                             HorizontalAlignment="Center" VerticalAlignment="Center">
+                        <Panel Width="24" Height="24">
+                            <Path Classes="TIc" Data="{StaticResource GeoBolt}"/>
+                        </Panel>
+                    </Viewbox>
+                </Border>
 
-            <StackPanel Grid.Column="1" Margin="11,1,0,0" Spacing="3" VerticalAlignment="Center">
-                <TextBlock x:Name="HeadText" Classes="THead" Text="快捷键"/>
-                <TextBlock x:Name="BodyText" Classes="TBody" Text="已执行"/>
-            </StackPanel>
+                <StackPanel Grid.Column="1" Margin="11,1,0,0" Spacing="3" VerticalAlignment="Center">
+                    <TextBlock x:Name="HeadText" Classes="THead" Text="快捷键"/>
+                    <TextBlock x:Name="BodyText" Classes="TBody" Text="已执行"/>
+                </StackPanel>
+
+                <Border Grid.Column="2" Classes="TPill">
+                    <StackPanel Orientation="Horizontal" Spacing="5">
+                        <Border Classes="TDot"/>
+                        <TextBlock x:Name="StateText" Classes="TState" Text="已完成"/>
+                    </StackPanel>
+                </Border>
+            </Grid>
+
+            <Border Grid.Row="1" Classes="TProgTrack">
+                <Border x:Name="ProgressFill" Classes="TProgFill"/>
+            </Border>
         </Grid>
     </Border>
 </Window>

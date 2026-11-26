@@ -88,6 +88,26 @@ public partial class MijiaDevice : ObservableObject
     /// <summary>空调：目标温度 ℃（实际 siid/piid 由设备规格 AcSchema 决定）。</summary>
     [property: JsonIgnore] [ObservableProperty] private double _acTargetTemp = 26;
 
+    partial void OnAcTargetTempChanged(double value) =>
+        OnPropertyChanged(nameof(AcTargetTempInput));
+
+    /// <summary>
+    /// 目标温度步进器写入点（胶囊步进器的 Value 绑这里）：
+    /// 设备自己不知道网络那一层，写进来的绝对值交给视图模型去校准并下发。
+    /// </summary>
+    [JsonIgnore] public Action<double>? AcTargetTempSink { get; set; }
+
+    /// <summary>步进器读到的当前目标温度；写回时转给 <see cref="AcTargetTempSink"/>。</summary>
+    [JsonIgnore]
+    public double AcTargetTempInput
+    {
+        get => AcTargetTemp;
+        set => AcTargetTempSink?.Invoke(value);
+    }
+
+    /// <summary>把界面上的温度拨回设备真实值（离线、缺规格或下发被拒时用，避免显示停在没落地的数）。</summary>
+    public void RefreshAcTargetTempInput() => OnPropertyChanged(nameof(AcTargetTempInput));
+
     /// <summary>空调：风速档位（实际 siid/piid 由设备规格 AcSchema 决定）。</summary>
     [property: JsonIgnore] [ObservableProperty] private int _acFanLevel;
 
@@ -115,6 +135,14 @@ public partial class MijiaDevice : ObservableObject
 
     /// <summary>最近一次读到的相对湿度（%，已按 0.1 单位缩回）。</summary>
     [JsonIgnore] public double? Humidity { get; set; }
+
+    /// <summary>最近一次读到的瞬时功率（W）。只认 electric-power（功率），
+    /// 不认 power-consumption（累计电量）。null 表示这台设备没有计量能力/没读到。</summary>
+    [JsonIgnore] public double? PowerWatts { get; set; }
+
+    /// <summary>最近一次读到的累计耗电量（kWh，power-consumption 计数器）。空调、浴霸这类
+    /// 只报累计电量、没有瞬时功率；首页用电卡用相邻两次读数的差值折出这一段用了多少度。</summary>
+    [JsonIgnore] public double? EnergyKwh { get; set; }
 
     // ===== 耗材（滤芯/刷头 life-level、电量 battery-level/charge-progress 百分比） =====
 
@@ -265,8 +293,8 @@ public partial class MijiaDevice : ObservableObject
         }
     }
 
-    /// <summary>卡片是否显示单个开关：整机电源、窗帘、单路开关都算；网关 / 路由 / 门锁 / 音箱 / 传感器不算。</summary>
-    [JsonIgnore] public bool ShowCardSwitch => IsControllable && Channels.Count <= 1 && !HasNoCardPower;
+    /// <summary>卡片是否显示单个开关：整机电源、窗帘都算；墙壁开关 / 场景按键、网关 / 路由 / 门锁 / 音箱 / 传感器不算。</summary>
+    [JsonIgnore] public bool ShowCardSwitch => IsControllable && Channels.Count <= 1 && !HasNoCardPower && !IsSwitchDevice;
 
     /// <summary>多路开关卡片只显示「N 路」角标，具体每一路进抽屉操作。</summary>
     [JsonIgnore] public bool ShowChannelBadge => Channels.Count > 1;
@@ -311,6 +339,13 @@ public partial class MijiaDevice : ObservableObject
         foreach (var o in _acSchema.Fans) o.IsSelected = o.Value == value;
     }
 
+    partial void OnAcSchemaChanged(AcControlSchema? value)
+    {
+        if (value == null) return;
+        foreach (var o in value.Modes) o.IsSelected = o.Value == AcMode;
+        foreach (var o in value.Fans) o.IsSelected = o.Value == AcFanLevel;
+    }
+
     // ===== 风扇：档位 / 摆风 / 模式（siid/piid 由设备规格解析） =====
 
     /// <summary>该风扇的控制参数（按设备规格解析），决定抽屉里档位/摆风/模式的显示与下发。</summary>
@@ -341,6 +376,234 @@ public partial class MijiaDevice : ObservableObject
     {
         if (_fanSchema == null) return;
         foreach (var o in _fanSchema.Modes) o.IsSelected = o.Value == value;
+    }
+
+    // ===== 灯：亮度 / 色温（siid-piid 与值域由设备规格解析） =====
+
+    /// <summary>该灯的控制参数（按设备规格解析）：决定滑杆量程与实际下发的 siid/piid。</summary>
+    [property: JsonIgnore] [ObservableProperty] private LightControlSchema? _lightSchema;
+
+    /// <summary>最近一次读到的预设 mode（读不到为 null）；拖色温前据此决定要不要拨回可调档。</summary>
+    [JsonIgnore] public int? LightMode { get; set; }
+
+    /// <summary>色温兜底上下限。自定义量程允许超出设备规格——不少型号实际能力比规格标注更宽，
+    /// 硬卡在规格上反而调不到真机的端点；超出真机能力的值云端会拒收，界面回读后自己退回。</summary>
+    public const int ColorTempFloor = 1000;
+    public const int ColorTempCeiling = 10000;
+
+    /// <summary>用户给这盏灯自定义的色温区间（null = 跟设备规格）；存 app.json，按 did 记。</summary>
+    private int? _ctMinOverride;
+    private int? _ctMaxOverride;
+
+    /// <summary>设备规格里这盏灯自己的色温量程（不含用户自定义）。</summary>
+    [JsonIgnore] public double SpecColorTempMin => LightSchema is { HasColorTemp: true } s ? s.CtMin : 2700;
+
+    /// <summary>设备规格里这盏灯自己的色温上限（不含用户自定义）。</summary>
+    [JsonIgnore] public double SpecColorTempMax => LightSchema is { HasColorTemp: true } s ? s.CtMax : 6500;
+
+    /// <summary>色温滑杆左端：用户自定义过就用自己的，否则跟设备规格。规格没解析出来时按多数灯的 2700K。</summary>
+    [JsonIgnore] public double ColorTempMin => _ctMinOverride ?? SpecColorTempMin;
+
+    /// <summary>色温滑杆右端：用户自定义过就用自己的，否则跟设备规格。</summary>
+    [JsonIgnore] public double ColorTempMax => _ctMaxOverride ?? SpecColorTempMax;
+
+    /// <summary>色温步进（多数型号 1K）。</summary>
+    [JsonIgnore] public double ColorTempStep => LightSchema is { HasColorTemp: true } s ? s.CtStep : 1;
+
+    /// <summary>亮度滑杆左端。</summary>
+    [JsonIgnore] public double BrightnessMin => LightSchema is { HasBrightness: true } s ? s.BrightMin : 1;
+
+    /// <summary>亮度滑杆右端。</summary>
+    [JsonIgnore] public double BrightnessMax => LightSchema is { HasBrightness: true } s ? s.BrightMax : 100;
+
+    /// <summary>
+    /// 这台灯能不能调色温。规格解析过、但 light 服务里没有 color-temperature（只有彩光的灯）时为 false，
+    /// 抽屉里就不出这张卡，免得滑杆拖了没反应。规格没拿到时按老样子显示。
+    /// </summary>
+    [JsonIgnore] public bool HasColorTemp => LightSchema?.HasColorTemp ?? true;
+
+    /// <summary>抽屉里那行量程说明，如「范围 3000K – 6500K」。</summary>
+    [JsonIgnore] public string ColorTempRangeText => $"范围 {ColorTempMin:0}K – {ColorTempMax:0}K";
+
+    /// <summary>这盏灯硬件支持的上下限（设备规格标注），编辑时只作参考：可以照着收窄，也可以放宽去试真机的实际能力。</summary>
+    [JsonIgnore] public string SpecColorTempRangeText => LightSchema is { HasColorTemp: true }
+        ? $"规格标注 {SpecColorTempMin:0}–{SpecColorTempMax:0}K，可手动放宽或收窄"
+        : "未读到设备规格，先按通用 2700–6500K 起调，可手动放宽或收窄";
+
+    /// <summary>这盏灯是否设过自定义区间（行尾按钮据此显示「自定义 / 重置」）。</summary>
+    [JsonIgnore] public bool HasCustomColorTempRange => _ctMinOverride.HasValue || _ctMaxOverride.HasValue;
+
+    /// <summary>色温量程编辑区是否展开。</summary>
+    [property: JsonIgnore] [ObservableProperty] private bool _isEditingLightRange;
+
+    /// <summary>自定义量程时最小与最大之间至少留的行程（K），否则滑杆只剩一个点。</summary>
+    public const int LightRangeGap = 100;
+
+    /// <summary>编辑中的最小 / 最大色温（点「保存」才写进配置并生效）。</summary>
+    [property: JsonIgnore] [ObservableProperty] private double _lightRangeEditMin;
+    [property: JsonIgnore] [ObservableProperty] private double _lightRangeEditMax;
+
+    /// <summary>编辑态最小值的上界：给最大值留出至少 <see cref="LightRangeGap"/> 的行程。</summary>
+    [JsonIgnore] public double LightRangeMinUpper =>
+        Math.Max(ColorTempFloor, Math.Min(ColorTempCeiling, LightRangeEditMax - LightRangeGap));
+
+    /// <summary>编辑态最大值的下界：压在最小值上方至少 <see cref="LightRangeGap"/>。</summary>
+    [JsonIgnore] public double LightRangeMaxLower =>
+        Math.Max(ColorTempFloor, Math.Min(ColorTempCeiling, LightRangeEditMin + LightRangeGap));
+
+    partial void OnLightRangeEditMinChanged(double value) =>
+        OnPropertyChanged(nameof(LightRangeMaxLower));
+
+    partial void OnLightRangeEditMaxChanged(double value) =>
+        OnPropertyChanged(nameof(LightRangeMinUpper));
+
+    partial void OnIsEditingLightRangeChanged(bool value) =>
+        OnPropertyChanged(nameof(LightRangeToggleText));
+
+    /// <summary>量程行尾按钮文字：没设过「自定义」，设过「调整」，展开中「收起」。</summary>
+    [JsonIgnore] public string LightRangeToggleText =>
+        IsEditingLightRange ? "收起" : HasCustomColorTempRange ? "调整" : "自定义";
+
+    /// <summary>规格重建后让界面重新读量程与显隐。</summary>
+    partial void OnLightSchemaChanged(LightControlSchema? value)
+    {
+        OnPropertyChanged(nameof(HasColorTemp));
+        OnPropertyChanged(nameof(SpecColorTempMin));
+        OnPropertyChanged(nameof(SpecColorTempMax));
+        OnPropertyChanged(nameof(ColorTempMin));
+        OnPropertyChanged(nameof(ColorTempMax));
+        OnPropertyChanged(nameof(ColorTempStep));
+        OnPropertyChanged(nameof(BrightnessMin));
+        OnPropertyChanged(nameof(BrightnessMax));
+        OnPropertyChanged(nameof(ColorTempRangeText));
+        OnPropertyChanged(nameof(SpecColorTempRangeText));
+        // 量程换了以后，原来的自定义区间要按新规格重新夹一遍（换型号/规格晚到时尤其重要）
+        if (_ctMinOverride.HasValue || _ctMaxOverride.HasValue)
+            ApplyLightRangeOverride(_ctMinOverride, _ctMaxOverride);
+    }
+
+    /// <summary>
+    /// 套用用户自定义的色温区间（null 表示回到设备规格量程）。
+    /// 只夹在兜底量程（1000–10000K）里，不按设备规格硬卡：不少型号真机能力比规格标注更宽，
+    /// 规格写 3000–6500 的灯实际常常能到 7000K 乃至更低；能不能落色交给设备自己回话。
+    /// 本地色温若落在新区间外也一并夹回来，界面不会停在拖不动的位置。
+    /// </summary>
+    public void ApplyLightRangeOverride(int? min, int? max)
+    {
+        var newMin = min is { } m ? Math.Clamp(m, ColorTempFloor, ColorTempCeiling) : (int?)null;
+        var newMax = max is { } x ? Math.Clamp(x, ColorTempFloor, ColorTempCeiling) : (int?)null;
+        // 区间小于 1K 就没行程了，这种配置当没设
+        if (newMin is { } a && newMax is { } b && b - a < 1) newMin = newMax = null;
+
+        if (newMin == _ctMinOverride && newMax == _ctMaxOverride) return;
+
+        _ctMinOverride = newMin;
+        _ctMaxOverride = newMax;
+        OnPropertyChanged(nameof(ColorTempMin));
+        OnPropertyChanged(nameof(ColorTempMax));
+        OnPropertyChanged(nameof(ColorTempRangeText));
+        OnPropertyChanged(nameof(HasCustomColorTempRange));
+        OnPropertyChanged(nameof(LightRangeToggleText));
+
+        var rangeMin = (int)Math.Round(ColorTempMin);
+        var rangeMax = (int)Math.Round(ColorTempMax);
+        if (ColorTemp < rangeMin) ColorTemp = rangeMin;
+        else if (ColorTemp > rangeMax) ColorTemp = rangeMax;
+    }
+
+    /// <summary>
+    /// 按规格解析灯光能力：亮度、色温的可写属性与值域，以及「可调色温」对应的预设 mode。
+    /// 只认 light 服务里的属性；灯大类下找不到时退回同名属性（第三方型号偶尔把服务名写得不一样）。
+    /// </summary>
+    private void ApplyLight(DeviceSpec spec)
+    {
+        SpecPropertyDef? Pick(string name)
+        {
+            var inLight = spec.Properties.FirstOrDefault(p => p.Writable && p.IsNumeric && p.Name == name &&
+                                                              p.ServiceName is "light" or "lamp");
+            if (inLight != null) return inLight;
+            return IsLight ? spec.Properties.FirstOrDefault(p => p.Writable && p.IsNumeric && p.Name == name) : null;
+        }
+
+        var bright = Pick("brightness");
+        var ct = Pick("color-temperature");
+        var mode = spec.Properties.FirstOrDefault(p => p.Writable && p.IsNumeric && p.Name == "mode" &&
+                                                       p.ServiceName is "light" or "lamp");
+        if (bright == null && ct == null && mode == null)
+        {
+            LightSchema = null;
+            return;
+        }
+
+        var schema = new LightControlSchema();
+        if (bright != null)
+        {
+            schema.HasBrightness = true;
+            schema.BrightSiid = bright.Siid;
+            schema.BrightPiid = bright.Piid;
+            if (bright.HasRange)
+            {
+                schema.BrightMin = bright.Min;
+                schema.BrightMax = bright.Max;
+                schema.BrightStep = bright.Step <= 0 ? 1 : bright.Step;
+            }
+        }
+        if (ct != null)
+        {
+            schema.HasColorTemp = true;
+            schema.CtSiid = ct.Siid;
+            schema.CtPiid = ct.Piid;
+            if (ct.HasRange)
+            {
+                schema.CtMin = ct.Min;
+                schema.CtMax = ct.Max;
+                schema.CtStep = ct.Step <= 0 ? 1 : ct.Step;
+            }
+        }
+        if (mode != null)
+        {
+            schema.ModeSiid = mode.Siid;
+            schema.ModePiid = mode.Piid;
+            // 预设场景（阅读/影院/温馨…）会把色温锁死在固定值，写 color-temperature 不生效。
+            // 枚举里代表「不套预设、色温可调」的那一档按名字认：色温模式 / 空场景 / 无模式 / 正常模式。
+            foreach (var o in mode.Options)
+            {
+                var label = o.Label;
+                if (label.Contains("色温", StringComparison.Ordinal) ||
+                    label.Contains("空场景", StringComparison.Ordinal) ||
+                    label.Contains("无模式", StringComparison.Ordinal) ||
+                    label.Contains("正常", StringComparison.Ordinal) ||
+                    label.Contains("Color Temperature", StringComparison.OrdinalIgnoreCase) ||
+                    label.Contains("None", StringComparison.OrdinalIgnoreCase) ||
+                    label.Contains("Normal", StringComparison.OrdinalIgnoreCase))
+                {
+                    schema.ResetModeValue = o.Value;
+                    break;
+                }
+            }
+        }
+
+        LightSchema = schema.Valid ? schema : null;
+        if (schema.Valid)
+        {
+            // 量程变了以后，本地缓存的旧值可能落在区间外（比如 2700 落到 3000–6500 的灯上），先夹回区间
+            ClampLightValues(schema);
+        }
+    }
+
+    /// <summary>把本地亮度/色温夹进量程（含用户自定义的色温区间），避免滑杆一开始就停在区间外、拖到端点不产生变化。</summary>
+    private void ClampLightValues(LightControlSchema schema)
+    {
+        if (schema.HasColorTemp)
+        {
+            var ct = Math.Clamp(ColorTemp, (int)Math.Round(ColorTempMin), (int)Math.Round(ColorTempMax));
+            if (ct != ColorTemp) ColorTemp = ct;
+        }
+        if (schema.HasBrightness)
+        {
+            var b = Math.Clamp(Brightness, (int)Math.Round(BrightnessMin), (int)Math.Round(BrightnessMax));
+            if (b != Brightness) Brightness = b;
+        }
     }
 
     /// <summary>
@@ -492,6 +755,7 @@ public partial class MijiaDevice : ObservableObject
 
         ApplySpeaker(spec);
         if (IsFan) ApplyFan(spec);
+        ApplyLight(spec);
         ApplyConsumables(spec);
         RaiseControlChanged();
     }

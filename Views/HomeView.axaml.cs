@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: GPL-3.0-only
 
 using Avalonia.Controls;
+using Avalonia.Input;
 using Avalonia.Interactivity;
 using MiHomeHub.ViewModels;
 
@@ -22,5 +23,11 @@ public partial class HomeView : UserControl
     private void OnGotoRooms(object? sender, RoutedEventArgs e)
     {
         if (DataContext is MainViewModel vm) vm.SelectedNavIndex = 1;
+    }
+
+    /// <summary>「环境与能耗」标题行双击：真实数据 ⇄ 演示数据。</summary>
+    private void OnTrendHeaderPressed(object? sender, PointerPressedEventArgs e)
+    {
+        if (e.ClickCount >= 2 && DataContext is MainViewModel vm) vm.ToggleTrendPreview();
     }
 }

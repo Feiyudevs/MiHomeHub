@@ -328,6 +328,11 @@ public partial class MainViewModel : ObservableObject
         StatDevices.Clear();
         SpeakerOptions.Clear();
         HasEnvironment = false;
+        // 趋势卡的数据来源也跟着清空，否则退出登录后首页还会留着上一账户的「环境与能耗」
+        HasTempReading = false;
+        HasHumReading = false;
+        HasMetering = false;
+        ShowEnvTrend = false;
         HasConsumables = false;
         HasConsumableWarning = false;
         ConsumableLowCount = 0;

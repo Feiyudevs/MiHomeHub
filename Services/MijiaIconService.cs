@@ -5,6 +5,7 @@ using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.IO;
+using System.IO.Compression;
 using System.Net;
 using System.Net.Http;
 using System.Security.Cryptography;
@@ -20,9 +21,10 @@ using SkiaSharp;
 namespace MiHomeHub.Services;
 
 /// <summary>
-/// 设备真机图：米家云的设备列表接口不带图标字段，按 model 到米家产品库取 realIcon 产品图。
-/// realIcon 绝大多数托管在 iotweb-user-center（少数在 iotweb-product-center），且带签名参数，
-/// 必须整段 URL 才能通过 CDN 校验；无该字段的型号返回 null，卡片回退到矢量图标。
+/// 设备真机图。米家云设备列表不带图标，按型号优先查内置的米家设备配置表（与米家 App 设备列表
+/// 同款的 168×168 透明拟物图，覆盖 1.2 万个已上架型号），表里没有再回退产品库 realIcon。
+/// realIcon 多托管在 iotweb-user-center 或 iotweb-product-center，且带签名参数，必须整段 URL
+/// 才能通过 CDN 校验；两处都查不到的型号返回 null，卡片回退到矢量图标。
 /// 结果同时写入 %APPDATA%\Feiyu\MiHomeHub\icons\ 磁盘缓存：命中期内直接读盘，过期后对比 URL
 /// 再决定是否重新下载，产品图更新时能自动换新。
 /// 磁盘保留接口原图；内存按 UI 所需尺寸解码，不做裁切或抠图，最长边不超过 192px。
@@ -30,6 +32,9 @@ namespace MiHomeHub.Services;
 public static class MijiaIconService
 {
     private const string ProductApi = "https://home.mi.com/cgi-op/api/v1/baike/v2/product?model=";
+
+    /// <summary>米家 App 设备配置表快照（model → icon_real），gzip 后约 0.5 MB，首次取图时才解压。</summary>
+    private const string IconMapAsset = "avares://MiHomeHub/Assets/device-icons.json.gz";
 
     /// <summary>输出位图统一 96 DPI：Size（DIP）= 像素数，不再继承源图 pHYs（常是 72 或被当成 2835）。</summary>
     private static readonly Vector OutputDpi = new(96, 96);
@@ -95,6 +100,55 @@ public static class MijiaIconService
     private static readonly object IndexLock = new();
     private static IndexRoot? _index;
 
+    /// <summary>内置型号表只读，加载一次常驻；不参与登录态，退出登录不清理。解压/解析放到线程池，避免首屏卡一下。</summary>
+    private static readonly Lazy<Task<Dictionary<string, string>>> IconMap =
+        new(() => Task.Run(LoadIconMap));
+
+    private static Dictionary<string, string> LoadIconMap()
+    {
+        try
+        {
+            using var gz = AssetLoader.Open(new Uri(IconMapAsset));
+            using var stream = new GZipStream(gz, CompressionMode.Decompress);
+            var parsed = JsonSerializer.Deserialize<Dictionary<string, string>>(stream);
+            return parsed is null
+                ? new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+                : new Dictionary<string, string>(parsed, StringComparer.OrdinalIgnoreCase);
+        }
+        catch
+        {
+            // 资源缺失或损坏时退回产品库查询，不让图标整体失效
+            return new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        }
+    }
+
+    private static async Task<string?> LookupConfiguredIconAsync(string model)
+    {
+        var map = await IconMap.Value;
+        return map.TryGetValue(model.Trim(), out var url) && !string.IsNullOrEmpty(url) ? url : null;
+    }
+
+    /// <summary>产品库兜底：只取 data.realIcon，任何解析/网络问题都当作没有，不抛给上层。</summary>
+    private static async Task<string?> QueryProductLibraryIconAsync(string model)
+    {
+        try
+        {
+            var json = await Http.GetStringAsync(ProductApi + Uri.EscapeDataString(model));
+            using var doc = JsonDocument.Parse(json);
+            if (!doc.RootElement.TryGetProperty("data", out var data) ||
+                data.ValueKind != JsonValueKind.Object ||
+                !data.TryGetProperty("realIcon", out var icon) ||
+                icon.ValueKind != JsonValueKind.String)
+                return null;
+            var url = icon.GetString();
+            return string.IsNullOrEmpty(url) ? null : url;
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
     public static Task<Bitmap?> GetAsync(string model)
     {
         if (string.IsNullOrEmpty(model)) return Task.FromResult<Bitmap?>(null);
@@ -131,30 +185,36 @@ public static class MijiaIconService
             if (cached != null && entry != null && DateTime.UtcNow - DateTimeOffset.FromUnixTimeMilliseconds(entry.SavedAt) < DiskTtl)
                 return cached;
 
-            var json = await Http.GetStringAsync(ProductApi + Uri.EscapeDataString(model));
-            using var doc = JsonDocument.Parse(json);
-            if (!doc.RootElement.TryGetProperty("data", out var data) ||
-                data.ValueKind != JsonValueKind.Object ||
-                !data.TryGetProperty("realIcon", out var icon) ||
-                icon.ValueKind != JsonValueKind.String)
+            var configuredUrl = await LookupConfiguredIconAsync(model);
+            var url = configuredUrl ?? await QueryProductLibraryIconAsync(model);
+            if (string.IsNullOrEmpty(url))
             {
-                // 产品库没有该型号：有过期磁盘图就继续用，避免闪一下再变回矢量图标
+                // 两处都没有该型号：有过期磁盘图就继续用，避免闪一下再变回矢量图标
                 return cached;
             }
 
-            var url = icon.GetString() ?? "";
-            if (string.IsNullOrEmpty(url)) return cached;
-
-            // realIcon 带 CDN 签名，每次请求 query 都会变；只比 path 判断是否换图
+            // 图标 URL 带 CDN 签名，每次请求 query 都可能变；只比 path 判断是否换图
             if (cached != null && entry != null && UrlPath(entry.Url) == UrlPath(url))
             {
                 TouchIndex(model, url, entry.File);
                 return cached;
             }
 
-            // realIcon 就是产品实物图，不能按 CDN 域名过滤（绝大多数在 iotweb-user-center）。
-            // 也不能裁掉 ? 后的签名参数：该 CDN 校验签名，去签名会 403，必须整段 URL 下载。
-            var bytes = await Http.GetByteArrayAsync(url);
+            byte[] bytes;
+            try
+            {
+                // 内置表里的签名可能过期/被拒，失败时再问一次产品库，拿到新 URL 重试
+                bytes = await Http.GetByteArrayAsync(url);
+            }
+            catch when (configuredUrl != null)
+            {
+                var fallback = await QueryProductLibraryIconAsync(model);
+                if (string.IsNullOrEmpty(fallback) || UrlPath(fallback) == UrlPath(configuredUrl))
+                    return cached;
+                url = fallback;
+                bytes = await Http.GetByteArrayAsync(url);
+            }
+
             WriteDisk(model, url, bytes);
             var replacement = FromBytes(bytes);
             // 这里的过期磁盘图尚未交给调用者，换图后立即释放，避免同时留两份原生像素。

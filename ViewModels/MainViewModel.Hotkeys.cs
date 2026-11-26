@@ -90,11 +90,10 @@ public partial class MainViewModel : ObservableObject
         ? ""
         : $"共 {HotkeyDraftSteps.Count} 步 · 从上到下依次执行";
 
-    /// <summary>三个来源都没有候选时给提示。</summary>
+    /// <summary>设备与场景都没有候选时给提示。</summary>
     public bool HasNoHotkeyTarget =>
         !_allDevices.Any(d => d.IsControllable)
-        && SceneItems.Count == 0
-        && AutomationItems.Count == 0;
+        && SceneItems.Count == 0;
 
     /// <summary>启动时装载绑定、挂事件并安装钩子。由构造函数末尾调用。</summary>
     private void InitHotkeys()
@@ -112,9 +111,17 @@ public partial class MainViewModel : ObservableObject
         GlobalHotkeyService.CaptureCancelled += OnHotkeyCaptureCancelled;
         GlobalHotkeyService.Initialize(data.Enabled, _hotkeyBindings);
 
-        HotkeyHookAvailable = GlobalHotkeyService.Available;
-        DesktopLog.Write($"hotkeys loaded → {_hotkeyBindings.Count} binding(s), enabled={data.Enabled}, hook={HotkeyHookAvailable}");
+        // 键盘钩子推迟到界面空闲才装（否则启动那几秒整机按键都要先等本进程 UI 线程）。
+        // 这里不改 HotkeyHookAvailable：装完由 SyncHotkeyHookState 按真实结果校准。
+        DesktopLog.Write($"hotkeys loaded → {_hotkeyBindings.Count} binding(s), enabled={data.Enabled}");
         RebuildHotkeyItems();
+    }
+
+    /// <summary>钩子安装完（或装失败）后同步界面状态；由 App 在空闲时安装完调用。</summary>
+    public void SyncHotkeyHookState()
+    {
+        HotkeyHookAvailable = GlobalHotkeyService.Available;
+        DesktopLog.Write($"hotkey hook ready={HotkeyHookAvailable}");
     }
 
     // ===== 页内交互 =====
@@ -214,23 +221,32 @@ public partial class MainViewModel : ObservableObject
         ReindexDraftSteps();
     }
 
-    /// <summary>给弹窗备候选：可控设备（按房间序）+ 手动场景 + 自动化，并带上已选的 id 顺序。</summary>
+    /// <summary>给弹窗备候选：可控设备（按房间序）+ 手动场景，并带上已选的 id 顺序。</summary>
     public HotkeyTargetPickerRequest BuildHotkeyTargetPickerRequest() => new()
     {
         Devices = OrderDevices(_allDevices.Where(d => d.IsControllable)).ToList(),
         SceneCandidates = SceneItems.ToList(),
-        Automations = AutomationItems.ToList(),
         SelectedIds = HotkeyDraftSteps.Select(s => s.Id).ToList(),
     };
 
     /// <summary>
     /// 弹窗确认后把选中的目标并回卡片列表：已在列表里的保留原来选的动作与对象，
     /// 新勾进来的按默认动作追加，取消勾选的移除；顺序按弹窗里的勾选顺序。
+    /// 弹窗不再提供自动化，草稿里已有的自动化卡片原样保留（按原位置插回）。
     /// </summary>
     public void ApplyHotkeyTargetPickerResult(IReadOnlyList<HotkeyStep> picked)
     {
         var existing = new Dictionary<string, HotkeyDraftStepVm>();
         foreach (var s in HotkeyDraftSteps) existing[StepKey(s.Type, s.Id)] = s;
+
+        var pickedKeys = new HashSet<string>();
+        foreach (var p in picked) pickedKeys.Add(StepKey(p.Type, p.Id));
+
+        // 自动化不在候选里，这一轮收不到它的勾选项；直接丢掉用户已有的自动化卡片是不行的
+        var carried = HotkeyDraftSteps
+            .Where(s => s.Type == HotkeyTargetType.Automation
+                        && !pickedKeys.Contains(StepKey(s.Type, s.Id)))
+            .ToList();
 
         var ordered = new List<HotkeyDraftStepVm>();
         foreach (var p in picked)
@@ -248,6 +264,10 @@ public partial class MainViewModel : ObservableObject
                 ordered.Add(created);
             }
         }
+
+        // 按原草稿位置插回，尽量不打乱用户排好的顺序
+        foreach (var c in carried)
+            ordered.Insert(Math.Min(HotkeyDraftSteps.IndexOf(c), ordered.Count), c);
 
         HotkeyDraftSteps.Clear();
         foreach (var s in ordered) HotkeyDraftSteps.Add(s);
@@ -699,14 +719,14 @@ public partial class MainViewModel : ObservableObject
         {
             Log($"快捷键 {combo} 未执行：尚未登录米家");
             SetLast($"{combo} 未执行：尚未登录");
-            HotkeyToast.Show($"{combo} · {hotkeyName}", "未执行：尚未登录米家");
+            HotkeyToast.Show($"{combo} · {hotkeyName}", "未执行：尚未登录米家", HotkeyToastKind.Failed);
             return;
         }
 
         if (binding.Steps.Count == 0)
         {
             SetLast($"{combo}：这条绑定没有控制卡片");
-            HotkeyToast.Show($"{combo} · {hotkeyName}", "这条快捷键还没有控制卡片");
+            HotkeyToast.Show($"{combo} · {hotkeyName}", "这条快捷键还没有控制卡片", HotkeyToastKind.Failed);
             return;
         }
 
@@ -720,6 +740,8 @@ public partial class MainViewModel : ObservableObject
         var deviceOrAutomationChanged = false;
         var sceneRan = false;
         string? singleDetail = null;
+        string? singleToast = null;
+        var singleKind = HotkeyToastKind.Done;
 
         foreach (var step in binding.Steps)
         {
@@ -760,6 +782,8 @@ public partial class MainViewModel : ObservableObject
                     done++;
                     deviceOrAutomationChanged = true;
                     singleDetail = $"{device.Name} · {(device.IsOn ? "开" : "关")}";
+                    singleToast = device.Name;
+                    singleKind = device.IsOn ? HotkeyToastKind.On : HotkeyToastKind.Off;
                     DesktopLog.Write($"快捷键 {combo}：{device.Name} 已{(wantOn ? "开" : "关")}");
                     break;
                 }
@@ -781,6 +805,8 @@ public partial class MainViewModel : ObservableObject
                         done++;
                         sceneRan = true;
                         singleDetail = $"场景「{scene.Name}」已执行";
+                        singleToast = singleDetail;
+                        singleKind = HotkeyToastKind.Done;
                         DesktopLog.Write($"快捷键 {combo}：场景「{scene.Name}」已执行");
                     }
                     catch (Exception ex)
@@ -821,6 +847,8 @@ public partial class MainViewModel : ObservableObject
                         done++;
                         deviceOrAutomationChanged = true;
                         singleDetail = $"自动化「{scene.Name}」已{(want ? "开启" : "关闭")}";
+                        singleToast = $"自动化「{scene.Name}」";
+                        singleKind = want ? HotkeyToastKind.On : HotkeyToastKind.Off;
                         DesktopLog.Write($"快捷键 {combo}：自动化「{scene.Name}」已{(want ? "开启" : "关闭")}");
                     }
                     catch (Exception ex)
@@ -850,7 +878,7 @@ public partial class MainViewModel : ObservableObject
         {
             SetLast(singleDetail);
             Log($"快捷键 {combo} → {singleDetail}");
-            HotkeyToast.Show($"{combo} · {hotkeyName}", singleDetail);
+            HotkeyToast.Show($"{combo} · {hotkeyName}", singleToast ?? singleDetail, singleKind);
             return;
         }
 
@@ -859,9 +887,12 @@ public partial class MainViewModel : ObservableObject
             : $"{combo} · 已完成 {done}/{total} 步{tail}";
         SetLast(summary);
         Log($"快捷键 {combo} → 完成 {done}/{total} 步{tail}");
+        var multiKind = done == total
+            ? HotkeyToastKind.Done
+            : done == 0 ? HotkeyToastKind.Failed : HotkeyToastKind.Warn;
         HotkeyToast.Show($"{combo} · {hotkeyName}", done == total
             ? $"已按顺序执行 {total} 张控制卡片"
-            : $"已完成 {done}/{total} 步{tail}");
+            : $"已完成 {done}/{total} 步{tail}", multiKind);
     }
 
     /// <summary>「（1 台离线 · 1 个目标不可用 · 1 步失败）」这种跳过说明。</summary>

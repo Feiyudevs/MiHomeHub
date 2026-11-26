@@ -72,6 +72,20 @@ internal static class TelemetryService
     private static readonly Queue<TelemetryEvent> Queue = new();
     private static readonly SemaphoreSlim Sending = new(1, 1);
 
+    /// <summary>高频成功事件的内存合批，键为「事件名|维度」。</summary>
+    private sealed class Rollup
+    {
+        public string Name = "";
+        public string? Label;
+        public Dictionary<string, object?> Props = new();
+        public int Count;
+        public long MsSum;
+        public long MsMax;
+    }
+
+    private static readonly Dictionary<string, Rollup> Rollups = new();
+    private const int RollupFlushAt = 10;
+
     private static TelemetryConfig _config = new();
     private static bool _loaded;
     private static DateTime _lastFlush = DateTime.MinValue;
@@ -185,6 +199,7 @@ internal static class TelemetryService
         {
             if (_shutdown) return;
             _shutdown = true;
+            DrainRollupsLocked(); // 合批里还没攒满的那几次也要随最后一次上报发出去
         }
         try { _ticker?.Dispose(); } catch { }
         PersistActive();
@@ -211,6 +226,65 @@ internal static class TelemetryService
         MaybeFlush();
     }
 
+    /// <summary>
+    /// 高频成功事件合批：同一 <paramref name="key"/> 的多次触发先攒在内存里，凑满
+    /// <see cref="RollupFlushAt"/> 次或下一次常规上报时合并成一条带 <c>_merge_n</c> 的事件。
+    /// 只用于「一次操作一条、量还很大」的成功分支（如开关设备），失败分支仍走 <see cref="Track"/> 逐条报。
+    /// 合并不会丢信息：次数记在 <c>_merge_n</c>，耗时记 <c>ms_sum / ms_max</c>，后台按 <c>_merge_n</c> 累加即等于真实次数。
+    /// </summary>
+    public static void TrackRollup(string name, string? label, string key, Dictionary<string, object?>? props, int ms)
+    {
+        if (string.IsNullOrWhiteSpace(name)) return;
+        var cfg = EnsureLoaded();
+        if (!cfg.Enabled) return;
+
+        var clean = SanitizeProps(props) ?? new Dictionary<string, object?>();
+        var flushNow = false;
+        lock (Gate)
+        {
+            var mapKey = name + "|" + key;
+            if (!Rollups.TryGetValue(mapKey, out var rollup))
+            {
+                rollup = new Rollup { Name = name, Label = label, Props = clean };
+                Rollups[mapKey] = rollup;
+            }
+            rollup.Count++;
+            rollup.MsSum += Math.Max(0, ms);
+            rollup.MsMax = Math.Max(rollup.MsMax, ms);
+            flushNow = rollup.Count >= RollupFlushAt;
+        }
+        // 攒够了才落队列；不满一批的留给下次 Track / 定时 Tick（60s）或退出时的 Shutdown 带走
+        if (flushNow) MaybeFlush();
+    }
+
+    /// <summary>把合批里的事件摊进队列（调用方需持有 <see cref="Gate"/>）。</summary>
+    private static void DrainRollupsLocked()
+    {
+        if (Rollups.Count == 0) return;
+        foreach (var rollup in Rollups.Values)
+        {
+            var props = new Dictionary<string, object?>(rollup.Props);
+            if (rollup.Count > 1)
+            {
+                props["_merge_n"] = rollup.Count;
+                props["ms_sum"] = rollup.MsSum;
+                props["ms_max"] = rollup.MsMax;
+            }
+            else
+            {
+                props["ms"] = rollup.MsSum;
+            }
+            Queue.Enqueue(new TelemetryEvent
+            {
+                Name = rollup.Name,
+                Label = rollup.Label,
+                Props = props,
+                Ts = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds(),
+            });
+        }
+        Rollups.Clear();
+    }
+
     public static void SetEnabled(bool on)
     {
         var cfg = EnsureLoaded();
@@ -232,7 +306,11 @@ internal static class TelemetryService
         }
         else
         {
-            lock (Gate) Queue.Clear();
+            lock (Gate)
+            {
+                Queue.Clear();
+                Rollups.Clear(); // 关掉统计后不再保留合批里的零散计数
+            }
             try { _ticker?.Dispose(); } catch { }
             _ticker = null;
         }
@@ -245,7 +323,11 @@ internal static class TelemetryService
     private static void MaybeFlush()
     {
         var count = 0;
-        lock (Gate) count = Queue.Count;
+        lock (Gate)
+        {
+            DrainRollupsLocked(); // 合批的零散计数搭常规上报一起走，最多等一个 FlushInterval
+            count = Queue.Count;
+        }
         if (count == 0 && _config.PendingActiveMs <= 0) return;
         if (count < BatchSize && DateTime.UtcNow - _lastFlush < FlushInterval) return;
         _ = FlushAsync();

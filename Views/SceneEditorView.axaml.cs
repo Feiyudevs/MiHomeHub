@@ -139,18 +139,8 @@ public partial class SceneEditorView : UserControl
         if (DataContext is MainViewModel vm) vm.EditTriggerCommand.Execute(item);
     }
 
-    // ===== 延时秒数步进 =====
-
-    private void OnDelayStepDown(object? sender, RoutedEventArgs e) => StepDelay(sender, -10);
-
-    private void OnDelayStepUp(object? sender, RoutedEventArgs e) => StepDelay(sender, 10);
-
-    /// <summary>按 10 秒一档加减，范围与原来 NumericUpDown 一致（0–86400）。</summary>
-    private static void StepDelay(object? sender, int delta)
-    {
-        if (sender is not Control { DataContext: SceneEditActionRow row }) return;
-        row.DelaySeconds = Math.Clamp(Math.Round(row.DelaySeconds) + delta, 0, 86400);
-    }
+    // 延时秒数与设备属性数值两处的步进都交给 ctl:NumberStepper 自己处理
+    // （加减档位、量程、双击手输与校准都在控件里），这里不再各写一套。
 
     // ===== 拖拽换顺序 =====
 

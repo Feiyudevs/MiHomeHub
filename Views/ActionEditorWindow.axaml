@@ -83,13 +83,14 @@
                     <ToggleButton Classes="Switch" HorizontalAlignment="Left"
                                   IsVisible="{Binding DraftIsBool}"
                                   IsChecked="{Binding ActionDraftValue.BoolValue, Mode=TwoWay}" />
-                    <NumericUpDown IsVisible="{Binding DraftIsNumber}" Width="140"
-                                   HorizontalAlignment="Left"
-                                   Minimum="{Binding DraftMin}"
-                                   Maximum="{Binding DraftMax}"
-                                   Increment="{Binding DraftStep}"
-                                   FormatString="0.##"
-                                   Value="{Binding ActionDraftValue.NumValue, Mode=TwoWay}" />
+                    <!-- 数值步进器：− 数值 单位 +，和详情页、场景编辑用同一个控件（也就能双击手输） -->
+                    <ctl:NumberStepper IsVisible="{Binding DraftIsNumber}"
+                                       HorizontalAlignment="Left"
+                                       Value="{Binding ActionDraftValue.NumValue, Mode=TwoWay}"
+                                       Minimum="{Binding ActionDraftValue.Min}"
+                                       Maximum="{Binding ActionDraftValue.Max}"
+                                       Step="{Binding ActionDraftValue.Step}"
+                                       Unit="{Binding ActionDraftValue.Unit}" />
                     <!-- 枚举值也走自绘 OptionPicker，和面板里的下拉保持同一套外观 / 交互 -->
                     <ctl:OptionPicker IsVisible="{Binding DraftIsOption}" Width="180"
                                       HorizontalAlignment="Left" VerticalAlignment="Center"
@@ -104,13 +105,9 @@
             <!-- 类型 = 延时：秒数写进「下一条添加的动作」的 delay_time -->
             <StackPanel Spacing="6" IsVisible="{Binding IsActionKindDelay}">
                 <TextBlock Classes="SecLabel" Text="② 等待时长" />
-                <StackPanel Orientation="Horizontal" Spacing="8">
-                    <NumericUpDown Width="140" Minimum="1" Maximum="86400" Increment="10"
-                                   FormatString="0"
-                                   Value="{Binding ActionDelaySeconds, Mode=TwoWay}" />
-                    <TextBlock Text="秒" FontSize="13" VerticalAlignment="Center"
-                               Foreground="{DynamicResource Text2Brush}" />
-                </StackPanel>
+                <ctl:NumberStepper HorizontalAlignment="Left"
+                                   Value="{Binding ActionDelaySeconds, Mode=TwoWay}"
+                                   Minimum="1" Maximum="86400" Step="10" Unit="秒" />
             </StackPanel>
 
             <!-- 类型 = 执行场景：挑一条手动场景 -->

@@ -8,6 +8,7 @@ using System.Globalization;
 using System.Linq;
 using CommunityToolkit.Mvvm.ComponentModel;
 using MiHomeHub.Models;
+using MiHomeHub.Services;
 
 namespace MiHomeHub.ViewModels;
 
@@ -49,6 +50,10 @@ public sealed partial class SpecPropVm : ObservableObject
     private bool _loading;
 
     public string Title => Def.Desc;
+
+    /// <summary>悬停气泡展示的完整描述：优先未截断的原始名，与界面短名区分开。</summary>
+    public string FullTitle => string.IsNullOrWhiteSpace(Def.RawDesc) ? Title : Def.RawDesc;
+
     public string Unit => Def.Unit;
 
     public bool IsToggle => Def.Writable && Def.Kind == SpecControlKind.Toggle;
@@ -186,27 +191,23 @@ public sealed partial class SpecOptionVm : ObservableObject, IPickOption
     object IPickOption.Value => Value;
 }
 
-/// <summary>详情顶部的实时读数卡：温度/湿度/功率/电压/电流/PM2.5/照度等规格读数。</summary>
+/// <summary>
+/// 详情顶部的实时读数卡：温度/湿度/功率/电压/电流/PM2.5/照度等规格读数。
+/// 它同时就是「卡片外显」的开关——点亮即为显示在主页设备卡上，不再单独占一块配置区。
+/// </summary>
 public sealed partial class MetricTileVm : ObservableObject
 {
     public required SpecPropertyDef Def { get; init; }
 
     public string Title => Def.Desc;
 
+    /// <summary>归一后的指标标准键，写进 app.json 的 cardMetrics；同一指标的厂商别名共用一项配置。</summary>
+    public string Name => CardMetricsCatalog.StandardMetricName(Def.Name) ?? Def.Name;
+
     /// <summary>格式化后的读数（含单位），没读到前显示占位。</summary>
     [ObservableProperty] private string _valueText = "—";
-}
 
-/// <summary>卡片外显里的一个可选读数：点一下加入卡片副标题，再点移出（整类设备一起生效）。</summary>
-public sealed partial class CardMetricVm : ObservableObject
-{
-    public required MijiaDevice Device { get; init; }
-
-    /// <summary>规格属性短名，写进 app.json 的 cardMetrics。</summary>
-    public required string Name { get; init; }
-
-    public required string Title { get; init; }
-
+    /// <summary>已显示在主页设备卡上：点亮房子图标，卡片顶部出一条强调线。</summary>
     [ObservableProperty] private bool _isShown;
 }
 

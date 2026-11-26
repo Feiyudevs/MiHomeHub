@@ -4,6 +4,8 @@
 using System;
 using System.Collections;
 using System.Collections.Generic;
+using System.IO;
+using System.Linq;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Data;
@@ -12,6 +14,7 @@ using Avalonia.Controls.Primitives.PopupPositioning;
 using Avalonia.Interactivity;
 using Avalonia.Styling;
 using Avalonia.Threading;
+using Avalonia.VisualTree;
 using MiHomeHub.Models;
 
 namespace MiHomeHub.Controls;
@@ -29,6 +32,26 @@ public partial class OptionPicker : UserControl
         AvaloniaProperty.Register<OptionPicker, object?>(nameof(SelectedValue),
             defaultBindingMode: BindingMode.TwoWay);
 
+    /// <summary>小号档：触发器和浮层一起收紧，嵌在信息卡角上这类窄处用。</summary>
+    public static readonly StyledProperty<bool> CompactProperty =
+        AvaloniaProperty.Register<OptionPicker, bool>(nameof(Compact));
+
+    /// <summary>胶囊形触发器：24 高配 12 圆角，左右半圆，用在卡片角上的小控件。</summary>
+    public static readonly StyledProperty<bool> PillProperty =
+        AvaloniaProperty.Register<OptionPicker, bool>(nameof(Pill));
+
+    public bool Pill
+    {
+        get => GetValue(PillProperty);
+        set => SetValue(PillProperty, value);
+    }
+
+    public bool Compact
+    {
+        get => GetValue(CompactProperty);
+        set => SetValue(CompactProperty, value);
+    }
+
     public IEnumerable? Options
     {
         get => GetValue(OptionsProperty);
@@ -45,6 +68,8 @@ public partial class OptionPicker : UserControl
     {
         OptionsProperty.Changed.AddClassHandler<OptionPicker>((x, _) => x.Rebind());
         SelectedValueProperty.Changed.AddClassHandler<OptionPicker>((x, _) => x.SyncSelection());
+        CompactProperty.Changed.AddClassHandler<OptionPicker>((x, _) => x.SyncCompact());
+        PillProperty.Changed.AddClassHandler<OptionPicker>((x, _) => x.SyncPill());
     }
 
     public OptionPicker()
@@ -61,14 +86,22 @@ public partial class OptionPicker : UserControl
         {
             Panel.MinWidth = Trigger.Bounds.Width;
             Trigger.Classes.Add("open");
+            // 控件自己也挂一个 .open：宿主（如首页趋势卡）靠它把「悬停才露面的触发器」在浮层开着时留住
+            Classes.Set("open", true);
             AttachWheelForwarder();
             // 先让浮层以闭合态挂上树，下一帧再翻到展开态，过渡才有得播
-            Dispatcher.UIThread.Post(() => Panel.Classes.Add("open"), DispatcherPriority.Render);
+            Dispatcher.UIThread.Post(() =>
+            {
+                Panel.Classes.Add("open");
+                UpdateScrollPadding();
+                WriteLayoutDiag();
+            }, DispatcherPriority.Render);
         };
         Pop.Closed += (_, _) =>
         {
             Trigger.Classes.Remove("open");
             Panel.Classes.Remove("open");
+            Classes.Set("open", false);
             DetachWheelForwarder();
         };
 
@@ -77,13 +110,82 @@ public partial class OptionPicker : UserControl
 
         ActualThemeVariantChanged += (_, _) => SyncTheme();
         SyncTheme();
+        SyncCompact();
+        SyncPill();
+
+        // 出现 / 消失纵向滚动条时，再决定要不要给右侧房间胶囊让出 14px
+        Scroller.PropertyChanged += (_, e) =>
+        {
+            if (e.Property == ScrollViewer.ExtentProperty || e.Property == ScrollViewer.ViewportProperty)
+                UpdateScrollPadding();
+        };
 
         Rebind();
     }
 
-    private void SyncTheme()
+    /// <summary>
+    /// overlay 滚动条画在视口右缘：只有真的出现纵向滚动条时，内容右侧才留 14px 给房间胶囊；
+    /// 内容不够高、没有滚动条时不留这道空白，避免卡片右侧空一截。
+    /// 底部始终留 3px 缓冲：滚到底后最后一行不贴卡片底缘，圆角高亮条不会被边框 / 圆角裁掉。
+    /// </summary>
+    private void UpdateScrollPadding()
     {
-        if (ActualThemeVariant == ThemeVariant.Light) Panel.Classes.Add("light");
+        var hasBar = Scroller.Extent.Height > Scroller.Viewport.Height + 0.5;
+        List.Margin = new Thickness(0, 0, hasBar ? 14 : 0, 3);
+    }
+
+    /// <summary>临时布局诊断：定位列表滚不到底时 extent / viewport / 各行高的偏差。</summary>
+    private void WriteLayoutDiag()
+    {
+        try
+        {
+            var panel = List.ItemsPanelRoot as Panel;
+            var heights = panel?.Children.Select(c => c.Bounds.Height) ?? Enumerable.Empty<double>();
+            var line = $"extent={Scroller.Extent.Height:F1} viewport={Scroller.Viewport.Height:F1} " +
+                       $"listH={List.Bounds.Height:F1} scrollerH={Scroller.Bounds.Height:F1} " +
+                       $"panelH={Panel.Bounds.Height:F1} items={panel?.Children.Count ?? 0} " +
+                       $"heights=[{string.Join(",", heights.Select(h => h.ToString("F1")))}]";
+            File.AppendAllText(Path.Combine(Path.GetTempPath(), "optpicker-diag.log"), line + "\n");
+        }
+        catch { }
+    }
+
+    /// <summary>
+    /// 小号档的类要挂在触发器与浮层上，而不是挂在控件自己身上：
+    /// 控件自己的 Styles 只覆盖子树，选择器以自身类型打头（如 OptionPicker.compact）匹配不到自己。
+    /// 关键尺寸同时写成局部值——局部值一定压过样式，不指望选择器链一路都对得上。
+    /// </summary>
+    private void SyncCompact()
+    {
+        Trigger.Classes.Set("mini", Compact);
+        Panel.Classes.Set("mini", Compact);
+
+        if (!Compact) return;
+
+        Trigger.MinWidth = 0;
+        Trigger.Height = 24;
+        Trigger.Padding = new Thickness(8, 0, 6, 0);
+        Cur.FontSize = 10.5;
+        RoomTx.FontSize = 9.5;
+        Chev.Margin = new Thickness(6, 0, 0, 0);
+        // 行内的字号靠继承：浮层挂 11，列表项自己不再写死字号
+        Panel.SetValue(TextBlock.FontSizeProperty, 11d);
+        Panel.Padding = new Thickness(4);
+    }
+
+    /// <summary>胶囊形：类挂在触发器上，圆角在模板里的 Border 上，只能靠样式改。</summary>
+    private void SyncPill()
+    {
+        Trigger.Classes.Set("pill", Pill);
+        if (!Pill) return;
+
+        // 样式里的 /template/ 选择器万一没命中（模板还没套上时），这里直接给本地值兜底
+        foreach (var border in Trigger.GetVisualDescendants().OfType<Border>())
+            if (border.Name is "Bd" or "Hov") border.CornerRadius = new CornerRadius(12);
+    }
+
+    private void SyncTheme()
+    {        if (ActualThemeVariant == ThemeVariant.Light) Panel.Classes.Add("light");
         else Panel.Classes.Remove("light");
     }
 
@@ -112,9 +214,9 @@ public partial class OptionPicker : UserControl
         }
 
         Cur.Text = current ?? "选择";
-        // 触发器上的房间标注跟着选中项走，没有就不留空底板
-        PreTxt.Text = meta ?? "";
-        Pre.IsVisible = !string.IsNullOrEmpty(meta);
+        // 触发器上的房间标注跟着选中项走，排在名称后面；没有就不留空底板
+        RoomTx.Text = meta ?? "";
+        Room.IsVisible = !string.IsNullOrEmpty(meta);
     }
 
     private void OnItemClick(object? sender, RoutedEventArgs args)
