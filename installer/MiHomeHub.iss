@@ -7,7 +7,7 @@
 ;   3. 编译:    iscc installer\MiHomeHub.iss
 
 #define MyAppName "MiHomeHub"
-#define MyAppVersion "1.0.2"
+#define MyAppVersion "1.0.3"
 #define MyAppPublisher "Feiyu"
 #define MyAppExeName "MiHomeHub.exe"
 #define PublishDir "..\publish\sc-win-x64"
