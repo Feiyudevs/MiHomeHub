@@ -57,13 +57,23 @@ public class MijiaClient : IDisposable
         _http.DefaultRequestHeaders.Add("Cookie", cookie);
     }
 
+    /// <summary>当前登录的小米账号 ID（体脂秤等 eco 接口要拿它当 uid）。</summary>
+    public string UserId => _auth.Auth.UserId;
+
+    internal async Task<JsonElement> RequestRawAsync(string uri, object dataObj) =>
+        await RequestRawAsync(uri, dataObj, ApiBase);
+
+    /// <summary>
+    /// 走「米家生态」接口（<c>/eco/...</c>）：体脂秤的成员与历史记录都挂在这条路上，
+    /// 复用同一套签名请求，返回完整信封（code / message / result），由调用方判 code。
+    /// </summary>
+    public async Task<JsonElement> EcoRequestAsync(string uri, object dataObj) =>
+        await RequestRawAsync(uri, dataObj);
+
     /// <summary>
     /// 底层请求：返回完整响应信封（含 code / message / result），不在这里抛业务错误。
     /// 诊断探针需要看到原始 code 与字段结构，业务层走 <see cref="RequestAsync"/>。
     /// </summary>
-    internal async Task<JsonElement> RequestRawAsync(string uri, object dataObj) =>
-        await RequestRawAsync(uri, dataObj, ApiBase);
-
     internal async Task<JsonElement> RequestRawAsync(string uri, object dataObj, string baseUrl)
     {
         var (bytes, nonce) = await PostSignedAsync(uri, dataObj, baseUrl);
@@ -153,6 +163,7 @@ public class MijiaClient : IDisposable
         // 设备组（灯组等多设备虚拟设备）的成员 did 只出现在原始响应的
         // extra.member_list.member_ship 里，DTO 不映射，这里补上：
         // 场景里的组动作（type=4）要靠它把「1 个设备组」展开成真实设备数。
+        // 同一轮把设备自己的封面图（devPicInfo.logo / icon）也补上：型号产品图查不到时靠它。
         if (r.TryGetProperty("device_info", out var rawArr) && rawArr.ValueKind == JsonValueKind.Array)
         {
             var byDid = new Dictionary<string, MijiaDevice>(StringComparer.Ordinal);
@@ -163,8 +174,12 @@ public class MijiaClient : IDisposable
             {
                 if (el.ValueKind != JsonValueKind.Object) continue;
                 var did = el.TryGetProperty("did", out var de) ? de.ToString() : "";
+                var dev = byDid.TryGetValue(did, out var found) ? found : null;
+                if (dev != null)
+                    dev.CustomIconUrl = ExtractDeviceArtwork(el) ?? dev.CustomIconUrl;
+
                 if (!did.StartsWith("group.", StringComparison.OrdinalIgnoreCase)) continue;
-                if (!byDid.TryGetValue(did, out var dev)) continue;
+                if (dev == null) continue;
                 if (!el.TryGetProperty("extra", out var extra) || extra.ValueKind != JsonValueKind.Object) continue;
                 if (!extra.TryGetProperty("member_list", out var ml) || ml.ValueKind != JsonValueKind.Object) continue;
                 if (!ml.TryGetProperty("member_ship", out var ms) || ms.ValueKind != JsonValueKind.Object) continue;
@@ -175,8 +190,128 @@ public class MijiaClient : IDisposable
             }
         }
         foreach (var x in list) x.HomeId = home.Id;
+
+        // 米家自带的「更换图标」目录：设备列表里的 subclass_id 选中项，指向目录里的一张图。
+        // 只有真的选了图标的设备才会带非 0 id，正常情况下一个家庭一次请求就够。
+        var missing = list.Where(item => string.IsNullOrEmpty(item.CustomIconUrl)).ToList();
+        if (missing.Any(item => TrySubclassId(item.SubclassId) is not null))
+        {
+            var icons = await GetSubclassIconsAsync();
+            foreach (var item in missing)
+            {
+                var id = TrySubclassId(item.SubclassId);
+                if (id is uint key && icons.TryGetValue(key, out var url))
+                    item.CustomIconUrl = url;
+            }
+        }
+
         AssignRooms(home, list);
         return list;
+    }
+
+    private Dictionary<uint, string>? _subclassIcons;
+    private DateTime _subclassIconsAt;
+
+    /// <summary>米家 App 内置的替换图标目录（id → 图片），短时缓存，失败不重试。</summary>
+    private async Task<Dictionary<uint, string>> GetSubclassIconsAsync()
+    {
+        if (_subclassIcons != null && DateTime.UtcNow - _subclassIconsAt < TimeSpan.FromMinutes(10))
+            return _subclassIcons;
+
+        var icons = new Dictionary<uint, string>();
+        try
+        {
+            var r = await RequestAsync("/v2/device/switch_subclass", new { });
+            if (r.ValueKind == JsonValueKind.Array)
+            {
+                foreach (var row in r.EnumerateArray())
+                {
+                    if (row.ValueKind != JsonValueKind.Object) continue;
+                    if (!row.TryGetProperty("id", out var id) || id.ValueKind != JsonValueKind.Number) continue;
+                    if (!row.TryGetProperty("proxy_category_icon", out var icon) || icon.ValueKind != JsonValueKind.String) continue;
+                    if (id.TryGetUInt32(out var key))
+                    {
+                        var url = NormalizeArtworkUrl(icon.GetString());
+                        if (url != null) icons[key] = url;
+                    }
+                }
+            }
+        }
+        catch
+        {
+            // 只是可选封面，目录接口失败不影响设备列表
+        }
+        _subclassIcons = icons;
+        _subclassIconsAt = DateTime.UtcNow;
+        return icons;
+    }
+
+    private static uint? TrySubclassId(string? raw) =>
+        uint.TryParse(raw, out var id) && id > 0 ? id : null;
+
+    /// <summary>
+    /// 设备自己的封面图：米家 App 里设备图标优先取 devPicInfo.logo（用户上传的封面），
+    /// 其次才是设备列表的 icon 字段。两者可能是相对路径，补成云 CDN 的绝对地址。
+    /// </summary>
+    private static string? ExtractDeviceArtwork(JsonElement raw)
+    {
+        var logo = "";
+        if (raw.TryGetProperty("devPicInfo", out var pic))
+        {
+            if (pic.ValueKind == JsonValueKind.Object)
+                logo = ArtworkString(pic, "logo") ?? "";
+            else if (pic.ValueKind == JsonValueKind.String)
+            {
+                var text = pic.GetString();
+                if (!string.IsNullOrWhiteSpace(text))
+                {
+                    try
+                    {
+                        using var doc = JsonDocument.Parse(text);
+                        if (doc.RootElement.ValueKind == JsonValueKind.Object)
+                            logo = ArtworkString(doc.RootElement, "logo") ?? "";
+                    }
+                    catch
+                    {
+                        // devPicInfo 也可能直接就是一段 URL，不是 JSON
+                    }
+                    if (string.IsNullOrEmpty(logo)) logo = text;
+                }
+            }
+        }
+
+        var url = NormalizeArtworkUrl(logo);
+        if (url != null) return url;
+
+        // 设备列表里下发设备图的字段名不只一个版本，按优先级都试一遍
+        foreach (var name in new[] { "icon", "icon_real", "deviceIcon", "iconUrl" })
+        {
+            if (raw.TryGetProperty(name, out var icon) && icon.ValueKind == JsonValueKind.String)
+            {
+                url = NormalizeArtworkUrl(icon.GetString());
+                if (url != null) return url;
+            }
+        }
+        return null;
+    }
+
+    private static string? ArtworkString(JsonElement obj, string name) =>
+        obj.TryGetProperty(name, out var v) && v.ValueKind == JsonValueKind.String ? v.GetString() : null;
+
+    private static string? NormalizeArtworkUrl(string? raw)
+    {
+        if (string.IsNullOrWhiteSpace(raw)) return null;
+        var url = raw.Trim();
+        if (url.StartsWith("//", StringComparison.Ordinal)) url = "https:" + url;
+        else if (url.StartsWith('/')) url = "https://cdn.fds.api.xiaomi.com" + url;
+        if (!Uri.TryCreate(url, UriKind.Absolute, out var uri))
+        {
+            // 也见过不带前导斜杠的 CDN 相对路径（iotweb-product-center/xxx.png）
+            if (!url.Contains('/') || !url.Contains('.')) return null;
+            url = "https://cdn.fds.api.xiaomi.com/" + url.TrimStart('/');
+            if (!Uri.TryCreate(url, UriKind.Absolute, out uri)) return null;
+        }
+        return uri.Scheme == Uri.UriSchemeHttp || uri.Scheme == Uri.UriSchemeHttps ? url : null;
     }
 
     /// <summary>
@@ -190,6 +325,22 @@ public class MijiaClient : IDisposable
             home_id = long.Parse(home.Id),
             limit = 200,
             start_did = "",
+            get_split_device = true,
+            support_smart_home = true,
+            get_cariot_device = true,
+            get_third_device = true
+        });
+
+    /// <summary>
+    /// 探针专用：新版设备列表接口（米家 Android 走的也是这一条），字段比旧接口全，
+    /// 设备图标的字段名/层级以这里返回的为准。
+    /// </summary>
+    public async Task<JsonElement> GetRawHomeDeviceListV2Async(MijiaHome home)
+        => await RequestAsync("/v2/home/home_device_list", new
+        {
+            home_owner = home.Uid,
+            home_id = long.Parse(home.Id),
+            limit = 300,
             get_split_device = true,
             support_smart_home = true,
             get_cariot_device = true,
@@ -259,6 +410,7 @@ public class MijiaClient : IDisposable
             var d = item.Deserialize<MijiaDevice>();
             if (d == null || string.IsNullOrEmpty(d.Did)) continue;
             d.HomeId = "shared";
+            d.CustomIconUrl = ExtractDeviceArtwork(item) ?? d.CustomIconUrl;
             if (string.IsNullOrWhiteSpace(d.RoomName) || d.RoomName == "未分配房间")
                 d.RoomName = "共享设备";
             list.Add(d);
@@ -673,6 +825,97 @@ public class MijiaClient : IDisposable
     }
 
     /// <summary>
+    /// 米家扩展程序（插件）元数据：返回 latest_info.download_url / 版本等。
+    /// 产品配置里没有图标的型号（如 togo.light.t1），米家列表图实际来自插件包，需要靠这里定位。
+    /// </summary>
+    public async Task<JsonElement> FetchPluginAsync(string model, int apiVersion = 10117)
+    {
+        var plugins = new[] { new { model } };
+        return await RequestAsync("/v2/plugin/fetch_plugin", new
+        {
+            is_car_mihome = false,
+            latest_req = new
+            {
+                api_version = apiVersion,
+                app_platform = "Android",
+                region = "CN",
+                plugins,
+                package_type = ""
+            },
+            backup_req = new
+            {
+                plugins,
+                api_level = 111,
+                app_platform = "phone"
+            }
+        });
+    }
+
+    /// <summary>产品配置原始查询：按型号问云端要指定字段，一次最多 100 个型号（诊断/取图共用）。</summary>
+    public async Task<JsonElement> QueryProductConfigAsync(IEnumerable<string> models, params string[] keys)
+    {
+        var batch = models
+            .Where(m => !string.IsNullOrWhiteSpace(m))
+            .Select(m => m.Trim())
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .Take(100)
+            .ToArray();
+        return await RequestAsync("/v2/productconfig/single_pull", new { models = batch, keys });
+    }
+
+    /// <summary>
+    /// 产品拟物图：米家 App 自己用的型号 → 图标来源。`/v2/productconfig/single_pull`
+    /// 返回 [{model,name,icon_real}]，覆盖百科产品库查不到、但开发者已经上传拟物图的新型号
+    /// （trytogo 这类三方灯具就属于这种）；百科接口只作为兜底。
+    /// 一次最多 100 个型号，整批打包成一个签名请求，避免几十张卡片各打一次云。
+    /// </summary>
+    public async Task<Dictionary<string, string>> GetProductIconUrlsAsync(IEnumerable<string> models)
+    {
+        var urls = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        var pending = models
+            .Where(m => !string.IsNullOrWhiteSpace(m))
+            .Select(m => m.Trim())
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToList();
+
+        for (var start = 0; start < pending.Count; start += 100)
+        {
+            var batch = pending.Skip(start).Take(100).ToArray();
+            JsonElement r;
+            try
+            {
+                r = await QueryProductConfigAsync(batch, "model", "name", "icon_real");
+            }
+            catch
+            {
+                // 图标是装饰性数据，接口失败不能拖垮设备列表
+                continue;
+            }
+            if (r.ValueKind != JsonValueKind.Array) continue;
+
+            foreach (var row in r.EnumerateArray())
+            {
+                if (row.ValueKind != JsonValueKind.Object) continue;
+                if (!row.TryGetProperty("model", out var m) || m.ValueKind != JsonValueKind.String) continue;
+                if (!row.TryGetProperty("icon_real", out var icon) || icon.ValueKind != JsonValueKind.String) continue;
+                var model = m.GetString();
+                var url = icon.GetString();
+                if (!string.IsNullOrWhiteSpace(model) && !string.IsNullOrWhiteSpace(url))
+                    urls[model.Trim()] = url.Trim();
+            }
+        }
+        return urls;
+    }
+
+    /// <summary>单个型号的拟物图地址，探针用；正常加载走批量接口。</summary>
+    public async Task<string?> GetProductIconUrlAsync(string model)
+    {
+        if (string.IsNullOrWhiteSpace(model)) return null;
+        var urls = await GetProductIconUrlsAsync(new[] { model });
+        return urls.TryGetValue(model.Trim(), out var url) ? url : null;
+    }
+
+    /// <summary>
     /// 一次读同一设备的多个属性。返回 siid*1000+piid → 原始值（bool / int / double / string，或 null）。
     /// 用组合键避免不同服务出现相同 piid 时互相覆盖（如空调模式 2/2 与风速 3/2）。
     /// 单条失败（设备不支持该属性、离线、越界）云端会带负 code，这里逐条跳过，不回抛。
@@ -1044,7 +1287,8 @@ public class MijiaClient : IDisposable
     /// 米家数据统计接口（app/v2/user/statistics，只给最近 365 天）：按小时/按天取某个统计项的累计值。
     /// 设备没申请统计配置、key 不对时云端回非 0 code，这里统一当“不支持”返回 Ok=false，交给调用方换 key 或放弃。
     /// </summary>
-    public async Task<StatSeries> GetStatisticsAsync(string did, string key, string dataType, DateTime from, DateTime to)
+    public async Task<StatSeries> GetStatisticsAsync(string did, string key, string dataType, DateTime from, DateTime to,
+        int limit = 0)
     {
         // user/statistics 只认 api.mijia.tech 这套会话凭证（api.io.mi.com 直接回 auth error），所以只打一个域名
         var body = new
@@ -1054,7 +1298,7 @@ public class MijiaClient : IDisposable
             data_type = dataType,
             time_start = new DateTimeOffset(from).ToUnixTimeSeconds(),
             time_end = new DateTimeOffset(to).ToUnixTimeSeconds(),
-            limit = 0
+            limit
         };
 
         // 只有 api.mijia.tech 这套会话凭证能用（api.io.mi.com 会直接回 auth error），所以只打一个域名

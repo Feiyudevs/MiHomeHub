@@ -26,7 +26,7 @@
                 <StackPanel VerticalAlignment="Center" Spacing="3">
                     <TextBlock Text="智能" FontSize="19" FontWeight="Bold"
                                Foreground="{DynamicResource TextBrush}" />
-                    <TextBlock Text="场景与自动化同步自米家；执行在卡片右上角，标题栏搜索按名称/动作筛卡片"
+                    <TextBlock Text="场景与自动化同步自米家；执行在卡片右上角，右键卡片可换图标"
                                FontSize="12" Foreground="{DynamicResource Text3Brush}" />
                 </StackPanel>
             </StackPanel>

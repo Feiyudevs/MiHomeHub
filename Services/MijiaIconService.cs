@@ -21,10 +21,16 @@ using SkiaSharp;
 namespace MiHomeHub.Services;
 
 /// <summary>
-/// 设备真机图。米家云设备列表不带图标，按型号优先查内置的米家设备配置表（与米家 App 设备列表
-/// 同款的 168×168 透明拟物图，覆盖 1.2 万个已上架型号），表里没有再回退产品库 realIcon。
-/// realIcon 多托管在 iotweb-user-center 或 iotweb-product-center，且带签名参数，必须整段 URL
-/// 才能通过 CDN 校验；两处都查不到的型号返回 null，卡片回退到矢量图标。
+/// 设备真机图。米家云设备列表不带图标，按型号取图，来源依次是：
+/// 0) 设备自己的封面（devPicInfo.logo / 设备列表 icon），米家也是它优先级最高；
+/// 1) 内置的米家设备配置表快照（与米家 App 设备列表同款 168×168 透明拟物图，覆盖 1.2 万个型号）；
+/// 2) 米家 App 同款的云端产品配置 `productconfig/single_pull` 的 icon_real——新上架、
+///    内置快照还没收录的型号靠它拿图；
+/// 3) 产品百科 realIcon 兜底。
+/// 有的型号（togo.light.t1）整条产品配置链路都没有记录，只能靠设备自己的封面，
+/// 所以 0 必须排在最前面，否则会落到通用矢量图标。
+/// 产品图 URL 多托管在 iotweb-user-center 或 iotweb-product-center，且带签名参数，必须整段 URL
+/// 才能通过 CDN 校验；都查不到的型号返回 null，卡片回退到矢量图标。
 /// 结果同时写入 %APPDATA%\Feiyu\MiHomeHub\icons\ 磁盘缓存：命中期内直接读盘，过期后对比 URL
 /// 再决定是否重新下载，产品图更新时能自动换新。
 /// 磁盘保留接口原图；内存按 UI 所需尺寸解码，不做裁切或抠图，最长边不超过 192px。
@@ -140,8 +146,7 @@ public static class MijiaIconService
                 !data.TryGetProperty("realIcon", out var icon) ||
                 icon.ValueKind != JsonValueKind.String)
                 return null;
-            var url = icon.GetString();
-            return string.IsNullOrEmpty(url) ? null : url;
+            return NormalizeIconUrl(icon.GetString());
         }
         catch
         {
@@ -149,13 +154,58 @@ public static class MijiaIconService
         }
     }
 
-    public static Task<Bitmap?> GetAsync(string model)
+    /// <summary>icon_real 可能是 //host/... 或 /path；补全成可直接下载的绝对 URL，其他形态一律不认。</summary>
+    private static string? NormalizeIconUrl(string? raw)
+    {
+        if (string.IsNullOrWhiteSpace(raw)) return null;
+        var url = raw.Trim();
+        if (url.StartsWith("//", StringComparison.Ordinal)) url = "https:" + url;
+        else if (url.StartsWith('/')) url = "https://cdn.fds.api.xiaomi.com" + url;
+        return url.StartsWith("http://", StringComparison.OrdinalIgnoreCase) ||
+               url.StartsWith("https://", StringComparison.OrdinalIgnoreCase)
+            ? url
+            : null;
+    }
+
+    /// <summary>云端产品配置（米家 App 同款来源）按型号给出的拟物图地址；查不到就交给百科兜底。</summary>
+    private static async Task<string?> QueryConfiguredOnlineIconAsync(
+        Func<string, Task<string?>>? onlineResolver, string model)
+    {
+        if (onlineResolver is null) return null;
+        try
+        {
+            return NormalizeIconUrl(await onlineResolver(model));
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
+    /// <summary>
+    /// 按型号取图；preferredUrl 是设备自带的封面（米家优先级最高），
+    /// onlineResolver 通常是 MijiaClient.GetProductIconUrlsAsync 预取后的查表。
+    /// </summary>
+    public static Task<Bitmap?> GetAsync(string model, string? preferredUrl = null,
+        Func<string, Task<string?>>? onlineResolver = null)
     {
         if (string.IsNullOrEmpty(model)) return Task.FromResult<Bitmap?>(null);
-        var task = Cache.GetOrAdd(model, LoadAsync);
+        var task = Cache.GetOrAdd(model, m => LoadAndCacheAsync(m, preferredUrl, onlineResolver));
         // 每次访问都更新 LRU：无论命中内存还是新加入，都保证热门型号留在缓存里
         TouchLru(model);
         return task;
+    }
+
+    /// <summary>
+    /// 查不到图的型号不留在缓存：首屏可能先用本地缓存铺卡片（此时还没有云端型号表），
+    /// 设备刷新后同一个型号要能重新走一遍新来源，否则会一直显示矢量图标。
+    /// </summary>
+    private static async Task<Bitmap?> LoadAndCacheAsync(string model, string? preferredUrl,
+        Func<string, Task<string?>>? onlineResolver)
+    {
+        var bitmap = await LoadAsync(model, preferredUrl, onlineResolver);
+        if (bitmap == null) Cache.TryRemove(model, out _);
+        return bitmap;
     }
 
     /// <summary>
@@ -176,7 +226,8 @@ public static class MijiaIconService
         Cache.Clear();
     }
 
-    private static async Task<Bitmap?> LoadAsync(string model)
+    private static async Task<Bitmap?> LoadAsync(string model, string? preferredUrl,
+        Func<string, Task<string?>>? onlineResolver)
     {
         Bitmap? cached = null;
         try
@@ -185,11 +236,14 @@ public static class MijiaIconService
             if (cached != null && entry != null && DateTime.UtcNow - DateTimeOffset.FromUnixTimeMilliseconds(entry.SavedAt) < DiskTtl)
                 return cached;
 
-            var configuredUrl = await LookupConfiguredIconAsync(model);
-            var url = configuredUrl ?? await QueryProductLibraryIconAsync(model);
+            var preferred = NormalizeIconUrl(preferredUrl);
+            var configuredUrl = preferred ?? await LookupConfiguredIconAsync(model);
+            var url = configuredUrl
+                      ?? await QueryConfiguredOnlineIconAsync(onlineResolver, model)
+                      ?? await QueryProductLibraryIconAsync(model);
             if (string.IsNullOrEmpty(url))
             {
-                // 两处都没有该型号：有过期磁盘图就继续用，避免闪一下再变回矢量图标
+                // 都没有该型号：有过期磁盘图就继续用，避免闪一下再变回矢量图标
                 return cached;
             }
 
@@ -203,12 +257,16 @@ public static class MijiaIconService
             byte[] bytes;
             try
             {
-                // 内置表里的签名可能过期/被拒，失败时再问一次产品库，拿到新 URL 重试
                 bytes = await Http.GetByteArrayAsync(url);
             }
             catch when (configuredUrl != null)
             {
-                var fallback = await QueryProductLibraryIconAsync(model);
+                // 设备封面/内置表的地址失效时，依次退到内置表、云端产品配置、产品百科
+                var fallback = await LookupConfiguredIconAsync(model);
+                if (string.IsNullOrEmpty(fallback))
+                    fallback = await QueryConfiguredOnlineIconAsync(onlineResolver, model);
+                if (string.IsNullOrEmpty(fallback))
+                    fallback = await QueryProductLibraryIconAsync(model);
                 if (string.IsNullOrEmpty(fallback) || UrlPath(fallback) == UrlPath(configuredUrl))
                     return cached;
                 url = fallback;

@@ -84,6 +84,20 @@
         <Style Selector="Button.RoomHead:pointerover Path.RoomIc">
             <Setter Property="Stroke" Value="{DynamicResource Text2Brush}"/>
         </Style>
+        <!-- 房间标题上的「N 盏灯亮着」小胶囊：暖色底 + 琥珀字，和侧栏那枚点亮的小灯泡同一套配色；
+             只在房间确实有灯开着时出现，灯全关后连胶囊带「一键全关」一起收起 -->
+        <Style Selector="Border.RoomLightPill">
+            <Setter Property="Background" Value="{DynamicResource PillWarnBgBrush}"/>
+            <Setter Property="CornerRadius" Value="9"/>
+            <Setter Property="Padding" Value="8,2,9,2"/>
+            <Setter Property="VerticalAlignment" Value="Center"/>
+        </Style>
+        <Style Selector="Border.RoomLightPill TextBlock">
+            <Setter Property="FontSize" Value="12"/>
+            <Setter Property="FontWeight" Value="Normal"/>
+            <Setter Property="Foreground" Value="{DynamicResource AmberTextBrush}"/>
+            <Setter Property="VerticalAlignment" Value="Center"/>
+        </Style>
         <Style Selector="Border.Card">
             <Setter Property="Background" Value="{DynamicResource CardBrush}"/>
             <Setter Property="CornerRadius" Value="{StaticResource R}"/>
@@ -225,16 +239,21 @@
             <Setter Property="Cursor" Value="Hand"/>
             <Setter Property="Template">
                 <ControlTemplate>
-                    <Border Name="Track" CornerRadius="11" Background="{DynamicResource Card2Brush}">
-                        <Ellipse Name="Knob" Width="16" Height="16" Margin="3,0"
+                    <!-- 关闭态同样走 SwitchOffBrush + 细边：原来的 Card2Brush 在浅色卡片上只有 1.04:1，
+                         轨道整条看不见，只剩一枚灰滑块浮在半空 -->
+                    <Border Name="Track" CornerRadius="11" Background="{DynamicResource SwitchOffBrush}"
+                            BorderBrush="{DynamicResource SwitchOffStrokeBrush}" BorderThickness="1">
+                        <Ellipse Name="Knob" Width="16" Height="16" Margin="2,0"
                                  HorizontalAlignment="Left" VerticalAlignment="Center"
-                                 Fill="{DynamicResource Text3Brush}"/>
+                                 Fill="{DynamicResource Text3Brush}"
+                                 Stroke="{DynamicResource SwitchKnobStrokeBrush}" StrokeThickness="1"/>
                     </Border>
                 </ControlTemplate>
             </Setter>
         </Style>
         <Style Selector="Button.Switch.on /template/ Border#Track">
             <Setter Property="Background" Value="{DynamicResource SwitchOnBrush}"/>
+            <Setter Property="BorderBrush" Value="Transparent"/>
         </Style>
         <Style Selector="Button.Switch.on /template/ Ellipse#Knob">
             <Setter Property="HorizontalAlignment" Value="Right"/>
@@ -383,10 +402,14 @@
             <Setter Property="Cursor" Value="Hand"/>
             <Setter Property="Template">
                 <ControlTemplate>
-                    <Border Name="Track" CornerRadius="11" Background="{TemplateBinding Background}">
+                    <!-- 轨道带 1px 描边：浅色模式下关闭态只靠底色几乎压不出来，得有一圈细边兜底；
+                         描边会占掉 1px 内容区，滑块坐标按外包尺寸 3px 的内缩重算（2 + 1） -->
+                    <Border Name="Track" CornerRadius="11" Background="{TemplateBinding Background}"
+                            BorderBrush="{DynamicResource SwitchOffStrokeBrush}" BorderThickness="1">
                         <Canvas>
-                            <Ellipse Name="Thumb" Width="16" Height="16" Canvas.Left="3" Canvas.Top="3"
-                                     Fill="{TemplateBinding Foreground}">
+                            <Ellipse Name="Thumb" Width="16" Height="16" Canvas.Left="2" Canvas.Top="2"
+                                     Fill="{TemplateBinding Foreground}"
+                                     Stroke="{DynamicResource SwitchKnobStrokeBrush}" StrokeThickness="1">
                                 <Ellipse.Transitions>
                                     <Transitions>
                                         <DoubleTransition Property="Canvas.Left" Duration="0:0:0.24">
@@ -401,7 +424,7 @@
                     </Border>
                 </ControlTemplate>
             </Setter>
-            <Setter Property="Background" Value="{DynamicResource TrackBrush}"/>
+            <Setter Property="Background" Value="{DynamicResource SwitchOffBrush}"/>
             <Setter Property="Foreground" Value="{DynamicResource ThumbBrush}"/>
         </Style>
         <Style Selector="ToggleButton.Switch /template/ Border#Track">
@@ -415,8 +438,12 @@
             <Setter Property="Background" Value="{DynamicResource SwitchOnBrush}"/>
             <Setter Property="Foreground" Value="White"/>
         </Style>
+        <!-- 开启态是实心紫，那圈灰细边会变成一道脏边，单独关掉 -->
+        <Style Selector="ToggleButton.Switch:checked /template/ Border#Track">
+            <Setter Property="BorderBrush" Value="Transparent"/>
+        </Style>
         <Style Selector="ToggleButton.Switch:checked /template/ Ellipse#Thumb">
-            <Setter Property="Canvas.Left" Value="21"/>
+            <Setter Property="Canvas.Left" Value="20"/>
         </Style>
         <Style Selector="ToggleButton.Switch:disabled">
             <Setter Property="Opacity" Value="0.4"/>
@@ -539,13 +566,21 @@
                                 <Grid ColumnDefinitions="21,*,Auto">
                                     <!-- 两套画法都备好，靠设置里的图标模式二选一显示 -->
                                     <Image Name="Gx" Grid.Column="0" Width="17" Height="17" Stretch="Uniform"
+                                           RenderOptions.BitmapInterpolationMode="MediumQuality"
+                                           Opacity="{Binding Tag, RelativeSource={RelativeSource TemplatedParent}, Converter={StaticResource NavIconOpacity}}"
                                            IsVisible="{Binding ((vm:MainViewModel)DataContext).IconGlass, RelativeSource={RelativeSource AncestorType=Window}}"
                                            Source="{Binding Tag, RelativeSource={RelativeSource TemplatedParent}, Converter={StaticResource NavSvg}}"/>
                                     <Path Name="Ic" Grid.Column="0" Width="15" Height="15" Stretch="Uniform"
+                                          Opacity="{Binding Tag, RelativeSource={RelativeSource TemplatedParent}, Converter={StaticResource NavIconOpacity}}"
                                           IsVisible="{Binding !((vm:MainViewModel)DataContext).IconGlass, RelativeSource={RelativeSource AncestorType=Window}}"
                                           Stroke="{TemplateBinding Foreground}" StrokeThickness="1.4"
                                           StrokeLineCap="Round" StrokeJoin="Round"
                                           Data="{Binding Tag, RelativeSource={RelativeSource TemplatedParent}, Converter={StaticResource NavLine}}"/>
+                                    <!-- 用户自定义的房间图（SVG 或 PNG）：有就盖在默认图标上并把默认画法隐到透明 -->
+                                    <Image Name="Cx" Grid.Column="0" Width="17" Height="17" Stretch="Uniform"
+                                           RenderOptions.BitmapInterpolationMode="MediumQuality"
+                                           IsVisible="{Binding Tag, RelativeSource={RelativeSource TemplatedParent}, Converter={StaticResource NavCustomVisible}}"
+                                           Source="{Binding Tag, RelativeSource={RelativeSource TemplatedParent}, Converter={StaticResource NavCustomImage}}"/>
                                     <TextBlock Name="Lb" Grid.Column="1" Text="{TemplateBinding Content}"
                                                Margin="12,0,0,0" VerticalAlignment="Center"
                                                FontSize="{TemplateBinding FontSize}"
@@ -553,17 +588,21 @@
                                                Foreground="{TemplateBinding Foreground}"/>
                                     <!-- 房间灯还亮着：房间名右侧一枚点着的小灯泡（实心灯身 + 一圈暖黄光晕）。
                                          所有导航行共用一个模板，这里默认隐藏，由 .lighton 类点亮；
-                                         纯状态标记，不参与命中，点它等同点整行。 -->
-                                    <Panel Name="Lamp" Grid.Column="2" Width="17" Height="17"
-                                           Margin="4,0,0,0" VerticalAlignment="Center"
+                                         纯状态标记，不参与命中，点它等同点整行。
+                                         灯身放大到 17（原 13 整个图形只占 24 视框的一半，白底上缩成一粒淡黄点），
+                                         灯色与光晕各走主题专属的两支画笔（深色亮黄 / 浅色深琥珀），不再借 AmberBrush。 -->
+                                    <Panel Name="Lamp" Grid.Column="2" Width="20" Height="20"
+                                           Margin="6,0,0,0" VerticalAlignment="Center"
                                            IsVisible="False" IsHitTestVisible="False">
-                                        <Ellipse Width="17" Height="17" Fill="{DynamicResource LampGlowBrush}" />
-                                        <Viewbox Width="13" Height="13"
+                                        <!-- 光晕比灯身再大一圈（24 对 20，Panel 不裁子元素，只向外溢 2px，
+                                             不影响行高），灯点才有一圈真正散开的光 -->
+                                        <Ellipse Width="24" Height="24" Fill="{DynamicResource LampGlowBrush}" />
+                                        <Viewbox Width="20" Height="20"
                                                  HorizontalAlignment="Center" VerticalAlignment="Center">
                                             <Panel Width="24" Height="24">
-                                                <Path Fill="{DynamicResource AmberBrush}"
+                                                <Path Fill="{DynamicResource LampBulbBrush}"
                                                       Data="{StaticResource GeoBulbGlass}" />
-                                                <Path Stroke="{DynamicResource AmberBrush}" StrokeThickness="1.7"
+                                                <Path Stroke="{DynamicResource LampBulbBaseBrush}" StrokeThickness="2"
                                                       StrokeLineCap="Round" Data="{StaticResource GeoBulbBase}" />
                                             </Panel>
                                         </Viewbox>
@@ -760,7 +799,12 @@
                     <!-- Margin 由样式提供（默认 8，给投影留绘制空间：投影被控件边界裁切时才会出现硬边缺口）；
                          桌面分区内卡片不投影，局部样式把它收到 4，故此处不能再写本地值（本地值会压过样式 setter） -->
                     <Panel>
-                        <Border Name="Card" MinHeight="74" CornerRadius="16" Padding="15,13">
+                        <!-- 卡面统一 80 高：读数标签换行时卡片不再跟着长高，
+                             同一宫格里一张高一张矮、行间空档忽大忽小的问题一起消失。
+                             比原来的 74 只高一点，和场景大卡同高；两项读数正好铺满，
+                             再多一项也只是挤进内距，卡片本身不撑开 -->
+                        <Border Name="Card" Height="80" CornerRadius="16" Padding="15,13"
+                                ClipToBounds="True">
                             <Panel>
                                 <!-- 底部彩色光晕：贴卡底往上晕开的一层彩色渐变（青 → 蓝 → 紫 → 粉）。
                                      这里刻意不用 BoxShadow：阴影画不到自身轮廓内，光源条必须露在卡内，
@@ -905,7 +949,8 @@
         </Style>
         <!-- ======== 加载：骨架卡 + 掠过的高光带 + 旋转指示器 ======== -->
         <Style Selector="Border.SkelCard">
-            <Setter Property="MinHeight" Value="74"/>
+            <!-- 与真实设备卡同高：骨架换成真卡时卡片不再跳一下 -->
+            <Setter Property="Height" Value="80"/>
             <Setter Property="CornerRadius" Value="16"/>
             <Setter Property="Padding" Value="15,13"/>
             <Setter Property="Margin" Value="8"/>
@@ -1642,7 +1687,8 @@
         <Style Selector="Border.MiniTag">
             <Setter Property="Background" Value="{DynamicResource Surface4Brush}"/>
             <Setter Property="CornerRadius" Value="7"/>
-            <Setter Property="Padding" Value="7,2"/>
+            <!-- 左右只留 5：设备卡中间只有九十来像素，7 的边距会让两枚读数差一两个像素换行 -->
+            <Setter Property="Padding" Value="5,2"/>
             <Setter Property="VerticalAlignment" Value="Center"/>
         </Style>
 

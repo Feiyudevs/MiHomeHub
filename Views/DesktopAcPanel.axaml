@@ -85,11 +85,11 @@
         </Style>
         <Style Selector="Button.AcSeg">
             <Setter Property="Height" Value="26" />
-            <Setter Property="MinWidth" Value="42" />
-            <Setter Property="Padding" Value="9,0" />
+            <Setter Property="MinWidth" Value="0" />
+            <Setter Property="Padding" Value="6,0" />
             <Setter Property="FontSize" Value="11.5" />
             <Setter Property="FontWeight" Value="Medium" />
-            <Setter Property="HorizontalAlignment" Value="Left" />
+            <Setter Property="HorizontalAlignment" Value="Stretch" />
             <Setter Property="VerticalAlignment" Value="Center" />
             <Setter Property="Background" Value="Transparent" />
             <Setter Property="BorderThickness" Value="0" />
@@ -329,22 +329,24 @@
                     </Grid>
                 </Grid>
 
-                <!-- ===== 模式行：整卡通铺，选项跟着文字宽度排开，一行放不下自动换行 ===== -->
+                <!-- ===== 模式行：几个模式钮把轨道宽度平分，选中块和轨道一样铺满 ===== -->
                 <Border Classes="AcRow" IsVisible="{Binding HasModeOptions}">
                     <Grid ColumnDefinitions="Auto,*" ColumnSpacing="10">
                         <TextBlock Text="模式" FontSize="12" VerticalAlignment="Center"
                                    Foreground="{DynamicResource DskText2Brush}" />
                         <Border Classes="AcSegTrack" Grid.Column="1">
-                            <ItemsControl ItemsSource="{Binding ModeOptions}">
+                            <ItemsControl ItemsSource="{Binding ModeOptions}" VerticalAlignment="Center">
                                 <ItemsControl.ItemsPanel>
                                     <ItemsPanelTemplate>
-                                        <WrapPanel Orientation="Horizontal" />
+                                        <!-- 列数 = 模式数：几个模式就几列等宽，右侧不留空档 -->
+                                        <UniformGrid Columns="{Binding ModeOptions.Count}" />
                                     </ItemsPanelTemplate>
                                 </ItemsControl.ItemsPanel>
                                 <ItemsControl.ItemTemplate>
                                     <DataTemplate x:DataType="m:AcOptionItem">
+                                        <!-- 上下左右都留 2：竖直方向居中，横向相邻两块之间是 4 的缝 -->
                                         <Button Classes="AcSeg" Classes.is-on="{Binding IsSelected}"
-                                                Content="{Binding Label}" Margin="0,0,4,4"
+                                                Content="{Binding Label}" Margin="2"
                                                 Command="{Binding $parent[ItemsControl].DataContext.SetModeCommand}"
                                                 CommandParameter="{Binding Value}" />
                                     </DataTemplate>

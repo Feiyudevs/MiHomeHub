@@ -4,6 +4,7 @@
 using System;
 using System.ComponentModel;
 using Avalonia.Controls;
+using MiHomeHub.Models;
 using MiHomeHub.Services;
 using MiHomeHub.ViewModels;
 
@@ -17,6 +18,7 @@ namespace MiHomeHub.Views;
 public partial class SceneEditorWindow : Window
 {
     private readonly MainViewModel _vm;
+    private bool _iconPickerOpen;
 
     public SceneEditorWindow(MainViewModel vm)
     {
@@ -24,7 +26,12 @@ public partial class SceneEditorWindow : Window
         _vm = vm;
         DataContext = vm;
         _vm.PropertyChanged += OnVmPropertyChanged;
-        Closed += (_, _) => _vm.PropertyChanged -= OnVmPropertyChanged;
+        _vm.IconEditorRequested += OnIconEditorRequested;
+        Closed += (_, _) =>
+        {
+            _vm.PropertyChanged -= OnVmPropertyChanged;
+            _vm.IconEditorRequested -= OnIconEditorRequested;
+        };
     }
 
     /// <summary>按屏幕居中显示（不依赖父窗口，桌面弹窗发起时也能弹在视野中间）。</summary>
@@ -33,6 +40,27 @@ public partial class SceneEditorWindow : Window
         PopupPlacement.CenterOnScreen(this, Width, Height);
         if (!IsVisible) Show();
         Activate();
+    }
+
+    /// <summary>独立场景窗里点图标：只有本窗承载编辑面板时才由这里接管，内嵌模式仍交给主窗口。</summary>
+    private async void OnIconEditorRequested(object? sender, CustomIconTarget target)
+    {
+        if (!target.FromEditor || _vm.IsSceneEditorInline) return;
+        if (_iconPickerOpen) return;
+        _iconPickerOpen = true;
+        try
+        {
+            var window = new IconPickerWindow(target);
+            await window.ShowDialog(this);
+        }
+        catch (Exception ex)
+        {
+            _vm.Log("[IconPicker] 打开图标选择窗失败：" + ex.Message);
+        }
+        finally
+        {
+            _iconPickerOpen = false;
+        }
     }
 
     private void OnVmPropertyChanged(object? sender, PropertyChangedEventArgs e)

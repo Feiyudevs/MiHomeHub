@@ -16,6 +16,7 @@ using System.Linq;
 using System.Threading.Tasks;
 using MiHomeHub.Services;
 using MiHomeHub.Controls;
+using MiHomeHub.Models;
 using MiHomeHub.ViewModels;
 
 namespace MiHomeHub.Views;
@@ -50,6 +51,9 @@ public partial class MainWindow : CustomWindow
     private IDisposable? _boundsCaptureTimer;
 
     private DispatcherTimer? _gpuReleaseTimer;
+
+    /// <summary>图标选择窗同一时间只开一个，防止右键双击连开两层。</summary>
+    private bool _iconPickerOpen;
 
     public MainWindow() : this(false) { }
 
@@ -88,7 +92,10 @@ public partial class MainWindow : CustomWindow
             _releasedContentTrimTimer?.Stop();
             DisplayWatcher.Changed -= OnDisplayChanged;
             if (_observedMainViewModel is not null)
+            {
                 _observedMainViewModel.PropertyChanged -= OnMainViewModelPropertyChanged;
+                _observedMainViewModel.IconEditorRequested -= OnIconEditorRequested;
+            }
             _observedMainViewModel = null;
         };
     }
@@ -667,11 +674,42 @@ public partial class MainWindow : CustomWindow
     private void OnDataContextChanged(object? sender, EventArgs e)
     {
         if (_observedMainViewModel is not null)
+        {
             _observedMainViewModel.PropertyChanged -= OnMainViewModelPropertyChanged;
+            _observedMainViewModel.IconEditorRequested -= OnIconEditorRequested;
+        }
         _observedMainViewModel = DataContext as MainViewModel;
         if (_observedMainViewModel is not null)
+        {
             _observedMainViewModel.PropertyChanged += OnMainViewModelPropertyChanged;
+            _observedMainViewModel.IconEditorRequested += OnIconEditorRequested;
+        }
         if (_mainContentRoot is not null) _mainContentRoot.DataContext = DataContext;
+    }
+
+    /// <summary>房间 / 场景要换图标时弹出选择窗；解析与落盘都在弹窗视图模型里完成。</summary>
+    private async void OnIconEditorRequested(object? sender, CustomIconTarget target)
+    {
+        // 场景详情已经独立成窗时，弹窗要挂在那个窗上，主窗口不抢（否则会把主程序拽到前面）
+        if (target.FromEditor &&
+            _observedMainViewModel is { IsSceneEditorOpen: true, IsSceneEditorInline: false })
+            return;
+
+        if (_iconPickerOpen) return;
+        _iconPickerOpen = true;
+        try
+        {
+            var window = new IconPickerWindow(target);
+            await window.ShowDialog(this);
+        }
+        catch (Exception ex)
+        {
+            Vm?.Log("[IconPicker] 打开图标选择窗失败：" + ex.Message);
+        }
+        finally
+        {
+            _iconPickerOpen = false;
+        }
     }
 
     /// <summary>

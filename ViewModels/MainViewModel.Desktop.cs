@@ -18,6 +18,24 @@ public partial class MainViewModel : IDeviceCardHost
     /// <summary>当前家庭上屏的设备清单（未按房间/搜索过滤；已并组、并键、隐藏开关），桌面分区按 did 从这里取实例。</summary>
     public IReadOnlyList<MijiaDevice> AllDevices => _visibleDevices;
 
+    /// <summary>
+    /// 按 did 取一台设备给桌面分区用：先认上屏清单里的实例（与卡片同一份状态），
+    /// 并组后让位的灯、并键后收进父卡的子键、被「隐藏开关」收起的开关不在这份清单里，
+    /// 再退回全量设备补齐 —— 分区是用户亲手挑进来的，不该因为主列表的合并规则凭空少一张卡。
+    /// </summary>
+    public MijiaDevice? FindZoneDevice(string did)
+    {
+        if (string.IsNullOrEmpty(did)) return null;
+
+        foreach (var d in _visibleDevices)
+            if (string.Equals(d.Did, did, StringComparison.Ordinal)) return d;
+
+        foreach (var d in _allDevices)
+            if (string.Equals(d.Did, did, StringComparison.Ordinal)) return d;
+
+        return null;
+    }
+
     // ===== 设备卡宿主契约：主窗口这一侧沿用原有抽屉/开关/加号三套命令 =====
 
     /// <summary>点卡片 → 右侧详情抽屉。</summary>

@@ -105,6 +105,29 @@
                 </Border>
                 <Border Classes="Card">
                     <StackPanel Spacing="20">
+                        <TextBlock Text="首页" FontSize="14.5" FontWeight="SemiBold"
+                                   Foreground="{DynamicResource TextBrush}" />
+                        <Grid ColumnDefinitions="Auto,*,Auto">
+                            <Border Classes="SetIc" Background="{DynamicResource BlueSoftBrush}">
+                                <Viewbox HorizontalAlignment="Center" VerticalAlignment="Center">
+                                    <Panel Width="24" Height="24">
+                                        <Path Stroke="{DynamicResource BlueBrush}" Data="{StaticResource GeoGrid}" />
+                                    </Panel>
+                                </Viewbox>
+                            </Border>
+                            <StackPanel Grid.Column="1" Margin="12,0" VerticalAlignment="Center">
+                                <TextBlock Text="数据看板" FontSize="13.5" FontWeight="Normal"
+                                           Foreground="{DynamicResource TextBrush}" />
+                                <TextBlock Text="关掉后首页整块隐藏；重新打开会把卡片恢复显示"
+                                           Classes="Hint Sub" Margin="0,2,0,0" TextWrapping="Wrap" />
+                            </StackPanel>
+                            <ToggleButton Grid.Column="2" Classes="Switch" VerticalAlignment="Center"
+                                          IsChecked="{Binding DataBoardVisible, Mode=TwoWay}" />
+                        </Grid>
+                    </StackPanel>
+                </Border>
+                <Border Classes="Card">
+                    <StackPanel Spacing="20">
                         <TextBlock Text="启动与窗口" FontSize="14.5" FontWeight="SemiBold"
                                    Foreground="{DynamicResource TextBrush}" />
                         <Grid ColumnDefinitions="Auto,*,Auto">
@@ -267,28 +290,41 @@
                         <StackPanel Spacing="10">
                             <TextBlock Text="背景" FontSize="13" FontWeight="Normal"
                                        Foreground="{DynamicResource Text2Brush}" />
-                            <ItemsControl ItemsSource="{Binding DesktopAppearance.Presets}">
-                                <ItemsControl.ItemsPanel>
-                                    <ItemsPanelTemplate>
-                                        <StackPanel Orientation="Horizontal" Spacing="7" />
-                                    </ItemsPanelTemplate>
-                                </ItemsControl.ItemsPanel>
-                                <ItemsControl.ItemTemplate>
-                                    <DataTemplate x:DataType="vm:ColorSwatch">
-                                        <Button Classes="Swatch" Tag="{Binding Hex}" Click="OnSwatchClick"
-                                                ToolTip.Tip="{Binding Hex}">
-                                            <Panel>
-                                                <Border Width="20" Height="20" CornerRadius="10"
-                                                        Background="{Binding Brush}"
-                                                        BorderThickness="1" BorderBrush="#33FFFFFF" />
-                                                <Border Width="26" Height="26" CornerRadius="13"
-                                                        BorderThickness="2" BorderBrush="{DynamicResource AccentBrush}"
-                                                        IsVisible="{Binding IsSelected}" />
-                                            </Panel>
-                                        </Button>
-                                    </DataTemplate>
-                                </ItemsControl.ItemTemplate>
-                            </ItemsControl>
+                            <StackPanel Orientation="Horizontal" Spacing="7">
+                                <ItemsControl ItemsSource="{Binding DesktopAppearance.Presets}">
+                                    <ItemsControl.ItemsPanel>
+                                        <ItemsPanelTemplate>
+                                            <StackPanel Orientation="Horizontal" Spacing="7" />
+                                        </ItemsPanelTemplate>
+                                    </ItemsControl.ItemsPanel>
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate x:DataType="vm:ColorSwatch">
+                                            <Button Classes="Swatch" Tag="{Binding Hex}" Click="OnSwatchClick"
+                                                    ToolTip.Tip="{Binding Hex}">
+                                                <Panel>
+                                                    <Border Width="20" Height="20" CornerRadius="10"
+                                                            Background="{Binding Brush}"
+                                                            BorderThickness="1" BorderBrush="#33FFFFFF" />
+                                                    <Border Width="26" Height="26" CornerRadius="13"
+                                                            BorderThickness="2" BorderBrush="{DynamicResource AccentBrush}"
+                                                            IsVisible="{Binding IsSelected}" />
+                                                </Panel>
+                                            </Button>
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
+                                <Button Classes="Swatch" Click="OnCustomColorClick"
+                                        ToolTip.Tip="自定义颜色（打开调色盘）">
+                                    <Panel>
+                                        <Border Width="20" Height="20" CornerRadius="10"
+                                                Background="{Binding DesktopAppearance.CustomColorBrush}"
+                                                BorderThickness="1" BorderBrush="#33FFFFFF" />
+                                        <Border Width="26" Height="26" CornerRadius="13"
+                                                BorderThickness="2" BorderBrush="{DynamicResource AccentBrush}"
+                                                IsVisible="{Binding DesktopAppearance.IsCustomColorSelected}" />
+                                    </Panel>
+                                </Button>
+                            </StackPanel>
                             <TextBlock Classes="Hint" Text="未选背景色时，底色随深/浅色主题自动切换"
                                        IsVisible="{Binding DesktopAppearance.FollowTheme}" />
                         </StackPanel>
@@ -308,7 +344,7 @@
                                     TickFrequency="1"
                                     Value="{Binding DesktopAppearance.OpacityPercent, Mode=TwoWay}" />
                             <TextBlock Classes="Hint"
-                                       Text="数值是底色自身的不透明度，磨砂染色随之联动：0% 纯磨砂无底色、72% 最沉。" />
+                                       Text="数值是底色自身的不透明度，磨砂染色随之联动：0% 纯磨砂无底色、100% 最沉。" />
                         </StackPanel>
 
                         <!-- 毛玻璃 -->
@@ -388,7 +424,7 @@
                                 </Viewbox>
                             </Border>
                             <StackPanel Grid.Column="1" Margin="12,0" VerticalAlignment="Center">
-                                <TextBlock Text="隐藏开关" FontSize="13.5" FontWeight="Normal"
+                                <TextBlock Text="隐藏开关设备" FontSize="13.5" FontWeight="Normal"
                                            Foreground="{DynamicResource TextBrush}" />
                                 <TextBlock Text="打开后，设备列表不再出现墙壁开关与场景按键"
                                            Classes="Hint Sub" Margin="0,2,0,0" TextWrapping="Wrap" />
@@ -471,8 +507,6 @@
                                 <TextBlock Text="{Binding UpdateChannelHint}" FontSize="12"
                                            Foreground="{DynamicResource AmberTextBrush}" TextWrapping="Wrap"
                                            IsVisible="{Binding UpdateChannelHint, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
-                                <TextBlock Text="优先从版本后台获取更新，未配置后台时仅走 GitHub Releases；安装包校验后静默安装，设置与登录态保留"
-                                           Classes="Hint Sub" TextWrapping="Wrap" />
                             </StackPanel>
                             <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="8"
                                         VerticalAlignment="Center">

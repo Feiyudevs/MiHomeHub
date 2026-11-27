@@ -437,8 +437,9 @@ public partial class MainViewModel : ObservableObject
         "temperature", "relative-humidity", "humidity", "pm2.5", "pm2.5-density", "pm10",
         "pm10-density", "pm1", "pm1-density", "illuminance",
         "co2", "co2-density", "tvoc", "tvoc-density", "voc-density", "hcho", "hcho-density",
-        "noise", "noise-decibel", "dust", "dust-density", "tds-in", "air-quality", "water-level",
-        "power-consumption", "voltage", "electric-current", "motion-detected",
+        "noise", "noise-decibel", "dust", "dust-density", "tds-in", "tds-out", "air-quality", "water-level",
+        "electric-power", "power", "surge-power", "power-consumption", "energy-consumption",
+        "voltage", "electric-voltage", "electric-current", "current", "motion-detected",
         "contact-state", "occupancy", "smoke-state", "leak", "door-state", "submersion-state"
     };
 
@@ -523,7 +524,14 @@ public partial class MainViewModel : ObservableObject
         DrawerMetricTiles.Clear();
         var selected = CardMetricsCatalog.EffectiveNames(device);
         foreach (var p in CardMetricsCatalog.Candidates(device))
-            DrawerMetricTiles.Add(new MetricTileVm { Def = p, IsShown = selected.Contains(p.Name) });
+        {
+            // 点亮状态必须拿归一后的标准键去比（selected 里存的是 pm2.5 / relative-humidity 这类键），
+            // 拿规格原始短名（pm2.5-density、co2-density……）比会永远对不上：
+            // 读数早就在卡片上了，这里却一直显示没点亮
+            var tile = new MetricTileVm { Def = p };
+            tile.IsShown = selected.Contains(tile.Name);
+            DrawerMetricTiles.Add(tile);
+        }
         HasDrawerMetricTiles = DrawerMetricTiles.Count > 0;
         var label = CardMetricsCatalog.TypeLabel(device);
         // 说明只留最短的一句，改动影响哪些设备收进悬停提示，不在正文里堆两行
@@ -569,13 +577,10 @@ public partial class MainViewModel : ObservableObject
     private void AfterCardMetricsChanged(string typeKey)
     {
         var selected = CardMetricsCatalog.EffectiveNames(typeKey);
-        // 同类设备的副标题缓存作废，重新拼；温湿度读数不受这里影响（它们由轮询单独回填），
-        // 所以清缓存时不动 TemperatureC / Humidity，环境概览不会因为改配置而闪空
-        foreach (var d in _allDevices.Where(x => CardMetricsCatalog.TypeKey(x) == typeKey))
-        {
-            d.CardMetricTexts.Clear();
-            d.MetricsText = "";
-        }
+        // 卡片副标题当场按新配置重拼，不等下一拍轮询：否则刚关掉的读数会继续挂在卡片上，
+        // 看上去就是「详情里没点亮，主页/桌面照样显示」。重拼只动副标题，
+        // 温湿度读数本身（TemperatureC / Humidity）不动，环境概览不会闪空
+        foreach (var d in _allDevices) RebuildCardSubtitle(d);
         foreach (var vm in DrawerMetricTiles) vm.IsShown = selected.Contains(vm.Name);
         RecomputeEnvironment();
         if (_client != null && IsLoggedIn) _ = RefreshStatesAsync(includeMetrics: true);

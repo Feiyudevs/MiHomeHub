@@ -22,176 +22,695 @@
                 </Transitions>
             </Setter>
         </Style>
-        <Style Selector="Border.TrendCard:pointerover ctl|OptionPicker.TrendPick, ctl|OptionPicker.TrendPick.open">
+        <Style Selector="Border.TrendCard:pointerover ctl|OptionPicker.TrendPick, Border.TrendCard.pick-open ctl|OptionPicker.TrendPick">
             <Setter Property="Opacity" Value="1" />
+        </Style>
+        <!-- 卡片角上的下拉只是辅助入口：触发器文字和箭头压到第三档灰，浮层展开时才不抢读数 -->
+        <Style Selector="Border.TrendCard ctl|OptionPicker.TrendPick TextBlock.Cur">
+            <Setter Property="Foreground" Value="{DynamicResource Text3Brush}" />
+        </Style>
+        <Style Selector="Border.TrendCard ctl|OptionPicker.TrendPick Path#Chev">
+            <Setter Property="Stroke" Value="{DynamicResource Text3Brush}" />
+        </Style>
+        <!-- 「数据看板」「快捷场景」段落标题前的小图标：24 网格塞进 Viewbox 再缩到 15，
+             这样坐标空间不被压扁、字形始终位于方框正中，和标题的中线对齐；
+             描边在 Viewbox 里会跟着缩小，内层给 2.1 才能在 15px 下落到 1.3px 左右 -->
+        <Style Selector="Viewbox.SecIc">
+            <Setter Property="Width" Value="15" />
+            <Setter Property="Height" Value="15" />
+            <Setter Property="Stretch" Value="Uniform" />
+            <Setter Property="VerticalAlignment" Value="Center" />
+        </Style>
+        <Style Selector="Path.SecIc">
+            <Setter Property="StrokeThickness" Value="2.1" />
+            <Setter Property="StrokeLineCap" Value="Round" />
+            <Setter Property="StrokeJoin" Value="Round" />
+            <Setter Property="Stroke" Value="{DynamicResource Text2Brush}" />
+        </Style>
+        <!-- 空气小卡：和大趋势卡同一档卡面（圆角、卡色、投影、8 外边距接住投影），只是更矮更窄 -->
+        <Style Selector="Border.AirCard">
+            <Setter Property="CornerRadius" Value="16" />
+            <Setter Property="Background" Value="{DynamicResource CardBrush}" />
+            <Setter Property="BoxShadow" Value="{DynamicResource CardShadow}" />
+            <!-- 内距放在内容 StackPanel 上：整张卡要能被一层淡色底铺满 -->
+            <Setter Property="Padding" Value="0" />
+            <Setter Property="ClipToBounds" Value="False" />
+            <Setter Property="Margin" Value="8" />
+        </Style>
+        <!-- 一层极淡的同色底：一眼能看出五枚卡分属不同色系，又不至于把卡面染花 -->
+        <Style Selector="Border.AirWash">
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="Opacity" Value="0.07" />
+        </Style>
+        <!-- 空气小卡的色彩系：左侧色条 / 标题 / 读数同色，一项一个色相，五枚并排不混色；
+             颜色值在 Brushes.axaml 里深浅主题各有一套（AirPm25 / AirPm10 / AirHcho / AirTvoc / AirCo2） -->
+        <Style Selector="Border.AirAccent">
+            <Setter Property="Background" Value="{DynamicResource Text3Brush}" />
+            <Setter Property="VerticalAlignment" Value="Center" />
+        </Style>
+        <Style Selector="Border.AirCard.pm25 Border.AirAccent">
+            <Setter Property="Background" Value="{DynamicResource AirPm25Brush}" />
+        </Style>
+        <Style Selector="Border.AirCard.pm25 Border.AirWash">
+            <Setter Property="Background" Value="{DynamicResource AirPm25Brush}" />
+        </Style>
+        <Style Selector="Border.AirCard.pm25 TextBlock.AirLab">
+            <Setter Property="Foreground" Value="{DynamicResource AirPm25Brush}" />
+        </Style>
+        <Style Selector="Border.AirCard.pm25.good TextBlock.AirValue">
+            <Setter Property="Foreground" Value="{DynamicResource AirPm25Brush}" />
+        </Style>
+        <Style Selector="Border.AirCard.pm10 Border.AirAccent">
+            <Setter Property="Background" Value="{DynamicResource AirPm10Brush}" />
+        </Style>
+        <Style Selector="Border.AirCard.pm10 Border.AirWash">
+            <Setter Property="Background" Value="{DynamicResource AirPm10Brush}" />
+        </Style>
+        <Style Selector="Border.AirCard.pm10 TextBlock.AirLab">
+            <Setter Property="Foreground" Value="{DynamicResource AirPm10Brush}" />
+        </Style>
+        <Style Selector="Border.AirCard.pm10.good TextBlock.AirValue">
+            <Setter Property="Foreground" Value="{DynamicResource AirPm10Brush}" />
+        </Style>
+        <Style Selector="Border.AirCard.hcho Border.AirAccent">
+            <Setter Property="Background" Value="{DynamicResource AirHchoBrush}" />
+        </Style>
+        <Style Selector="Border.AirCard.hcho Border.AirWash">
+            <Setter Property="Background" Value="{DynamicResource AirHchoBrush}" />
+        </Style>
+        <Style Selector="Border.AirCard.hcho TextBlock.AirLab">
+            <Setter Property="Foreground" Value="{DynamicResource AirHchoBrush}" />
+        </Style>
+        <Style Selector="Border.AirCard.hcho.good TextBlock.AirValue">
+            <Setter Property="Foreground" Value="{DynamicResource AirHchoBrush}" />
+        </Style>
+        <Style Selector="Border.AirCard.tvoc Border.AirAccent">
+            <Setter Property="Background" Value="{DynamicResource AirTvocBrush}" />
+        </Style>
+        <Style Selector="Border.AirCard.tvoc Border.AirWash">
+            <Setter Property="Background" Value="{DynamicResource AirTvocBrush}" />
+        </Style>
+        <Style Selector="Border.AirCard.tvoc TextBlock.AirLab">
+            <Setter Property="Foreground" Value="{DynamicResource AirTvocBrush}" />
+        </Style>
+        <Style Selector="Border.AirCard.tvoc.good TextBlock.AirValue">
+            <Setter Property="Foreground" Value="{DynamicResource AirTvocBrush}" />
+        </Style>
+        <Style Selector="Border.AirCard.co2 Border.AirAccent">
+            <Setter Property="Background" Value="{DynamicResource AirCo2Brush}" />
+        </Style>
+        <Style Selector="Border.AirCard.co2 Border.AirWash">
+            <Setter Property="Background" Value="{DynamicResource AirCo2Brush}" />
+        </Style>
+        <Style Selector="Border.AirCard.co2 TextBlock.AirLab">
+            <Setter Property="Foreground" Value="{DynamicResource AirCo2Brush}" />
+        </Style>
+        <Style Selector="Border.AirCard.co2.good TextBlock.AirValue">
+            <Setter Property="Foreground" Value="{DynamicResource AirCo2Brush}" />
+        </Style>
+        <!-- 读数的档位色压在色系之上：正常时是这枚卡自己的色相，
+             偏高换琥珀、超标换红，和右上角胶囊同一套判断（同档里写在这一组之后，覆盖上面的色相） -->
+        <Style Selector="Border.AirCard.warn TextBlock.AirValue">
+            <Setter Property="Foreground" Value="{DynamicResource AmberTextBrush}" />
+        </Style>
+        <Style Selector="Border.AirCard.bad TextBlock.AirValue">
+            <Setter Property="Foreground" Value="{DynamicResource DangerBrush}" />
+        </Style>
+        <Style Selector="TextBlock.AirLab">
+            <Setter Property="FontSize" Value="11.5" />
+            <Setter Property="Foreground" Value="{DynamicResource Text2Brush}" />
+            <Setter Property="VerticalAlignment" Value="Center" />
+        </Style>
+        <Style Selector="TextBlock.AirValue">
+            <Setter Property="FontSize" Value="22" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+            <Setter Property="LetterSpacing" Value="-0.5" />
+            <Setter Property="Foreground" Value="{DynamicResource TextBrush}" />
+        </Style>
+        <Style Selector="TextBlock.AirUnit">
+            <Setter Property="FontSize" Value="10.5" />
+            <Setter Property="Foreground" Value="{DynamicResource Text3Brush}" />
+            <Setter Property="Margin" Value="3,0,0,3" />
+            <Setter Property="VerticalAlignment" Value="Bottom" />
+        </Style>
+        <Style Selector="TextBlock.AirSrc">
+            <Setter Property="FontSize" Value="10" />
+            <Setter Property="Foreground" Value="{DynamicResource Text3Brush}" />
+            <Setter Property="HorizontalAlignment" Value="Right" />
+            <Setter Property="VerticalAlignment" Value="Bottom" />
+            <Setter Property="Margin" Value="6,0,0,3" />
+            <Setter Property="MaxLines" Value="1" />
+            <Setter Property="TextTrimming" Value="CharacterEllipsis" />
+        </Style>
+        <!-- 档位胶囊：绿 / 琥珀 / 红三档互斥，底色与文字都走同一个档位类，主题切换自动跟着换 -->
+        <Style Selector="Border.AirGrade">
+            <Setter Property="CornerRadius" Value="9" />
+            <Setter Property="Padding" Value="6,1" />
+            <Setter Property="Background" Value="{DynamicResource SurfaceBrush}" />
+            <Setter Property="VerticalAlignment" Value="Center" />
+        </Style>
+        <Style Selector="Border.AirGrade TextBlock">
+            <Setter Property="FontSize" Value="10" />
+            <Setter Property="Foreground" Value="{DynamicResource Text3Brush}" />
+        </Style>
+        <Style Selector="Border.AirGrade.is-good">
+            <Setter Property="Background" Value="{DynamicResource GreenSoftBrush}" />
+        </Style>
+        <Style Selector="Border.AirGrade.is-good TextBlock">
+            <Setter Property="Foreground" Value="{DynamicResource GreenBrush}" />
+        </Style>
+        <Style Selector="Border.AirGrade.is-mild">
+            <Setter Property="Background" Value="{DynamicResource AmberSoftBrush}" />
+        </Style>
+        <Style Selector="Border.AirGrade.is-mild TextBlock">
+            <Setter Property="Foreground" Value="{DynamicResource AmberTextBrush}" />
+        </Style>
+        <Style Selector="Border.AirGrade.is-poor">
+            <Setter Property="Background" Value="{DynamicResource DangerSoftBrush}" />
+        </Style>
+        <Style Selector="Border.AirGrade.is-poor TextBlock">
+            <Setter Property="Foreground" Value="{DynamicResource DangerBrush}" />
+        </Style>
+        <!-- 示例读数一直铺着，卡上不写「示例数据」这类多余的字；
+             「预览」小标只在鼠标移入卡片时浮出来，点一下看说明 -->
+        <Style Selector="Border.AirCard:pointerover Button.TrendPreviewTag">
+            <Setter Property="Opacity" Value="1" />
+            <Setter Property="IsHitTestVisible" Value="True" />
         </Style>
     </UserControl.Styles>
     <UserControl.Resources>
         <!-- 三张趋势卡抽成模板：常规状态排进宫格，只剩一张时同一份模板也能挪到与快捷场景并排的位置 -->
         <DataTemplate x:Key="TrendTempCardTemplate" x:DataType="vm:MainViewModel">
             <Border Classes="TrendCard">
-                <Grid RowDefinitions="Auto,Auto,Auto">
-                    <Grid ColumnDefinitions="Auto,*,Auto">
-                        <Viewbox Width="13" Height="13" VerticalAlignment="Center">
-                            <Panel Width="24" Height="24">
-                                <Path Classes="StatIc" Stroke="{DynamicResource TrendTempBrush}"
-                                      Data="{StaticResource GeoThermo}" />
-                            </Panel>
-                        </Viewbox>
-                        <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="6"
-                                    Margin="6,0,0,0" VerticalAlignment="Center">
-                            <TextBlock Classes="TrendLab" Text="温度" />
-                            <Border Classes="TrendChip" IsVisible="{Binding HasTempDelta}">
-                                <TextBlock Text="{Binding TempTrendDelta}" FontSize="10"
-                                           Foreground="{DynamicResource Text3Brush}" />
-                            </Border>
-                        </StackPanel>
-                        <!-- 卡片右上角的数据来源：悬停才浮出来，点一下展开（共用项目里的 OptionPicker） -->
-                        <ctl:OptionPicker Grid.Column="2" Classes="TrendPick" Compact="True" Pill="True"
-                                          MaxWidth="104" VerticalAlignment="Center"
-                                          IsVisible="{Binding CanPickTempSource}"
-                                          Options="{Binding TempSources}"
-                                          SelectedValue="{Binding SelectedTempSource, Mode=TwoWay}"
-                                          ToolTip.Tip="选择这张卡读哪台设备的数据" />
+                <Panel>
+                    <Grid RowDefinitions="Auto,Auto,*">
+                        <Grid ColumnDefinitions="Auto,*,Auto">
+                            <Viewbox Width="13" Height="13" VerticalAlignment="Center">
+                                <Panel Width="24" Height="24">
+                                    <Path Classes="StatIc" Stroke="{DynamicResource TrendTempBrush}"
+                                          Data="{StaticResource GeoThermo}" />
+                                </Panel>
+                            </Viewbox>
+                            <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="6"
+                                        Margin="6,0,0,0" VerticalAlignment="Center">
+                                <TextBlock Classes="TrendLab" Text="温度" />
+                                <Border Classes="TrendChip" IsVisible="{Binding HasTempDelta}">
+                                    <TextBlock Text="{Binding TempTrendDelta}" FontSize="10"
+                                               Foreground="{DynamicResource Text3Brush}" />
+                                </Border>
+                                <!-- 没有可用设备时这张卡铺的是示例数据：鼠标移入卡片才浮出「预览」标识，悬停看说明、点击开弹窗 -->
+                                <Button Classes="TrendPreviewTag" IsVisible="{Binding IsTempPreview}"
+                                        Command="{Binding OpenTrendPreviewNoticeCommand}" CommandParameter="temp"
+                                        ToolTip.Tip="预览数据 · 接入设备后自动显示真实读数，点击查看说明">
+                                    <TextBlock Text="预览" FontSize="10"
+                                               Foreground="{DynamicResource AmberTextBrush}" />
+                                </Button>
+                            </StackPanel>
+                            <!-- 卡片右上角的数据来源：悬停才浮出来，点一下展开（共用项目里的 OptionPicker） -->
+                            <ctl:OptionPicker Grid.Column="2" Classes="TrendPick" Compact="True" Pill="True" ShowMeta="False"
+                                              MaxWidth="136" VerticalAlignment="Center"
+                                              IsVisible="{Binding CanPickTempSource}"
+                                              Options="{Binding TempSources}"
+                                              SelectedValue="{Binding SelectedTempSource, Mode=TwoWay}"
+                                              ToolTip.Tip="选择这张卡读哪台设备的数据" />
+                        </Grid>
+                        <Grid Grid.Row="1" ColumnDefinitions="Auto,Auto,*" Margin="0,6,0,0">
+                            <TextBlock Classes="TrendValue" ctl:NumberTween.Enabled="True"
+                                       Text="{Binding TempTrendValue}"
+                                       Foreground="{DynamicResource TrendTempBrush}" />
+                            <TextBlock Grid.Column="1" Classes="TrendUnit" Text="℃" />
+                            <!-- 右侧两行小字：上一句舒适度，下一句全天高低；卡片最底下整块留给曲线 -->
+                            <StackPanel Grid.Column="2" HorizontalAlignment="Right" VerticalAlignment="Bottom"
+                                        Spacing="2" Margin="0,0,0,5">
+                                <TextBlock Classes="TrendNote" Text="{Binding TempTrendNote}" Margin="0" />
+                                <TextBlock Classes="TrendFoot" Text="{Binding TempTrendRange}"
+                                           HorizontalAlignment="Right" />
+                            </StackPanel>
+                        </Grid>
+                        <Panel Grid.Row="2" MinHeight="72" Margin="0,8,0,0">
+                            <ctl:TrendChart Values="{Binding TempTrendSeries}"
+                                            Stroke="{DynamicResource TrendTempBrush}"
+                                            Fill="{DynamicResource TrendTempFill}"
+                                            GridBrush="{DynamicResource LineBrush}"
+                                            UnitText="℃"
+                                            TipBackground="{DynamicResource CardBrush}"
+                                            TipForeground="{DynamicResource TextBrush}"
+                                            IsVisible="{Binding ShowTempChart}" />
+                            <TextBlock Classes="TrendStub" Text="{Binding TempTrendPlaceholder}"
+                                       IsVisible="{Binding !ShowTempChart}" />
+                        </Panel>
                     </Grid>
-                    <Grid Grid.Row="1" ColumnDefinitions="Auto,Auto,*" Margin="0,6,0,0">
-                        <TextBlock Classes="TrendValue" Text="{Binding TempTrendValue}"
-                                   Foreground="{DynamicResource TrendTempBrush}" />
-                        <TextBlock Grid.Column="1" Classes="TrendUnit" Text="℃" />
-                        <!-- 右侧两行小字：上一句舒适度，下一句全天高低；卡片最底下整块留给曲线 -->
-                        <StackPanel Grid.Column="2" HorizontalAlignment="Right" VerticalAlignment="Bottom"
-                                    Spacing="2" Margin="0,0,0,5">
-                            <TextBlock Classes="TrendNote" Text="{Binding TempTrendNote}" Margin="0" />
-                            <TextBlock Classes="TrendFoot" Text="{Binding TempTrendRange}"
-                                       HorizontalAlignment="Right" />
-                        </StackPanel>
-                    </Grid>
-                    <Panel Grid.Row="2" Height="56" Margin="0,8,0,0">
-                        <ctl:TrendChart Values="{Binding TempTrendSeries}"
-                                        Stroke="{DynamicResource TrendTempBrush}"
-                                        Fill="{DynamicResource TrendTempFill}"
-                                        GridBrush="{DynamicResource LineBrush}"
-                                        UnitText="℃"
-                                        TipBackground="{DynamicResource CardBrush}"
-                                        TipForeground="{DynamicResource TextBrush}"
-                                        IsVisible="{Binding ShowTempChart}" />
-                        <TextBlock Classes="TrendStub" Text="{Binding TempTrendPlaceholder}"
-                                   IsVisible="{Binding !ShowTempChart}" />
-                    </Panel>
-                </Grid>
+                </Panel>
             </Border>
         </DataTemplate>
         <DataTemplate x:Key="TrendHumCardTemplate" x:DataType="vm:MainViewModel">
             <Border Classes="TrendCard">
-                <Grid RowDefinitions="Auto,Auto,Auto">
-                    <Grid ColumnDefinitions="Auto,*,Auto">
-                        <Viewbox Width="13" Height="13" VerticalAlignment="Center">
-                            <Panel Width="24" Height="24">
-                                <Path Classes="StatIc" Stroke="{DynamicResource TrendHumBrush}"
-                                      Data="{StaticResource GeoDrop}" />
-                            </Panel>
-                        </Viewbox>
-                        <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="6"
-                                    Margin="6,0,0,0" VerticalAlignment="Center">
-                            <TextBlock Classes="TrendLab" Text="湿度" />
-                            <Border Classes="TrendChip" IsVisible="{Binding HasHumDelta}">
-                                <TextBlock Text="{Binding HumTrendDelta}" FontSize="10"
-                                           Foreground="{DynamicResource Text3Brush}" />
-                            </Border>
-                        </StackPanel>
-                        <ctl:OptionPicker Grid.Column="2" Classes="TrendPick" Compact="True" Pill="True"
-                                          MaxWidth="104" VerticalAlignment="Center"
-                                          IsVisible="{Binding CanPickHumSource}"
-                                          Options="{Binding HumSources}"
-                                          SelectedValue="{Binding SelectedHumSource, Mode=TwoWay}"
-                                          ToolTip.Tip="选择这张卡读哪台设备的数据" />
+                <Panel>
+                    <Grid RowDefinitions="Auto,Auto,*">
+                        <Grid ColumnDefinitions="Auto,*,Auto">
+                            <Viewbox Width="13" Height="13" VerticalAlignment="Center">
+                                <Panel Width="24" Height="24">
+                                    <Path Classes="StatIc" Stroke="{DynamicResource TrendHumBrush}"
+                                          Data="{StaticResource GeoDrop}" />
+                                </Panel>
+                            </Viewbox>
+                            <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="6"
+                                        Margin="6,0,0,0" VerticalAlignment="Center">
+                                <TextBlock Classes="TrendLab" Text="湿度" />
+                                <Border Classes="TrendChip" IsVisible="{Binding HasHumDelta}">
+                                    <TextBlock Text="{Binding HumTrendDelta}" FontSize="10"
+                                               Foreground="{DynamicResource Text3Brush}" />
+                                </Border>
+                                <Button Classes="TrendPreviewTag" IsVisible="{Binding IsHumPreview}"
+                                        Command="{Binding OpenTrendPreviewNoticeCommand}" CommandParameter="hum"
+                                        ToolTip.Tip="预览数据 · 接入设备后自动显示真实读数，点击查看说明">
+                                    <TextBlock Text="预览" FontSize="10"
+                                               Foreground="{DynamicResource AmberTextBrush}" />
+                                </Button>
+                            </StackPanel>
+                            <ctl:OptionPicker Grid.Column="2" Classes="TrendPick" Compact="True" Pill="True" ShowMeta="False"
+                                              MaxWidth="136" VerticalAlignment="Center"
+                                              IsVisible="{Binding CanPickHumSource}"
+                                              Options="{Binding HumSources}"
+                                              SelectedValue="{Binding SelectedHumSource, Mode=TwoWay}"
+                                              ToolTip.Tip="选择这张卡读哪台设备的数据" />
+                        </Grid>
+                        <Grid Grid.Row="1" ColumnDefinitions="Auto,Auto,*" Margin="0,6,0,0">
+                            <TextBlock Classes="TrendValue" ctl:NumberTween.Enabled="True"
+                                       Text="{Binding HumTrendValue}"
+                                       Foreground="{DynamicResource TrendHumBrush}" />
+                            <TextBlock Grid.Column="1" Classes="TrendUnit" Text="%" />
+                            <StackPanel Grid.Column="2" HorizontalAlignment="Right" VerticalAlignment="Bottom"
+                                        Spacing="2" Margin="0,0,0,5">
+                                <TextBlock Classes="TrendNote" Text="{Binding HumTrendNote}" Margin="0" />
+                                <TextBlock Classes="TrendFoot" Text="{Binding HumTrendRange}"
+                                           HorizontalAlignment="Right" />
+                            </StackPanel>
+                        </Grid>
+                        <Panel Grid.Row="2" MinHeight="72" Margin="0,8,0,0">
+                            <ctl:TrendChart Values="{Binding HumTrendSeries}"
+                                            Stroke="{DynamicResource TrendHumBrush}"
+                                            Fill="{DynamicResource TrendHumFill}"
+                                            GridBrush="{DynamicResource LineBrush}"
+                                            UnitText="%"
+                                            TipBackground="{DynamicResource CardBrush}"
+                                            TipForeground="{DynamicResource TextBrush}"
+                                            IsVisible="{Binding ShowHumChart}" />
+                            <TextBlock Classes="TrendStub" Text="{Binding HumTrendPlaceholder}"
+                                       IsVisible="{Binding !ShowHumChart}" />
+                        </Panel>
                     </Grid>
-                    <Grid Grid.Row="1" ColumnDefinitions="Auto,Auto,*" Margin="0,6,0,0">
-                        <TextBlock Classes="TrendValue" Text="{Binding HumTrendValue}"
-                                   Foreground="{DynamicResource TrendHumBrush}" />
-                        <TextBlock Grid.Column="1" Classes="TrendUnit" Text="%" />
-                        <StackPanel Grid.Column="2" HorizontalAlignment="Right" VerticalAlignment="Bottom"
-                                    Spacing="2" Margin="0,0,0,5">
-                            <TextBlock Classes="TrendNote" Text="{Binding HumTrendNote}" Margin="0" />
-                            <TextBlock Classes="TrendFoot" Text="{Binding HumTrendRange}"
-                                       HorizontalAlignment="Right" />
-                        </StackPanel>
-                    </Grid>
-                    <Panel Grid.Row="2" Height="56" Margin="0,8,0,0">
-                        <ctl:TrendChart Values="{Binding HumTrendSeries}"
-                                        Stroke="{DynamicResource TrendHumBrush}"
-                                        Fill="{DynamicResource TrendHumFill}"
-                                        GridBrush="{DynamicResource LineBrush}"
-                                        UnitText="%"
-                                        TipBackground="{DynamicResource CardBrush}"
-                                        TipForeground="{DynamicResource TextBrush}"
-                                        IsVisible="{Binding ShowHumChart}" />
-                        <TextBlock Classes="TrendStub" Text="{Binding HumTrendPlaceholder}"
-                                   IsVisible="{Binding !ShowHumChart}" />
-                    </Panel>
-                </Grid>
+                </Panel>
             </Border>
         </DataTemplate>
         <DataTemplate x:Key="TrendPowerCardTemplate" x:DataType="vm:MainViewModel">
             <Border Classes="TrendCard">
-                <Grid RowDefinitions="Auto,Auto,Auto">
-                    <Grid ColumnDefinitions="Auto,*,Auto,Auto">
-                        <Viewbox Width="13" Height="13" VerticalAlignment="Center">
-                            <Panel Width="24" Height="24">
-                                <Path Classes="StatIc" Stroke="{DynamicResource TrendPowerBrush}"
-                                      Data="{StaticResource GeoBolt}" />
+                <Panel>
+                    <Grid RowDefinitions="Auto,Auto,*">
+                        <Grid ColumnDefinitions="Auto,*,Auto,Auto">
+                            <Viewbox Width="13" Height="13" VerticalAlignment="Center">
+                                <Panel Width="24" Height="24">
+                                    <Path Classes="StatIc" Stroke="{DynamicResource TrendPowerBrush}"
+                                          Data="{StaticResource GeoBolt}" />
+                                </Panel>
+                            </Viewbox>
+                            <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="6"
+                                        Margin="6,0,0,0" VerticalAlignment="Center">
+                                <TextBlock Classes="TrendLab" Text="{Binding PowerTitle}" />
+                                <Border Classes="TrendChip" IsVisible="{Binding HasPowerDelta}">
+                                    <TextBlock Text="{Binding PowerTrendDelta}" FontSize="10"
+                                               Foreground="{DynamicResource Text3Brush}" />
+                                </Border>
+                                <Button Classes="TrendPreviewTag" IsVisible="{Binding IsPowerPreview}"
+                                        Command="{Binding OpenTrendPreviewNoticeCommand}" CommandParameter="power"
+                                        ToolTip.Tip="预览数据 · 接入设备后自动显示真实读数，点击查看说明">
+                                    <TextBlock Text="预览" FontSize="10"
+                                               Foreground="{DynamicResource AmberTextBrush}" />
+                                </Button>
+                            </StackPanel>
+                            <!-- 先选看几天，再选看哪台：范围放在来源下拉左边 -->
+                            <ctl:OptionPicker Grid.Column="2" Classes="TrendPick" Compact="True" Pill="True" ShowMeta="False"
+                                              MaxWidth="84" Margin="0,0,6,0" VerticalAlignment="Center"
+                                              IsVisible="{Binding CanPickPowerRange}"
+                                              Options="{Binding PowerRangeOptions}"
+                                              SelectedValue="{Binding SelectedPowerRange, Mode=TwoWay}"
+                                              ToolTip.Tip="看今天的逐小时，或最近几天 / 半年 / 一年每天用了几度" />
+                            <!-- 用电与众不同的一项：列表末尾的「全部设备（叠加）」把全屋各表加在一起 -->
+                            <ctl:OptionPicker Grid.Column="3" Classes="TrendPick" Compact="True" Pill="True" ShowMeta="False"
+                                              MaxWidth="136" VerticalAlignment="Center"
+                                              IsVisible="{Binding CanPickPowerSource}"
+                                              Options="{Binding PowerSources}"
+                                              SelectedValue="{Binding SelectedPowerSource, Mode=TwoWay}"
+                                              ToolTip.Tip="选哪台计量设备，或看全部设备的叠加" />
+                        </Grid>
+                        <Grid Grid.Row="1" ColumnDefinitions="Auto,Auto,*" Margin="0,6,0,0">
+                            <TextBlock Classes="TrendValue" ctl:NumberTween.Enabled="True"
+                                       Text="{Binding PowerTrendValue}"
+                                       Foreground="{DynamicResource TrendPowerBrush}" />
+                            <TextBlock Grid.Column="1" Classes="TrendUnit" Text="kWh（度）" />
+                            <StackPanel Grid.Column="2" HorizontalAlignment="Right" VerticalAlignment="Bottom"
+                                        Spacing="2" Margin="0,0,0,5">
+                                <TextBlock Classes="TrendNote" Text="{Binding PowerTrendNow}" Margin="0" />
+                                <TextBlock Classes="TrendFoot" Text="{Binding PowerTrendRange}"
+                                           HorizontalAlignment="Right"
+                                           IsVisible="{Binding ShowPowerChart}" />
+                            </StackPanel>
+                        </Grid>
+                        <Panel Grid.Row="2" MinHeight="72" Margin="0,8,0,0">
+                            <ctl:TrendChart Values="{Binding PowerTrendSeries}" IsBars="{Binding PowerIsBars}"
+                                            IsDailyBars="{Binding PowerIsDailyBars}"
+                                            HighlightIndex="{Binding PowerTrendFocus}"
+                                            Stroke="{DynamicResource TrendPowerBrush}"
+                                            Fill="{DynamicResource TrendPowerFill}"
+                                            GridBrush="{DynamicResource LineBrush}"
+                                            UnitText="{Binding PowerChartUnit}"
+                                            TipBackground="{DynamicResource CardBrush}"
+                                            TipForeground="{DynamicResource TextBrush}"
+                                            IsVisible="{Binding ShowPowerChart}" />
+                            <TextBlock Classes="TrendStub" Text="{Binding PowerTrendPlaceholder}"
+                                       IsVisible="{Binding !ShowPowerChart}" />
+                        </Panel>
+                    </Grid>
+                </Panel>
+            </Border>
+        </DataTemplate>
+        <!-- 用水卡：与用电卡同构（今日逐小时 / 7 天逐日），数字是升；水表来源只列热水器与净水器 -->
+        <DataTemplate x:Key="WaterCardTemplate" x:DataType="vm:MainViewModel">
+            <Border Classes="TrendCard">
+                <Panel>
+                    <Grid RowDefinitions="Auto,Auto,*">
+                        <Grid ColumnDefinitions="Auto,*,Auto,Auto">
+                            <Viewbox Width="13" Height="13" VerticalAlignment="Center">
+                                <Panel Width="24" Height="24">
+                                    <Path Classes="StatIc" Stroke="{DynamicResource TrendWaterBrush}"
+                                          Data="{StaticResource GeoWaterCup}" />
+                                </Panel>
+                            </Viewbox>
+                            <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="6"
+                                        Margin="6,0,0,0" VerticalAlignment="Center">
+                                <TextBlock Classes="TrendLab" Text="{Binding WaterTitle}" />
+                                <Border Classes="TrendChip" IsVisible="{Binding HasWaterDelta}">
+                                    <TextBlock Text="{Binding WaterTrendDelta}" FontSize="10"
+                                               Foreground="{DynamicResource Text3Brush}" />
+                                </Border>
+                                <Button Classes="TrendPreviewTag" IsVisible="{Binding IsWaterPreview}"
+                                        Command="{Binding OpenTrendPreviewNoticeCommand}" CommandParameter="water"
+                                        ToolTip.Tip="预览数据 · 接入设备后自动显示真实读数，点击查看说明">
+                                    <TextBlock Text="预览" FontSize="10"
+                                               Foreground="{DynamicResource AmberTextBrush}" />
+                                </Button>
+                            </StackPanel>
+                            <ctl:OptionPicker Grid.Column="2" Classes="TrendPick" Compact="True" Pill="True" ShowMeta="False"
+                                              MaxWidth="84" Margin="0,0,6,0" VerticalAlignment="Center"
+                                              IsVisible="{Binding CanPickWaterRange}"
+                                              Options="{Binding WaterRangeOptions}"
+                                              SelectedValue="{Binding SelectedWaterRange, Mode=TwoWay}"
+                                              ToolTip.Tip="看今天的逐小时，或近 7 / 30 天、本月每天用了多少升" />
+                            <ctl:OptionPicker Grid.Column="3" Classes="TrendPick" Compact="True" Pill="True" ShowMeta="False"
+                                              MaxWidth="136" VerticalAlignment="Center"
+                                              IsVisible="{Binding CanPickWaterSource}"
+                                              Options="{Binding WaterSources}"
+                                              SelectedValue="{Binding SelectedWaterSource, Mode=TwoWay}"
+                                              ToolTip.Tip="选哪台热水器 / 净水器，或看全部水表叠加" />
+                        </Grid>
+                        <Grid Grid.Row="1" ColumnDefinitions="Auto,Auto,*" Margin="0,6,0,0">
+                            <TextBlock Classes="TrendValue" ctl:NumberTween.Enabled="True"
+                                       Text="{Binding WaterTrendValue}"
+                                       Foreground="{DynamicResource TrendWaterBrush}" />
+                            <TextBlock Grid.Column="1" Classes="TrendUnit" Text="{Binding WaterValueUnit}" />
+                            <StackPanel Grid.Column="2" HorizontalAlignment="Right" VerticalAlignment="Bottom"
+                                        Spacing="2" Margin="0,0,0,5">
+                                <TextBlock Classes="TrendNote" Text="{Binding WaterTrendNow}" Margin="0" />
+                                <TextBlock Classes="TrendFoot" Text="{Binding WaterTrendRange}"
+                                           HorizontalAlignment="Right"
+                                           IsVisible="{Binding ShowWaterChart}" />
+                            </StackPanel>
+                        </Grid>
+                        <Panel Grid.Row="2" MinHeight="72" Margin="0,8,0,0">
+                            <ctl:TrendChart Values="{Binding WaterTrendSeries}" IsBars="{Binding WaterIsBars}"
+                                            IsDailyBars="{Binding WaterIsDailyBars}"
+                                            TimeStepMinutes="60"
+                                            HighlightIndex="{Binding WaterTrendFocus}"
+                                            Stroke="{DynamicResource TrendWaterBrush}"
+                                            Fill="{DynamicResource TrendWaterFill}"
+                                            GridBrush="{DynamicResource LineBrush}"
+                                            UnitText="{Binding WaterChartUnit}"
+                                            TipBackground="{DynamicResource CardBrush}"
+                                            TipForeground="{DynamicResource TextBrush}"
+                                            IsVisible="{Binding ShowWaterChart}" />
+                            <TextBlock Classes="TrendStub" Text="{Binding WaterTrendPlaceholder}"
+                                       IsVisible="{Binding !ShowWaterChart}" />
+                        </Panel>
+                    </Grid>
+                </Panel>
+            </Border>
+        </DataTemplate>
+        <!-- 用气卡：燃气热水器每完成一单用水累加的用气量，今日逐小时 / 7 天逐日，数字是 m³ -->
+        <DataTemplate x:Key="GasCardTemplate" x:DataType="vm:MainViewModel">
+            <Border Classes="TrendCard">
+                <Panel>
+                    <Grid RowDefinitions="Auto,Auto,*">
+                        <Grid ColumnDefinitions="Auto,*,Auto,Auto">
+                            <Viewbox Width="13" Height="13" VerticalAlignment="Center">
+                                <Panel Width="24" Height="24">
+                                    <Path Classes="StatIc" Stroke="{DynamicResource TrendGasBrush}"
+                                          Data="{StaticResource GeoGas}" />
+                                </Panel>
+                            </Viewbox>
+                            <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="6"
+                                        Margin="6,0,0,0" VerticalAlignment="Center">
+                                <TextBlock Classes="TrendLab" Text="{Binding GasTitle}" />
+                                <Border Classes="TrendChip" IsVisible="{Binding HasGasDelta}">
+                                    <TextBlock Text="{Binding GasTrendDelta}" FontSize="10"
+                                               Foreground="{DynamicResource Text3Brush}" />
+                                </Border>
+                                <Button Classes="TrendPreviewTag" IsVisible="{Binding IsGasPreview}"
+                                        Command="{Binding OpenTrendPreviewNoticeCommand}" CommandParameter="gas"
+                                        ToolTip.Tip="预览数据 · 接入设备后自动显示真实读数，点击查看说明">
+                                    <TextBlock Text="预览" FontSize="10"
+                                               Foreground="{DynamicResource AmberTextBrush}" />
+                                </Button>
+                            </StackPanel>
+                            <ctl:OptionPicker Grid.Column="2" Classes="TrendPick" Compact="True" Pill="True" ShowMeta="False"
+                                              MaxWidth="84" Margin="0,0,6,0" VerticalAlignment="Center"
+                                              IsVisible="{Binding CanPickGasRange}"
+                                              Options="{Binding GasRangeOptions}"
+                                              SelectedValue="{Binding SelectedGasRange, Mode=TwoWay}"
+                                              ToolTip.Tip="看今天的逐小时，或近 7 / 30 天、本月每天用了多少气" />
+                            <ctl:OptionPicker Grid.Column="3" Classes="TrendPick" Compact="True" Pill="True" ShowMeta="False"
+                                              MaxWidth="136" VerticalAlignment="Center"
+                                              IsVisible="{Binding CanPickGasSource}"
+                                              Options="{Binding GasSources}"
+                                              SelectedValue="{Binding SelectedGasSource, Mode=TwoWay}"
+                                              ToolTip.Tip="选哪台燃气热水器，或看全部气表叠加" />
+                        </Grid>
+                        <Grid Grid.Row="1" ColumnDefinitions="Auto,Auto,*" Margin="0,6,0,0">
+                            <TextBlock Classes="TrendValue" ctl:NumberTween.Enabled="True"
+                                       Text="{Binding GasTrendValue}"
+                                       Foreground="{DynamicResource TrendGasBrush}" />
+                            <TextBlock Grid.Column="1" Classes="TrendUnit" Text="m³" />
+                            <StackPanel Grid.Column="2" HorizontalAlignment="Right" VerticalAlignment="Bottom"
+                                        Spacing="2" Margin="0,0,0,5">
+                                <TextBlock Classes="TrendNote" Text="{Binding GasTrendNow}" Margin="0" />
+                                <TextBlock Classes="TrendFoot" Text="{Binding GasTrendRange}"
+                                           HorizontalAlignment="Right"
+                                           IsVisible="{Binding ShowGasChart}" />
+                            </StackPanel>
+                        </Grid>
+                        <Panel Grid.Row="2" MinHeight="72" Margin="0,8,0,0">
+                            <ctl:TrendChart Values="{Binding GasTrendSeries}" IsBars="{Binding GasIsBars}"
+                                            IsDailyBars="{Binding GasIsDailyBars}"
+                                            Baseline="{Binding GasTrendBaseline}"
+                                            TimeStepMinutes="60"
+                                            HighlightIndex="{Binding GasTrendFocus}"
+                                            Stroke="{DynamicResource TrendGasBrush}"
+                                            Fill="{DynamicResource TrendGasFill}"
+                                            GridBrush="{DynamicResource LineBrush}"
+                                            UnitText="{Binding GasChartUnit}"
+                                            TipBackground="{DynamicResource CardBrush}"
+                                            TipForeground="{DynamicResource TextBrush}"
+                                            IsVisible="{Binding ShowGasChart}" />
+                            <TextBlock Classes="TrendStub" Text="{Binding GasTrendPlaceholder}"
+                                       IsVisible="{Binding !ShowGasChart}" />
+                        </Panel>
+                    </Grid>
+                </Panel>
+            </Border>
+        </DataTemplate>
+        <!-- 水质卡：净水器出水 TDS，越低越纯净；右侧小字带进水 TDS 与滤芯余量 -->
+        <DataTemplate x:Key="WaterQualityCardTemplate" x:DataType="vm:MainViewModel">
+            <Border Classes="TrendCard">
+                <Panel>
+                    <Grid RowDefinitions="Auto,Auto,*">
+                        <Grid ColumnDefinitions="Auto,*,Auto">
+                            <Viewbox Width="13" Height="13" VerticalAlignment="Center">
+                                <Panel Width="24" Height="24">
+                                    <Path Classes="StatIc" Stroke="{DynamicResource TrendQualityBrush}"
+                                          Data="{StaticResource GeoPurity}" />
+                                </Panel>
+                            </Viewbox>
+                            <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="6"
+                                        Margin="6,0,0,0" VerticalAlignment="Center">
+                                <TextBlock Classes="TrendLab" Text="水质" />
+                                <Border Classes="TrendChip">
+                                    <TextBlock Text="{Binding WaterQualityNote}" FontSize="10"
+                                               Foreground="{DynamicResource Text3Brush}" />
+                                </Border>
+                                <Button Classes="TrendPreviewTag" IsVisible="{Binding IsQualityPreview}"
+                                        Command="{Binding OpenTrendPreviewNoticeCommand}" CommandParameter="tds"
+                                        ToolTip.Tip="预览数据 · 接入设备后自动显示真实读数，点击查看说明">
+                                    <TextBlock Text="预览" FontSize="10"
+                                               Foreground="{DynamicResource AmberTextBrush}" />
+                                </Button>
+                            </StackPanel>
+                            <ctl:OptionPicker Grid.Column="2" Classes="TrendPick" Compact="True" Pill="True" ShowMeta="False"
+                                              MaxWidth="136" VerticalAlignment="Center"
+                                              IsVisible="{Binding CanPickWaterQualitySource}"
+                                              Options="{Binding WaterQualitySources}"
+                                              SelectedValue="{Binding SelectedWaterQualitySource, Mode=TwoWay}"
+                                              ToolTip.Tip="选择哪台净水器" />
+                        </Grid>
+                        <Grid Grid.Row="1" ColumnDefinitions="Auto,Auto,*" Margin="0,6,0,0">
+                            <TextBlock Classes="TrendValue" ctl:NumberTween.Enabled="True"
+                                       Text="{Binding WaterQualityValue}"
+                                       Foreground="{DynamicResource TrendQualityBrush}" />
+                            <TextBlock Grid.Column="1" Classes="TrendUnit" Text="ppm" />
+                            <StackPanel Grid.Column="2" HorizontalAlignment="Right" VerticalAlignment="Bottom"
+                                        Spacing="2" Margin="0,0,0,5">
+                                <TextBlock Classes="TrendNote" Text="{Binding WaterQualityFoot}" Margin="0" />
+                                <TextBlock Classes="TrendFoot" Text="{Binding WaterQualityRange}"
+                                           HorizontalAlignment="Right"
+                                           IsVisible="{Binding ShowWaterQualityChart}" />
+                            </StackPanel>
+                        </Grid>
+                        <Panel Grid.Row="2" MinHeight="72" Margin="0,8,0,0">
+                            <ctl:TrendChart Values="{Binding WaterQualitySeries}"
+                                            Stroke="{DynamicResource TrendQualityBrush}"
+                                            Fill="{DynamicResource TrendQualityFill}"
+                                            GridBrush="{DynamicResource LineBrush}"
+                                            UnitText="ppm"
+                                            TipBackground="{DynamicResource CardBrush}"
+                                            TipForeground="{DynamicResource TextBrush}"
+                                            IsVisible="{Binding ShowWaterQualityChart}" />
+                            <TextBlock Classes="TrendStub" Text="{Binding WaterQualityPlaceholder}"
+                                       IsVisible="{Binding !ShowWaterQualityChart}" />
+                        </Panel>
+                    </Grid>
+                </Panel>
+            </Border>
+        </DataTemplate>
+        <!-- 体重卡：最近一次称重的体重 / 体脂率 / BMI + 近 30 天体重曲线；成员靠右上角下拉切换 -->
+        <DataTemplate x:Key="ScaleCardTemplate" x:DataType="vm:MainViewModel">
+            <Border Classes="TrendCard">
+                <Panel>
+                    <Grid RowDefinitions="Auto,Auto,*">
+                        <Grid ColumnDefinitions="Auto,*,Auto,Auto">
+                            <Viewbox Width="13" Height="13" VerticalAlignment="Center">
+                                <Panel Width="24" Height="24">
+                                    <Path Classes="StatIc" Stroke="{DynamicResource TrendScaleBrush}"
+                                          Data="{StaticResource GeoScale}" />
+                                </Panel>
+                            </Viewbox>
+                            <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="6"
+                                        Margin="6,0,0,0" VerticalAlignment="Center">
+                                <TextBlock Classes="TrendLab" Text="体重" />
+                                <Border Classes="TrendChip" IsVisible="{Binding HasScaleDelta}">
+                                    <TextBlock Text="{Binding ScaleTrendDelta}" FontSize="10"
+                                               Foreground="{DynamicResource Text3Brush}" />
+                                </Border>
+                                <Button Classes="TrendPreviewTag" IsVisible="{Binding IsScalePreview}"
+                                        Command="{Binding OpenTrendPreviewNoticeCommand}" CommandParameter="scale"
+                                        ToolTip.Tip="预览数据 · 接入设备后自动显示真实读数，点击查看说明">
+                                    <TextBlock Text="预览" FontSize="10"
+                                               Foreground="{DynamicResource AmberTextBrush}" />
+                                </Button>
+                            </StackPanel>
+                            <ctl:OptionPicker Grid.Column="2" Classes="TrendPick" Compact="True" Pill="True" ShowMeta="False"
+                                              MaxWidth="72" Margin="0,0,4,0" VerticalAlignment="Center"
+                                              IsVisible="{Binding CanPickScaleRange}"
+                                              Options="{Binding ScaleRangeOptions}"
+                                              SelectedValue="{Binding SelectedScaleRange, Mode=TwoWay}"
+                                              ToolTip.Tip="看近 30 天 / 90 天 / 半年 / 1 年的体重曲线" />
+                            <ctl:OptionPicker Grid.Column="3" Classes="TrendPick" Compact="True" Pill="True" ShowMeta="True"
+                                              MaxWidth="110" VerticalAlignment="Center"
+                                              IsVisible="{Binding CanPickScaleMember}"
+                                              Options="{Binding ScaleSources}"
+                                              SelectedValue="{Binding SelectedScaleMember, Mode=TwoWay}"
+                                              ToolTip.Tip="选择看哪位成员的记录" />
+                        </Grid>
+                        <Grid Grid.Row="1" ColumnDefinitions="Auto,Auto,*" Margin="0,6,0,0">
+                            <TextBlock Classes="TrendValue" ctl:NumberTween.Enabled="True"
+                                       Text="{Binding ScaleTrendValue}"
+                                       Foreground="{DynamicResource TrendScaleBrush}"
+                                       ToolTip.Tip="{Binding ScaleTrendNote}" />
+                            <TextBlock Grid.Column="1" Classes="TrendUnit" Text="kg" />
+                            <StackPanel Grid.Column="2" HorizontalAlignment="Right" VerticalAlignment="Bottom"
+                                        Spacing="2" Margin="0,0,0,5">
+                                <TextBlock Classes="TrendNote" Text="{Binding ScaleTrendMeta}" Margin="0" />
+                                <TextBlock Classes="TrendFoot" Text="{Binding ScaleTrendRange}"
+                                           HorizontalAlignment="Right"
+                                           IsVisible="{Binding ShowScaleChart}" />
+                            </StackPanel>
+                        </Grid>
+                        <Panel Grid.Row="2" MinHeight="72" Margin="0,8,0,0">
+                            <ctl:TrendChart Values="{Binding ScaleTrendSeries}"
+                                            XLabels="{Binding ScaleTrendLabels}"
+                                            IsDots="True"
+                                            ShowBand="True"
+                                            ShowMeanLine="True"
+                                            TimeStepMinutes="1440"
+                                            Stroke="{DynamicResource TrendScaleBrush}"
+                                            GridBrush="{DynamicResource LineBrush}"
+                                            UnitText="kg"
+                                            TipBackground="{DynamicResource CardBrush}"
+                                            TipForeground="{DynamicResource TextBrush}"
+                                            IsVisible="{Binding ShowScaleChart}" />
+                            <TextBlock Classes="TrendStub" Text="{Binding ScaleTrendPlaceholder}"
+                                       IsVisible="{Binding !ShowScaleChart}" />
+                        </Panel>
+                    </Grid>
+                </Panel>
+            </Border>
+        </DataTemplate>
+        <!-- 空气小卡：一项一枚、只报一个读数——上面一行是指标名与档位，下面一行是数值、单位和来源房间。
+             读数一直铺着；没有能测这个指标的设备时铺的是示例数据，鼠标移入才浮出「预览」小标，卡上不再写多余的字 -->
+        <DataTemplate x:Key="AirMiniCardTemplate" x:DataType="m:AirCardItem">
+            <Border Classes="AirCard" ToolTip.Tip="{Binding TipText}"
+                    Classes.pm25="{Binding IsPm25}" Classes.pm10="{Binding IsPm10}"
+                    Classes.hcho="{Binding IsHcho}" Classes.tvoc="{Binding IsTvoc}"
+                    Classes.co2="{Binding IsCo2}"
+                    Classes.good="{Binding IsGood}"
+                    Classes.warn="{Binding IsMild}" Classes.bad="{Binding IsPoor}">
+                <Panel>
+                    <Border Classes="AirWash" CornerRadius="16" IsHitTestVisible="False" />
+                    <StackPanel Spacing="7" Margin="14,11">
+                        <Grid ColumnDefinitions="*,Auto">
+                            <StackPanel Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
+                                <Border Classes="AirAccent" Width="2.5" Height="12" CornerRadius="1.3" />
+                                <TextBlock Classes="AirLab" Text="{Binding Title}" />
+                            </StackPanel>
+                            <Panel Grid.Column="1">
+                                <Border Classes="AirGrade" Classes.is-good="{Binding IsGood}"
+                                        Classes.is-mild="{Binding IsMild}" Classes.is-poor="{Binding IsPoor}"
+                                        IsVisible="{Binding !IsPreview}">
+                                    <TextBlock Text="{Binding GradeText}" />
+                                </Border>
+                                <Button Classes="TrendPreviewTag" IsVisible="{Binding IsPreview}"
+                                        Command="{Binding $parent[Window].((vm:MainViewModel)DataContext).OpenTrendPreviewNoticeCommand}"
+                                        CommandParameter="{Binding Key}"
+                                        ToolTip.Tip="示例数据 · 接入设备后自动显示真实读数，点击查看说明">
+                                    <TextBlock Text="预览" FontSize="10"
+                                               Foreground="{DynamicResource AmberTextBrush}" />
+                                </Button>
                             </Panel>
-                        </Viewbox>
-                        <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="6"
-                                    Margin="6,0,0,0" VerticalAlignment="Center">
-                            <TextBlock Classes="TrendLab" Text="{Binding PowerTitle}" />
-                            <Border Classes="TrendChip" IsVisible="{Binding HasPowerDelta}">
-                                <TextBlock Text="{Binding PowerTrendDelta}" FontSize="10"
-                                           Foreground="{DynamicResource Text3Brush}" />
-                            </Border>
-                        </StackPanel>
-                        <!-- 先选看几天，再选看哪台：范围放在来源下拉左边 -->
-                        <ctl:OptionPicker Grid.Column="2" Classes="TrendPick" Compact="True" Pill="True"
-                                          MaxWidth="72" Margin="0,0,6,0" VerticalAlignment="Center"
-                                          IsVisible="{Binding HasMetering}"
-                                          Options="{Binding PowerRangeOptions}"
-                                          SelectedValue="{Binding SelectedPowerRange, Mode=TwoWay}"
-                                          ToolTip.Tip="看今天的逐小时，或最近几天每天用了几度" />
-                        <!-- 用电与众不同的一项：列表末尾的「全部设备（叠加）」把全屋各表加在一起 -->
-                        <ctl:OptionPicker Grid.Column="3" Classes="TrendPick" Compact="True" Pill="True"
-                                          MaxWidth="104" VerticalAlignment="Center"
-                                          IsVisible="{Binding CanPickPowerSource}"
-                                          Options="{Binding PowerSources}"
-                                          SelectedValue="{Binding SelectedPowerSource, Mode=TwoWay}"
-                                          ToolTip.Tip="选哪台计量设备，或看全部设备的叠加" />
-                    </Grid>
-                    <Grid Grid.Row="1" ColumnDefinitions="Auto,Auto,*" Margin="0,6,0,0">
-                        <TextBlock Classes="TrendValue" Text="{Binding PowerTrendValue}"
-                                   Foreground="{DynamicResource TrendPowerBrush}" />
-                        <TextBlock Grid.Column="1" Classes="TrendUnit" Text="kWh（度）" />
-                        <StackPanel Grid.Column="2" HorizontalAlignment="Right" VerticalAlignment="Bottom"
-                                    Spacing="2" Margin="0,0,0,5">
-                            <TextBlock Classes="TrendNote" Text="{Binding PowerTrendNow}" Margin="0" />
-                            <TextBlock Classes="TrendFoot" Text="{Binding PowerTrendRange}"
-                                       HorizontalAlignment="Right"
-                                       IsVisible="{Binding ShowPowerChart}" />
-                        </StackPanel>
-                    </Grid>
-                    <Panel Grid.Row="2" Height="56" Margin="0,8,0,0">
-                        <ctl:TrendChart Values="{Binding PowerTrendSeries}" IsBars="True"
-                                        IsDailyBars="{Binding PowerIsDailyBars}"
-                                        HighlightIndex="{Binding PowerTrendFocus}"
-                                        Stroke="{DynamicResource TrendPowerBrush}"
-                                        Fill="{DynamicResource TrendPowerFill}"
-                                        GridBrush="{DynamicResource LineBrush}"
-                                        UnitText="{Binding PowerChartUnit}"
-                                        TipBackground="{DynamicResource CardBrush}"
-                                        TipForeground="{DynamicResource TextBrush}"
-                                        IsVisible="{Binding ShowPowerChart}" />
-                        <TextBlock Classes="TrendStub" Text="{Binding PowerTrendPlaceholder}"
-                                   IsVisible="{Binding !ShowPowerChart}" />
-                    </Panel>
-                </Grid>
+                        </Grid>
+                        <Grid ColumnDefinitions="Auto,Auto,*">
+                            <TextBlock Classes="AirValue" Text="{Binding ValueText}" />
+                            <TextBlock Grid.Column="1" Classes="AirUnit" Text="{Binding UnitText}" />
+                            <TextBlock Grid.Column="2" Classes="AirSrc" Text="{Binding SourceText}" />
+                        </Grid>
+                    </StackPanel>
+                </Panel>
             </Border>
         </DataTemplate>
     </UserControl.Resources>
@@ -200,7 +719,7 @@
     <StackPanel x:DataType="vm:MainViewModel" Margin="0,0,16,20">
         <!-- Hero：透明底；左侧问候+概览按钮，右侧统计卡+环境概览。
              左列 Auto、右列 *：统计卡整行占宽更大，反过来写会把问候语挤到裁字，右侧也就没有换行的余量。
-             底边只留 16：下面紧接「环境与能耗」，两段之间的空白不再叠两次 -->
+             底边只留 16：下面紧接「数据看板」，两段之间的空白不再叠两次 -->
         <Grid ColumnDefinitions="Auto,*" Margin="28,26,28,16">
             <StackPanel VerticalAlignment="Top" Spacing="0">
                 <StackPanel Orientation="Horizontal" Spacing="0">
@@ -218,10 +737,6 @@
                                 VerticalAlignment="Center" />
                     <TextBlock Text="{Binding DateText}" FontSize="13"
                                    Foreground="{DynamicResource Text2Brush}" />
-                    <Border Width="1" Height="12" Background="{DynamicResource LineBrush}"
-                                VerticalAlignment="Center" />
-                    <TextBlock Text="{Binding StatusText}" FontSize="13"
-                                   Foreground="{DynamicResource Text3Brush}" />
                 </StackPanel>
                 <!-- 概览按钮区：全部场景 / 全部设备 / 刷新，移到时间日期行下方，左对齐 -->
                 <StackPanel Orientation="Horizontal" Spacing="8" HorizontalAlignment="Left" Margin="0,12,0,0">
@@ -460,49 +975,90 @@
                 </WrapPanel>
             </StackPanel>
         </Grid>
-        <!-- 环境与能耗：还剩两张以上趋势卡时独占一行。
-             只剩一张时改走下面的合并行，和快捷场景并排；三条数据都没有时整块不出现。
-             在这行标题上双击会切到一份演示数据（供预览样式），再双击回到真实；这层操作不写成可见文案。 -->
+        <!-- 数据看板：还剩两张以上趋势卡时独占一行。
+             只剩一张时改走下面的合并行，和快捷场景并排；一张卡都没有（用户把卡全关掉或主动隐藏整块）
+             时整块都不出现，重新打开入口在「设置 → 通用 → 首页」。
+             没有对应设备的卡默认铺一份示例数据，鼠标移入卡片才浮出「预览」标识；
+             在这行标题上双击仍会切到整段演示数据，再双击回到真实；这层操作不写成可见文案。 -->
         <StackPanel IsVisible="{Binding ShowTrendSolo}">
-            <Grid ColumnDefinitions="*,Auto" Margin="2,4,0,12" Background="Transparent"
+            <!-- 标题行与右侧说明按卡片外距 8 左右各收 8：卡片为了接住投影自带 8 外边距，
+                 标题不跟着收就会比卡片左缘探出半格、说明也会越过卡片右缘，整段左右两条线对不齐 -->
+            <Grid ColumnDefinitions="Auto,Auto,*,Auto" Margin="8,4,8,4" Background="Transparent"
+                  ctl:CardEnter.Enabled="True"
                   PointerPressed="OnTrendHeaderPressed">
-                <StackPanel Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
-                    <TextBlock Classes="SecTitle" Margin="0" Text="环境与能耗" />
-                    <Border Classes="TrendBadge" IsVisible="{Binding IsTrendPreview}">
-                        <TextBlock Text="预览 · 演示数据" FontSize="10"
-                                   Foreground="{DynamicResource AmberTextBrush}" />
-                    </Border>
+                <StackPanel Orientation="Horizontal" Spacing="7" VerticalAlignment="Center">
+                    <Viewbox Classes="SecIc">
+                        <Panel Width="24" Height="24">
+                            <Path Classes="SecIc" Data="{StaticResource GeoDashboard}" />
+                        </Panel>
+                    </Viewbox>
+                    <TextBlock Classes="SecTitle" Margin="0" Text="数据看板" VerticalAlignment="Center" />
                 </StackPanel>
-                <TextBlock Grid.Column="1" Text="{Binding EnvTrendCaption}"
+                <!-- 标题旁的编辑入口：点开弹窗逐张勾选首页要铺哪些卡 -->
+                <Button Grid.Column="1" Classes="BtnGhost" Content="编辑" Height="26" Padding="10,0"
+                        FontSize="11.5" Margin="8,0,0,0" VerticalAlignment="Center"
+                        Command="{Binding OpenTrendCardEditCommand}"
+                        ToolTip.Tip="选择首页显示哪几张卡片" />
+                <TextBlock Grid.Column="3" Text="{Binding EnvTrendCaption}"
                            FontSize="11" Foreground="{DynamicResource Text3Brush}"
                            VerticalAlignment="Center" />
             </Grid>
-            <ctl:AdaptiveGridPanel MinItemWidth="300" Spacing="14" MaxColumns="3" SkipInvisible="True">
-                <!-- 温度：家里没有能报温度的传感器就不铺这张卡 -->
+            <ctl:TrendCardPanel MinItemWidth="300" Spacing="0" MaxColumns="{Binding TrendGridColumns}"
+                                BalanceRows="True" MaxSingleItemWidth="420"
+                                Order="{Binding TrendCardOrder}" SkipInvisible="True">
+                <!-- 温度：用户没关掉就铺，没有能报温度的传感器时铺预览数据 -->
                 <ContentControl Content="{Binding}" ContentTemplate="{StaticResource TrendTempCardTemplate}"
                                 HorizontalContentAlignment="Stretch" VerticalContentAlignment="Stretch"
-                                IsVisible="{Binding HasTempReading}" />
-                <!-- 湿度：只有能报湿度的设备才出现 -->
+                                ctl:CardEnter.Enabled="True" ctl:TrendCardPanel.CardKey="temp"
+                                IsVisible="{Binding TempCardShown}" />
+                <!-- 湿度：用户没关掉就铺，没有能报湿度的设备时铺预览数据 -->
                 <ContentControl Content="{Binding}" ContentTemplate="{StaticResource TrendHumCardTemplate}"
                                 HorizontalContentAlignment="Stretch" VerticalContentAlignment="Stretch"
-                                IsVisible="{Binding HasHumReading}" />
-                <!-- 用电：逐小时平均功率柱状；没有能回读用电的设备就不铺这张卡 -->
+                                ctl:CardEnter.Enabled="True" ctl:TrendCardPanel.CardKey="hum"
+                                IsVisible="{Binding HumCardShown}" />
+                <!-- 用电：逐小时平均功率柱状；没有能回读用电的设备时铺预览数据 -->
                 <ContentControl Content="{Binding}" ContentTemplate="{StaticResource TrendPowerCardTemplate}"
                                 HorizontalContentAlignment="Stretch" VerticalContentAlignment="Stretch"
-                                IsVisible="{Binding HasMetering}" />
-                </ctl:AdaptiveGridPanel>
+                                ctl:CardEnter.Enabled="True" ctl:TrendCardPanel.CardKey="power"
+                                IsVisible="{Binding PowerCardShown}" />
+                <!-- 用水：燃气/电热水器的用水升数，或净水器的累计制水；追加在数据看板列表末尾 -->
+                <ContentControl Content="{Binding}" ContentTemplate="{StaticResource WaterCardTemplate}"
+                                HorizontalContentAlignment="Stretch" VerticalContentAlignment="Stretch"
+                                ctl:CardEnter.Enabled="True" ctl:TrendCardPanel.CardKey="water"
+                                IsVisible="{Binding WaterCardShown}" />
+                <!-- 用气：燃气热水器每完成一单用水累加的用气量 -->
+                <ContentControl Content="{Binding}" ContentTemplate="{StaticResource GasCardTemplate}"
+                                HorizontalContentAlignment="Stretch" VerticalContentAlignment="Stretch"
+                                ctl:CardEnter.Enabled="True" ctl:TrendCardPanel.CardKey="gas"
+                                IsVisible="{Binding GasCardShown}" />
+                <!-- 水质：有净水器能回读出水和进水 TDS 才出现 -->
+                <ContentControl Content="{Binding}" ContentTemplate="{StaticResource WaterQualityCardTemplate}"
+                                HorizontalContentAlignment="Stretch" VerticalContentAlignment="Stretch"
+                                ctl:CardEnter.Enabled="True" ctl:TrendCardPanel.CardKey="tds"
+                                IsVisible="{Binding QualityCardShown}" />
+                <!-- 体重：体脂秤的最近一次称重与近 30 天曲线，追加在数据看板列表末尾 -->
+                <ContentControl Content="{Binding}" ContentTemplate="{StaticResource ScaleCardTemplate}"
+                                HorizontalContentAlignment="Stretch" VerticalContentAlignment="Stretch"
+                                ctl:CardEnter.Enabled="True" ctl:TrendCardPanel.CardKey="scale"
+                                IsVisible="{Binding ScaleCardShown}" />
+                </ctl:TrendCardPanel>
         </StackPanel>
         <!-- 只剩一张趋势卡时，把它和快捷场景并到同一行：左边一张卡，右边场景铺两行 -->
         <DockPanel IsVisible="{Binding ShowTrendQuickRow}" Margin="0,4,0,0">
             <StackPanel DockPanel.Dock="Left" Width="300" VerticalAlignment="Top">
-                <Grid ColumnDefinitions="*,Auto" Margin="2,0,0,12" Background="Transparent"
+                <Grid ColumnDefinitions="*,Auto" Margin="8,0,8,4" Background="Transparent"
+                      ctl:CardEnter.Enabled="True"
                       PointerPressed="OnTrendHeaderPressed">
                     <StackPanel Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
-                        <TextBlock Classes="SecTitle" Margin="0" Text="环境与能耗" />
-                        <Border Classes="TrendBadge" IsVisible="{Binding IsTrendPreview}">
-                            <TextBlock Text="预览 · 演示数据" FontSize="10"
-                                       Foreground="{DynamicResource AmberTextBrush}" />
-                        </Border>
+                        <Viewbox Classes="SecIc">
+                            <Panel Width="24" Height="24">
+                                <Path Classes="SecIc" Data="{StaticResource GeoDashboard}" />
+                            </Panel>
+                        </Viewbox>
+                        <TextBlock Classes="SecTitle" Margin="0" Text="数据看板" />
+                        <Button Classes="BtnGhost" Content="编辑" Height="26" Padding="10,0" FontSize="11.5"
+                                VerticalAlignment="Center" Command="{Binding OpenTrendCardEditCommand}"
+                                ToolTip.Tip="选择首页显示哪几张卡片" />
                     </StackPanel>
                     <TextBlock Grid.Column="1" Text="{Binding EnvTrendCaption}"
                                FontSize="11" Foreground="{DynamicResource Text3Brush}"
@@ -510,17 +1066,27 @@
                 </Grid>
                 <ContentControl Content="{Binding}" ContentTemplate="{StaticResource TrendTempCardTemplate}"
                                 HorizontalContentAlignment="Stretch" VerticalContentAlignment="Stretch"
-                                IsVisible="{Binding HasTempReading}" />
+                                ctl:CardEnter.Enabled="True"
+                                IsVisible="{Binding TempCardShown}" />
                 <ContentControl Content="{Binding}" ContentTemplate="{StaticResource TrendHumCardTemplate}"
                                 HorizontalContentAlignment="Stretch" VerticalContentAlignment="Stretch"
-                                IsVisible="{Binding HasHumReading}" />
+                                ctl:CardEnter.Enabled="True"
+                                IsVisible="{Binding HumCardShown}" />
                 <ContentControl Content="{Binding}" ContentTemplate="{StaticResource TrendPowerCardTemplate}"
                                 HorizontalContentAlignment="Stretch" VerticalContentAlignment="Stretch"
-                                IsVisible="{Binding HasMetering}" />
+                                ctl:CardEnter.Enabled="True"
+                                IsVisible="{Binding PowerCardShown}" />
             </StackPanel>
             <StackPanel Margin="14,0,0,0">
-                <Grid ColumnDefinitions="*,Auto">
-                    <TextBlock Classes="SecTitle" Text="快捷场景" Margin="2,0,0,12" VerticalAlignment="Center" />
+                <Grid ColumnDefinitions="*,Auto" Margin="0,0,8,0">
+                    <StackPanel Orientation="Horizontal" Spacing="7" VerticalAlignment="Center" Margin="8,0,0,4">
+                        <Viewbox Classes="SecIc">
+                            <Panel Width="24" Height="24">
+                                <Path Classes="SecIc" Data="{StaticResource GeoScene}" />
+                            </Panel>
+                        </Viewbox>
+                        <TextBlock Classes="SecTitle" Text="快捷场景" Margin="0" VerticalAlignment="Center" />
+                    </StackPanel>
                     <Button Grid.Column="1" Classes="BtnGhost" Content="更多"
                         Height="28" Padding="12,0" FontSize="12" VerticalAlignment="Center"
                         IsVisible="{Binding HasScenes}" ToolTip.Tip="查看全部场景"
@@ -545,24 +1111,59 @@
                 </ItemsControl>
             </StackPanel>
         </DockPanel>
+        <!-- 空气小卡：PM2.5 / PM10 / 甲醛 / TVOC / 二氧化碳，一项一枚，紧挨在大趋势卡下面一行。
+             卡的显隐与拖动顺序跟大卡共用一套 key（编辑弹窗里一起排），关掉的卡整枚让位 -->
+        <ctl:TrendCardPanel MinItemWidth="180" Spacing="0" MaxColumns="6"
+                            Order="{Binding TrendCardOrder}" SkipInvisible="True"
+                            IsVisible="{Binding ShowAirRow}">
+            <ContentControl Content="{Binding AirPm25}" ContentTemplate="{StaticResource AirMiniCardTemplate}"
+                            HorizontalContentAlignment="Stretch" VerticalContentAlignment="Stretch"
+                            ctl:TrendCardPanel.CardKey="pm25" IsVisible="{Binding AirPm25.IsOn}" />
+            <ContentControl Content="{Binding AirPm10}" ContentTemplate="{StaticResource AirMiniCardTemplate}"
+                            HorizontalContentAlignment="Stretch" VerticalContentAlignment="Stretch"
+                            ctl:TrendCardPanel.CardKey="pm10" IsVisible="{Binding AirPm10.IsOn}" />
+            <ContentControl Content="{Binding AirHcho}" ContentTemplate="{StaticResource AirMiniCardTemplate}"
+                            HorizontalContentAlignment="Stretch" VerticalContentAlignment="Stretch"
+                            ctl:TrendCardPanel.CardKey="hcho" IsVisible="{Binding AirHcho.IsOn}" />
+            <ContentControl Content="{Binding AirTvoc}" ContentTemplate="{StaticResource AirMiniCardTemplate}"
+                            HorizontalContentAlignment="Stretch" VerticalContentAlignment="Stretch"
+                            ctl:TrendCardPanel.CardKey="tvoc" IsVisible="{Binding AirTvoc.IsOn}" />
+            <ContentControl Content="{Binding AirCo2}" ContentTemplate="{StaticResource AirMiniCardTemplate}"
+                            HorizontalContentAlignment="Stretch" VerticalContentAlignment="Stretch"
+                            ctl:TrendCardPanel.CardKey="co2" IsVisible="{Binding AirCo2.IsOn}" />
+        </ctl:TrendCardPanel>
         <!-- 趋势首拉骨架：环境读数到货前先铺三张图表骨架卡，到货后整块换成上面的真趋势卡 -->
         <StackPanel IsVisible="{Binding ShowTrendSkeleton}">
-            <Grid ColumnDefinitions="*,Auto" Margin="2,4,0,12" Background="Transparent">
-                <TextBlock Classes="SecTitle" Margin="0" Text="环境与能耗" />
+            <Grid ColumnDefinitions="*,Auto" Margin="8,4,8,4" Background="Transparent">
+                <StackPanel Orientation="Horizontal" Spacing="7" VerticalAlignment="Center">
+                    <Viewbox Classes="SecIc">
+                        <Panel Width="24" Height="24">
+                            <Path Classes="SecIc" Data="{StaticResource GeoDashboard}" />
+                        </Panel>
+                    </Viewbox>
+                    <TextBlock Classes="SecTitle" Margin="0" Text="数据看板" />
+                </StackPanel>
             </Grid>
             <ItemsControl ItemsSource="{Binding TrendSkeletonSlots}"
                       ItemTemplate="{StaticResource TrendSkeletonTemplate}">
                 <ItemsControl.ItemsPanel>
                     <ItemsPanelTemplate>
-                        <ctl:AdaptiveGridPanel MinItemWidth="300" Spacing="14" MaxColumns="3" />
+                        <ctl:AdaptiveGridPanel MinItemWidth="300" Spacing="0" MaxColumns="3" />
                     </ItemsPanelTemplate>
                 </ItemsControl.ItemsPanel>
             </ItemsControl>
         </StackPanel>
         <!-- 快捷场景：正常铺在趋势区下方，一行放不下的进场景页；只剩一张趋势卡时这一块并到上面同一行去 -->
         <StackPanel IsVisible="{Binding ShowQuickScenesSolo}">
-            <Grid ColumnDefinitions="*,Auto">
-                <TextBlock Classes="SecTitle" Text="快捷场景" VerticalAlignment="Center" />
+            <Grid ColumnDefinitions="*,Auto" Margin="0,0,8,0">
+                <StackPanel Orientation="Horizontal" Spacing="7" VerticalAlignment="Center" Margin="8,26,0,4">
+                    <Viewbox Classes="SecIc">
+                        <Panel Width="24" Height="24">
+                            <Path Classes="SecIc" Data="{StaticResource GeoScene}" />
+                        </Panel>
+                    </Viewbox>
+                    <TextBlock Classes="SecTitle" Text="快捷场景" Margin="0" VerticalAlignment="Center" />
+                </StackPanel>
                 <Button Grid.Column="1" Classes="BtnGhost" Content="更多"
                     Height="28" Padding="12,0" FontSize="12" VerticalAlignment="Center"
                     IsVisible="{Binding HasScenes}" ToolTip.Tip="查看全部场景"
@@ -590,7 +1191,7 @@
         </StackPanel>
         <!-- 首次拉取：先铺骨架宫格，设备一到就整块换成真卡片 -->
         <StackPanel IsVisible="{Binding ShowSkeleton}">
-            <StackPanel Orientation="Horizontal" Spacing="10" Margin="2,26,0,12">
+            <StackPanel Orientation="Horizontal" Spacing="10" Margin="8,26,0,12">
                 <Path Classes="Spinner" Width="15" Height="15" Stretch="Uniform"
                   Stroke="{DynamicResource Accent2Brush}" StrokeThickness="2.4"
                   StrokeLineCap="Round" Data="{StaticResource GeoSpinner}"
@@ -617,42 +1218,80 @@
                 <DataTemplate x:DataType="m:DeviceGroup">
                     <StackPanel>
                         <!-- 房间标题行整行可点：收起后只留这一行，卡片区整块让位。
-                             上下间距按"标题跟着自己的卡片"来分：上面留 20 与上一段分开，下面只留 4，
-                             加上卡片自带的 8 外距，标题与卡片挨得近，段与段之间才看得出层次 -->
-                        <Button Classes="RoomHead" Margin="2,20,0,4"
-                                Command="{Binding $parent[UserControl].((vm:MainViewModel)DataContext).ToggleRoomCommand}"
-                                CommandParameter="{Binding}"
-                                ToolTip.Tip="展开 / 收起该房间的设备">
-                            <StackPanel Orientation="Horizontal" Spacing="7">
-                                <!-- 房间图标与侧栏同款：玻璃 SVG / 细线两套画法按设置二选一 -->
-                                <Image Width="17" Height="17" Stretch="Uniform" VerticalAlignment="Center"
-                                       IsVisible="{Binding $parent[UserControl].((vm:MainViewModel)DataContext).IconGlass}"
-                                       Source="{Binding IconKey, Converter={StaticResource NavSvg}}" />
-                                <Path Classes="RoomIc" Width="15" Height="15" Stretch="Uniform"
-                                      VerticalAlignment="Center" StrokeThickness="1.4"
-                                      StrokeLineCap="Round" StrokeJoin="Round"
-                                      IsVisible="{Binding !$parent[UserControl].((vm:MainViewModel)DataContext).IconGlass}"
-                                      Data="{Binding IconKey, Converter={StaticResource NavLine}}" />
-                                <TextBlock Classes="RoomName" Text="{Binding TitleText}" />
-                                <Viewbox Width="12" Height="12" Stretch="Uniform" VerticalAlignment="Center"
-                                         RenderTransformOrigin="50%,50%">
-                                    <Viewbox.RenderTransform>
-                                        <RotateTransform Angle="{Binding ChevronAngle}">
-                                            <RotateTransform.Transitions>
-                                                <Transitions>
-                                                    <DoubleTransition Property="Angle" Duration="0:0:0.09" />
-                                                </Transitions>
-                                            </RotateTransform.Transitions>
-                                        </RotateTransform>
-                                    </Viewbox.RenderTransform>
-                                    <Panel Width="24" Height="24">
-                                        <Path Classes="RoomChev" StrokeThickness="1.92"
-                                              StrokeLineCap="Round" StrokeJoin="Round"
-                                              Data="{StaticResource GeoChevron}" />
-                                    </Panel>
-                                </Viewbox>
+                             标题与卡片之间只留卡片自带的 8 外距，标题贴着这一排卡片；
+                             段与段的分隔全靠上面的 20，不再在标题下面再叠一层空档 -->
+                        <Grid ColumnDefinitions="*,Auto" Margin="8,20,8,0">
+                            <Button Grid.Column="0" Classes="RoomHead" HorizontalAlignment="Stretch"
+                                    Command="{Binding $parent[UserControl].((vm:MainViewModel)DataContext).ToggleRoomCommand}"
+                                    CommandParameter="{Binding}"
+                                    ToolTip.Tip="展开 / 收起该房间的设备">
+                                <StackPanel Orientation="Horizontal" Spacing="7">
+                                    <!-- 房间图标与侧栏同款：玻璃 SVG / 细线两套画法按设置二选一；
+                                         用户给这个房间设过自定义图时，默认两套隐到透明、换成那张图 -->
+                                    <Image Width="17" Height="17" Stretch="Uniform" VerticalAlignment="Center"
+                                           RenderOptions.BitmapInterpolationMode="MediumQuality"
+                                           Opacity="{Binding DefaultIconOpacity}"
+                                           IsVisible="{Binding $parent[UserControl].((vm:MainViewModel)DataContext).IconGlass}"
+                                           Source="{Binding IconKey, Converter={StaticResource NavSvg}}" />
+                                    <Path Classes="RoomIc" Width="15" Height="15" Stretch="Uniform"
+                                          VerticalAlignment="Center" StrokeThickness="1.4"
+                                          StrokeLineCap="Round" StrokeJoin="Round"
+                                          Opacity="{Binding DefaultIconOpacity}"
+                                          IsVisible="{Binding !$parent[UserControl].((vm:MainViewModel)DataContext).IconGlass}"
+                                          Data="{Binding IconKey, Converter={StaticResource NavLine}}" />
+                                    <Image Width="17" Height="17" Stretch="Uniform" VerticalAlignment="Center"
+                                           RenderOptions.BitmapInterpolationMode="MediumQuality"
+                                           IsVisible="{Binding HasCustomIcon}"
+                                           Source="{Binding CustomIcon.Image}" />
+                                    <TextBlock Classes="RoomName" Text="{Binding TitleText}" />
+                                    <Viewbox Width="12" Height="12" Stretch="Uniform" VerticalAlignment="Center"
+                                             RenderTransformOrigin="50%,50%">
+                                        <Viewbox.RenderTransform>
+                                            <RotateTransform Angle="{Binding ChevronAngle}">
+                                                <RotateTransform.Transitions>
+                                                    <Transitions>
+                                                        <DoubleTransition Property="Angle" Duration="0:0:0.09" />
+                                                    </Transitions>
+                                                </RotateTransform.Transitions>
+                                            </RotateTransform>
+                                        </Viewbox.RenderTransform>
+                                        <Panel Width="24" Height="24">
+                                            <Path Classes="RoomChev" StrokeThickness="1.92"
+                                                  StrokeLineCap="Round" StrokeJoin="Round"
+                                                  Data="{StaticResource GeoChevron}" />
+                                        </Panel>
+                                    </Viewbox>
+                                </StackPanel>
+                            </Button>
+                            <!-- 这屋还有灯开着：标题右端一枚「N 盏灯亮着」+「一键全关」，收起房间后也照样能一眼看到 -->
+                            <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8"
+                                        VerticalAlignment="Center" Margin="12,0,0,0"
+                                        IsVisible="{Binding HasLightOn}">
+                                <Border Classes="RoomLightPill"
+                                        ToolTip.Tip="这个房间里还亮着的灯（在线且开）">
+                                    <StackPanel Orientation="Horizontal" Spacing="5">
+                                        <Panel Width="14" Height="14" VerticalAlignment="Center">
+                                            <Ellipse Width="18" Height="18" Fill="{DynamicResource LampGlowBrush}" />
+                                            <Viewbox Width="14" Height="14"
+                                                     HorizontalAlignment="Center" VerticalAlignment="Center">
+                                                <Panel Width="24" Height="24">
+                                                    <Path Fill="{DynamicResource LampBulbBrush}"
+                                                          Data="{StaticResource GeoBulbGlass}" />
+                                                    <Path Stroke="{DynamicResource LampBulbBaseBrush}" StrokeThickness="2"
+                                                          StrokeLineCap="Round" Data="{StaticResource GeoBulbBase}" />
+                                                </Panel>
+                                            </Viewbox>
+                                        </Panel>
+                                        <TextBlock Text="{Binding LightOnText}" />
+                                    </StackPanel>
+                                </Border>
+                                <Button Classes="BtnGhost" Height="26" Padding="10,0" FontSize="12"
+                                        Content="一键全关"
+                                        Command="{Binding $parent[UserControl].((vm:MainViewModel)DataContext).TurnOffRoomLightsCommand}"
+                                        CommandParameter="{Binding}"
+                                        ToolTip.Tip="关闭这个房间里所有开着的灯" />
                             </StackPanel>
-                        </Button>
+                        </Grid>
                         <!-- 虚拟化：每组卡片仅生成视口内的可视树 -->
                         <!-- 虚拟化自适应网格：每组仅生成视口内可见的卡片容器 -->
                         <ctl:RecyclingItemsControl x:Name="DeviceItemsControl" ItemsSource="{Binding Items}"
@@ -710,3 +1349,6 @@
         </StackPanel>
     </StackPanel>
 </UserControl>
+
+
+

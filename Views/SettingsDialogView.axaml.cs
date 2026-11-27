@@ -33,4 +33,19 @@ public partial class SettingsDialogView : UserControl
             vm.DesktopAppearance.PickColorCommand.Execute(hex);
         }
     }
+
+    /// <summary>设置页内联的分区外观也能打开同一套 HSV 调色盘。</summary>
+    private async void OnCustomColorClick(object? sender, RoutedEventArgs e)
+    {
+        if (DataContext is not MainViewModel vm) return;
+        var owner = TopLevel.GetTopLevel(this) as Window;
+        if (owner is null) return;
+
+        var appearance = vm.DesktopAppearance;
+        var initial = string.IsNullOrWhiteSpace(appearance.ColorHex)
+            ? DesktopAppearanceVm.PresetHexes[0]
+            : appearance.ColorHex;
+        var picked = await ColorPickerWindow.PickAsync(owner, initial);
+        if (!string.IsNullOrWhiteSpace(picked)) appearance.PickColorCommand.Execute(picked);
+    }
 }

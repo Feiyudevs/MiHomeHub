@@ -10,6 +10,7 @@ using System.Text.Json;
 using System.Text.Json.Serialization;
 using Avalonia.Media.Imaging;
 using CommunityToolkit.Mvvm.ComponentModel;
+using MiHomeHub.Services;
 
 namespace MiHomeHub.Models;
 
@@ -41,7 +42,16 @@ public partial class MijiaDevice : ObservableObject
 {
     [JsonPropertyName("did")] public string Did { get; set; } = "";
     [JsonPropertyName("name")] public string Name { get; set; } = "";
+    /// <summary>型号</summary>
     [JsonPropertyName("model")] public string Model { get; set; } = "";
+
+    /// <summary>
+    /// 米家设备图标目录里的选中项 id（数字）。非 0 时对应 /v2/device/switch_subclass
+    /// 目录里的一张图标，米家会把它当成这台设备的封面。
+    /// </summary>
+    [JsonPropertyName("subclass_id")]
+    [JsonConverter(typeof(LenientStringConverter))]
+    public string? SubclassId { get; set; }
     [JsonPropertyName("home_id")] public string HomeId { get; set; } = "";
     [JsonPropertyName("uid")] public long Uid { get; set; }
     [JsonPropertyName("isOnline")] public bool IsOnline { get; set; }
@@ -71,8 +81,26 @@ public partial class MijiaDevice : ObservableObject
     [property: JsonPropertyName("isOn")]
     [ObservableProperty] private bool _isOn;
 
+    /// <summary>
+    /// 设备自己的封面图地址，来自设备列表原始字段（自定义封面上传的 devPicInfo.logo，或云端按设备下发的 icon）。
+    /// 米家展示顺序是「设备封面 > 型号产品图」，产品配置里没有该型号时（如 togo.light.t1）就靠这个拿图。
+    /// </summary>
+    [JsonPropertyName("customIconUrl")] public string? CustomIconUrl { get; set; }
+
     /// <summary>产品真机图，按型号异步取到后回填；为空时卡片用矢量图标。</summary>
     [property: JsonIgnore] [ObservableProperty] private Bitmap? _icon;
+
+    /// <summary>用户给这台设备换的自定义图标；按 did 存，和房间 / 场景共用同一套存储。</summary>
+    [property: JsonIgnore] [ObservableProperty] private CustomIcon? _customIcon;
+
+    [JsonIgnore] public bool HasCustomIcon => CustomIcon is not null;
+
+    partial void OnCustomIconChanged(CustomIcon? value) =>
+        OnPropertyChanged(nameof(HasCustomIcon));
+
+    /// <summary>从自定义图标存储重新读一次；设备刷新、实例复用或图标被清除后都走这里。</summary>
+    public void ReloadCustomIcon() =>
+        CustomIcon = CustomIconStore.Get(CustomIconStore.DeviceScope, Did);
 
     // ===== 设备可控属性的当前值（按类型加载到详情抽屉，不回显在卡片） =====
 
@@ -117,6 +145,16 @@ public partial class MijiaDevice : ObservableObject
     /// <summary>卡片副标题里的读数（温度/湿度/功率等），由轮询按外显配置回填；空串表示没有读数。</summary>
     [property: JsonIgnore] [ObservableProperty] private string _metricsText = "";
 
+    /// <summary>
+    /// 卡片上逐枚展示的读数标签（已按详情页读数卡的左右顺序排好，一项一枚）：
+    /// 卡片按标签排版，换行了也只是整枚换到下一行，不会把「20µg/m³」从中间截断。
+    /// </summary>
+    [JsonIgnore] public ObservableCollection<string> CardMetricTags { get; } = new();
+
+    /// <summary>卡片上是否还留房间名：读数标签到三枚以上时让位，把整行宽度留给读数，
+    /// 免得读数标签叠出卡片；房间在分组标题上已经写着。由读数同步时一起刷新。</summary>
+    [property: JsonIgnore] [ObservableProperty] private bool _showCardRoom = true;
+
     /// <summary>外显读数缓存：属性短名 → 最近一次格式化后的文本。
     /// 温湿度这类慢速读数不是每拍都读，靠这份缓存保证副标题不会在两拍之间闪没。</summary>
     [JsonIgnore] public Dictionary<string, string> CardMetricTexts { get; } = new(StringComparer.Ordinal);
@@ -143,6 +181,75 @@ public partial class MijiaDevice : ObservableObject
     /// <summary>最近一次读到的累计耗电量（kWh，power-consumption 计数器）。空调、浴霸这类
     /// 只报累计电量、没有瞬时功率；首页用电卡用相邻两次读数的差值折出这一段用了多少度。</summary>
     [JsonIgnore] public double? EnergyKwh { get; set; }
+
+    /// <summary>
+    /// 最近一次读到的空气读数：标准键（pm2.5 / pm10 / hcho / tvoc / co2）→ 已按展示单位归一的数值。
+    /// 跟卡片外显配置无关，也不参与卡片副标题——首页那排空气小卡统一从这里取，
+    /// 醛类和 TVOC 已在回填时折成 mg/m³（规格按 µg/m³ 报的机型不会差三个数量级）。
+    /// </summary>
+    [JsonIgnore] public Dictionary<string, double> AirReadings { get; } = new(StringComparer.Ordinal);
+
+    // ===== 用水读数：热水器/净水器的水表、流量、水温与水质 =====
+
+    /// <summary>水表读数（升）：热水器把每次完成的「单次用水」累加成一个只增不减的水表，
+    /// 净水器直接用累计制水量；首页用水卡用相邻两次采样的差值算这一段用了多少水。</summary>
+    [JsonIgnore] public double? WaterLiters { get; set; }
+
+    /// <summary>最近一次读到的水流量（L/min，燃气热水器的 discharge-water 按 0.1 单位折回）。</summary>
+    [JsonIgnore] public double? WaterFlowLpm { get; set; }
+
+    /// <summary>热水器当前水温（℃）。这类设备的 temperature 是水温，不是室温。</summary>
+    [JsonIgnore] public double? WaterTempC { get; set; }
+
+    /// <summary>热水器进水温度（℃）。</summary>
+    [JsonIgnore] public double? InputWaterTempC { get; set; }
+
+    /// <summary>净水器出水 TDS（ppm）。</summary>
+    [JsonIgnore] public double? TdsOut { get; set; }
+
+    /// <summary>净水器进水 TDS（ppm）。</summary>
+    [JsonIgnore] public double? TdsIn { get; set; }
+
+    /// <summary>热水器工作状态：0 待机 / 1 用水中 / 2 预热中（按规格枚举回填）。</summary>
+    [JsonIgnore] public int WaterStatus { get; set; }
+
+    /// <summary>本次用水升数（燃气热水器 water-level，用完会清零），只用于实时显示，不能直接当累计表。</summary>
+    [JsonIgnore] public double? SessionWaterLiters { get; set; }
+
+    /// <summary>水表是否已经起好基线：第一次读到「单次用水」时只记基线，不把历史记录算进今天。</summary>
+    [JsonIgnore] public bool WaterMeterInit { get; set; }
+
+    /// <summary>上一次的「单次用水」读数（升）：变化一次就代表刚完成一次用水，累加进 <see cref="WaterLiters"/>。</summary>
+    [JsonIgnore] public double? LastSingleWaterLiters { get; set; }
+
+    /// <summary>这台机器确实能读「单次用水」：读到过就不再用 water-level 增量兜底，免得两套计数重复。</summary>
+    [JsonIgnore] public bool UsesSingleWater { get; set; }
+
+    /// <summary>没有「单次用水」记录的机型退化为累计 water-level 增量时，上一次的读数。</summary>
+    [JsonIgnore] public double? LastSessionWaterLevelLiters { get; set; }
+
+    /// <summary>正在放热水（工作状态 = 用水中）。</summary>
+    [JsonIgnore] public bool IsUsingWater => WaterStatus == 1;
+
+    /// <summary>有没有水表读数：首页用水卡只挑这些设备，没有水表的普通设备不占位置。</summary>
+    [JsonIgnore] public bool HasWaterMeter => WaterLiters.HasValue;
+
+    // ===== 用气读数：燃气热水器的「单次用气」累加成只增气表 =====
+
+    /// <summary>累计用气量（m³）：把热水器每次完成的「单次用气」累加成一个只增不减的气表。</summary>
+    [JsonIgnore] public double? GasM3 { get; set; }
+
+    /// <summary>最近一次完成的单次用气（m³），只用于卡片上「本次」提示，不参与累计。</summary>
+    [JsonIgnore] public double? SessionGasM3 { get; set; }
+
+    /// <summary>气表是否已经起好基线：第一次读到「单次用气」时只记基线，不把历史记录算进今天。</summary>
+    [JsonIgnore] public bool GasMeterInit { get; set; }
+
+    /// <summary>上一次的「单次用气」读数（m³）：变化一次就代表刚完成一次用气，累加进 <see cref="GasM3"/>。</summary>
+    [JsonIgnore] public double? LastSingleGasM3 { get; set; }
+
+    /// <summary>有没有气表读数：首页用气卡只挑这些设备。</summary>
+    [JsonIgnore] public bool HasGasMeter => GasM3.HasValue;
 
     // ===== 耗材（滤芯/刷头 life-level、电量 battery-level/charge-progress 百分比） =====
 
@@ -223,6 +330,12 @@ public partial class MijiaDevice : ObservableObject
     /// <summary>是否空调（决定抽屉显示模式/温度/风速面板）。</summary>
     [JsonIgnore] public bool IsAc => Category == "air-conditioner";
 
+    /// <summary>
+    /// 是否用水设备（燃气/电热水器、净水器）：它们的 temperature 是水温，不是室温，
+    /// 不能混进环境概览和温度趋势，首页用水卡按它们的水表单独统计。
+    /// </summary>
+    [JsonIgnore] public bool IsWaterDevice => Category is "water-heater" or "water-purifier";
+
     /// <summary>是否窗帘（决定抽屉显示打开/暂停/关闭面板）。</summary>
     [JsonIgnore] public bool IsCurtain => Category == "curtain";
 
@@ -293,8 +406,8 @@ public partial class MijiaDevice : ObservableObject
         }
     }
 
-    /// <summary>卡片是否显示单个开关：整机电源、窗帘都算；墙壁开关 / 场景按键、网关 / 路由 / 门锁 / 音箱 / 传感器不算。</summary>
-    [JsonIgnore] public bool ShowCardSwitch => IsControllable && Channels.Count <= 1 && !HasNoCardPower && !IsSwitchDevice;
+    /// <summary>卡片是否显示单个开关：整机电源、窗帘、单路通断模块都算；墙壁开关 / 场景按键、网关 / 路由 / 门锁 / 音箱 / 传感器不算。</summary>
+    [JsonIgnore] public bool ShowCardSwitch => IsControllable && Channels.Count <= 1 && !HasNoCardPower && !IsKeyPanel;
 
     /// <summary>多路开关卡片只显示「N 路」角标，具体每一路进抽屉操作。</summary>
     [JsonIgnore] public bool ShowChannelBadge => Channels.Count > 1;
@@ -317,12 +430,29 @@ public partial class MijiaDevice : ObservableObject
     /// <summary>墙壁开关 / 场景按键类设备（多键以虚拟子设备出现）；设置里可以整类隐藏。</summary>
     [JsonIgnore] public bool IsSwitchDevice => !IsGroup && IconKey == "switch";
 
-    /// <summary>卡片副标题：房间 + 读数（有读数时）。</summary>
+    /// <summary>
+    /// 物理按键面板：墙上的开关、场景键、智能中控屏。它们的规格里带 switch-sensor（按键传感）服务，
+    /// 卡面只当入口，不给电源键；单路通断器、电脑开机卡、水阀这类没有按键服务的设备照常给开关。
+    /// 规格还没到手时先按面板处理，避免墙上开关的卡片先闪一下电源键。
+    /// </summary>
+    [JsonIgnore]
+    public bool IsKeyPanel => IsSwitchDevice && (Spec == null || Spec.HasService("switch-sensor"));
+
+    /// <summary>卡片副标题：房间 + 读数（有读数时），段间用「·」紧连，一行放得下就不折行。</summary>
     [JsonIgnore]
     public string CardSubtitle =>
-        string.IsNullOrEmpty(MetricsText) ? RoomName : $"{RoomName} · {MetricsText}";
+        string.IsNullOrEmpty(MetricsText) ? RoomName : $"{RoomName}·{MetricsText}";
 
-    partial void OnMetricsTextChanged(string value) => OnPropertyChanged(nameof(CardSubtitle));
+    /// <summary>悬停提示用的完整读数：不省略，所有已选读数都展示出来。</summary>
+    [JsonIgnore]
+    public string CardSubtitleTooltip =>
+        CardMetricTexts.Count == 0 ? CardSubtitle : $"{RoomName}·{string.Join("·", CardMetricTexts.Values)}";
+
+    partial void OnMetricsTextChanged(string value)
+    {
+        OnPropertyChanged(nameof(CardSubtitle));
+        OnPropertyChanged(nameof(CardSubtitleTooltip));
+    }
 
     /// <summary>该空调的控制参数（按设备规格解析），决定抽屉里模式/温度/风速的显示与下发。</summary>
     [property: JsonIgnore] [ObservableProperty] private AcControlSchema? _acSchema;

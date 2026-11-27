@@ -85,13 +85,13 @@
             </DataTemplate>
             <!-- 趋势卡骨架：与温度/湿度/用电三张真卡同圆角同内衬同高度，首拉期间先占住图表行，
                  读数到货后整块换成真卡；图表区比文字条淡一档，留出「这里会画曲线」的层次。
-                 内衬与图表行高度要跟 Border.TrendCard / 真卡里的 56 保持一致，改一处要改三处 -->
+                 内衬与图表行高度要跟 Border.TrendCard / 真卡里的 72 保持一致，改一处要改三处 -->
             <DataTemplate x:Key="TrendSkeletonTemplate" x:DataType="x:String">
-                <Border CornerRadius="16" Padding="16,12,16,10"
+                <Border CornerRadius="16" Padding="16,12,16,10" Margin="8" ClipToBounds="False"
                         Background="{DynamicResource SkelCardBrush}"
                         BoxShadow="{DynamicResource CardShadow}">
                     <Panel ClipToBounds="True">
-                        <Grid RowDefinitions="Auto,Auto,Auto">
+                        <Grid RowDefinitions="Auto,Auto,*">
                             <Grid ColumnDefinitions="Auto,*,Auto">
                                 <Border Width="13" Height="13" CornerRadius="4" VerticalAlignment="Center"
                                         Background="{DynamicResource SkelBarBrush}" />
@@ -104,7 +104,7 @@
                                 <Border Grid.Column="2" Classes="SkelBar" Width="64" Height="8"
                                         CornerRadius="4" HorizontalAlignment="Right" VerticalAlignment="Bottom" />
                             </Grid>
-                            <Border Grid.Row="2" Height="56" Margin="0,8,0,0" CornerRadius="10" Opacity="0.45"
+                            <Border Grid.Row="2" MinHeight="72" Margin="0,8,0,0" CornerRadius="10" Opacity="0.45"
                                     Background="{DynamicResource SkelBarBrush}" />
                         </Grid>
                         <Canvas IsHitTestVisible="False">
@@ -252,18 +252,25 @@
                     <Panel>
                     <Grid ColumnDefinitions="Auto,*,Auto">
                         <Panel Grid.Column="0" Width="48" Height="48" VerticalAlignment="Center">
-                            <Border Classes="DevIc"
-                                    IsVisible="{Binding Icon, Converter={x:Static ObjectConverters.IsNull}}">
-                                <Path Classes="DevIcon" Classes.on="{Binding IsOn}" Width="24" Height="24"
-                                      Stretch="Uniform" StrokeThickness="1.7" StrokeLineCap="Round" StrokeJoin="Round"
-                                      Data="{Binding Converter={StaticResource DeviceIcon}}" />
-                            </Border>
-                            <Border Classes="DevPhoto" IsVisible="{Binding Icon, Converter={x:Static ObjectConverters.IsNotNull}}">
-                                <!-- 缩小 10 倍用 MediumQuality（双线性+mipmap 预滤波）：
-                                     HighQuality 在 Skia 是固定 4×4 核三次采样，大比例缩小时欠采样，白描边会断成锯齿点 -->
-                                <Image Source="{Binding Icon}" Stretch="Uniform"
-                                       RenderOptions.BitmapInterpolationMode="MediumQuality" />
-                            </Border>
+                            <Panel IsVisible="{Binding !HasCustomIcon}">
+                                <Border Classes="DevIc"
+                                        IsVisible="{Binding Icon, Converter={x:Static ObjectConverters.IsNull}}">
+                                    <Path Classes="DevIcon" Classes.on="{Binding IsOn}" Width="24" Height="24"
+                                          Stretch="Uniform" StrokeThickness="1.7" StrokeLineCap="Round" StrokeJoin="Round"
+                                          Data="{Binding Converter={StaticResource DeviceIcon}}" />
+                                </Border>
+                                <Border Classes="DevPhoto" IsVisible="{Binding Icon, Converter={x:Static ObjectConverters.IsNotNull}}">
+                                    <!-- 缩小 10 倍用 MediumQuality（双线性+mipmap 预滤波）：
+                                         HighQuality 在 Skia 是固定 4×4 核三次采样，大比例缩小时欠采样，白描边会断成锯齿点 -->
+                                    <Image Source="{Binding Icon}" Stretch="Uniform"
+                                           RenderOptions.BitmapInterpolationMode="MediumQuality" />
+                                </Border>
+                            </Panel>
+                            <!-- 用户自定义的设备图：铺满 48 圆角框，盖住真机图 / 矢量图标 -->
+                            <ctl:RoundedImage Width="48" Height="48" CornerRadius="12"
+                                              IsHitTestVisible="False"
+                                              IsVisible="{Binding HasCustomIcon}"
+                                              Source="{Binding CustomIcon.Image}" />
                             <!-- 「更多」浮在设备图标正中（卡片悬停时淡入）：容器透明、不铺方底，
                                  只把三个点居中；与图标同格叠放，不占布局槽，设备图标照常显示 -->
                             <ctl:DeviceMoreButton Classes="MoreBtn" ctl:MenuOpener.OpenOnClick="True"
@@ -283,26 +290,62 @@
                                 </Border>
                             </ctl:DeviceMoreButton>
                         </Panel>
-                        <StackPanel Grid.Column="1" VerticalAlignment="Center" Margin="12,0,10,0" Spacing="3">
-                            <!-- 三处文字的 Foreground 一律走样式（不在元素上写本地值）：
-                                 本地值优先级高于样式，写了就压过 DesktopGroupView 里的提亮覆盖 -->
-                            <TextBlock Classes="DevName" Text="{Binding Name}" FontSize="13.5"
-                                       FontWeight="Normal" TextTrimming="CharacterEllipsis" />
-                            <StackPanel Orientation="Horizontal" Spacing="6">
-                                <TextBlock Classes="DevMeta" Text="{Binding CardSubtitle}" FontSize="11.5"
-                                           TextTrimming="CharacterEllipsis" />
+                        <!-- 右内距留 0：中列和电源列之间本来就空着一截，把这点宽度让给读数和名称；
+                             读数标签最多压到电源键前一点，不会真的盖住按钮 -->
+                        <StackPanel Grid.Column="1" VerticalAlignment="Center" Margin="12,0,0,0" Spacing="3"
+                                    HorizontalAlignment="Stretch">
+                            <!-- 名称行：名称吃剩余宽度并按需省略，离线 / 灯组角标紧跟名称末尾。
+                                 TextBadgeRow 先量角标、再把剩下的宽度给名称：不能用 Grid（* + Auto），
+                                 那会把角标推到行尾，名字短时中间空一大截；名字长时又不会省略。 -->
+                            <ctl:TextBadgeRow VerticalAlignment="Center" HorizontalAlignment="Stretch">
+                                <TextBlock Classes="DevName" Text="{Binding Name}" FontSize="13.5"
+                                           FontWeight="Normal" TextTrimming="CharacterEllipsis"
+                                           VerticalAlignment="Center"
+                                           ToolTip.Tip="{Binding Name}" />
                                 <!-- 离线角标：仅离线设备显示，琥珀底 + 暖字，与抽屉 is-warn 同色系 -->
-                                <Border CornerRadius="8" Padding="6,1.5" VerticalAlignment="Center"
+                                <Border CornerRadius="8" Padding="6,1.5" Margin="6,0,0,0"
+                                        VerticalAlignment="Center"
                                         Background="{DynamicResource AmberSoftBrush}" IsVisible="{Binding !IsOnline}">
                                     <TextBlock Text="离线" FontSize="9.5" FontWeight="Normal"
                                                Foreground="{DynamicResource AmberBrush}" />
                                 </Border>
                                 <!-- 灯组标签：组本身也在设备列表里，卡片上要能一眼和单灯区分 -->
-                                <Border CornerRadius="8" Padding="6,1.5" VerticalAlignment="Center"
+                                <Border CornerRadius="8" Padding="6,1.5" Margin="6,0,0,0"
+                                        VerticalAlignment="Center"
                                         Background="{DynamicResource BlueSoftBrush}" IsVisible="{Binding IsGroup}">
                                     <TextBlock Text="{Binding GroupTag}" FontSize="9.5" FontWeight="Normal"
                                                Foreground="{DynamicResource BlueBrush}" />
                                 </Border>
+                            </ctl:TextBadgeRow>
+                            <StackPanel Orientation="Vertical" Spacing="1" HorizontalAlignment="Stretch">
+                                <!-- 房间 + 读数：读数一项一枚小标签，排不下就整枚换到下一行，
+                                     不会把「20µg/m³」从中间截断，也不会在行尾留下孤零零的「·」。
+                                     读数多到三枚以上时先让出房间名（分组标题上已有房间），
+                                     把整行宽度留给读数，避免标签叠出卡片。
+                                     完整读数仍挂在整行上的悬停提示里 -->
+                                <Grid ColumnDefinitions="Auto,*" ToolTip.Tip="{Binding CardSubtitleTooltip}">
+                                    <TextBlock Grid.Column="0" Classes="DevMeta" Text="{Binding RoomName}"
+                                               FontSize="11" Margin="0,0,6,2" VerticalAlignment="Center"
+                                               TextTrimming="CharacterEllipsis"
+                                               IsVisible="{Binding ShowCardRoom}" />
+                                    <ItemsControl Grid.Column="1" ItemsSource="{Binding CardMetricTags}"
+                                                  VerticalAlignment="Center">
+                                        <ItemsControl.ItemsPanel>
+                                            <ItemsPanelTemplate>
+                                                <WrapPanel />
+                                            </ItemsPanelTemplate>
+                                        </ItemsControl.ItemsPanel>
+                                        <ItemsControl.ItemTemplate>
+                                            <DataTemplate x:DataType="x:String">
+                                                <!-- 读数标签收紧一点：左内距由 7 收到 5，
+                                                     两枚并排才刚好塞进中间那九十来像素 -->
+                                                <Border Classes="MiniTag" Margin="0,0,4,2">
+                                                    <TextBlock Classes="DevMeta" Text="{Binding}" FontSize="10.5" />
+                                                </Border>
+                                            </DataTemplate>
+                                        </ItemsControl.ItemTemplate>
+                                    </ItemsControl>
+                                </Grid>
                             </StackPanel>
                         </StackPanel>
                         <!-- 右列：电源键固定垂直居中，不随悬停位移（「更多」已移到左侧图标上）；
@@ -320,21 +363,80 @@
                     </Panel>
                 </ctl:DeviceCardButton>
             </DataTemplate>
+            <!-- 场景卡右键菜单：换自定义图标 / 回到默认画法；与房间行同一套弹窗。
+                 必须定义在用到它的迷你卡/大卡之前：StaticResource 是文档顺序查找。 -->
+            <DataTemplate x:Key="SceneIconMenuTemplate" x:DataType="m:SceneCardItem">
+                <ContextMenu Padding="4" MinWidth="0" FontSize="11.5">
+                    <ContextMenu.Template>
+                        <ControlTemplate>
+                            <Border Name="MenuShell" CornerRadius="12"
+                                    Background="{DynamicResource MenuBgBrush}"
+                                    BorderBrush="{DynamicResource MenuLineBrush}"
+                                    BorderThickness="1"
+                                    Padding="{TemplateBinding Padding}">
+                                <ItemsPresenter Name="PART_ItemsPresenter"/>
+                            </Border>
+                        </ControlTemplate>
+                    </ContextMenu.Template>
+                    <MenuItem Theme="{StaticResource CardMenuItem}"
+                              Header="自定义图标…"
+                              Command="{Binding $parent[Window].((vm:MainViewModel)DataContext).EditSceneIconCommand}"
+                              CommandParameter="{Binding}">
+                        <MenuItem.Icon>
+                            <Viewbox Width="12" Height="12" Stretch="Uniform"
+                                     HorizontalAlignment="Center" VerticalAlignment="Center">
+                                <Panel Width="24" Height="24">
+                                    <Path StrokeThickness="1.92" StrokeLineCap="Round" StrokeJoin="Round"
+                                          Stroke="{Binding $parent[MenuItem].Foreground}"
+                                          Data="M3,4.5 H21 V19.5 H3 Z M3,16 L8.5,10.5 L13,15 L16.5,11.5 L21,15.5 M15.5,7.8 A1.2,1.2 0 1 1 15.49,7.8" />
+                                </Panel>
+                            </Viewbox>
+                        </MenuItem.Icon>
+                    </MenuItem>
+                    <MenuItem Theme="{StaticResource CardMenuItem}"
+                              Header="恢复默认图标"
+                              IsVisible="{Binding HasCustomIcon}"
+                              Command="{Binding $parent[Window].((vm:MainViewModel)DataContext).ResetSceneIconCommand}"
+                              CommandParameter="{Binding}">
+                        <MenuItem.Icon>
+                            <Viewbox Width="12" Height="12" Stretch="Uniform"
+                                     HorizontalAlignment="Center" VerticalAlignment="Center">
+                                <Panel Width="24" Height="24">
+                                    <Path StrokeThickness="1.92" StrokeLineCap="Round" StrokeJoin="Round"
+                                          Stroke="{Binding $parent[MenuItem].Foreground}"
+                                          Data="M3.5,11.5 A8.5,8.5 0 1 1 6.2,17.8 M3.5,11.5 L1.8,7.9 M3.5,11.5 L7.1,13.3" />
+                                </Panel>
+                            </Viewbox>
+                        </MenuItem.Icon>
+                    </MenuItem>
+                </ContextMenu>
+            </DataTemplate>
+
             <!-- 场景迷你卡（首页条）：横向「图标 / 名称+摘要 / 执行」三列，与场景大卡同构；
                  点卡片本身不执行，只有右侧播放按钮执行 -->
             <DataTemplate x:Key="SceneMiniTemplate" x:DataType="m:SceneCardItem">
                 <Border CornerRadius="16" Margin="8" MinHeight="72"
                         Background="{DynamicResource CardBrush}"
+                        ctl:LazyContextMenu.MenuTemplate="{StaticResource SceneIconMenuTemplate}"
+                        ToolTip.Tip="点右侧播放钮执行，右键可换图标"
                         BoxShadow="{DynamicResource CardShadow}">
                     <Panel>
                         <Border CornerRadius="16" Background="{Binding GlowBrush}" IsHitTestVisible="False"/>
                         <Grid ColumnDefinitions="Auto,*,Auto" Margin="14,11">
-                            <!-- 左：场景色图标 -->
+                            <!-- 左：场景色图标（用户换过自定义图时叠在默认线性图标上） -->
                             <Border Width="38" Height="38" CornerRadius="12" Background="{Binding IconBgBrush}"
                                     VerticalAlignment="Center">
-                                <Path Width="19" Height="19" Stretch="Uniform" Stroke="{Binding IconFgBrush}"
-                                      StrokeThickness="1.7" StrokeLineCap="Round" StrokeJoin="Round"
-                                      Data="{Binding Icon}" />
+                                <Panel>
+                                    <Path Width="19" Height="19" Stretch="Uniform" Stroke="{Binding IconFgBrush}"
+                                          StrokeThickness="1.7" StrokeLineCap="Round" StrokeJoin="Round"
+                                          Opacity="{Binding DefaultIconOpacity}"
+                                          Data="{Binding Icon}" />
+                                    <!-- 自定义图铺满整枚 38 圆角底，别在四周留出图标底色 -->
+                                    <ctl:RoundedImage CornerRadius="12"
+                                                      IsHitTestVisible="False"
+                                                      IsVisible="{Binding HasCustomIcon}"
+                                                      Source="{Binding CustomIcon.Image}" />
+                                </Panel>
                             </Border>
                             <!-- 中：名称 + 摘要，与设备卡的「名称 / 副标题」同构 -->
                             <StackPanel Grid.Column="1" Margin="11,0,8,0" VerticalAlignment="Center" Spacing="4">
@@ -367,16 +469,26 @@
              整卡仍是按钮，点一下进编辑器（没有收藏 / 编辑小按钮）。 -->
         <DataTemplate x:Key="SceneBigTemplate" x:DataType="m:SceneCardItem">
             <ctl:DeviceCardButton Classes="DevCard"
-                                  ToolTip.Tip="点击卡片编辑"
+                                  ToolTip.Tip="点击卡片编辑，右键可换图标"
+                                  ctl:LazyContextMenu.MenuTemplate="{StaticResource SceneIconMenuTemplate}"
                                   Command="{Binding $parent[Window].((vm:MainViewModel)DataContext).OpenSceneEditorCommand}"
                                   CommandParameter="{Binding}">
                 <Grid ColumnDefinitions="Auto,*,Auto">
-                    <!-- 左：场景色图标（设备卡是裸线性图标，这里保留柔色底块，一眼区分类别） -->
+                    <!-- 左：场景色图标（设备卡是裸线性图标，这里保留柔色底块，一眼区分类别；
+                         用户换过图就给自定义 SVG / PNG 让位） -->
                     <Border Width="46" Height="46" CornerRadius="14" Background="{Binding IconBgBrush}"
                             VerticalAlignment="Center">
-                        <Path Width="22" Height="22" Stretch="Uniform" Stroke="{Binding IconFgBrush}"
-                              StrokeThickness="1.7" StrokeLineCap="Round" StrokeJoin="Round"
-                              Data="{Binding Icon}" />
+                        <Panel>
+                            <Path Width="22" Height="22" Stretch="Uniform" Stroke="{Binding IconFgBrush}"
+                                  StrokeThickness="1.7" StrokeLineCap="Round" StrokeJoin="Round"
+                                  Opacity="{Binding DefaultIconOpacity}"
+                                  Data="{Binding Icon}" />
+                            <!-- 自定义图铺满 46 圆角底 -->
+                            <ctl:RoundedImage CornerRadius="14"
+                                              IsHitTestVisible="False"
+                                              IsVisible="{Binding HasCustomIcon}"
+                                              Source="{Binding CustomIcon.Image}" />
+                        </Panel>
                     </Border>
                     <!-- 中：名称 + 摘要，与设备卡的「名称 / 副标题」同构；摘要小一号、与名称拉开 6px 呼吸 -->
                     <StackPanel Grid.Column="1" VerticalAlignment="Center" Margin="12,0,10,0" Spacing="6">
@@ -415,15 +527,24 @@
         <!-- 场景紧凑行：设备详情「智能场景」用；整行可点，走已有场景详情弹窗（OpenSceneEditorCommand） -->
         <DataTemplate x:Key="SceneDeviceRowTemplate" x:DataType="m:SceneCardItem">
             <Button Classes="SmartSceneRow" Margin="0,0,0,6"
-                    ToolTip.Tip="打开场景详情"
+                    ToolTip.Tip="打开场景详情，右键可换图标"
+                    ctl:LazyContextMenu.MenuTemplate="{StaticResource SceneIconMenuTemplate}"
                     Command="{Binding $parent[UserControl].((vm:MainViewModel)DataContext).OpenSceneEditorCommand}"
                     CommandParameter="{Binding}">
                 <Grid ColumnDefinitions="Auto,*,Auto,Auto,Auto">
                     <Border Width="28" Height="28" CornerRadius="9" Background="{Binding IconBgBrush}"
                             VerticalAlignment="Center">
-                        <Path Width="15" Height="15" Stretch="Uniform" Stroke="{Binding IconFgBrush}"
-                              StrokeThickness="1.7" StrokeLineCap="Round" StrokeJoin="Round"
-                              Data="{Binding Icon}" />
+                        <Panel>
+                            <Path Width="15" Height="15" Stretch="Uniform" Stroke="{Binding IconFgBrush}"
+                                  StrokeThickness="1.7" StrokeLineCap="Round" StrokeJoin="Round"
+                                  Opacity="{Binding DefaultIconOpacity}"
+                                  Data="{Binding Icon}" />
+                            <!-- 自定义图铺满 28 圆角底 -->
+                            <ctl:RoundedImage CornerRadius="9"
+                                              IsHitTestVisible="False"
+                                              IsVisible="{Binding HasCustomIcon}"
+                                              Source="{Binding CustomIcon.Image}" />
+                        </Panel>
                     </Border>
                     <StackPanel Grid.Column="1" Margin="10,0,8,0" VerticalAlignment="Center">
                         <TextBlock Text="{Binding Name}" FontSize="13" FontWeight="Normal"

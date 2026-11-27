@@ -1,0 +1,33 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="clr-namespace:MiHomeHub.ViewModels"
+             xmlns:ctl="clr-namespace:MiHomeHub.Controls"
+             x:Class="MiHomeHub.Views.TrendPreviewDialogView"
+             x:DataType="vm:MainViewModel">
+    <!-- 预览数据说明：首次遇到没有设备的卡片自动弹一次，之后点卡片上的「预览」标识也能再看 -->
+    <ctl:DialogPopup CardWidth="440" Title="预览数据"
+                     Subtitle="{Binding TrendPreviewNoticeSubtitle}"
+                     IsOpen="{Binding IsTrendPreviewNoticeOpen}"
+                     CloseCommand="{Binding CloseTrendPreviewNoticeCommand}">
+        <ctl:DialogPopup.Footer>
+            <Border BorderBrush="{DynamicResource LineBrush}" BorderThickness="0,1,0,0"
+                    Padding="0,14,0,0" Margin="28,0,22,20">
+                <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Spacing="8">
+                    <Button Classes="BtnPrimary" Height="34" Content="知道了"
+                            Command="{Binding CloseTrendPreviewNoticeCommand}" />
+                </StackPanel>
+            </Border>
+        </ctl:DialogPopup.Footer>
+        <StackPanel Spacing="14">
+            <Border Classes="TrendBadge" HorizontalAlignment="Left" Padding="9,3">
+                <TextBlock Text="预览 · 演示数据" FontSize="10.5"
+                           Foreground="{DynamicResource AmberTextBrush}" />
+            </Border>
+            <TextBlock Text="{Binding TrendPreviewNoticeBody}" FontSize="13.5" FontWeight="Normal"
+                       Foreground="{DynamicResource Text2Brush}" TextWrapping="Wrap"
+                       LineHeight="23" />
+            <TextBlock Text="接入设备并同步后会自动切换，不需要任何设置；暂时不需要的卡片可以在「编辑」里关掉。"
+                       Classes="Hint Sub" TextWrapping="Wrap" />
+        </StackPanel>
+    </ctl:DialogPopup>
+</UserControl>

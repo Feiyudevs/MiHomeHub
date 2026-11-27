@@ -3,11 +3,17 @@
 
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Globalization;
 using Avalonia;
+using Avalonia.Animation;
+using Avalonia.Animation.Easings;
 using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Media;
+using Avalonia.Styling;
+using Avalonia.Threading;
+using Avalonia.VisualTree;
 
 namespace MiHomeHub.Controls;
 
@@ -18,6 +24,9 @@ namespace MiHomeHub.Controls;
 /// 曲线会把前后两个有值的点照样用曲线连过去（断档不收笔），柱子则跳过空格。
 /// 纵轴按传入的有效值自动取值域（留 12% 余量），这张卡只比较自己 24 小时内的形状，不需要跨卡同轴。
 /// 鼠标悬停时画出竖向指示线与读数气泡，标出该位置的时间和数值。
+///
+/// 数据换新（新采样、换范围、换设备）时不直接跳过去：把旧的一串按新长度重采样成起点，
+/// 用短促的缓动逐帧插值到新值，曲线和柱子会从原来的形状柔和地长成新形状。
 /// </summary>
 public class TrendChart : Control
 {
@@ -26,7 +35,19 @@ public class TrendChart : Control
     /// <summary>横向辅助线的透明度：只在图上留个位置感，不跟曲线抢眼。</summary>
     private const double GridOpacity = 0.22;
 
+    /// <summary>新旧序列之间的过渡时长：足够看清形状在变，又不会让读数看起来过时。</summary>
+    private const double TransitionMs = 460;
+
     private int _hoverIndex = -1;
+
+    /// <summary>当前真正画出来的一串（过渡中是插值结果）；null 时退回 <see cref="Values"/>。</summary>
+    private IReadOnlyList<double>? _renderValues;
+
+    private double[]? _fromValues;
+    private double[]? _toValues;
+    private double[]? _liveValues;
+    private DispatcherTimer? _transitionTimer;
+    private Stopwatch? _transitionWatch;
 
     public static readonly StyledProperty<IReadOnlyList<double>?> ValuesProperty =
         AvaloniaProperty.Register<TrendChart, IReadOnlyList<double>?>(nameof(Values));
@@ -51,6 +72,28 @@ public class TrendChart : Control
     public static readonly StyledProperty<bool> IsDailyBarsProperty =
         AvaloniaProperty.Register<TrendChart, bool>(nameof(IsDailyBars));
 
+    /// <summary>
+    /// 点阵模式：每次测量画一个点、不连线。称重这类离散记录用它——
+    /// 两天之间没有称重，用曲线连过去等于编了一段没发生过的变化。
+    /// </summary>
+    public static readonly StyledProperty<bool> IsDotsProperty =
+        AvaloniaProperty.Register<TrendChart, bool>(nameof(IsDots));
+
+    /// <summary>点阵背后的区间带：取这一串有效值的最低到最高，用主色淡淡铺一层。</summary>
+    public static readonly StyledProperty<bool> ShowBandProperty =
+        AvaloniaProperty.Register<TrendChart, bool>(nameof(ShowBand));
+
+    /// <summary>均值虚线：给点阵补一条「这段时间平均」的横线。</summary>
+    public static readonly StyledProperty<bool> ShowMeanLineProperty =
+        AvaloniaProperty.Register<TrendChart, bool>(nameof(ShowMeanLine));
+
+    /// <summary>
+    /// 外部给的参照基准（例如「上月同期日均」），画成一条横虚线；NaN 表示不画。
+    /// 柱状模式下按 0 基线换算，曲线模式按当前值域换算。
+    /// </summary>
+    public static readonly StyledProperty<double> BaselineProperty =
+        AvaloniaProperty.Register<TrendChart, double>(nameof(Baseline), double.NaN);
+
     /// <summary>柱状模式下高亮的那一格（当前小时）；-1 表示不高亮。</summary>
     public static readonly StyledProperty<int> HighlightIndexProperty =
         AvaloniaProperty.Register<TrendChart, int>(nameof(HighlightIndex), -1);
@@ -71,6 +114,13 @@ public class TrendChart : Control
     public static readonly StyledProperty<double> TimeStepMinutesProperty =
         AvaloniaProperty.Register<TrendChart, double>(nameof(TimeStepMinutes), 5);
 
+    /// <summary>
+    /// 直接给每个点配一段横轴文字（体重按真实称重日期），给值时优先于按格倒推的时间。
+    /// 只影响悬停气泡，不画横轴刻度。
+    /// </summary>
+    public static readonly StyledProperty<IReadOnlyList<string>?> XLabelsProperty =
+        AvaloniaProperty.Register<TrendChart, IReadOnlyList<string>?>(nameof(XLabels));
+
     /// <summary>悬停气泡的底色 / 字色，由主题传入。</summary>
     public static readonly StyledProperty<IBrush?> TipBackgroundProperty =
         AvaloniaProperty.Register<TrendChart, IBrush?>(nameof(TipBackground));
@@ -82,8 +132,30 @@ public class TrendChart : Control
     {
         AffectsRender<TrendChart>(ValuesProperty, StrokeProperty, FillProperty, GridBrushProperty,
             IsBarsProperty, HighlightIndexProperty, ShowEndDotProperty, ThicknessProperty,
-            UnitTextProperty, TimeStepMinutesProperty, TipBackgroundProperty, TipForegroundProperty,
-            IsDailyBarsProperty);
+            UnitTextProperty, TimeStepMinutesProperty, XLabelsProperty, TipBackgroundProperty, TipForegroundProperty,
+            IsDailyBarsProperty, IsDotsProperty, ShowBandProperty, ShowMeanLineProperty, BaselineProperty);
+    }
+
+    /// <summary>序列换新时开一段过渡；卡片里后长出来的图也淡入，不整块突然亮起。</summary>
+    protected override void OnPropertyChanged(AvaloniaPropertyChangedEventArgs change)
+    {
+        base.OnPropertyChanged(change);
+
+        if (change.Property == ValuesProperty)
+        {
+            BeginTransition(change.GetOldValue<IReadOnlyList<double>?>(), change.GetNewValue<IReadOnlyList<double>?>());
+        }
+        else if (change.Property == Visual.IsVisibleProperty && change.GetNewValue<bool>())
+        {
+            BeginFadeIn();
+        }
+    }
+
+    protected override void OnDetachedFromVisualTree(VisualTreeAttachmentEventArgs e)
+    {
+        base.OnDetachedFromVisualTree(e);
+        // 离开页面就把没跑完的过渡收口到终值，回来时看到的是最新数据而不是半截
+        FinishTransition();
     }
 
     public IReadOnlyList<double>? Values
@@ -122,6 +194,30 @@ public class TrendChart : Control
         set => SetValue(IsDailyBarsProperty, value);
     }
 
+    public bool IsDots
+    {
+        get => GetValue(IsDotsProperty);
+        set => SetValue(IsDotsProperty, value);
+    }
+
+    public bool ShowBand
+    {
+        get => GetValue(ShowBandProperty);
+        set => SetValue(ShowBandProperty, value);
+    }
+
+    public bool ShowMeanLine
+    {
+        get => GetValue(ShowMeanLineProperty);
+        set => SetValue(ShowMeanLineProperty, value);
+    }
+
+    public double Baseline
+    {
+        get => GetValue(BaselineProperty);
+        set => SetValue(BaselineProperty, value);
+    }
+
     public int HighlightIndex
     {
         get => GetValue(HighlightIndexProperty);
@@ -152,6 +248,12 @@ public class TrendChart : Control
         set => SetValue(TimeStepMinutesProperty, value);
     }
 
+    public IReadOnlyList<string>? XLabels
+    {
+        get => GetValue(XLabelsProperty);
+        set => SetValue(XLabelsProperty, value);
+    }
+
     public IBrush? TipBackground
     {
         get => GetValue(TipBackgroundProperty);
@@ -168,13 +270,15 @@ public class TrendChart : Control
     {
         var width = Bounds.Width;
         var height = Bounds.Height;
-        var values = Values;
+        var values = _renderValues ?? Values;
         if (values is null || values.Count < 2 || width < 8 || height < 8) return;
         if (Stroke is not { } stroke) return;
 
         DrawGrid(context, width, height, IsBars ? 1 : 2);
+        DrawBaseline(context, values, stroke, width, height);
 
-        if (IsBars) DrawBars(context, values, stroke, width, height);
+        if (IsDots) DrawDots(context, values, stroke, width, height);
+        else if (IsBars) DrawBars(context, values, stroke, width, height);
         else DrawCurve(context, values, stroke, width, height);
 
         if (_hoverIndex >= 0) DrawHover(context, values, stroke, width, height);
@@ -206,6 +310,189 @@ public class TrendChart : Control
             _hoverIndex = -1;
             InvalidateVisual();
         }
+    }
+
+    /// <summary>卡片里后长出来的曲线淡入：不透明度 0→1，不整块突然亮起。</summary>
+    private void BeginFadeIn()
+    {
+        Opacity = 0;
+        var fade = new Animation
+        {
+            Duration = TimeSpan.FromMilliseconds(300),
+            Easing = new CubicEaseOut(),
+            FillMode = FillMode.Forward,
+        };
+        fade.Children.Add(new KeyFrame
+        {
+            Cue = new Cue(0d),
+            Setters = { new Setter(Visual.OpacityProperty, 0d) }
+        });
+        fade.Children.Add(new KeyFrame
+        {
+            Cue = new Cue(1d),
+            Setters = { new Setter(Visual.OpacityProperty, 1d) }
+        });
+        _ = fade.RunAsync(this);
+    }
+
+    /// <summary>
+    /// 新序列到了：以「当前画面上那一串」为起点，重采样到新长度后逐帧插值过去。
+    /// 起点用重采样而不是要求等长——换范围、换设备时点数会差很多，这样也能顺着过渡。
+    /// </summary>
+    private void BeginTransition(IReadOnlyList<double>? oldValues, IReadOnlyList<double>? newValues)
+    {
+        var basis = _renderValues ?? oldValues;
+
+        // 新数据为空 / 点太少：没东西可画，直接换掉
+        if (newValues is null || newValues.Count < 2)
+        {
+            ResetTransition();
+            _renderValues = newValues;
+            return;
+        }
+
+        // 第一次上数据没有「从哪来」：直接落下，卡片的入场动画会盖住这一下
+        if (basis is null || basis.Count < 2 || !HasAnyValid(basis))
+        {
+            ResetTransition();
+            _renderValues = newValues;
+            return;
+        }
+
+        var target = Snapshot(newValues);
+        var from = ResampleTo(basis, target.Length);
+
+        // 数据没变（定时刷新的常态）：不播动画，免得每隔几秒轻轻抖一下
+        if (ValuesEqual(from, target))
+        {
+            ResetTransition();
+            _renderValues = newValues;
+            return;
+        }
+
+        _fromValues = from;
+        _toValues = target;
+        _liveValues = new double[target.Length];
+        Array.Copy(from, _liveValues, from.Length);
+        _renderValues = _liveValues;
+        _transitionWatch = Stopwatch.StartNew();
+
+        if (_transitionTimer is null)
+        {
+            _transitionTimer = new DispatcherTimer(TimeSpan.FromMilliseconds(16),
+                DispatcherPriority.Render, (_, _) => TickTransition());
+        }
+        _transitionTimer.Start();
+        InvalidateVisual();
+    }
+
+    private void TickTransition()
+    {
+        if (_transitionWatch is null || _fromValues is null || _toValues is null || _liveValues is null)
+        {
+            StopTimer();
+            return;
+        }
+
+        var raw = Math.Min(1.0, _transitionWatch.Elapsed.TotalMilliseconds / TransitionMs);
+        // 前段快、后段绵长：先让形状从旧态快速脱离，再慢慢落到新值，收尾不突然停住
+        var eased = 1 - Math.Pow(1 - raw, 4);
+
+        var count = _liveValues.Length;
+        for (var i = 0; i < count; i++)
+        {
+            var a = _fromValues[i];
+            var b = _toValues[i];
+            if (double.IsNaN(a) || double.IsNaN(b))
+            {
+                _liveValues[i] = b;
+                continue;
+            }
+            _liveValues[i] = a + (b - a) * eased;
+        }
+
+        InvalidateVisual();
+        if (raw >= 1) FinishTransition();
+    }
+
+    /// <summary>把过渡收口到终值：不留下半截曲线，也不会让旧序列一直压在画面上。</summary>
+    private void FinishTransition()
+    {
+        if (_toValues is not null)
+        {
+            _liveValues = null;
+            _renderValues = _toValues;
+        }
+        ResetTransition();
+    }
+
+    /// <summary>丢掉过渡状态但不改当前画面：数据直接换掉、或没有过渡可跑时用。</summary>
+    private void ResetTransition()
+    {
+        _fromValues = null;
+        _toValues = null;
+        _liveValues = null;
+        _transitionWatch = null;
+        StopTimer();
+    }
+
+    private void StopTimer() => _transitionTimer?.Stop();
+
+    private static double[] Snapshot(IReadOnlyList<double> values)
+    {
+        var result = new double[values.Count];
+        for (var i = 0; i < values.Count; i++) result[i] = values[i];
+        return result;
+    }
+
+    /// <summary>把旧序列按相对位置线性重采样到新长度；断档（NaN）尽量用相邻的有效值接上。</summary>
+    private static double[] ResampleTo(IReadOnlyList<double> source, int count)
+    {
+        var result = new double[count];
+        if (count == 0) return result;
+        if (source.Count == 0)
+        {
+            Array.Fill(result, double.NaN);
+            return result;
+        }
+        if (source.Count == 1)
+        {
+            Array.Fill(result, source[0]);
+            return result;
+        }
+
+        for (var i = 0; i < count; i++)
+        {
+            var pos = (double)i * (source.Count - 1) / (count - 1);
+            var low = (int)Math.Floor(pos);
+            var high = Math.Min(source.Count - 1, low + 1);
+            var fraction = pos - low;
+
+            var a = source[low];
+            var b = source[high];
+            if (double.IsNaN(a)) result[i] = b;
+            else if (double.IsNaN(b)) result[i] = a;
+            else result[i] = a + (b - a) * fraction;
+        }
+        return result;
+    }
+
+    private static bool ValuesEqual(double[] a, double[] b)
+    {
+        if (a.Length != b.Length) return false;
+        for (var i = 0; i < a.Length; i++)
+        {
+            if (double.IsNaN(a[i]) && double.IsNaN(b[i])) continue;
+            if (a[i] != b[i]) return false;
+        }
+        return true;
+    }
+
+    private static bool HasAnyValid(IReadOnlyList<double> values)
+    {
+        foreach (var v in values)
+            if (!double.IsNaN(v)) return true;
+        return false;
     }
 
     private void DrawGrid(DrawingContext context, double width, double height, int lines)
@@ -337,6 +624,100 @@ public class TrendChart : Control
         }
     }
 
+    /// <summary>
+    /// 参照基准线（例如「上月同期日均」）：一条横虚线，回答「比它高还是低」。
+    /// 柱子从 0 起算，所以柱状模式按 0 到最大值换算；曲线按当前值域换算。
+    /// </summary>
+    private void DrawBaseline(DrawingContext context, IReadOnlyList<double> values, IBrush stroke,
+        double width, double height)
+    {
+        var value = Baseline;
+        if (double.IsNaN(value)) return;
+
+        double y;
+        if (IsBars)
+        {
+            var (_, max) = Range(values);
+            if (double.IsNaN(max) || max <= 0 || value <= 0) return;
+            y = height - Math.Min(1, value / max) * (height - 1);
+        }
+        else
+        {
+            var (min, max) = Range(values);
+            if (double.IsNaN(min)) return;
+            Pad(ref min, ref max);
+            var plotH = height - PadT - PadB;
+            y = PadT + plotH * (1 - (value - min) / (max - min));
+        }
+
+        y = Math.Round(y) + 0.5;
+        var brush = TryColor(stroke) is { } c
+            ? new SolidColorBrush(Color.FromArgb(96, c.R, c.G, c.B))
+            : GridBrush ?? stroke;
+        var pen = new Pen(brush, 1, dashStyle: new DashStyle(new double[] { 4, 3 }, 0));
+        context.DrawLine(pen, new Point(PadL, y), new Point(width - PadR, y));
+    }
+
+    /// <summary>
+    /// 点阵：每次测量画一个点。背后可以铺一条「最低到最高」的区间带、画一条均值虚线，
+    /// 但绝不把点连成线——没称重的日子没有数据，连起来就是一段编出来的变化。
+    /// </summary>
+    private void DrawDots(DrawingContext context, IReadOnlyList<double> values, IBrush stroke,
+        double width, double height)
+    {
+        var (rawMin, rawMax) = Range(values);
+        if (double.IsNaN(rawMin)) return;
+
+        var min = rawMin;
+        var max = rawMax;
+        Pad(ref min, ref max);
+
+        var plotW = width - PadL - PadR;
+        var plotH = height - PadT - PadB;
+        if (plotW <= 0 || plotH <= 0) return;
+
+        double X(int i) => PadL + plotW * i / (values.Count - 1);
+        double Y(double v) => PadT + plotH * (1 - (v - min) / (max - min));
+
+        var color = TryColor(stroke);
+
+        // 区间带：这一串读数落在的范围，只铺一层底色，不跟点抢眼
+        if (ShowBand && color is { } bandColor && rawMax - rawMin > 1e-9)
+        {
+            var top = Y(rawMax);
+            var bottom = Y(rawMin);
+            var bandH = Math.Max(1, bottom - top);
+            var rect = new Rect(PadL - 1, top, plotW + 2, bandH);
+            FillRoundRect(context,
+                new SolidColorBrush(Color.FromArgb(30, bandColor.R, bandColor.G, bandColor.B)), rect,
+                Math.Min(5.0, bandH / 2));
+        }
+
+        // 均值虚线：这段时间的平均水平，压得比点更淡
+        if (ShowMeanLine && color is { } meanColor)
+        {
+            var mean = Mean(values);
+            if (!double.IsNaN(mean))
+            {
+                var y = Math.Round(Y(mean)) + 0.5;
+                var pen = new Pen(new SolidColorBrush(Color.FromArgb(72, meanColor.R, meanColor.G, meanColor.B)),
+                    1, dashStyle: new DashStyle(new double[] { 4, 3 }, 0));
+                context.DrawLine(pen, new Point(PadL, y), new Point(width - PadR, y));
+            }
+        }
+
+        for (var i = 0; i < values.Count; i++)
+        {
+            var v = values[i];
+            if (double.IsNaN(v)) continue;
+            var p = new Point(X(i), Y(v));
+            if (color is { } glow)
+                context.DrawEllipse(new SolidColorBrush(Color.FromArgb(30, glow.R, glow.G, glow.B)),
+                    null, p, 6, 6);
+            context.DrawEllipse(stroke, null, p, 3, 3);
+        }
+    }
+
     /// <summary>1-2-1 权重的轻平滑：只让线条更圆润，起点终点不动，也不改原始数据。</summary>
     private static List<Point> Soften(IReadOnlyList<Point> pts)
     {
@@ -456,11 +837,14 @@ public class TrendChart : Control
         context.DrawText(ft, new Point(left + 7, top + 4));
     }
 
-    /// <summary>横轴标签：曲线按「最后一格 = 现在」倒推，柱子就是整点。</summary>
+    /// <summary>横轴标签：给了每个点的文字就直接用（体重按真实称重日期），否则按天/整点/最后一格倒推。</summary>
     private string TimeLabel(int idx, int count)
     {
-        // 柱子按天的历史模式：最后一格是今天，往前一天一格
-        if (IsBars && IsDailyBars)
+        if (XLabels is { Count: > 0 } labels && idx >= 0 && idx < labels.Count
+            && !string.IsNullOrEmpty(labels[idx]))
+            return labels[idx];
+        // 按天的历史：最后一格是今天，往前一天一格
+        if (IsDailyBars)
             return $"{DateTime.Today.AddDays(idx - (count - 1)):M/d}";
         if (IsBars) return $"{idx:00}:00";
         var minutes = Math.Max(0, TimeStepMinutes) * (count - 1 - idx);
@@ -509,6 +893,20 @@ public class TrendChart : Control
             if (v > max) max = v;
         }
         return min == double.MaxValue ? (double.NaN, double.NaN) : (min, max);
+    }
+
+    /// <summary>有效值的平均；一个有效值都没有时返回 NaN。</summary>
+    private static double Mean(IReadOnlyList<double> values)
+    {
+        var sum = 0.0;
+        var count = 0;
+        foreach (var v in values)
+        {
+            if (double.IsNaN(v)) continue;
+            sum += v;
+            count++;
+        }
+        return count == 0 ? double.NaN : sum / count;
     }
 
     private static void Pad(ref double min, ref double max)

@@ -71,7 +71,7 @@
             <Setter Property="Background" Value="Transparent" />
             <Setter Property="BorderThickness" Value="0" />
             <Setter Property="HorizontalAlignment" Value="Center" />
-            <Setter Property="VerticalAlignment" Value="Bottom" />
+            <Setter Property="VerticalAlignment" Value="Center" />
             <Setter Property="Cursor" Value="Hand" />
             <Setter Property="Focusable" Value="False" />
             <Setter Property="Template">
@@ -95,7 +95,7 @@
         </Style>
     </UserControl.Styles>
 
-    <!-- 柱子底部对齐、胶囊纵向居中：高矮参差的柱子从同一条线上长起来 -->
+    <!-- 柱子与胶囊都竖直居中：高矮参差的柱子以同一条水平中线为轴上下对称地长 -->
     <Grid ColumnDefinitions="Auto,*" ColumnSpacing="2" Height="30">
         <ItemsControl Name="AutoHost" VerticalAlignment="Center"
                       ItemsSource="{Binding $parent[ctl:FanSpeedGauge].AutoChips}"
@@ -116,7 +116,7 @@
             </ItemsControl.ItemTemplate>
         </ItemsControl>
 
-        <ItemsControl Grid.Column="1" VerticalAlignment="Bottom"
+        <ItemsControl Grid.Column="1" VerticalAlignment="Center"
                       ItemsSource="{Binding $parent[ctl:FanSpeedGauge].Bars}">
             <ItemsControl.ItemsPanel>
                 <ItemsPanelTemplate>

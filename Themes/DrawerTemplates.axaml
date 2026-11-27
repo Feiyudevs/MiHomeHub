@@ -59,7 +59,7 @@
              右上角小房子 = 已显示在主页设备卡上；灰=未显示，点一下切换（同类设备一起生效） -->
         <DataTemplate x:Key="MetricTileTemplate" x:DataType="vm:MetricTileVm">
             <Button Classes="MetricTile" Classes.is-on="{Binding IsShown}"
-                    Margin="0,0,8,8"
+                    Margin="0"
                     ToolTip.Tip="点一下切换：是否显示在主页设备卡"
                     Command="{Binding $parent[ItemsControl].((vm:MainViewModel)DataContext).ToggleMetricTileCommand}"
                     CommandParameter="{Binding}">

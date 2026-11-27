@@ -333,13 +333,15 @@
              所以要整卡可点 —— 做成 Button，卡面（底色/圆角/投影）画在模板里的 Border。
              选中不改底色（整排跳色太重），只在顶部拉一条强调线 + 点亮右上角小房子。 -->
         <Style Selector="Button.MetricTile">
-            <Setter Property="Width" Value="104" />
+            <!-- 宽度交给所在网格分列（详情顶部一排最多 3 张），这里只规定最小宽度，
+                 固定 104 宽在抽屉里放不下 3 张，会折成两行 -->
+            <Setter Property="MinWidth" Value="96" />
             <Setter Property="Padding" Value="12,9" />
             <Setter Property="Background" Value="{DynamicResource CardBrush}" />
             <!-- 一圈淡描边：深色底上把卡从背景里轻轻托起来，浅色底也不会凭空冒边 -->
             <Setter Property="BorderThickness" Value="1" />
             <Setter Property="BorderBrush" Value="{DynamicResource LineBrush}" />
-            <Setter Property="HorizontalAlignment" Value="Left" />
+            <Setter Property="HorizontalAlignment" Value="Stretch" />
             <Setter Property="VerticalAlignment" Value="Top" />
             <Setter Property="HorizontalContentAlignment" Value="Stretch" />
             <Setter Property="VerticalContentAlignment" Value="Stretch" />
@@ -576,9 +578,10 @@
             <Setter Property="Background" Value="{DynamicResource PillWarnBgHoverBrush}" />
         </Style>
         <!-- 统计卡：可点开对应设备弹窗。静息外观在所有统计卡上逐值一致
-             （圆角 16 / 内距 16,13 / 最小宽 96 / 拟物渐变底 + 极淡描边），差别只在悬停反馈。
+             （圆角 16 / 内距 16,13 / 最小宽 96 / 卡片色底 + 极淡描边），差别只在悬停反馈。
+             卡面直接跟全局卡片色，和首页趋势卡、列表卡同色，不再自带一套渐变色。
              不投影：投影在深色面板上几乎看不见，在浅色面板上反而沿轮廓勾出一圈暗边，
-             立体感交给卡面渐变与那圈淡描边。
+             分层交给卡片色与那圈淡描边。
              MinWidth、内距都写在模板内的 Border 上：Button 自身的 MinWidth 会算上默认内距，宽度对不齐其余卡片。 -->
         <Style Selector="Button.StatCard">
             <Setter Property="Cursor" Value="Hand" />
@@ -597,7 +600,7 @@
             <Setter Property="Template">
                 <ControlTemplate>
                     <Border Name="Card" CornerRadius="16" Padding="16,13" MinWidth="96"
-                            Background="{DynamicResource StatCardBrush}"
+                            Background="{DynamicResource CardBrush}"
                             BorderThickness="1"
                             BorderBrush="{DynamicResource StatCardLineBrush}">
                         <ContentPresenter Content="{TemplateBinding Content}"
@@ -657,13 +660,16 @@
             <Setter Property="StrokeLineCap" Value="Round" />
             <Setter Property="StrokeJoin" Value="Round" />
         </Style>
-        <!-- 首页环境趋势卡：与统计卡同档圆角/卡色/投影，内距更宽给曲线让位；不可点，所以没有悬停反馈 -->
+        <!-- 首页环境趋势卡：与统计卡同档圆角/卡色/投影，内距更宽给曲线让位；卡本身不点，只有预览标识与来源/范围下拉可点 -->
         <!-- 趋势卡：内衬上下各收 2，卡整体矮一档，和其他卡片排在一起不再显得发胀 -->
         <Style Selector="Border.TrendCard">
             <Setter Property="CornerRadius" Value="16" />
             <Setter Property="Background" Value="{DynamicResource CardBrush}" />
             <Setter Property="BoxShadow" Value="{DynamicResource CardShadow}" />
             <Setter Property="Padding" Value="16,12,16,10" />
+            <!-- 投影必须画到边框外面：Border 自己不裁、由外层留白接住 -->
+            <Setter Property="ClipToBounds" Value="False" />
+            <Setter Property="Margin" Value="8" />
         </Style>
         <!-- 「较昨日」小胶囊：浅底、字不抢主读数 -->
         <Style Selector="Border.TrendChip">
@@ -678,6 +684,40 @@
             <Setter Property="CornerRadius" Value="8" />
             <Setter Property="Padding" Value="7,2" />
             <Setter Property="VerticalAlignment" Value="Center" />
+        </Style>
+        <!-- 趋势卡标题旁的「预览」标识：只在鼠标移入卡片时浮出来，点一下弹说明。
+             平时完全收起，不抢读数；不移入就看不到，避免没有设备的卡看起来像在报假数据。 -->
+        <Style Selector="Button.TrendPreviewTag">
+            <Setter Property="Height" Value="20" />
+            <Setter Property="MinHeight" Value="0" />
+            <Setter Property="Padding" Value="7,0" />
+            <Setter Property="FontSize" Value="10" />
+            <Setter Property="FontWeight" Value="Normal" />
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="Opacity" Value="0" />
+            <Setter Property="IsHitTestVisible" Value="False" />
+            <Setter Property="VerticalAlignment" Value="Center" />
+            <Setter Property="Transitions">
+                <Transitions>
+                    <DoubleTransition Property="Opacity" Duration="0:0:0.16" Easing="CubicEaseOut" />
+                </Transitions>
+            </Setter>
+            <Setter Property="Template">
+                <ControlTemplate>
+                    <Border Name="Bd" CornerRadius="8" Background="{DynamicResource AmberSoftBrush}"
+                            Padding="{TemplateBinding Padding}">
+                        <ContentPresenter Content="{TemplateBinding Content}"
+                                          HorizontalAlignment="Center" VerticalAlignment="Center" />
+                    </Border>
+                </ControlTemplate>
+            </Setter>
+        </Style>
+        <Style Selector="Button.TrendPreviewTag:pointerover">
+            <Setter Property="Opacity" Value="1" />
+        </Style>
+        <Style Selector="Border.TrendCard:pointerover Button.TrendPreviewTag">
+            <Setter Property="Opacity" Value="1" />
+            <Setter Property="IsHitTestVisible" Value="True" />
         </Style>
         <Style Selector="TextBlock.TrendLab">
             <Setter Property="FontSize" Value="11.5" />
@@ -721,6 +761,7 @@
             <Setter Property="HorizontalAlignment" Value="Left" />
             <Setter Property="VerticalAlignment" Value="Center" />
         </Style>
+        <!-- 没有设备的趋势卡不再空着，改铺一份示例数据；卡上的「预览」标识由 HomeView 里的 TrendPreviewTag 负责 -->
 
         <!-- 离线数量：颜色只走样式，元素上写本地 Foreground 会压过 is-warn 覆盖 -->
         <Style Selector="TextBlock.OfflineTag">

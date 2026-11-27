@@ -165,9 +165,17 @@
                         <!-- 场景图标不跟首页那套浅色底：分区底是玻璃，色块压上去会糊，改为一档半透明白底 + 场景自己的图标色 -->
                         <Border Width="42" Height="42" CornerRadius="12" VerticalAlignment="Center"
                                 HorizontalAlignment="Center" Background="{DynamicResource DskSwitchBrush}">
-                            <Path Width="20" Height="20" Stretch="Uniform" Stroke="{Binding IconFgBrush}"
-                                  StrokeThickness="1.7" StrokeLineCap="Round" StrokeJoin="Round"
-                                  Data="{Binding Icon}" />
+                            <Panel>
+                                <Path Width="20" Height="20" Stretch="Uniform" Stroke="{Binding IconFgBrush}"
+                                      StrokeThickness="1.7" StrokeLineCap="Round" StrokeJoin="Round"
+                                      Opacity="{Binding DefaultIconOpacity}"
+                                      Data="{Binding Icon}" />
+                                <!-- 自定义图铺满 42 圆角底 -->
+                                <ctl:RoundedImage CornerRadius="12"
+                                                  IsHitTestVisible="False"
+                                                  IsVisible="{Binding HasCustomIcon}"
+                                                  Source="{Binding CustomIcon.Image}" />
+                            </Panel>
                         </Border>
                     </Panel>
                     <StackPanel Grid.Column="1" VerticalAlignment="Center" Margin="12,0,10,0" Spacing="3">

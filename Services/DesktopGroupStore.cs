@@ -31,6 +31,7 @@ public static class DesktopGroupStore
             if (string.IsNullOrWhiteSpace(text)) return new DesktopLayout();
             var layout = JsonSerializer.Deserialize<DesktopLayout>(text, Options) ?? new DesktopLayout();
             MigrateDensity(layout);
+            CleanZoneContents(layout);
             return layout;
         }
         catch
@@ -81,6 +82,26 @@ public static class DesktopGroupStore
 
     /// <summary>当前外观迁移版本，语义变档时 +1（见 <see cref="MigrateDensity"/>）。</summary>
     private const int CurrentAppearanceVersion = 2;
+
+    /// <summary>
+    /// 媒体 / 空调分区是专用卡面（音响播放 / 空调控制），本来就不吃 Dids / SceneIds。
+    /// 老版本曾把设备写进这两块分区的清单里（选择分区的弹窗因此把它们列成「N 台设备」），
+    /// 读到就顺手清干净，改完直接落盘。
+    /// </summary>
+    private static void CleanZoneContents(DesktopLayout layout)
+    {
+        var cleaned = false;
+        foreach (var g in layout.Groups)
+        {
+            if (!g.IsMedia && !g.IsAc) continue;
+            if (g.Dids.Count == 0 && g.SceneIds.Count == 0) continue;
+            g.Dids.Clear();
+            g.SceneIds.Clear();
+            cleaned = true;
+        }
+
+        if (cleaned) Save(layout);
+    }
 
     public static void Save(DesktopLayout layout)
     {

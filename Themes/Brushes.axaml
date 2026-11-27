@@ -180,6 +180,11 @@
                         <GradientStop Color="#8CFFC868" Offset="0"/>
                         <GradientStop Color="#00FFC868" Offset="1"/>
                     </RadialGradientBrush>
+                    <!-- 点着的灯泡本体：专属一支，不借 AmberBrush——琥珀在深色下要亮、在浅色下是一枚
+                         压在近白底上的小实心图形，亮琥珀会糊成一团淡黄；两个主题各配一档，改琥珀文字色也不会误伤它。
+                         灯身与灯口分两支：浅色主题靠更深的灯口把亮灯身勾出形状，才不会糊成一圈光 -->
+                    <SolidColorBrush x:Key="LampBulbBrush" Color="#FFD97A"/>
+                    <SolidColorBrush x:Key="LampBulbBaseBrush" Color="#FFD97A"/>
                     <SolidColorBrush x:Key="AmberTextBrush" Color="#FFE7AE"/>
                     <SolidColorBrush x:Key="PurpleBrush" Color="#C7BFFF"/>
                     <SolidColorBrush x:Key="PurpleSoftBrush" Color="#26A78BFA"/>
@@ -194,6 +199,19 @@
                     <SolidColorBrush x:Key="TrendTempBrush" Color="#FFC07A"/>
                     <SolidColorBrush x:Key="TrendHumBrush" Color="#8FD9FF"/>
                     <SolidColorBrush x:Key="TrendPowerBrush" Color="#B3A6FF"/>
+                    <!-- 用水走深一档的水蓝、水质走薄荷青：与湿度的浅天蓝拉开，三张卡不混色 -->
+                    <SolidColorBrush x:Key="TrendWaterBrush" Color="#5FB4FF"/>
+                    <SolidColorBrush x:Key="TrendQualityBrush" Color="#7BE3C4"/>
+                    <SolidColorBrush x:Key="TrendGasBrush" Color="#FFB066"/>
+                    <!-- 体重走薄荷绿：跟水质青、用水蓝再拉开一档，健康向的卡不抢环境卡的冷暖 -->
+                    <SolidColorBrush x:Key="TrendScaleBrush" Color="#8FE3A8"/>
+                    <!-- 首页空气小卡：一项一个色相，色条 / 标题 / 读数同色——
+                         雾蓝颗粒物、砂褐 PM10、玫粉甲醛、柠檬 TVOC、青 CO₂，五枚并排不混色 -->
+                    <SolidColorBrush x:Key="AirPm25Brush" Color="#A9C0DE"/>
+                    <SolidColorBrush x:Key="AirPm10Brush" Color="#D9B184"/>
+                    <SolidColorBrush x:Key="AirHchoBrush" Color="#FFA2C4"/>
+                    <SolidColorBrush x:Key="AirTvocBrush" Color="#C9DE85"/>
+                    <SolidColorBrush x:Key="AirCo2Brush" Color="#7DDFE4"/>
                     <LinearGradientBrush x:Key="TrendTempFill" StartPoint="0%,0%" EndPoint="0%,100%">
                         <GradientStop Color="#47FFC07A" Offset="0"/>
                         <GradientStop Color="#00FFC07A" Offset="1"/>
@@ -206,12 +224,32 @@
                         <GradientStop Color="#3DB3A6FF" Offset="0"/>
                         <GradientStop Color="#00B3A6FF" Offset="1"/>
                     </LinearGradientBrush>
+                    <LinearGradientBrush x:Key="TrendWaterFill" StartPoint="0%,0%" EndPoint="0%,100%">
+                        <GradientStop Color="#3D5FB4FF" Offset="0"/>
+                        <GradientStop Color="#005FB4FF" Offset="1"/>
+                    </LinearGradientBrush>
+                    <LinearGradientBrush x:Key="TrendQualityFill" StartPoint="0%,0%" EndPoint="0%,100%">
+                        <GradientStop Color="#367BE3C4" Offset="0"/>
+                        <GradientStop Color="#007BE3C4" Offset="1"/>
+                    </LinearGradientBrush>
+                    <LinearGradientBrush x:Key="TrendGasFill" StartPoint="0%,0%" EndPoint="0%,100%">
+                        <GradientStop Color="#3DFFB066" Offset="0"/>
+                        <GradientStop Color="#00FFB066" Offset="1"/>
+                    </LinearGradientBrush>
+                    <LinearGradientBrush x:Key="TrendScaleFill" StartPoint="0%,0%" EndPoint="0%,100%">
+                        <GradientStop Color="#3D8FE3A8" Offset="0"/>
+                        <GradientStop Color="#008FE3A8" Offset="1"/>
+                    </LinearGradientBrush>
                     <SolidColorBrush x:Key="CoolBrush" Color="#9FC9FF"/>
                     <SolidColorBrush x:Key="SurfaceBrush" Color="#0DFFFFFF"/>
                     <SolidColorBrush x:Key="Surface4Brush" Color="#0FFFFFFF"/>
                     <SolidColorBrush x:Key="Surface5Brush" Color="#14FFFFFF"/>
                     <SolidColorBrush x:Key="TrackBrush" Color="#2A3040"/>
                     <SolidColorBrush x:Key="ThumbBrush" Color="#8E96A8"/>
+                    <!-- 开关关闭态：深色沿用原来的 #2A3040，不描边、滑块也不描边，观感保持不变 -->
+                    <SolidColorBrush x:Key="SwitchOffBrush" Color="#2A3040"/>
+                    <SolidColorBrush x:Key="SwitchOffStrokeBrush" Color="#00000000"/>
+                    <SolidColorBrush x:Key="SwitchKnobStrokeBrush" Color="#00000000"/>
                     <!-- 滑动条（深色）：加高轨道、渐变已填充段、白滑块 -->
                     <SolidColorBrush x:Key="SliderTrackFill" Color="#3A4258"/>
                     <SolidColorBrush x:Key="SliderTrackFillPointerOver" Color="#47506B"/>
@@ -256,13 +294,7 @@
                         <GradientStop Color="#0D7C5CFC" Offset="0.55"/>
                         <GradientStop Color="#D11D1F26" Offset="1"/>
                     </LinearGradientBrush>
-                    <!-- 首页统计卡拟物底：参照设备卡参考图 —— 深紫灰卡面带极弱的纵向明暗（上略亮、下略沉），
-                         四周一圈细描边收轮廓，立体起伏交给厚重的分层投影。卡面不铺彩色晕，色调只留在图标与数字上。 -->
-                    <LinearGradientBrush x:Key="StatCardBrush" StartPoint="0,0" EndPoint="0,1">
-                        <GradientStop Color="#2E2B38" Offset="0"/>
-                        <GradientStop Color="#26242F" Offset="0.5"/>
-                        <GradientStop Color="#1E1D26" Offset="1"/>
-                    </LinearGradientBrush>
+                    <!-- 首页统计卡不再单独配底色，直接跟 CardBrush；只留这一圈细描边收轮廓 -->
                     <SolidColorBrush x:Key="StatCardLineBrush" Color="#10FFFFFF"/>
                     <SolidColorBrush x:Key="StatCardLineHoverBrush" Color="#1EFFFFFF"/>
                     <!-- 添加设备（选择器）里的设备卡：只在弹窗底 #0E1014 上淡淡浮起一层，
@@ -449,11 +481,21 @@
                     <!-- 耗材不足的琥珀胶囊：底色比全局 AmberSoftBrush 再淡一档，和新建的浅色胶囊一个密度 -->
                     <SolidColorBrush x:Key="PillWarnBgBrush" Color="#1CE9A05C"/>
                     <SolidColorBrush x:Key="PillWarnBgHoverBrush" Color="#2AE9A05C"/>
-                    <!-- 浅色主题同一只灯泡的光晕：暖橙中心略压深一档，白底上也看得出在发光 -->
+                    <!-- 浅色主题同一只灯泡的光晕：暖橙中心略压深一档，白底上也看得出在发光。
+                         浅色底把亮黄吃得只剩一片奶白，光晕跟着灯身一起走深一档的琥珀 -->
                     <RadialGradientBrush x:Key="LampGlowBrush" Center="50%,50%" GradientOrigin="50%,50%">
-                        <GradientStop Color="#66E9A05C" Offset="0"/>
-                        <GradientStop Color="#00E9A05C" Offset="1"/>
+                        <GradientStop Color="#9EFFB54A" Offset="0"/>
+                        <GradientStop Color="#3DFFB54A" Offset="0.5"/>
+                        <GradientStop Color="#00FFB54A" Offset="1"/>
                     </RadialGradientBrush>
+                    <!-- 浅色主题的灯泡本体要「亮着」：灯身用上亮下深的暖黄渐变（上 #FFD766 像灯芯的高光，
+                         下 #FFA71A 收住饱和度），不靠压暗换对比——上一版压到 #C46A12 直接变成一粒黑影。
+                         灯口另走一支深琥珀 #D9820B，把亮灯身在浅底上勾出轮廓 -->
+                    <LinearGradientBrush x:Key="LampBulbBrush" StartPoint="50%,0%" EndPoint="50%,100%">
+                        <GradientStop Color="#FFD766" Offset="0"/>
+                        <GradientStop Color="#FFA71A" Offset="1"/>
+                    </LinearGradientBrush>
+                    <SolidColorBrush x:Key="LampBulbBaseBrush" Color="#D9820B"/>
                     <SolidColorBrush x:Key="AmberTextBrush" Color="#C9843C"/>
                     <SolidColorBrush x:Key="PurpleBrush" Color="#A78BFA"/>
                     <SolidColorBrush x:Key="PurpleSoftBrush" Color="#1F7C3AED"/>
@@ -468,6 +510,16 @@
                     <SolidColorBrush x:Key="TrendTempBrush" Color="#D98338"/>
                     <SolidColorBrush x:Key="TrendHumBrush" Color="#2E9FD6"/>
                     <SolidColorBrush x:Key="TrendPowerBrush" Color="#7A69E8"/>
+                    <SolidColorBrush x:Key="TrendWaterBrush" Color="#2178C4"/>
+                    <SolidColorBrush x:Key="TrendQualityBrush" Color="#1FA98C"/>
+                    <SolidColorBrush x:Key="TrendGasBrush" Color="#C46A12"/>
+                    <SolidColorBrush x:Key="TrendScaleBrush" Color="#33BE74"/>
+                    <!-- 浅色主题同一套空气色相，压深一档保证白底上读得清 -->
+                    <SolidColorBrush x:Key="AirPm25Brush" Color="#4C6E96"/>
+                    <SolidColorBrush x:Key="AirPm10Brush" Color="#9E6A35"/>
+                    <SolidColorBrush x:Key="AirHchoBrush" Color="#CC4E7C"/>
+                    <SolidColorBrush x:Key="AirTvocBrush" Color="#7C9728"/>
+                    <SolidColorBrush x:Key="AirCo2Brush" Color="#168A96"/>
                     <LinearGradientBrush x:Key="TrendTempFill" StartPoint="0%,0%" EndPoint="0%,100%">
                         <GradientStop Color="#33D98338" Offset="0"/>
                         <GradientStop Color="#00D98338" Offset="1"/>
@@ -480,12 +532,35 @@
                         <GradientStop Color="#2E7A69E8" Offset="0"/>
                         <GradientStop Color="#007A69E8" Offset="1"/>
                     </LinearGradientBrush>
+                    <LinearGradientBrush x:Key="TrendWaterFill" StartPoint="0%,0%" EndPoint="0%,100%">
+                        <GradientStop Color="#2E2178C4" Offset="0"/>
+                        <GradientStop Color="#002178C4" Offset="1"/>
+                    </LinearGradientBrush>
+                    <LinearGradientBrush x:Key="TrendQualityFill" StartPoint="0%,0%" EndPoint="0%,100%">
+                        <GradientStop Color="#2E1FA98C" Offset="0"/>
+                        <GradientStop Color="#001FA98C" Offset="1"/>
+                    </LinearGradientBrush>
+                    <LinearGradientBrush x:Key="TrendGasFill" StartPoint="0%,0%" EndPoint="0%,100%">
+                        <GradientStop Color="#33C46A12" Offset="0"/>
+                        <GradientStop Color="#00C46A12" Offset="1"/>
+                    </LinearGradientBrush>
+                    <LinearGradientBrush x:Key="TrendScaleFill" StartPoint="0%,0%" EndPoint="0%,100%">
+                        <GradientStop Color="#3333BE74" Offset="0"/>
+                        <GradientStop Color="#0033BE74" Offset="1"/>
+                    </LinearGradientBrush>
                     <SolidColorBrush x:Key="CoolBrush" Color="#3B82F6"/>
                     <SolidColorBrush x:Key="SurfaceBrush" Color="#0D0F172A"/>
                     <SolidColorBrush x:Key="Surface4Brush" Color="#120F172A"/>
                     <SolidColorBrush x:Key="Surface5Brush" Color="#140F172A"/>
                     <SolidColorBrush x:Key="TrackBrush" Color="#E7EBF3"/>
                     <SolidColorBrush x:Key="ThumbBrush" Color="#FFFFFF"/>
+                    <!-- 开关关闭态的轨道：原来直接借 TrackBrush 的 #E7EBF3，压在 #FFFFFF / #F6F8FC 的卡片上
+                         只有 1.1:1，实机屏幕上一整个开关会「消失」（截图里还能勉强看出淡边，所以容易被当成渲染问题）。
+                         现在把轨道沉到 #CDD4E2（对卡片约 1.4:1），再补一圈 #B4BFD0 的细边（约 2:1），
+                         白滑块另有 1.5:1 —— 无论面板对比度多低、底是纯白还是磨砂白，开关都能看清 -->
+                    <SolidColorBrush x:Key="SwitchOffBrush" Color="#CDD4E2"/>
+                    <SolidColorBrush x:Key="SwitchOffStrokeBrush" Color="#B4BFD0"/>
+                    <SolidColorBrush x:Key="SwitchKnobStrokeBrush" Color="#1A0F172A"/>
                     <!-- 滑动条（浅色）：加高轨道、渐变已填充段、白滑块 -->
                     <SolidColorBrush x:Key="SliderTrackFill" Color="#C6CCD8"/>
                     <SolidColorBrush x:Key="SliderTrackFillPointerOver" Color="#B5BDCC"/>
@@ -528,13 +603,7 @@
                         <GradientStop Color="#0A6D5BE3" Offset="0.55"/>
                         <GradientStop Color="#FFFFFF" Offset="1"/>
                     </LinearGradientBrush>
-                    <!-- 浅色下统计卡拟物底：白到浅冷灰的弱纵向渐变。底端压灰只留在卡内一小段，
-                         渐变全程覆盖整卡容易从边缘晕出一圈灰边，所以末段压得浅、收得快。 -->
-                    <LinearGradientBrush x:Key="StatCardBrush" StartPoint="0,0" EndPoint="0,1">
-                        <GradientStop Color="#FFFFFF" Offset="0"/>
-                        <GradientStop Color="#F2F5F9" Offset="0.6"/>
-                        <GradientStop Color="#E7ECF3" Offset="1"/>
-                    </LinearGradientBrush>
+                    <!-- 浅色下统计卡同样走 CardBrush（纯白），靠极淡描边和卡片外这一层面板灰分出边界 -->
                     <SolidColorBrush x:Key="StatCardLineBrush" Color="#0C0F172A"/>
                     <SolidColorBrush x:Key="StatCardLineHoverBrush" Color="#160F172A"/>
                     <!-- 添加设备（选择器）里的设备卡：浅色下用纯白卡 + 悬停淡灰 -->

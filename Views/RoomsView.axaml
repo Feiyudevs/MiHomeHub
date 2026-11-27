@@ -5,6 +5,21 @@
              xmlns:ctl="clr-namespace:MiHomeHub.Controls"
              xmlns:views="clr-namespace:MiHomeHub.Views"
              x:Class="MiHomeHub.Views.RoomsView">
+    <UserControl.Styles>
+        <!-- 房间横幅图标兼作换图标入口：按钮壳全透明，外观完全交给里面那块圆角底 -->
+        <Style Selector="Button.IconPick">
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="BorderThickness" Value="0" />
+            <Setter Property="Padding" Value="0" />
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="Template">
+                <ControlTemplate>
+                    <ContentPresenter Content="{TemplateBinding Content}"
+                                      HorizontalAlignment="Stretch" VerticalAlignment="Stretch" />
+                </ControlTemplate>
+            </Setter>
+        </Style>
+    </UserControl.Styles>
     <!-- 右 16 内距 + 底 20 内距：右侧是给页面滚动条让出的空白（Carousel 右外距 6 + 16 = 原 22，正文宽度不变），
          底部留白只在滚到末尾时露出来，静止时不占版面 -->
     <StackPanel x:DataType="vm:MainViewModel" Margin="0,0,16,20">
@@ -31,28 +46,80 @@
                                    Foreground="{DynamicResource AmberBrush}" />
                         <TextBlock Classes="RbLab" Text="离线" />
                     </StackPanel>
+                    <!-- 这个房间还有灯开着：数量 + 一键全关，跟三个数值排同一行，不额外占一行高度；
+                         「全部」时统计全屋 -->
+                    <StackPanel Orientation="Horizontal" Spacing="8" VerticalAlignment="Center"
+                                IsVisible="{Binding HasBannerLightOn}">
+                        <Border Classes="RoomLightPill">
+                            <StackPanel Orientation="Horizontal" Spacing="5">
+                                <Panel Width="14" Height="14" VerticalAlignment="Center">
+                                    <Ellipse Width="18" Height="18" Fill="{DynamicResource LampGlowBrush}" />
+                                    <Viewbox Width="14" Height="14"
+                                             HorizontalAlignment="Center" VerticalAlignment="Center">
+                                        <Panel Width="24" Height="24">
+                                            <Path Fill="{DynamicResource LampBulbBrush}"
+                                                  Data="{StaticResource GeoBulbGlass}" />
+                                            <Path Stroke="{DynamicResource LampBulbBaseBrush}" StrokeThickness="2"
+                                                  StrokeLineCap="Round" Data="{StaticResource GeoBulbBase}" />
+                                        </Panel>
+                                    </Viewbox>
+                                </Panel>
+                                <TextBlock Text="{Binding BannerLightText}" />
+                            </StackPanel>
+                        </Border>
+                        <Button Classes="BtnGhost" Height="26" Padding="10,0" FontSize="12"
+                                Content="一键全关"
+                                Command="{Binding TurnOffSelectedRoomLightsCommand}"
+                                ToolTip.Tip="关闭当前房间（全部时为全屋）里所有开着的灯" />
+                    </StackPanel>
                 </StackPanel>
             </StackPanel>
-            <Border Grid.Column="1" Width="120" Height="120" CornerRadius="30"
-                    Background="{DynamicResource Surface4Brush}" VerticalAlignment="Center">
-                <Panel>
-                    <!-- 与侧栏房间图标共用同一套 key 和两种画法：玻璃模式取多色 SVG，细线模式取线稿 -->
-                    <Image Width="76" Height="76" Stretch="Uniform"
-                           HorizontalAlignment="Center" VerticalAlignment="Center"
-                           IsVisible="{Binding IconGlass}"
-                           Source="{Binding BannerIconKey, Converter={StaticResource NavSvg}}" />
-                    <Viewbox Width="76" Height="76" Stretch="Uniform"
-                             HorizontalAlignment="Center" VerticalAlignment="Center"
-                             IsVisible="{Binding !IconGlass}">
-                        <Panel Width="24" Height="24">
-                            <Path Width="24" Height="24" Stretch="None"
-                                  Stroke="{DynamicResource NavActiveTextBrush}" StrokeThickness="0.9"
-                                  StrokeLineCap="Round" StrokeJoin="Round"
-                                  Data="{Binding BannerIconKey, Converter={StaticResource NavLine}}" />
-                        </Panel>
-                    </Viewbox>
-                </Panel>
-            </Border>
+            <!-- 图标兼作入口：点一下就给当前房间换自定义图（弹窗里可贴 SVG、导 SVG 文件或选 PNG） -->
+            <Button Grid.Column="1" Classes="IconPick" Width="120" Height="120"
+                    VerticalAlignment="Center"
+                    Command="{Binding EditSelectedRoomIconCommand}"
+                    ToolTip.Tip="点击自定义这个房间的图标；右键可恢复默认">
+                <Button.ContextMenu>
+                    <ContextMenu Padding="4" MinWidth="0" FontSize="11.5">
+                        <MenuItem Theme="{StaticResource CardMenuItem}"
+                                  Header="自定义图标…"
+                                  Command="{Binding $parent[Window].((vm:MainViewModel)DataContext).EditSelectedRoomIconCommand}" />
+                        <MenuItem Theme="{StaticResource CardMenuItem}"
+                                  Header="恢复默认图标"
+                                  IsVisible="{Binding $parent[Window].((vm:MainViewModel)DataContext).BannerHasCustomIcon}"
+                                  Command="{Binding $parent[Window].((vm:MainViewModel)DataContext).ResetSelectedRoomIconCommand}" />
+                    </ContextMenu>
+                </Button.ContextMenu>
+                <Border Width="120" Height="120" CornerRadius="30"
+                        Background="{DynamicResource Surface4Brush}">
+                    <Panel>
+                        <!-- 与侧栏房间图标共用同一套 key 和两种画法：玻璃模式取多色 SVG，细线模式取线稿；
+                             用户设过自定义图时这两套一起隐到透明 -->
+                        <Image Width="76" Height="76" Stretch="Uniform"
+                               HorizontalAlignment="Center" VerticalAlignment="Center"
+                               RenderOptions.BitmapInterpolationMode="MediumQuality"
+                               Opacity="{Binding BannerDefaultIconOpacity}"
+                               IsVisible="{Binding IconGlass}"
+                               Source="{Binding BannerIconKey, Converter={StaticResource NavSvg}}" />
+                        <Viewbox Width="76" Height="76" Stretch="Uniform"
+                                 HorizontalAlignment="Center" VerticalAlignment="Center"
+                                 Opacity="{Binding BannerDefaultIconOpacity}"
+                                 IsVisible="{Binding !IconGlass}">
+                            <Panel Width="24" Height="24">
+                                <Path Width="24" Height="24" Stretch="None"
+                                      Stroke="{DynamicResource NavActiveTextBrush}" StrokeThickness="0.9"
+                                      StrokeLineCap="Round" StrokeJoin="Round"
+                                      Data="{Binding BannerIconKey, Converter={StaticResource NavLine}}" />
+                            </Panel>
+                        </Viewbox>
+                        <!-- 自定义图铺满 120 大圆角框，不再缩在中间露一圈底色 -->
+                        <ctl:RoundedImage CornerRadius="30"
+                                          IsHitTestVisible="False"
+                                          IsVisible="{Binding BannerHasCustomIcon}"
+                                          Source="{Binding BannerCustomIcon.Image}" />
+                    </Panel>
+                </Border>
+            </Button>
         </Grid>
     </Border>
     <ItemsControl ItemsSource="{Binding SkeletonSlots}"

@@ -34,10 +34,53 @@ internal sealed class Program
             return;
         }
 
+        // 热水器「使用记录」接口探针（只读）：把设备上报历史/操作记录/统计接口逐个打一遍，落盘原始响应。
+        if (args.Any(a => string.Equals(a, "--usage-probe", StringComparison.OrdinalIgnoreCase)))
+        {
+            UsageProbe.RunAsync().GetAwaiter().GetResult();
+            return;
+        }
+
         // 设备组（group.xxx）成员信息探针：把设备列表原始响应落盘，确认组内成员从哪来。
         if (args.Any(a => string.Equals(a, "--group-probe", StringComparison.OrdinalIgnoreCase)))
         {
             GroupProbe.RunAsync().GetAwaiter().GetResult();
+            return;
+        }
+
+        // 设备拟物图来源探针（只读）：原始 icon 字段 + productconfig 的 icon_real。
+        var ip = Array.FindIndex(args, a => string.Equals(a, "--icon-probe", StringComparison.OrdinalIgnoreCase));
+        if (ip >= 0)
+        {
+            var extra = args.Skip(ip + 1).Where(a => !a.StartsWith("--", StringComparison.Ordinal)).ToArray();
+            IconProbe.RunAsync(extra).GetAwaiter().GetResult();
+            return;
+        }
+
+        // 设备原始响应导出（只读）：把某个型号设备的完整原始字段落盘，确认图片字段的真实名字。
+        var rpr = Array.FindIndex(args, a => string.Equals(a, "--icon-probe-raw", StringComparison.OrdinalIgnoreCase));
+        if (rpr >= 0)
+        {
+            var filter = args.Skip(rpr + 1).FirstOrDefault(a => !a.StartsWith("--", StringComparison.Ordinal)) ?? "";
+            IconProbe.RunRawAsync(filter).GetAwaiter().GetResult();
+            return;
+        }
+
+        // 产品配置原始字段探针（只读）：确认某个型号在云端到底有哪些图标字段。
+        var pp = Array.FindIndex(args, a => string.Equals(a, "--product-probe", StringComparison.OrdinalIgnoreCase));
+        if (pp >= 0)
+        {
+            var models = args.Skip(pp + 1).Where(a => !a.StartsWith("--", StringComparison.Ordinal)).ToArray();
+            IconProbe.RunProductRawAsync(models).GetAwaiter().GetResult();
+            return;
+        }
+
+        // 米家插件元数据探针（只读）：确认型号的插件包下载地址/版本，用于核对列表图来源。
+        var plp = Array.FindIndex(args, a => string.Equals(a, "--plugin-probe", StringComparison.OrdinalIgnoreCase));
+        if (plp >= 0)
+        {
+            var models = args.Skip(plp + 1).Where(a => !a.StartsWith("--", StringComparison.Ordinal)).ToArray();
+            IconProbe.RunPluginRawAsync(models).GetAwaiter().GetResult();
             return;
         }
 

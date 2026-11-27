@@ -315,9 +315,37 @@ public partial class MainViewModel : ObservableObject
     [ObservableProperty] private string _bannerTitle = "全屋设备";
     [ObservableProperty] private string _bannerDesc = "统一管理家中所有智能设备";
     [ObservableProperty] private string _bannerIconKey = "house";
+
+    /// <summary>当前房间的自定义图标；null 时横幅继续用 <see cref="BannerIconKey"/> 的默认画法。</summary>
+    [ObservableProperty] private CustomIcon? _bannerCustomIcon;
+
+    public bool BannerHasCustomIcon => BannerCustomIcon is not null;
+
+    /// <summary>默认横幅图标的不透明度：有自定义图标时隐到 0。</summary>
+    public double BannerDefaultIconOpacity => BannerCustomIcon is null ? 1 : 0;
+
+    partial void OnBannerCustomIconChanged(CustomIcon? value)
+    {
+        OnPropertyChanged(nameof(BannerHasCustomIcon));
+        OnPropertyChanged(nameof(BannerDefaultIconOpacity));
+    }
+
     [ObservableProperty] private int _bannerTotal;
     [ObservableProperty] private int _bannerOn;
     [ObservableProperty] private int _bannerOffline;
+
+    /// <summary>当前房间页（含「全部」）里还亮着的灯数；房间横幅上的数量与「一键全关」入口据此显示。</summary>
+    [ObservableProperty] private int _bannerLightOn;
+
+    public bool HasBannerLightOn => BannerLightOn > 0;
+
+    public string BannerLightText => $"{BannerLightOn} 盏灯亮着";
+
+    partial void OnBannerLightOnChanged(int value)
+    {
+        OnPropertyChanged(nameof(HasBannerLightOn));
+        OnPropertyChanged(nameof(BannerLightText));
+    }
 
     // ===== 环境概览：温湿度聚合 + 耗材提醒 =====
 
@@ -408,6 +436,9 @@ public partial class MainViewModel : ObservableObject
 
     /// <summary>复用的临时集合：当前还有灯开着的房间名，供侧栏房间灯泡逐行比对（避免每拍新建 HashSet）。</summary>
     private readonly HashSet<string> _litRooms = new(StringComparer.Ordinal);
+
+    /// <summary>复用的临时计数：房间名 → 开着的灯数，首页房间标题与「一键全关」按它显示。</summary>
+    private readonly Dictionary<string, int> _litLightCounts = new(StringComparer.Ordinal);
 
     /// <summary>点首页房间标题行：展开 ⇄ 收起该房间的设备卡片。</summary>
     [RelayCommand]
@@ -552,7 +583,7 @@ public partial class MainViewModel : ObservableObject
     public bool ShowEnvSkeleton => SyncPending && !ShowEnvOverview;
 
     /// <summary>还在首拉且趋势区还没成形时，先铺图表骨架卡；任何一类数据到货就整块换成真卡。</summary>
-    public bool ShowTrendSkeleton => SyncPending && !ShowEnvTrend;
+    public bool ShowTrendSkeleton => SyncPending && DataBoardVisible && !ShowEnvTrend;
 
     /// <summary>场景首次拉取期间铺骨架；已有场景只是刷新时不动内容。</summary>
     public bool ShowSceneSkeleton => SyncPending && !HasScenes;
@@ -632,6 +663,9 @@ public partial class MainViewModel : ObservableObject
 
         // 全局快捷键：装载 hotkeys.json、安装键盘钩子（窗口收起进托盘也常驻）
         InitHotkeys();
+
+        // 房间 / 场景自定义图标换过：只刷新对应那一枚，不重建整个列表
+        CustomIconStore.Changed += OnCustomIconChanged;
 
         // 启动后无感检查更新：24 小时内查过就跳过联网；缓存里的「有更新」由
         // NotifyCachedUpdate 在托盘就绪后补提示（构造函数里 NotifyUser 还没注入）。
@@ -1313,6 +1347,10 @@ public partial class MainViewModel : ObservableObject
     private async Task RefreshStatesAsync(bool includeMetrics)
     {
         if (_client is not { } client) return;
+
+        // 合成水表/气表在重启后先接上历史累计值，再让这一拍的新读数参与差值
+        RestoreMeterBaselines();
+
         var now = Environment.TickCount64;
         var query = new List<(string Did, int Siid, int Piid)>();
         var keys = new HashSet<(string, int, int)>();
@@ -1362,6 +1400,11 @@ public partial class MainViewModel : ObservableObject
                     Add((did, counterProp.Siid, counterProp.Piid));
             }
 
+            // 用水卡 / 水质卡：每拍都读水表与 TDS，差值才连得上（不跟着卡片外显配置走）
+            if (d.IsWaterDevice && d.Spec is { } waterSpec)
+                foreach (var p in WaterProps(waterSpec, d))
+                    Add((did, p.Siid, p.Piid));
+
             // 抽屉打开时，顶部读数卡的指标也每拍读一遍，数值才跟手
             if (ReferenceEquals(d, DrawerDevice))
                 foreach (var p in CardMetricsCatalog.Candidates(d)) Add((did, p.Siid, p.Piid));
@@ -1372,6 +1415,10 @@ public partial class MainViewModel : ObservableObject
                 if (d.Spec?.FindMetric("temperature") is { } t) Add((did, t.Siid, t.Piid));
                 var humProp = d.Spec?.FindMetric("relative-humidity") ?? d.Spec?.FindMetric("humidity");
                 if (humProp != null) Add((did, humProp.Siid, humProp.Piid));
+                // 空气读数（PM2.5 / PM10 / 甲醛 / TVOC / CO₂）：首页那排空气小卡靠它，
+                // 同样不跟卡片外显配置走——外显里没勾这几项的设备以前一次都没被请求过
+                if (d.Spec is { } airSpec)
+                    foreach (var (_, prop) in AirMetrics.Props(airSpec)) Add((did, prop.Siid, prop.Piid));
                 // 耗材变化慢，跟着温湿度这一拍（约 16s）读一次即可
                 foreach (var c in d.Consumables) Add((did, c.Siid, c.Piid));
             }
@@ -1406,6 +1453,7 @@ public partial class MainViewModel : ObservableObject
         bool includeMetrics, long now)
     {
         var touched = false;
+        var airTouched = false;
         var consumablesTouched = false;
         _applyingStates = true; // 轮询回填期间不把属性变化当成用户拖动，避免滑杆反向下发
         try
@@ -1481,6 +1529,13 @@ public partial class MainViewModel : ObservableObject
                 // 首页用电卡按它求和；跟卡片副标题上勾没勾「功率」无关
                 if (ApplyPowerReading(d, map)) changed = true;
 
+                // 用水设备的水表 / 水流量 / 水温 / TDS：首页用水卡靠这份读数攒历史
+                if (ApplyWaterReading(d, map)) changed = true;
+
+                // 空气读数：规格里有 pm2.5 / hcho 这类属性的设备，不管是快拍（卡片外显里勾了）
+                // 还是慢拍（每 4 拍补读一次）回来的值，都记进 AirReadings 供首页小卡使用
+                if (ApplyAirReadings(d, map)) airTouched = true;
+
                 // 抽屉顶部读数卡
                 if (ReferenceEquals(d, DrawerDevice)) UpdateDrawerMetricTiles(d, map);
 
@@ -1511,6 +1566,9 @@ public partial class MainViewModel : ObservableObject
                 touched |= changed;
             }
             if (touched) UpdateStats();
+            // 空气读数在快拍里也能到货：变了就单独刷一次小卡，不用等下一拍慢速重算；
+            // 但小卡属于「数据看板」，开了「更新频率」时要跟着看板的节奏走
+            if (airTouched && BoardRefreshDue(DateTime.Now)) RefreshAirCards();
             if (includeMetrics)
             {
                 RecomputeEnvironment();
@@ -1552,33 +1610,74 @@ public partial class MainViewModel : ObservableObject
                 changed = true;
             }
 
-            if (metricKey == "temperature") d.TemperatureC = CardMetricsCatalog.NormalizeTemperature(value);
+            if (metricKey == "temperature")
+            {
+                // 热水器/净水器的 temperature 是水温：记到 WaterTempC，不能混进室温
+                if (d.IsWaterDevice) d.WaterTempC = value;
+                else d.TemperatureC = CardMetricsCatalog.NormalizeTemperature(value);
+            }
             else if (metricKey is "relative-humidity" or "humidity")
                 d.Humidity = CardMetricsCatalog.NormalizeHumidity(value);
         }
 
-        var parts = new List<string>(names.Count);
+        return changed | RebuildCardSubtitle(d);
+    }
+
+    /// <summary>
+    /// 按当前外显配置重拼卡片副标题：只认选中的读数，顺手把缓存里已经不再外显的键剔掉
+    /// （悬停提示读的是整份缓存，留着会让关掉的读数继续挂在提示里）。
+    /// 轮询回填和「详情里改读数开关」都走这一个口径，改完当即生效，不用等下一拍。
+    /// </summary>
+    private static bool RebuildCardSubtitle(MijiaDevice d)
+    {
+        var names = CardMetricsCatalog.EffectiveNames(d);
         // 副标题顺序跟详情页那排读数卡一致（左→右），不看点击先后；
         // 候选里没有的旧名字仍按存储顺序补在后面，不让已配好的读数静默消失
         var ordered = new List<string>(names.Count);
         foreach (var p in CardMetricsCatalog.Candidates(d))
         {
             var key = CardMetricsCatalog.StandardMetricName(p.Name) ?? p.Name;
-            if (names.Contains(key)) ordered.Add(key);
+            if (names.Contains(key) && !ordered.Contains(key)) ordered.Add(key);
         }
         foreach (var name in names)
             if (!ordered.Contains(name)) ordered.Add(name);
+
+        var stale = d.CardMetricTexts.Keys.Where(k => !ordered.Contains(k)).ToList();
+        foreach (var k in stale) d.CardMetricTexts.Remove(k);
+
+        var parts = new List<string>(ordered.Count);
         foreach (var name in ordered)
             if (d.CardMetricTexts.TryGetValue(name, out var t) && t.Length > 0)
                 parts.Add(t);
 
-        // 卡片副标题只有一行，最多给 3 段，多出来的折成 +N，免得截断在半截数字上
-        const int MaxOnCard = 3;
-        var text2 = parts.Count <= MaxOnCard
-            ? string.Join(" · ", parts)
-            : string.Join(" · ", parts.Take(MaxOnCard)) + $" +{parts.Count - MaxOnCard}";
-        if (d.MetricsText == text2) return changed;
+        // 卡片副标题只有一行，段间用「·」紧连（两边不留空格）—— 只用于悬停提示与旧口径；
+        // 卡面上真正逐枚排的是 CardMetricTags，标签换行时整枚下移，不会把读数截成两半
+        var text2 = string.Join("·", parts);
+        var tagsChanged = SyncCardMetricTags(d, parts);
+        if (d.MetricsText == text2) return tagsChanged;
         d.MetricsText = text2;
+        return true;
+    }
+
+    /// <summary>把读数标签同步成当前外显的那几项；顺序没变就不动集合，免得每拍轮询都重建一遍标签控件。</summary>
+    private static bool SyncCardMetricTags(MijiaDevice d, List<string> parts)
+    {
+        if (d.CardMetricTags.Count == parts.Count)
+        {
+            var same = true;
+            for (var i = 0; i < parts.Count; i++)
+                if (!string.Equals(d.CardMetricTags[i], parts[i], StringComparison.Ordinal))
+                {
+                    same = false;
+                    break;
+                }
+            if (same) return false;
+        }
+
+        d.CardMetricTags.Clear();
+        foreach (var part in parts) d.CardMetricTags.Add(part);
+        // 读数标签三枚以上就放不下一行带房间名的了：卡片上让出房间，把宽度留给读数
+        d.ShowCardRoom = parts.Count < 3;
         return true;
     }
 
@@ -1592,6 +1691,10 @@ public partial class MainViewModel : ObservableObject
     {
         var spec = d.Spec;
         if (spec == null) return false;
+
+        // 热水器/净水器只有水温，没有室温：环境概览与温度趋势不该被一缸 45℃ 的热水拉高
+        if (d.IsWaterDevice) return false;
+
         var changed = false;
 
         if (spec.FindMetric("temperature") is { } tp &&
@@ -1621,6 +1724,33 @@ public partial class MainViewModel : ObservableObject
     }
 
     /// <summary>
+    /// 空气读数回填：规格里能报 PM2.5 / PM10 / 甲醛 / TVOC / 二氧化碳的设备，
+    /// 把原始值归一成卡片口径（甲醛、TVOC 一律 mg/m³）后记进 <see cref="MijiaDevice.AirReadings"/>。
+    /// 跟卡片外显配置无关：首页那排空气小卡统一读这份，用户在设备卡上没勾甲醛也照读。
+    /// </summary>
+    private static bool ApplyAirReadings(MijiaDevice d,
+        Dictionary<(string Did, int Siid, int Piid), object?> map)
+    {
+        var spec = d.Spec;
+        if (spec == null) return false;
+
+        var changed = false;
+        foreach (var (metric, prop) in AirMetrics.Props(spec))
+        {
+            if (!map.TryGetValue((d.TargetDid, prop.Siid, prop.Piid), out var raw) || raw == null) continue;
+
+            var value = AirMetrics.Normalize(metric, prop, ToDouble(raw));
+            if (d.AirReadings.TryGetValue(metric.Standard, out var old) && Math.Abs(old - value) < 0.0005)
+                continue;
+
+            d.AirReadings[metric.Standard] = value;
+            changed = true;
+        }
+
+        return changed;
+    }
+
+    /// <summary>
     /// 用电读数单独回填：瞬时功率认 electric-power（W）；空调、浴霸这类只有
     /// power-consumption（累计耗电量，kWh）的，读它的计数器，交给历史按差值算电量。
     /// 首页用电卡的全屋叠加靠它，所以不受「卡片副标题上勾没勾功率」影响——
@@ -1637,8 +1767,9 @@ public partial class MainViewModel : ObservableObject
         if ((spec.FindMetric("electric-power") ?? spec.FindProp("electric-power")) is { } prop &&
             map.TryGetValue((d.TargetDid, prop.Siid, prop.Piid), out var raw) && raw != null)
         {
-            // 与 FormatValue 的口径一致：上限过百万的型号是 0.01W 编码，按百分之一瓦缩回
-            var value = ToDouble(raw);
+            // 与 FormatValue 的口径一致：打包属性先取 bit 段；kW 规格先折回 W；
+            // 上限过百万的型号是 0.01W 编码，按百分之一瓦缩回
+            var value = prop.Decode(ToDouble(raw)) * prop.ValueScale;
             var watts = prop.HasRange && prop.Max >= 1_000_000 ? value / 100 : value;
             if (d.PowerWatts is not { } oldW || Math.Abs(oldW - watts) >= 0.01)
             {
@@ -1650,8 +1781,9 @@ public partial class MainViewModel : ObservableObject
         if ((spec.FindMetric("power-consumption") ?? spec.FindProp("power-consumption")) is { } counter &&
             map.TryGetValue((d.TargetDid, counter.Siid, counter.Piid), out var craw) && craw != null)
         {
-            // 计数器本身就是 kWh（0~999999.99，步长 0.01），不按 0.01 缩
-            var kwh = ToDouble(craw);
+            // 计数器是整数：多数插座按 0.01 度、少数按瓦时编码（规格描述里写明）。
+            // 按规格给出的倍率折算成度，否则累计电量会被放大 100 / 1000 倍。
+            var kwh = counter.Decode(ToDouble(craw)) * counter.UnitScale;
             if (d.EnergyKwh is not { } oldKwh || Math.Abs(oldKwh - kwh) >= 0.001)
             {
                 d.EnergyKwh = kwh;
@@ -1660,6 +1792,220 @@ public partial class MainViewModel : ObservableObject
         }
 
         return changed;
+    }
+
+    /// <summary>
+    /// 用水/水质读数：热水器的本次用水、单次用水记录、水流量、水温与进水温度；
+    /// 净水器的累计制水（cumu-flow-out，毫升折升）与进出水 TDS。
+    /// 每拍都读：单次用水一变就累进合成水表，历史采样按合成水表的差值算用量。
+    /// </summary>
+    private static bool ApplyWaterReading(MijiaDevice d,
+        Dictionary<(string Did, int Siid, int Piid), object?> map)
+    {
+        var spec = d.Spec;
+        if (spec == null || !d.IsWaterDevice) return false;
+
+        var changed = false;
+        var isPurifier = d.CategoryName == "water-purifier";
+
+        bool TryGet(SpecPropertyDef prop, out double value)
+        {
+            value = 0;
+            if (!map.TryGetValue((d.TargetDid, prop.Siid, prop.Piid), out var raw) || raw == null) return false;
+            value = ToDouble(raw);
+            return true;
+        }
+
+        if (isPurifier)
+        {
+            if (spec.FindProp("cumu-flow-out") is { } cumu && TryGet(cumu, out var ml))
+            {
+                var liters = Math.Round(ml / 1000, 3);
+                if (d.WaterLiters is not { } oldL || Math.Abs(oldL - liters) >= 0.001)
+                {
+                    d.WaterLiters = liters;
+                    changed = true;
+                }
+            }
+        }
+        else
+        {
+            // water-level 是「本次用水升数」，用完就清零，不能直接当累计表；
+            // 真正靠得住的是 usage-report 里的「单次用水」——每完成一次用水变一次，
+            // 变化时把整次用量累进 WaterLiters（合成一个只增不减的水表）。
+            if (spec.FindProp("water-level") is { } level && TryGet(level, out var sessionLiters))
+            {
+                if (d.SessionWaterLiters is not { } oldSession || Math.Abs(oldSession - sessionLiters) >= 0.1)
+                {
+                    d.SessionWaterLiters = sessionLiters;
+                    changed = true;
+                }
+            }
+
+            var single = spec.FindProp("single-water");
+            if (single != null && TryGet(single, out var singleLiters))
+            {
+                if (!d.UsesSingleWater)
+                {
+                    // 从 water-level 兜底切到单次用水记录：只换口径，不把同一单重复加一遍
+                    d.UsesSingleWater = true;
+                    d.LastSingleWaterLiters = singleLiters;
+                    if (!d.WaterMeterInit)
+                    {
+                        // 起基线：机器里存的上一单可能是今早用的，不把它算进「从此刻开始」的账
+                        d.WaterMeterInit = true;
+                        d.WaterLiters = 0;
+                    }
+                    changed = true;
+                }
+                else if (singleLiters > 0.01 &&
+                         (d.LastSingleWaterLiters is not { } last || Math.Abs(last - singleLiters) >= 0.01))
+                {
+                    // 单次用水是「最后一单」的用量，不是累计值，换了一单就直接加这一单
+                    d.WaterLiters = (d.WaterLiters ?? 0) + singleLiters;
+                    d.LastSingleWaterLiters = singleLiters;
+                    changed = true;
+                }
+            }
+
+            // 用气：usage-report 的 single-gas 单位是 0.001 m³（规格里误写成 L），
+            // 同样只在「洗完一单」后变化，变一次就把整单气量累进合成气表。
+            var singleGas = spec.FindProp("single-gas");
+            if (singleGas != null && TryGet(singleGas, out var singleGasRaw))
+            {
+                var gasM3 = Math.Round(singleGasRaw * 0.001, 3);
+                if (!d.GasMeterInit)
+                {
+                    d.GasMeterInit = true;
+                    d.GasM3 = 0;
+                    d.LastSingleGasM3 = gasM3;
+                    if (d.SessionGasM3 is not { } oldGas || Math.Abs(oldGas - gasM3) >= 0.001)
+                        d.SessionGasM3 = gasM3;
+                    changed = true;
+                }
+                else
+                {
+                    if (d.SessionGasM3 is not { } oldGas || Math.Abs(oldGas - gasM3) >= 0.001)
+                    {
+                        d.SessionGasM3 = gasM3;
+                        changed = true;
+                    }
+                    if (d.LastSingleGasM3 is null)
+                    {
+                        // 重启后气表从历史接上：第一次读数只对齐「上一单」，不重复加一次
+                        d.LastSingleGasM3 = gasM3;
+                        changed = true;
+                    }
+                    else if (gasM3 > 0.0005 &&
+                             Math.Abs((d.LastSingleGasM3 ?? 0) - gasM3) >= 0.0005)
+                    {
+                        d.GasM3 = (d.GasM3 ?? 0) + gasM3;
+                        d.LastSingleGasM3 = gasM3;
+                        changed = true;
+                    }
+                }
+            }
+            else if (!d.UsesSingleWater && spec.FindProp("water-level") is { } fallback && TryGet(fallback, out var levelNow))
+            {
+                // 没有单次用水记录的老机型：退化成本次用水的正向增量，至少不会把清零算成负用水
+                if (!d.WaterMeterInit)
+                {
+                    d.WaterMeterInit = true;
+                    d.WaterLiters = 0;
+                    d.LastSessionWaterLevelLiters = levelNow;
+                    changed = true;
+                }
+                else
+                {
+                    var prev = d.LastSessionWaterLevelLiters ?? 0;
+                    if (levelNow > prev)
+                    {
+                        d.WaterLiters = (d.WaterLiters ?? 0) + (levelNow - prev);
+                        changed = true;
+                    }
+                    d.LastSessionWaterLevelLiters = levelNow;
+                }
+            }
+            if (spec.FindProp("discharge-water") is { } flow && TryGet(flow, out var flowRaw))
+            {
+                var lpm = Math.Round(flowRaw * 0.1, 1);
+                if (d.WaterFlowLpm is not { } oldFlow || Math.Abs(oldFlow - lpm) >= 0.1)
+                {
+                    d.WaterFlowLpm = lpm;
+                    changed = true;
+                }
+            }
+            if (spec.FindProp("input-water-temp") is { } input && TryGet(input, out var inputTemp))
+            {
+                if (d.InputWaterTempC is not { } oldIn || Math.Abs(oldIn - inputTemp) >= 0.1)
+                {
+                    d.InputWaterTempC = inputTemp;
+                    changed = true;
+                }
+            }
+            // 工作状态只认热水器主服务里那一个 status（换气/增压服务也各有 status，不能混）
+            var status = spec.Properties.FirstOrDefault(p =>
+                p.Readable && p.Name == "status" && p.ServiceName == "water-heater");
+            if (status != null && TryGet(status, out var st))
+            {
+                var state = (int)st;
+                if (d.WaterStatus != state)
+                {
+                    d.WaterStatus = state;
+                    changed = true;
+                }
+            }
+        }
+
+        // 两类设备都可能把水温放在 temperature 里；数值本身就是 ℃，不再按 0.1 缩
+        if (spec.FindProp("temperature") is { } temp && TryGet(temp, out var waterTemp))
+        {
+            if (d.WaterTempC is not { } oldT || Math.Abs(oldT - waterTemp) >= 0.1)
+            {
+                d.WaterTempC = waterTemp;
+                changed = true;
+            }
+        }
+
+        if (isPurifier)
+        {
+            if (spec.FindProp("tds-out") is { } tdsOut && TryGet(tdsOut, out var outTds))
+            {
+                if (d.TdsOut is not { } oldOut || Math.Abs(oldOut - outTds) >= 1)
+                {
+                    d.TdsOut = outTds;
+                    changed = true;
+                }
+            }
+            if (spec.FindProp("tds-in") is { } tdsIn && TryGet(tdsIn, out var inTds))
+            {
+                if (d.TdsIn is not { } oldIn || Math.Abs(oldIn - inTds) >= 1)
+                {
+                    d.TdsIn = inTds;
+                    changed = true;
+                }
+            }
+        }
+
+        return changed;
+    }
+
+    /// <summary>用水设备每次轮询要读的属性：水表、流量、水温、工作状态，净水器再加 TDS。</summary>
+    private static IEnumerable<SpecPropertyDef> WaterProps(DeviceSpec spec, MijiaDevice d)
+    {
+        var isPurifier = d.CategoryName == "water-purifier";
+        var names = isPurifier
+            ? new[] { "cumu-flow-out", "tds-out", "tds-in", "temperature" }
+            : new[] { "water-level", "single-water", "single-gas", "discharge-water", "input-water-temp", "temperature", "status" };
+
+        foreach (var name in names)
+        {
+            // status 只认热水器主服务里的那一个
+            var prop = name == "status"
+                ? spec.Properties.FirstOrDefault(p => p.Readable && p.Name == name && p.ServiceName == "water-heater")
+                : spec.FindProp(name);
+            if (prop != null) yield return prop;
+        }
     }
 
     /// <summary>把轮询到的空调模式 / 目标温度 / 风速回填到设备实例（与规格面板无关的三态直读）。</summary>
@@ -1725,6 +2071,25 @@ public partial class MainViewModel : ObservableObject
     private async Task LoadIconsAsync(List<MijiaDevice> devices)
     {
         var groups = devices.GroupBy(d => d.Model).Where(g => !string.IsNullOrEmpty(g.Key)).ToList();
+
+        // 型号 → 拟物图地址：走米家 App 同款的产品配置接口，整批一次问齐（每批最多 100 个型号）。
+        // 内置型号快照没有收录的新设备（trytogo 这类三方灯具），靠这里拿到它们自己的产品图。
+        var onlineIcons = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        var client = _client;
+        if (client != null && groups.Count > 0)
+        {
+            try
+            {
+                onlineIcons = await client.GetProductIconUrlsAsync(groups.Select(g => g.Key));
+            }
+            catch (Exception ex)
+            {
+                Log($"产品图地址获取失败：{ex.Message}");
+            }
+        }
+        Task<string?> ResolveOnline(string model) =>
+            Task.FromResult(onlineIcons.TryGetValue(model, out var url) ? url : null);
+
         using var gate = new SemaphoreSlim(5);
         var ok = 0;
         try
@@ -1734,7 +2099,11 @@ public partial class MainViewModel : ObservableObject
                 await gate.WaitAsync();
                 try
                 {
-                    var bmp = await MijiaIconService.GetAsync(g.Key);
+                    // 设备自己的封面（devPicInfo.logo / 设备列表 icon）优先，米家也是这个顺序；
+                    // 同型号多台共用第一张，用户给单台换过封面时以那台为准
+                    var preferredIcon = g.Select(d => d.CustomIconUrl)
+                        .FirstOrDefault(u => !string.IsNullOrWhiteSpace(u));
+                    var bmp = await MijiaIconService.GetAsync(g.Key, preferredIcon, ResolveOnline);
                     if (bmp == null) return;
                     ok++;
                     await Dispatcher.UIThread.InvokeAsync(() =>
@@ -2029,6 +2398,10 @@ public partial class MainViewModel : ObservableObject
         foreach (var d in _visibleDevices)
             d.IsHidden = !string.IsNullOrEmpty(d.Did) && _hiddenDids.Contains(d.Did);
 
+        // 自定义设备图标同样只认 did：实例换代、缓存上屏、刷新合并后都重新挂回设备
+        foreach (var d in _allDevices)
+            d.ReloadCustomIcon();
+
         // 自定义色温区间同样只认 did：实例换代、规格重解析后重新套一遍
         foreach (var d in _visibleDevices)
         {
@@ -2078,6 +2451,14 @@ public partial class MainViewModel : ObservableObject
     {
         // 搜索时一律展开：命中结果藏在收起的房间里会看起来「搜不到」
         var forceExpand = !string.IsNullOrWhiteSpace(SearchText);
+        // 房间标题上的灯数按整间房算，不受搜索 / 收起影响：搜到一台设备时也照样知道这屋还有几盏灯亮着
+        var litByRoom = new Dictionary<string, int>(StringComparer.Ordinal);
+        foreach (var d in _visibleDevices)
+        {
+            if (d.IsOnline && d.IsOn && d.IconKey == "light" && !string.IsNullOrEmpty(d.RoomName))
+                litByRoom[d.RoomName] = litByRoom.GetValueOrDefault(d.RoomName) + 1;
+        }
+
         var groups = new List<DeviceGroup>();
         foreach (var g in _visibleDevices
                      .Where(d => !d.IsHidden)
@@ -2091,7 +2472,9 @@ public partial class MainViewModel : ObservableObject
                 Name = g.Key,
                 Total = g.Count(),
                 Items = items,
-                IsExpanded = forceExpand || !_collapsedRooms.Contains(g.Key)
+                IsExpanded = forceExpand || !_collapsedRooms.Contains(g.Key),
+                LightOnCount = litByRoom.GetValueOrDefault(g.Key),
+                CustomIcon = CustomIconStore.Get(CustomIconStore.RoomScope, g.Key)
             });
         }
 
@@ -2216,17 +2599,19 @@ public partial class MainViewModel : ObservableObject
     }
 
     /// <summary>
-    /// 侧栏房间行右侧的小灯泡：哪些房间还有灯开着（在线且开，与「灯光」统计卡同一口径）。
-    /// 每拍轮询、每次开关灯都会走到这里，房间数只十几条，按房间名归拢一次哈希再逐行比对，
-    /// 值没变时 <see cref="RoomChip.HasLightOn"/> 的 setter 自己会跳过通知，不会白刷界面。
+    /// 侧栏房间行右侧的小灯泡 + 首页房间标题上的灯数：哪些房间还有灯开着、各有几盏
+    /// （在线且开，与「灯光」统计卡同一口径）。每拍轮询、每次开关灯都会走到这里，
+    /// 房间数只十几条，按房间名归拢一次再逐行比对，值没变时 setter 自己会跳过通知，不会白刷界面。
     /// </summary>
     private void SyncRoomLightBulbs()
     {
         _litRooms.Clear();
+        _litLightCounts.Clear();
         foreach (var d in _visibleDevices)
         {
-            if (d.IsOnline && d.IsOn && d.IconKey == "light" && !string.IsNullOrEmpty(d.RoomName))
-                _litRooms.Add(d.RoomName);
+            if (!d.IsOnline || !d.IsOn || d.IconKey != "light" || string.IsNullOrEmpty(d.RoomName)) continue;
+            _litRooms.Add(d.RoomName);
+            _litLightCounts[d.RoomName] = _litLightCounts.GetValueOrDefault(d.RoomName) + 1;
         }
 
         foreach (var chip in Rooms)
@@ -2235,6 +2620,10 @@ public partial class MainViewModel : ObservableObject
             if (chip.IsLocked) chip.HasLightOn = false;
             else chip.HasLightOn = _litRooms.Contains(chip.Name);
         }
+
+        // 首页每个房间标题：灯数变化才刷新，收起状态下也照常显示
+        foreach (var group in HomeGroups)
+            group.LightOnCount = _litLightCounts.GetValueOrDefault(group.Name);
     }
 
     /// <summary>
@@ -2313,9 +2702,11 @@ public partial class MainViewModel : ObservableObject
             ? "统一管理家中所有智能设备与传感器"
             : $"{_selectedRoom} 内的设备与状态";
         BannerIconKey = Rooms.FirstOrDefault(c => c.Name == _selectedRoom)?.IconKey ?? "house";
+        BannerCustomIcon = Rooms.FirstOrDefault(c => c.Name == _selectedRoom)?.CustomIcon;
         BannerTotal = list.Count;
         BannerOn = list.Count(d => d.IsOn);
         BannerOffline = list.Count(d => !d.IsOnline);
+        BannerLightOn = list.Count(d => d.IconKey == "light" && d.IsOnline && d.IsOn);
     }
 
     /// <summary>
@@ -2324,9 +2715,10 @@ public partial class MainViewModel : ObservableObject
     /// </summary>
     private void RecomputeEnvironment()
     {
-        // 环境概览只统计温湿度读数；插座外显的功率不算环境读数
+        // 环境概览只统计温湿度读数；插座外显的功率不算环境读数；
+        // 热水器/净水器的 temperature 是水温，也不进室温口径
         var readings = _allDevices
-            .Where(d => d.TemperatureC.HasValue || d.Humidity.HasValue)
+            .Where(d => !d.IsWaterDevice && (d.TemperatureC.HasValue || d.Humidity.HasValue))
             .ToList();
         HasEnvironment = readings.Count > 0;
 
@@ -2346,13 +2738,16 @@ public partial class MainViewModel : ObservableObject
         }
         EnvReadingsCountText = readings.Count > 0 ? $"{readings.Count} 台设备" : "";
 
-        var source = _allDevices.FirstOrDefault(d => d.IsOnline && d.TemperatureC.HasValue && d.Humidity.HasValue);
+        var source = _allDevices.FirstOrDefault(d =>
+            d.IsOnline && !d.IsWaterDevice && d.TemperatureC.HasValue && d.Humidity.HasValue);
         double? temp = source?.TemperatureC;
         double? hum = source?.Humidity;
         if (source == null)
         {
-            var temps = _allDevices.Where(d => d.TemperatureC.HasValue).Select(d => d.TemperatureC!.Value).ToList();
-            var hums = _allDevices.Where(d => d.Humidity.HasValue).Select(d => d.Humidity!.Value).ToList();
+            var temps = _allDevices.Where(d => !d.IsWaterDevice && d.TemperatureC.HasValue)
+                .Select(d => d.TemperatureC!.Value).ToList();
+            var hums = _allDevices.Where(d => !d.IsWaterDevice && d.Humidity.HasValue)
+                .Select(d => d.Humidity!.Value).ToList();
             temp = temps.Count > 0 ? temps.Average() : null;
             hum = hums.Count > 0 ? hums.Average() : null;
         }
@@ -2448,6 +2843,33 @@ public partial class MainViewModel : ObservableObject
             await TurnOffDeviceAsync(device);
     }
 
+    /// <summary>
+    /// 首页某个房间标题上的「一键全关」：只关这一间里开着的灯（在线且开），其他设备不动。
+    /// 取快照再逐台下发，开关过程中房间标题的灯数会跟着一起回落。
+    /// </summary>
+    [RelayCommand]
+    private async Task TurnOffRoomLights(DeviceGroup? group)
+    {
+        if (group == null) return;
+        await TurnOffLightsAsync(_visibleDevices.Where(d => d.RoomName == group.Name));
+    }
+
+    /// <summary>房间页横幅上的「一键全关」：当前房间（「全部」时为全屋）里开着的灯全部关掉。</summary>
+    [RelayCommand]
+    private async Task TurnOffSelectedRoomLights()
+    {
+        await TurnOffLightsAsync(_selectedRoom == "全部"
+            ? _visibleDevices
+            : _visibleDevices.Where(d => d.RoomName == _selectedRoom));
+    }
+
+    private async Task TurnOffLightsAsync(IEnumerable<MijiaDevice> scope)
+    {
+        var targets = scope.Where(d => d.IconKey == "light" && d.IsOnline && d.IsOn).ToList();
+        foreach (var device in targets)
+            await TurnOffDeviceAsync(device);
+    }
+
     [RelayCommand]
     private void PickRoom(RoomChip? chip)
     {
@@ -2456,6 +2878,159 @@ public partial class MainViewModel : ObservableObject
         SelectedNavIndex = 1;
         SyncRoomChips();
         ApplyFilter();
+    }
+
+    // ===== 自定义房间 / 场景图标（右键菜单与房间横幅共用一套入口） =====
+
+    /// <summary>视图订阅后弹出图标选择窗；视图模型只负责说明「给谁换」。</summary>
+    public event EventHandler<CustomIconTarget>? IconEditorRequested;
+
+    [RelayCommand]
+    private void EditRoomIcon(RoomChip? chip)
+    {
+        if (chip == null) return;
+        IconEditorRequested?.Invoke(this, new CustomIconTarget(
+            CustomIconStore.RoomScope, chip.Name, $"房间图标 · {chip.Name}"));
+    }
+
+    /// <summary>房间页横幅图标直接点一下：给当前选中的房间换图。</summary>
+    [RelayCommand]
+    private void EditSelectedRoomIcon()
+    {
+        var chip = Rooms.FirstOrDefault(c => c.Name == _selectedRoom);
+        if (chip == null) return;
+        EditRoomIcon(chip);
+    }
+
+    /// <summary>房间页横幅右键：当前房间回到默认画法。</summary>
+    [RelayCommand]
+    private void ResetSelectedRoomIcon()
+    {
+        var chip = Rooms.FirstOrDefault(c => c.Name == _selectedRoom);
+        if (chip == null || !chip.HasCustomIcon) return;
+        if (CustomIconStore.Clear(CustomIconStore.RoomScope, chip.Name))
+            Log($"「{chip.Name}」已恢复默认图标");
+    }
+
+    /// <summary>设备详情抽屉里的图标入口：按 did 换图，设备卡 / 桌面组件会一起更新。</summary>
+    [RelayCommand]
+    private void EditDrawerDeviceIcon()
+    {
+        var device = DrawerDevice;
+        if (device == null || string.IsNullOrEmpty(device.Did)) return;
+        IconEditorRequested?.Invoke(this, new CustomIconTarget(
+            CustomIconStore.DeviceScope, device.Did, $"设备图标 · {device.Name}"));
+    }
+
+    /// <summary>设备详情右键：这台设备回到默认设备图 / 矢量图标。</summary>
+    [RelayCommand]
+    private void ResetDrawerDeviceIcon()
+    {
+        var device = DrawerDevice;
+        if (device == null || !device.HasCustomIcon || string.IsNullOrEmpty(device.Did)) return;
+        if (CustomIconStore.Clear(CustomIconStore.DeviceScope, device.Did))
+            Log($"「{device.Name}」已恢复默认图标");
+    }
+
+    [RelayCommand]
+    private void EditSceneIcon(SceneCardItem? item)
+    {
+        if (item == null || string.IsNullOrEmpty(item.Scene.SceneId)) return;
+        var kind = item.IsAutomation ? "自动化图标" : "场景图标";
+        IconEditorRequested?.Invoke(this, new CustomIconTarget(
+            CustomIconStore.SceneScope, item.Scene.SceneId, $"{kind} · {item.Name}"));
+    }
+
+    /// <summary>编辑弹窗基础信息卡里的图标入口：改的仍是当前这条场景的 scene_id。</summary>
+    [RelayCommand]
+    private void EditEditingSceneIcon()
+    {
+        if (!SceneEditCanChangeIcon || _editingScene is null) return;
+        var kind = IsAutomationEditor ? "自动化图标" : "场景图标";
+        var name = string.IsNullOrWhiteSpace(SceneEditName) ? _editingScene.Name : SceneEditName.Trim();
+        IconEditorRequested?.Invoke(this, new CustomIconTarget(
+            CustomIconStore.SceneScope, _editingScene.SceneId, $"{kind} · {name}", FromEditor: true));
+    }
+
+    /// <summary>编辑弹窗基础信息卡右键：当前场景回到默认画法。</summary>
+    [RelayCommand]
+    private void ResetEditingSceneIcon()
+    {
+        if (!SceneEditCanChangeIcon || _editingScene is null) return;
+        if (string.IsNullOrEmpty(_editingScene.SceneId)) return;
+        var name = string.IsNullOrWhiteSpace(SceneEditName) ? _editingScene.Name : SceneEditName.Trim();
+        if (CustomIconStore.Clear(CustomIconStore.SceneScope, _editingScene.SceneId))
+            Log($"「{name}」已恢复默认图标");
+    }
+
+    [RelayCommand]
+    private void ResetRoomIcon(RoomChip? chip)
+    {
+        if (chip == null || !chip.HasCustomIcon) return;
+        if (CustomIconStore.Clear(CustomIconStore.RoomScope, chip.Name))
+            Log($"「{chip.Name}」已恢复默认图标");
+    }
+
+    [RelayCommand]
+    private void ResetSceneIcon(SceneCardItem? item)
+    {
+        if (item == null || !item.HasCustomIcon) return;
+        if (CustomIconStore.Clear(CustomIconStore.SceneScope, item.Scene.SceneId))
+            Log($"「{item.Name}」已恢复默认图标");
+    }
+
+    /// <summary>图标存储变更：把同一房间 / 场景的所有展示位换成新图标，不重建列表。</summary>
+    private void OnCustomIconChanged(object? sender, CustomIconChangedEventArgs e)
+    {
+        if (!Dispatcher.UIThread.CheckAccess())
+        {
+            Dispatcher.UIThread.Post(() => OnCustomIconChanged(sender, e));
+            return;
+        }
+
+        if (e.Scope == CustomIconStore.DeviceScope)
+        {
+            foreach (var d in _allDevices)
+                if (string.Equals(d.Did, e.Key, StringComparison.Ordinal))
+                    d.ReloadCustomIcon();
+
+            // 抽屉里的设备可能不在当前过滤列表里，单独兜一次
+            if (DrawerDevice is { } drawer &&
+                string.Equals(drawer.Did, e.Key, StringComparison.Ordinal))
+                drawer.ReloadCustomIcon();
+            return;
+        }
+
+        if (e.Scope == CustomIconStore.RoomScope)
+        {
+            foreach (var chip in Rooms)
+                if (string.Equals(chip.Name, e.Key, StringComparison.Ordinal))
+                    chip.ReloadCustomIcon();
+
+            foreach (var group in HomeGroups)
+                if (string.Equals(group.Name, e.Key, StringComparison.Ordinal))
+                    group.ReloadCustomIcon();
+
+            if (string.Equals(_selectedRoom, e.Key, StringComparison.Ordinal))
+                BannerCustomIcon = Rooms.FirstOrDefault(c => c.Name == _selectedRoom)?.CustomIcon;
+            return;
+        }
+
+        if (e.Scope != CustomIconStore.SceneScope) return;
+
+        // 同一张卡可能同时挂在完整列表和展示列表里：按实例去重，避免重复刷新
+        var seen = new HashSet<SceneCardItem>();
+        foreach (var list in new[] { SceneItems, AutomationItems, DrawerScenes, DrawerAutomations })
+            foreach (var card in list)
+            {
+                if (!string.Equals(card.Scene.SceneId, e.Key, StringComparison.Ordinal)) continue;
+                if (seen.Add(card)) card.ReloadCustomIcon();
+            }
+
+        // 编辑弹窗开着同一条场景时，基础信息卡里的图标也要立即换
+        if (_editingScene is { } editing &&
+            string.Equals(editing.SceneId, e.Key, StringComparison.Ordinal))
+            SceneEditCustomIcon = CustomIconStore.Get(CustomIconStore.SceneScope, e.Key);
     }
 
     [RelayCommand]
@@ -2474,6 +3049,7 @@ public partial class MainViewModel : ObservableObject
         IsLoginOpen = false;
         IsSettingsOpen = false;
         IsEnvDetailOpen = false;
+        IsTrendCardEditOpen = false;
         IsStatListOpen = false;
         IsVoiceOpen = false;
         IsMusicOpen = false;
@@ -2645,6 +3221,35 @@ public partial class MainViewModel : ObservableObject
     [ObservableProperty] private string _sceneEditNote = "";
     [ObservableProperty] private bool _sceneEditBusy;
     [ObservableProperty] private bool _sceneEditConfirmDelete;
+
+    /// <summary>编辑弹窗基础信息卡左上角的图标预览：有自定义图就用它，没有就跟随名称画默认线稿。</summary>
+    [ObservableProperty] private CustomIcon? _sceneEditCustomIcon;
+
+    public bool SceneEditHasCustomIcon => SceneEditCustomIcon is not null;
+
+    public double SceneEditDefaultIconOpacity => SceneEditCustomIcon is null ? 1 : 0;
+
+    public Geometry SceneEditIconGeometry => SceneCardItem.SceneIconFor(SceneEditName);
+
+    /// <summary>新建的场景还没有 scene_id，图标没处可存；先禁用入口，保存后回到智能页再换。</summary>
+    public bool SceneEditCanChangeIcon =>
+        IsSceneEditMode && !string.IsNullOrEmpty(_editingScene?.SceneId);
+
+    public string SceneEditIconTip => SceneEditCanChangeIcon
+        ? "点击给这个场景换一张图标（SVG 代码 / .svg 文件 / PNG）"
+        : "保存到米家后可以设置场景图标";
+
+    partial void OnSceneEditCustomIconChanged(CustomIcon? value)
+    {
+        OnPropertyChanged(nameof(SceneEditHasCustomIcon));
+        OnPropertyChanged(nameof(SceneEditDefaultIconOpacity));
+    }
+
+    partial void OnSceneEditNameChanged(string value)
+    {
+        // 名称决定默认线稿（回家 / 睡眠 / 观影…），输入时预览也要跟着换
+        OnPropertyChanged(nameof(SceneEditIconGeometry));
+    }
 
     /// <summary>执行顺序列表是否展开（标题行点击可折叠，长自动化面板不用一直滚）。</summary>
     [ObservableProperty] private bool _isSceneOrderExpanded = true;
@@ -3238,6 +3843,8 @@ public partial class MainViewModel : ObservableObject
         OnPropertyChanged(nameof(SceneEditTitle));
         OnPropertyChanged(nameof(SceneEditSubtitle));
         OnPropertyChanged(nameof(SaveSceneButtonText));
+        OnPropertyChanged(nameof(SceneEditCanChangeIcon));
+        OnPropertyChanged(nameof(SceneEditIconTip));
     }
 
     /// <summary>打开编辑面板：把整条场景拆成「名称 / 启停 / 触发 / 可改动作」。</summary>
@@ -3312,6 +3919,12 @@ public partial class MainViewModel : ObservableObject
     private async Task OpenSceneEditorCoreAsync(MijiaScene scene, bool isNew)
     {
         _editingScene = scene;
+        SceneEditCustomIcon = string.IsNullOrEmpty(scene.SceneId)
+            ? null
+            : CustomIconStore.Get(CustomIconStore.SceneScope, scene.SceneId);
+        OnPropertyChanged(nameof(SceneEditCanChangeIcon));
+        OnPropertyChanged(nameof(SceneEditIconTip));
+        OnPropertyChanged(nameof(SceneEditIconGeometry));
         // 编辑模式留一份快照，取消时回滚；新建模式对象本就是临时的，不需要快照
         _editingSceneBackup = isNew || scene.Raw == null
             ? null

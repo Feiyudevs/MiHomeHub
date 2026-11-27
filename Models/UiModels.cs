@@ -1,6 +1,7 @@
 // Copyright (C) 2026 Feiyu
 // SPDX-License-Identifier: GPL-3.0-only
 
+using System;
 using System.Collections.Generic;
 using Avalonia;
 using Avalonia.Media;
@@ -16,6 +17,7 @@ public sealed partial class RoomChip : ObservableObject
     {
         Name = name;
         IconKey = ResolveIcon(name);
+        _customIcon = CustomIconStore.Get(CustomIconStore.RoomScope, name);
     }
 
     public string Name { get; }
@@ -25,6 +27,28 @@ public sealed partial class RoomChip : ObservableObject
 
     /// <summary>图标 key，对应 Assets/Nav/&lt;key&gt;.svg，见 <see cref="Services.NavIcons"/>。</summary>
     public string IconKey { get; }
+
+    /// <summary>用户给这个房间设的自定义图标；null = 用按房间名匹配的默认图标。</summary>
+    [ObservableProperty] private CustomIcon? _customIcon;
+
+    public bool HasCustomIcon => CustomIcon is not null;
+
+    /// <summary>侧栏导航行模板的 Tag：把默认 key 与自定义图标打包给转换器判断显示哪一套。</summary>
+    public NavIconRef IconTag => new() { Key = IconKey, Custom = CustomIcon };
+
+    /// <summary>默认 SVG / 细线图标的不透明度：有自定义图标时整组隐到 0，让位给用户那张图。</summary>
+    public double DefaultIconOpacity => HasCustomIcon ? 0 : 1;
+
+    partial void OnCustomIconChanged(CustomIcon? value)
+    {
+        OnPropertyChanged(nameof(HasCustomIcon));
+        OnPropertyChanged(nameof(IconTag));
+        OnPropertyChanged(nameof(DefaultIconOpacity));
+    }
+
+    /// <summary>设置弹窗改完图标后从存储里重新取一枚（存储事件统一走这里刷新）。</summary>
+    public void ReloadCustomIcon() =>
+        CustomIcon = CustomIconStore.Get(CustomIconStore.RoomScope, Name);
 
     [ObservableProperty] private bool _isSelected;
 
@@ -87,6 +111,22 @@ public sealed partial class RoomChip : ObservableObject
         keys.Any(k => name.Contains(k, StringComparison.OrdinalIgnoreCase));
 }
 
+/// <summary>一次「换图标」请求：房间按名称、场景按 scene_id、设备按 did，Label 用作弹窗标题。</summary>
+/// <param name="FromEditor">true = 从场景编辑弹窗里发起；独立场景窗要用自己的窗口当宿主，主窗口据此让路。</param>
+public sealed record CustomIconTarget(string Scope, string Key, string Label, bool FromEditor = false)
+{
+    public bool IsRoom => Scope == CustomIconStore.RoomScope;
+    public bool IsDevice => Scope == CustomIconStore.DeviceScope;
+}
+
+/// <summary>侧栏导航行 Tag 的图标识描述：默认 key + 可选的自定义图标。
+/// 转换器同时兼容裸字符串（首页 / 智能 / 快捷键那三行仍直接写 key）。</summary>
+public sealed class NavIconRef
+{
+    public required string Key { get; init; }
+    public CustomIcon? Custom { get; init; }
+}
+
 /// <summary>标题栏家庭下拉项：一次 homelist 拉取后固定，选中后按 Id 重拉该家庭设备。</summary>
 public sealed partial class HomeOption : ObservableObject
 {
@@ -133,8 +173,42 @@ public sealed partial class DeviceGroup : ObservableObject
     /// <summary>房间图标 key：与侧栏房间同一套匹配规则，标题左侧显示的图标因此两处一致。</summary>
     public string IconKey => RoomChip.ResolveIcon(Name);
 
+    /// <summary>用户给这个房间设的自定义图标；null = 继续用默认线性图标。</summary>
+    [ObservableProperty] private CustomIcon? _customIcon;
+
+    public bool HasCustomIcon => CustomIcon is not null;
+
+    /// <summary>默认图标的不透明度：有自定义图标时隐到 0。</summary>
+    public double DefaultIconOpacity => HasCustomIcon ? 0 : 1;
+
+    partial void OnCustomIconChanged(CustomIcon? value)
+    {
+        OnPropertyChanged(nameof(HasCustomIcon));
+        OnPropertyChanged(nameof(DefaultIconOpacity));
+    }
+
+    /// <summary>自定义图标变更后同步到首页这一组标题。</summary>
+    public void ReloadCustomIcon() =>
+        CustomIcon = CustomIconStore.Get(CustomIconStore.RoomScope, Name);
+
     /// <summary>该房间是否展开：点标题行切换，收起后卡片全部让位，只留一行标题。</summary>
     [ObservableProperty] private bool _isExpanded = true;
+
+    /// <summary>
+    /// 这个房间里还亮着的灯数（在线且开，与侧栏小灯泡、「灯光」统计卡同一口径）。
+    /// 首页房间标题据此显示「N 盏灯亮着」和「一键全关」；为 0 时整组收起不占位。
+    /// </summary>
+    [ObservableProperty] private int _lightOnCount;
+
+    public bool HasLightOn => LightOnCount > 0;
+
+    public string LightOnText => $"{LightOnCount} 盏灯亮着";
+
+    partial void OnLightOnCountChanged(int value)
+    {
+        OnPropertyChanged(nameof(HasLightOn));
+        OnPropertyChanged(nameof(LightOnText));
+    }
 
     /// <summary>房间卡片区是否可见（收起时整块不参与布局）。</summary>
     public bool ItemsVisible => IsExpanded;
@@ -177,6 +251,25 @@ public sealed partial class SceneCardItem : ObservableObject
     partial void OnRoleTextChanged(string value) => OnPropertyChanged(nameof(HasRole));
 
     public required Geometry Icon { get; init; }
+
+    /// <summary>用户给这条场景设的自定义图标；null = 用按名称匹配的默认线性图标。</summary>
+    [ObservableProperty] private CustomIcon? _customIcon;
+
+    public bool HasCustomIcon => CustomIcon is not null;
+
+    /// <summary>默认线性图标的不透明度：有自定义图标时隐到 0。</summary>
+    public double DefaultIconOpacity => HasCustomIcon ? 0 : 1;
+
+    partial void OnCustomIconChanged(CustomIcon? value)
+    {
+        OnPropertyChanged(nameof(HasCustomIcon));
+        OnPropertyChanged(nameof(DefaultIconOpacity));
+    }
+
+    /// <summary>自定义图标变更后从存储重取；各列表持有的是同一批实例，一次刷新全局生效。</summary>
+    public void ReloadCustomIcon() =>
+        CustomIcon = CustomIconStore.Get(CustomIconStore.SceneScope, Scene.SceneId);
+
     /// <summary>卡片右上光晕渐变（场景色低透明度）。</summary>
     public required IBrush GlowBrush { get; init; }
     public required IBrush IconBgBrush { get; init; }
@@ -231,6 +324,7 @@ public sealed partial class SceneCardItem : ObservableObject
             Scene = scene,
             IsEnabled = scene.Enable,
             Icon = SceneIconFor(scene.Name),
+            CustomIcon = CustomIconStore.Get(CustomIconStore.SceneScope, scene.SceneId),
             GlowBrush = glow,
             IconBgBrush = new SolidColorBrush(Alpha(color, 0x26)),
             IconFgBrush = new SolidColorBrush(color)
@@ -238,7 +332,8 @@ public sealed partial class SceneCardItem : ObservableObject
     }
 
     // 整圆同样用两段半圆弧拼，避免闭合弧被解析成空路径。
-    private static Geometry SceneIconFor(string name)
+    // 场景编辑弹窗的图标预览也用它，保证「列表卡片 / 编辑弹窗」两处默认画法完全一致。
+    public static Geometry SceneIconFor(string name)
     {
         string data = name switch
         {
@@ -278,4 +373,53 @@ public sealed class ConsumableItem
     public bool IsLow { get; init; }
     /// <summary>行内进度条填充宽度：固定 92px 轨道按百分比取宽，圆角由两端 Border 自己画，不走 ProgressBar 模板。</summary>
     public double BarWidth => Percent < 0 ? 0 : Math.Clamp(Percent, 0, 100) * 92.0 / 100.0;
+}
+
+/// <summary>「数据看板」编辑弹窗里的一行：一张趋势卡的显示开关。
+/// 界面只改 <see cref="IsOn"/>，落盘与重算交回 ViewModel 的回调，各卡不直接碰设置。</summary>
+public sealed partial class TrendCardOptionItem : ObservableObject
+{
+    private readonly Action<TrendCardOptionItem>? _onToggled;
+    private bool _mute;
+
+    public TrendCardOptionItem(string key, string title, string desc,
+        Action<TrendCardOptionItem>? onToggled = null)
+    {
+        Key = key;
+        Title = title;
+        Desc = desc;
+        _onToggled = onToggled;
+    }
+
+    /// <summary>设置里认的键：temp / hum / power / water / gas / tds。</summary>
+    public string Key { get; }
+
+    public string Title { get; }
+
+    /// <summary>这张卡到底画的是什么，一句话说明。</summary>
+    public string Desc { get; }
+
+    /// <summary>家里有没有能给这张卡提供读数的设备；没有也可以打开，首页上是一张带「预览」标识的示例数据卡。</summary>
+    [ObservableProperty] private bool _hasDevice;
+
+    public bool IsMissingDevice => !HasDevice;
+
+    partial void OnHasDeviceChanged(bool value) => OnPropertyChanged(nameof(IsMissingDevice));
+
+    /// <summary>是否出现在首页（和开关 TwoWay 绑定）。</summary>
+    [ObservableProperty] private bool _isOn;
+
+    partial void OnIsOnChanged(bool value)
+    {
+        if (_mute) return;
+        _onToggled?.Invoke(this);
+    }
+
+    /// <summary>打开弹窗时同步一次已有选择：静默改值，不触发回调（否则会把「跟随设备」固化成手动选择）。</summary>
+    public void SyncOn(bool on)
+    {
+        _mute = true;
+        IsOn = on;
+        _mute = false;
+    }
 }

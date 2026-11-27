@@ -154,7 +154,7 @@ public sealed partial class SpecPropVm : ObservableObject
             return hit?.Label ?? v.ToString(CultureInfo.InvariantCulture);
         }
         if (raw is string s) return s;
-        return Format(ToDouble(raw)) + Def.Unit;
+        return Format(Def.Decode(ToDouble(raw)) * Def.ValueScale) + Def.Unit;
     }
 
     private static double ToDouble(object? raw) => raw switch
@@ -168,10 +168,12 @@ public sealed partial class SpecPropVm : ObservableObject
 
     private static string Format(double v)
     {
-        var rounded = Math.Round(v, 1);
+        // 小于 1 的读数（电流 0.023A、甲醛 0.003mg/m³）保留三位有效小数，否则会被四舍五入成 0
+        var decimals = Math.Abs(v) < 1 ? 3 : 1;
+        var rounded = Math.Round(v, decimals);
         return rounded == Math.Truncate(rounded)
             ? ((long)rounded).ToString(CultureInfo.InvariantCulture)
-            : rounded.ToString("0.#", CultureInfo.InvariantCulture);
+            : rounded.ToString("0.###", CultureInfo.InvariantCulture);
     }
 }
 

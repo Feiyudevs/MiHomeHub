@@ -11,7 +11,8 @@ using System.Text.Json.Serialization;
 namespace MiHomeHub.Services;
 
 /// <summary>某台设备在一格里的读数：任一项都可能为空（没这个属性，或者离线没读到）。</summary>
-public sealed record EnvReading(double? Temp, double? Humidity, double? Power, double? EnergyKwh = null);
+public sealed record EnvReading(double? Temp, double? Humidity, double? Power, double? EnergyKwh = null,
+    double? WaterLiters = null, double? Tds = null, double? GasM3 = null);
 
 /// <summary>
 /// 一条环境采样：全屋口径的温湿度与功率，外加每台设备自己的那一份。
@@ -179,6 +180,20 @@ public sealed class EnvHistoryStore
         return null;
     }
 
+    /// <summary>某台设备最近一次有值的读数：重启后拿它给合成水表/气表接上原来的累计值。</summary>
+    public double? LatestDevice(string did, Func<EnvReading, double?> pick)
+    {
+        if (string.IsNullOrEmpty(did)) return null;
+
+        for (var i = _points.Count - 1; i >= 0; i--)
+        {
+            var by = _points[i].ByDevice;
+            if (by is null || !by.TryGetValue(did, out var reading)) continue;
+            if (pick(reading) is { } v) return v;
+        }
+        return null;
+    }
+
     /// <summary>
     /// 这台设备在这一项上最早的一条采样时刻；从没采到过就返回 null。
     /// 卡片刚切到某台设备时用它划界：在它开始上报之前，那段曲线沿用全屋口径，
@@ -266,6 +281,175 @@ public sealed class EnvHistoryStore
 
         return buckets;
     }
+
+    /// <summary>
+    /// 区间用水量（升）：每一格的水表读数与上一格比较，只累加正向增量——
+    /// 水表清零、换滤芯造成的回落不算用水。覆盖率太低时前端只报「今天记了多少」，
+    /// 不把刚启动这两小时当成一整天的用水量。
+    /// </summary>
+    public (double Liters, double Coverage, TimeSpan Span) Water(DateTime from, DateTime to, string? did = null) =>
+        Usage(from, to, did, WaterOf, WaterDids);
+
+    /// <summary>区间用气量（m³）：口径与用水一致，气表同样是只增计数器。</summary>
+    public (double M3, double Coverage, TimeSpan Span) Gas(DateTime from, DateTime to, string? did = null) =>
+        Usage(from, to, did, GasOf, GasDids);
+
+    private (double Value, double Coverage, TimeSpan Span) Usage(DateTime from, DateTime to, string? did,
+        Func<EnvPoint, string, double?> valueOf, Func<string?, IEnumerable<string>> dids)
+    {
+        var total = (to - from).TotalSeconds;
+        if (total <= 0) return (0, 0, TimeSpan.Zero);
+
+        double value = 0, bestCovered = 0;
+        TimeSpan bestSpan = TimeSpan.Zero;
+
+        foreach (var deviceDid in dids(did))
+        {
+            double? prev = null;
+            DateTime prevAt = default;
+            DateTime? firstAt = null, lastAt = null;
+            double covered = 0;
+
+            foreach (var p in _points)
+            {
+                if (p.Time > to) break;
+                if (valueOf(p, deviceDid) is not { } current)
+                {
+                    // 中间断档：下一格不能跨过这段空白去和旧值相减
+                    if (p.Time >= from) prev = null;
+                    continue;
+                }
+                if (p.Time < from)
+                {
+                    // 区间起点前最多留一格做基准（15 分钟内），否则 00:00 后的第一段用水会被吃掉
+                    prev = p.Time >= from.AddMinutes(-15) ? current : null;
+                    prevAt = p.Time;
+                    continue;
+                }
+                if (prev is { } before)
+                {
+                    var delta = current - before;
+                    if (delta > 0) value += delta;
+                    var seconds = (p.Time - prevAt).TotalSeconds;
+                    if (seconds > 0 && seconds <= SampleMinutes * 3 * 60)
+                        covered += seconds;
+                }
+                firstAt ??= p.Time;
+                lastAt = p.Time;
+                prev = current;
+                prevAt = p.Time;
+            }
+
+            if (firstAt is { } f && lastAt is { } l && l - f > bestSpan) bestSpan = l - f;
+            if (covered > bestCovered) bestCovered = covered;
+        }
+
+        return (value, Math.Clamp(bestCovered / total, 0, 1), bestSpan);
+    }
+
+    /// <summary>
+    /// 今天逐小时用水量（升）：24 格，还没到的时段与没有采样的时段都是 NaN；
+    /// 有采样但没有用水的小时记 0，柱子留空但悬停能看到 0 L。
+    /// </summary>
+    public double[] HourlyWater(DateTime now, string? did = null) =>
+        HourlyUsage(now, did, WaterOf, WaterDids);
+
+    /// <summary>今天逐小时用气量（m³），口径与 <see cref="HourlyWater"/> 一致。</summary>
+    public double[] HourlyGas(DateTime now, string? did = null) =>
+        HourlyUsage(now, did, GasOf, GasDids);
+
+    private double[] HourlyUsage(DateTime now, string? did,
+        Func<EnvPoint, string, double?> valueOf, Func<string?, IEnumerable<string>> dids)
+    {
+        var buckets = new double[24];
+        Array.Fill(buckets, double.NaN);
+        var today = now.Date;
+        var seen = new bool[24];
+
+        foreach (var deviceDid in dids(did))
+        {
+            double? prev = null;
+            DateTime prevAt = default;
+
+            foreach (var p in _points)
+            {
+                if (p.Time > now) break;
+                if (valueOf(p, deviceDid) is not { } current)
+                {
+                    prev = null;
+                    continue;
+                }
+
+                var inToday = p.Time >= today;
+                if (prev is { } before && inToday)
+                {
+                    var seconds = (p.Time - prevAt).TotalSeconds;
+                    if (seconds > 0 && seconds <= SampleMinutes * 3 * 60)
+                    {
+                        var hour = p.Time.Hour;
+                        seen[hour] = true;
+                        var delta = current - before;
+                        if (delta > 0)
+                            buckets[hour] = double.IsNaN(buckets[hour]) ? delta : buckets[hour] + delta;
+                    }
+                }
+
+                prev = current;
+                prevAt = p.Time;
+            }
+        }
+
+        for (var h = 0; h < 24; h++)
+            if (seen[h] && double.IsNaN(buckets[h])) buckets[h] = 0;
+
+        return buckets;
+    }
+
+    /// <summary>这台净水器某一格的出水 TDS；没有采到就返回 null（给水质卡画曲线用）。</summary>
+    public double? TdsOf(EnvPoint p, string did) =>
+        p.ByDevice is { } by && by.TryGetValue(did, out var reading) ? reading.Tds : null;
+
+    /// <summary>要按水表算用量的设备：指定了就只看它，否则把历史里所有报过水表的设备都列出来。</summary>
+    private IEnumerable<string> WaterDids(string? did)
+    {
+        if (!string.IsNullOrEmpty(did))
+        {
+            yield return did;
+            yield break;
+        }
+
+        var seen = new HashSet<string>(StringComparer.Ordinal);
+        foreach (var p in _points)
+        {
+            if (p.ByDevice is not { } by) continue;
+            foreach (var (deviceDid, reading) in by)
+                if (reading.WaterLiters is not null && seen.Add(deviceDid)) yield return deviceDid;
+        }
+    }
+
+    private static double? WaterOf(EnvPoint p, string did) =>
+        p.ByDevice is { } by && by.TryGetValue(did, out var reading) ? reading.WaterLiters : null;
+
+    /// <summary>要按气表算用量的设备：指定了就只看它，否则把历史里所有报过气表的设备都列出来。</summary>
+    private IEnumerable<string> GasDids(string? did)
+    {
+        if (!string.IsNullOrEmpty(did))
+        {
+            yield return did;
+            yield break;
+        }
+
+        var seen = new HashSet<string>(StringComparer.Ordinal);
+        foreach (var p in _points)
+        {
+            if (p.ByDevice is not { } by) continue;
+            foreach (var (deviceDid, reading) in by)
+                if (reading.GasM3 is not null && seen.Add(deviceDid)) yield return deviceDid;
+        }
+    }
+
+    private static double? GasOf(EnvPoint p, string did) =>
+        p.ByDevice is { } by && by.TryGetValue(did, out var reading) ? reading.GasM3 : null;
 
     /// <summary>取某一格的功率：空 did = 全屋叠加值，否则取该设备自己的那项。</summary>
     private static double? PowerOf(EnvPoint p, string? did) =>
@@ -392,7 +576,8 @@ public sealed class EnvHistoryStore
 
             guarded[did] = temp == reading.Temp && humidity == reading.Humidity
                 ? reading
-                : new EnvReading(temp, humidity, reading.Power, reading.EnergyKwh);
+                : new EnvReading(temp, humidity, reading.Power, reading.EnergyKwh,
+                    reading.WaterLiters, reading.Tds, reading.GasM3);
         }
 
         return changed ? guarded : fresh;
@@ -412,7 +597,7 @@ public sealed class EnvHistoryStore
         foreach (var (did, reading) in fresh)
         {
             merged[did] = merged.TryGetValue(did, out var prev)
-                ? new EnvReading(reading.Temp ?? prev.Temp, reading.Humidity ?? prev.Humidity, reading.Power ?? prev.Power, reading.EnergyKwh ?? prev.EnergyKwh)
+                ? new EnvReading(reading.Temp ?? prev.Temp, reading.Humidity ?? prev.Humidity, reading.Power ?? prev.Power, reading.EnergyKwh ?? prev.EnergyKwh, reading.WaterLiters ?? prev.WaterLiters, reading.Tds ?? prev.Tds, reading.GasM3 ?? prev.GasM3)
                 : reading;
         }
         return merged;
@@ -511,7 +696,10 @@ public sealed class EnvHistoryStore
                 values.Length > 0 ? values[0] : null,
                 values.Length > 1 ? values[1] : null,
                 values.Length > 2 ? values[2] : null,
-                values.Length > 3 ? values[3] : null);
+                values.Length > 3 ? values[3] : null,
+                values.Length > 4 ? values[4] : null,
+                values.Length > 5 ? values[5] : null,
+                values.Length > 6 ? values[6] : null);
         }
         return map.Count > 0 ? map : null;
     }
@@ -533,7 +721,7 @@ public sealed class EnvHistoryStore
                     C = p.Power,
                     D = p.ByDevice is { Count: > 0 } by
                         ? by.ToDictionary(kv => kv.Key,
-                            kv => new double?[] { kv.Value.Temp, kv.Value.Humidity, kv.Value.Power, kv.Value.EnergyKwh })
+                            kv => new double?[] { kv.Value.Temp, kv.Value.Humidity, kv.Value.Power, kv.Value.EnergyKwh, kv.Value.WaterLiters, kv.Value.Tds, kv.Value.GasM3 })
                         : null
                 }).ToList()
             };
@@ -561,7 +749,7 @@ public sealed class EnvHistoryStore
         [JsonPropertyName("b")] public double? B { get; set; }
         [JsonPropertyName("c")] public double? C { get; set; }
 
-        /// <summary>每台设备自己的读数：did → [温度, 湿度, 功率, 累计电量 kWh]；老文件没有这一段或只有前三项。</summary>
+        /// <summary>每台设备自己的读数：did → [温度, 湿度, 功率, 累计电量 kWh, 水表升数, 出水 TDS, 累计用气 m³]；老文件可能只有前几项。</summary>
         [JsonPropertyName("d")] public Dictionary<string, double?[]>? D { get; set; }
     }
 }

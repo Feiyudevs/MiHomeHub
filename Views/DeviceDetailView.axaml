@@ -129,7 +129,9 @@
                           ItemTemplate="{StaticResource MetricTileTemplate}">
                 <ItemsControl.ItemsPanel>
                     <ItemsPanelTemplate>
-                        <WrapPanel />
+                        <!-- 读数卡按抽屉宽度自动分列，最多 3 列：温度 / 湿度 / PM2.5 这类常见三项一行排完，
+                             不再折到第二行留半张空的。窗口收窄时退到 2 列、1 列，卡片跟着等宽拉伸 -->
+                        <ctl:AdaptiveGridPanel MinItemWidth="96" MaxColumns="3" Spacing="8" />
                     </ItemsPanelTemplate>
                 </ItemsControl.ItemsPanel>
             </ItemsControl>

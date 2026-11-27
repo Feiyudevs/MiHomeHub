@@ -143,12 +143,14 @@ public static class DesktopHost
         var model = _layout.Groups.FirstOrDefault(g => g.Id == groupId);
         if (model == null) return null;
 
-        // 分区窗可能还没建（总开关关着、或刚启动），补一个，保证用户点完立刻能看到结果。
-        // 媒体分区不能塞设备，按 id 找到的是它就当没有，另建一个设备分区。
+        // 媒体 / 空调分区是专用卡面（音响播放 / 空调控制），压根没有设备清单：
+        // 既不能往里塞设备，也不能按 id 给它们套一层设备分区视图模型
+        if (model.IsMedia || model.IsAc) return null;
+
+        // 分区窗可能还没建（总开关关着、或刚启动），补一个，保证用户点完立刻能看到结果
         var vm = Groups.OfType<DesktopGroupVm>().FirstOrDefault(g => g.Model.Id == groupId);
         if (vm == null)
         {
-            if (model.IsMedia) return null;
             vm = new DesktopGroupVm(_main, model);
             Groups.Add(vm);
         }

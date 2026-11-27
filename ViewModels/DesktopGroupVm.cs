@@ -128,9 +128,9 @@ public partial class DesktopGroupVm : DesktopZoneVm, IDeviceCardHost
 
     private void LoadDeviceList()
     {
-        var pool = Main.AllDevices;
+        // 按 did 逐台认人：主列表里有就沿用那张卡的实例，被并组/并键藏起来的一台也照样显示
         var next = Model.Dids
-            .Select(did => pool.FirstOrDefault(d => string.Equals(d.Did, did, StringComparison.Ordinal)))
+            .Select(did => Main.FindZoneDevice(did))
             .Where(d => d != null)
             .Select(d => d!)
             .ToList();

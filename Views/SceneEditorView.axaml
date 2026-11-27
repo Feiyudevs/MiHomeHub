@@ -127,6 +127,24 @@
             </Setter>
         </Style>
 
+        <!-- 基础信息卡里的场景图标入口：透明按钮壳，外观全交给里面那块圆角图标；
+             新建场景还没有 scene_id，按钮走禁用态并给一句「保存后可设置」的提示 -->
+        <Style Selector="Button.IconTile">
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="BorderThickness" Value="0" />
+            <Setter Property="Padding" Value="0" />
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="Template">
+                <ControlTemplate>
+                    <ContentPresenter Content="{TemplateBinding Content}"
+                                      HorizontalAlignment="Stretch" VerticalAlignment="Stretch" />
+                </ControlTemplate>
+            </Setter>
+        </Style>
+        <Style Selector="Button.IconTile:disabled">
+            <Setter Property="Opacity" Value="0.5" />
+        </Style>
+
     </UserControl.Styles>
 
     <ctl:DialogPopup CardWidth="672" CardMaxHeight="740"
@@ -170,11 +188,58 @@
             <!-- ===== 基础信息：名称 + 启停 并排成一行、左右各占一半，中间用淡竖线分隔 ===== -->
             <Border Classes="SecCard">
                 <Grid ColumnDefinitions="*,Auto,*">
-                    <StackPanel Spacing="6" VerticalAlignment="Center" Margin="0,0,16,0">
-                        <TextBlock Classes="SecLabel" Text="名称" />
-                        <TextBox Text="{Binding SceneEditName, Mode=TwoWay}" Height="38" MaxLength="40"
-                                 Watermark="{Binding SceneEditNameWatermark}" />
-                    </StackPanel>
+                    <Grid ColumnDefinitions="Auto,*" Margin="0,0,16,0">
+                        <!-- 图标预览兼入口：列表卡片 / 编辑弹窗的默认线稿同源；点一下换成自己的 SVG / PNG -->
+                        <Button Classes="IconTile" Width="52" Height="52" VerticalAlignment="Center"
+                                Command="{Binding EditEditingSceneIconCommand}"
+                                IsEnabled="{Binding SceneEditCanChangeIcon}"
+                                ToolTip.Tip="{Binding SceneEditIconTip}">
+                            <Button.ContextMenu>
+                                <ContextMenu Padding="4" MinWidth="0" FontSize="11.5">
+                                    <MenuItem Theme="{StaticResource CardMenuItem}"
+                                              Header="自定义图标…"
+                                              IsEnabled="{Binding SceneEditCanChangeIcon}"
+                                              Command="{Binding $parent[Window].((vm:MainViewModel)DataContext).EditEditingSceneIconCommand}" />
+                                    <MenuItem Theme="{StaticResource CardMenuItem}"
+                                              Header="恢复默认图标"
+                                              IsVisible="{Binding SceneEditHasCustomIcon}"
+                                              Command="{Binding $parent[Window].((vm:MainViewModel)DataContext).ResetEditingSceneIconCommand}" />
+                                </ContextMenu>
+                            </Button.ContextMenu>
+                            <Border Width="46" Height="46" CornerRadius="14"
+                                    Background="{DynamicResource Surface4Brush}"
+                                    BorderBrush="{DynamicResource LineBrush}" BorderThickness="1">
+                                <Panel>
+                                    <Path Width="22" Height="22" Stretch="Uniform"
+                                          Stroke="{DynamicResource Accent2Brush}"
+                                          StrokeThickness="1.7" StrokeLineCap="Round" StrokeJoin="Round"
+                                          Opacity="{Binding SceneEditDefaultIconOpacity}"
+                                          Data="{Binding SceneEditIconGeometry}" />
+                                    <!-- 自定义图铺满 46 圆角框（内圈 44，留出 1px 描边） -->
+                                    <ctl:RoundedImage CornerRadius="13"
+                                                      IsHitTestVisible="False"
+                                                      IsVisible="{Binding SceneEditHasCustomIcon}"
+                                                      Source="{Binding SceneEditCustomIcon.Image}" />
+                                    <!-- 右下角小铅笔：告诉用户这枚图标可点 -->
+                                    <Border Width="16" Height="16" CornerRadius="8"
+                                            HorizontalAlignment="Right" VerticalAlignment="Bottom"
+                                            Margin="0,0,-3,-3"
+                                            Background="{DynamicResource Accent2Brush}"
+                                            IsVisible="{Binding SceneEditCanChangeIcon}">
+                                        <Path Width="8" Height="8" Stretch="Uniform"
+                                              Stroke="White" StrokeThickness="1.5"
+                                              StrokeLineCap="Round" StrokeJoin="Round"
+                                              Data="M4,19 L5.5,15.5 L16.5,4.5 L19.5,7.5 L8.5,18.5 Z" />
+                                    </Border>
+                                </Panel>
+                            </Border>
+                        </Button>
+                        <StackPanel Grid.Column="1" Margin="12,0,0,0" Spacing="6" VerticalAlignment="Center">
+                            <TextBlock Classes="SecLabel" Text="名称" />
+                            <TextBox Text="{Binding SceneEditName, Mode=TwoWay}" Height="38" MaxLength="40"
+                                     Watermark="{Binding SceneEditNameWatermark}" />
+                        </StackPanel>
+                    </Grid>
                     <!-- 淡竖分割线：落在卡片正中（左右两列等宽、左右内距对称） -->
                     <Border Grid.Column="1" Width="1" Margin="0,2"
                             Background="{DynamicResource LineBrush}" />

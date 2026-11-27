@@ -34,6 +34,16 @@ public partial class DesktopAppearanceWindow : Window
         if (sender is Button { Tag: string hex }) _vm.PickColorCommand.Execute(hex);
     }
 
+    /// <summary>预设色不够用时，打开 HSV 调色盘取任意颜色；确认后照旧即时生效。</summary>
+    private async void OnCustomColorClick(object? sender, RoutedEventArgs e)
+    {
+        var initial = string.IsNullOrWhiteSpace(_vm.ColorHex)
+            ? DesktopAppearanceVm.PresetHexes[0]
+            : _vm.ColorHex;
+        var picked = await ColorPickerWindow.PickAsync(this, initial);
+        if (!string.IsNullOrWhiteSpace(picked)) _vm.PickColorCommand.Execute(picked);
+    }
+
     protected override void OnKeyDown(KeyEventArgs e)
     {
         base.OnKeyDown(e);

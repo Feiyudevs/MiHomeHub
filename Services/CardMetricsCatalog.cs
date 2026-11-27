@@ -3,6 +3,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.Linq;
 using MiHomeHub.Models;
 
@@ -16,13 +17,12 @@ namespace MiHomeHub.Services;
 public static class CardMetricsCatalog
 {
     /// <summary>可外显的读数属性短名：只读、数值型，且确实有展示意义的指标。
-    /// 插座用 electric-power（float，单位 watt）而不是 power-consumption ——
-    /// 后者是累计用电量（无单位），当功率显示会读出完全错误的数字。</summary>
+    /// 插座用 electric-power（float，单位 watt）看瞬时功率；power-consumption 是累计用电量，按度展示。</summary>
     private static readonly HashSet<string> MetricNames = new(StringComparer.Ordinal)
     {
         "temperature", "relative-humidity", "humidity", "pm2.5", "pm10", "pm1", "illuminance",
         "co2", "tvoc", "hcho", "noise", "dust", "tds-in", "air-quality", "water-level",
-        "electric-power", "voltage", "electric-current",
+        "electric-power", "power-consumption", "voltage", "electric-current",
         "motion-detected", "contact-state", "occupancy",
         "smoke-state", "leak", "door-state", "submersion-state"
     };
@@ -38,7 +38,11 @@ public static class CardMetricsCatalog
         ["tvoc"] = new[] { "tvoc-density", "voc-density", "etvoc-density" },
         ["hcho"] = new[] { "hcho-density", "formaldehyde-density", "formaldehyde" },
         ["noise"] = new[] { "noise-decibel", "noise" },
-        ["dust"] = new[] { "dust-density", "dust" }
+        ["dust"] = new[] { "dust-density", "dust" },
+        ["electric-power"] = new[] { "power", "surge-power", "active-power" },
+        ["voltage"] = new[] { "electric-voltage" },
+        ["electric-current"] = new[] { "current" },
+        ["power-consumption"] = new[] { "energy-consumption", "power-consume", "electricity-consumption" }
     };
 
     /// <summary>慢速读数：每 4 拍读一次（温湿度、耗材），其余外显字段跟普通轮询一拍读一次。</summary>
@@ -57,7 +61,12 @@ public static class CardMetricsCatalog
     public static string TypeKey(MijiaDevice d)
     {
         var category = d.CategoryName;
-        if (string.IsNullOrEmpty(category)) return d.IconKey;
+        if (string.IsNullOrEmpty(category))
+        {
+            // 部分第三方插座没有 spec_type，图标按 model 猜成 socket；仍按插座处理，
+            // 否则默认外显会落到温度/湿度，卡片上永远没有功率/电量读数。
+            return d.IconKey == "socket" ? "outlet" : d.IconKey;
+        }
         return category switch
         {
             "smart-outlet" => "outlet",
@@ -114,7 +123,7 @@ public static class CardMetricsCatalog
         foreach (var name in EffectiveNames(d))
         {
             var p = FindSelectedMetric(spec, name);
-            if (p != null) list.Add(p);
+            if (p is { IsNumeric: true, Writable: false }) list.Add(p);
         }
         return list;
     }
@@ -131,13 +140,17 @@ public static class CardMetricsCatalog
     {
         var spec = d.Spec;
         if (spec == null) return new List<SpecPropertyDef>();
-        var seen = new HashSet<(int, int)>();
+        var seenNames = new HashSet<string>(StringComparer.Ordinal);
         var list = new List<SpecPropertyDef>();
         foreach (var p in spec.Properties)
         {
-            if (!p.Readable || !p.IsNumeric || p.Options.Count > 0) continue;
-            if (StandardName(p.Name) == null) continue;
-            if (!seen.Add((p.Siid, p.Piid))) continue;
+            // 只读的实测值才算读数；可写的是保护阈值/目标值，不能混进读数卡
+            if (p.Writable || !p.Readable || !p.IsNumeric || p.Options.Count > 0) continue;
+            var standard = StandardName(p.Name);
+            if (standard == null) continue;
+            // 同一指标只在读数卡里出现一次（power / electric-power 这类别名并存时不重复铺卡）；
+            // 打包属性里的功率/电压共用同一个 siid.piid，但指标不同，都要保留
+            if (!seenNames.Add(standard)) continue;
             list.Add(p);
         }
         return list;
@@ -146,7 +159,7 @@ public static class CardMetricsCatalog
     /// <summary>按标准键找属性，先认标准名，再认 `-density` 等厂商别名。</summary>
     public static SpecPropertyDef? FindSelectedMetric(DeviceSpec spec, string name) =>
         spec.FindMetric(name) ??
-        spec.Properties.FirstOrDefault(x => x.Readable &&
+        spec.Properties.FirstOrDefault(x => x.Readable && !x.Writable && x.IsNumeric &&
             Aliases.TryGetValue(name, out var aliases) && aliases.Contains(x.Name));
 
     /// <summary>把规格短名归一到卡片配置使用的标准键；不在指标表内返回 null。</summary>
@@ -167,21 +180,27 @@ public static class CardMetricsCatalog
         return string.IsNullOrEmpty(unit) ? p.Desc : $"{p.Desc} · {unit}";
     }
 
-    /// <summary>单位：规格给的英文键已在 DeviceSpecService 归一化，这里只兜底。</summary>
-    private static string UnitOf(SpecPropertyDef p) => p.Name switch
+    /// <summary>单位：规格给的英文键已在 DeviceSpecService 归一化，这里只兜底；个别机型写 none 也当没写。</summary>
+    private static string UnitOf(SpecPropertyDef p)
     {
-        "electric-power" or "power-consumption" or "power" or "energy-consumption" =>
-            p.Unit.Length > 0 ? p.Unit : "W",
-        "voltage" => p.Unit.Length > 0 ? p.Unit : "V",
-        "electric-current" or "current" => p.Unit.Length > 0 ? p.Unit : "A",
-        "pm2.5" or "pm2.5-density" or "pm10" or "pm10-density" or "pm1" or "pm1-density" =>
-            p.Unit.Length > 0 ? p.Unit : "µg/m³",
-        "co2" or "co2-density" => p.Unit.Length > 0 ? p.Unit : "ppm",
-        "hcho" or "hcho-density" => p.Unit.Length > 0 ? p.Unit : "mg/m³",
-        "noise" or "noise-decibel" => p.Unit.Length > 0 ? p.Unit : "dB",
-        "tvoc" or "tvoc-density" or "voc-density" => p.Unit,
-        _ => p.Unit
-    };
+        var unit = p.Unit.Equals("none", StringComparison.OrdinalIgnoreCase) ? "" : p.Unit;
+        return p.Name switch
+        {
+            "power-consumption" or "energy-consumption" =>
+                unit.Length > 0 ? unit : "度",
+            "electric-power" or "power" or "surge-power" =>
+                unit.Length > 0 ? unit : "W",
+            "voltage" or "electric-voltage" => unit.Length > 0 ? unit : "V",
+            "electric-current" or "current" => unit.Length > 0 ? unit : "A",
+            "pm2.5" or "pm2.5-density" or "pm10" or "pm10-density" or "pm1" or "pm1-density" =>
+                unit.Length > 0 ? unit : "µg/m³",
+            "co2" or "co2-density" => unit.Length > 0 ? unit : "ppm",
+            "hcho" or "hcho-density" => unit.Length > 0 ? unit : "mg/m³",
+            "noise" or "noise-decibel" => unit.Length > 0 ? unit : "dB",
+            "tvoc" or "tvoc-density" or "voc-density" => unit,
+            _ => unit
+        };
+    }
 
     /// <summary>温度的原值可能是 0.1℃（超过 60 视为已放大）。</summary>
     public static double NormalizeTemperature(double v) => v > 60 ? v / 10 : v;
@@ -192,6 +211,9 @@ public static class CardMetricsCatalog
     /// <summary>把轮询读到的原始值格式化成卡片副标题里的一段文字。</summary>
     public static string FormatValue(SpecPropertyDef p, double raw)
     {
+        // 规格编码值先折算成展示值：耗电量 0.01 度计数器、mA、mV、kW 都在 ValueScale 里；
+        // 打包属性（文光汇 v9wh 的 5.1）先按 bit 段取出功率/电压再乘倍率
+        var value = p.Decode(raw) * p.ValueScale;
         switch (p.Name)
         {
             case "temperature":
@@ -201,16 +223,38 @@ public static class CardMetricsCatalog
             case "humidity":
                 return $"{NormalizeHumidity(raw):0.#}%";
             case "electric-power":
+            case "power":
+            case "surge-power":
             {
                 // 个别型号（chuangmi.plug.212a01 等）unit 写 watt，但值域上限到 655 万，
                 // 实际是 0.01W 编码；上限过百万的按百分之一瓦缩回，其余按 W 直读。
-                var watts = p.HasRange && p.Max >= 1_000_000 ? raw / 100 : raw;
+                var watts = p.HasRange && p.Max >= 1_000_000 ? value / 100 : value;
                 return watts >= 1000 ? $"{watts:0}W" : $"{watts:0.#}W";
             }
             case "power-consumption":
-            case "power":
-                return raw >= 1000 ? $"{raw:0}W" : $"{raw:0.#}W";
+            case "energy-consumption":
+                return value >= 100 ? $"{value:0}度" : $"{value:0.##}度";
+            case "voltage":
+            case "electric-voltage":
+                return $"{FormatNumber(value)}V";
+            case "electric-current":
+            case "current":
+                return value >= 1 ? $"{FormatNumber(value)}A" : $"{TrimTrailingZeros(value, 3)}A";
+            // 甲醛等小数读数常低于 0.1（如 0.003 mg/m³）；一位小数会被抹成 0。
+            // 保留有效小数，去掉末尾的 0，例如 0.003、0.05、1.2；整数仍显示整数。
+            case "hcho":
+            case "hcho-density":
+                return $"{TrimTrailingZeros(value, 3)}{UnitOf(p)}";
         }
-        return $"{raw:0.#}{UnitOf(p)}";
+        return $"{FormatNumber(value)}{UnitOf(p)}";
     }
+
+    /// <summary>通用读数：一位小数；末尾是 0 就按整数显示。</summary>
+    private static string FormatNumber(double value) =>
+        Math.Abs(value) >= 1000 ? $"{value:0}" : $"{value:0.#}";
+
+    /// <summary>去掉固定小数位格式末尾的 0 和多余小数点，避免出现 0.0030 / 1.20 这类尾巴。</summary>
+    private static string TrimTrailingZeros(double value, int decimals) =>
+        value.ToString($"0.{"".PadRight(decimals, '0')}", CultureInfo.InvariantCulture)
+             .TrimEnd('0').TrimEnd('.');
 }

@@ -40,10 +40,20 @@ public partial class OptionPicker : UserControl
     public static readonly StyledProperty<bool> PillProperty =
         AvaloniaProperty.Register<OptionPicker, bool>(nameof(Pill));
 
+    /// <summary>触发按钮上是否显示房间胶囊。默认显示；趋势卡这类窄胶囊只留设备名，房间留在展开列表里。</summary>
+    public static readonly StyledProperty<bool> ShowMetaProperty =
+        AvaloniaProperty.Register<OptionPicker, bool>(nameof(ShowMeta), defaultValue: true);
+
     public bool Pill
     {
         get => GetValue(PillProperty);
         set => SetValue(PillProperty, value);
+    }
+
+    public bool ShowMeta
+    {
+        get => GetValue(ShowMetaProperty);
+        set => SetValue(ShowMetaProperty, value);
     }
 
     public bool Compact
@@ -70,6 +80,7 @@ public partial class OptionPicker : UserControl
         SelectedValueProperty.Changed.AddClassHandler<OptionPicker>((x, _) => x.SyncSelection());
         CompactProperty.Changed.AddClassHandler<OptionPicker>((x, _) => x.SyncCompact());
         PillProperty.Changed.AddClassHandler<OptionPicker>((x, _) => x.SyncPill());
+        ShowMetaProperty.Changed.AddClassHandler<OptionPicker>((x, _) => x.SyncSelection());
     }
 
     public OptionPicker()
@@ -88,6 +99,7 @@ public partial class OptionPicker : UserControl
             Trigger.Classes.Add("open");
             // 控件自己也挂一个 .open：宿主（如首页趋势卡）靠它把「悬停才露面的触发器」在浮层开着时留住
             Classes.Set("open", true);
+            SyncCardPickOpen(true);
             AttachWheelForwarder();
             // 先让浮层以闭合态挂上树，下一帧再翻到展开态，过渡才有得播
             Dispatcher.UIThread.Post(() =>
@@ -102,6 +114,7 @@ public partial class OptionPicker : UserControl
             Trigger.Classes.Remove("open");
             Panel.Classes.Remove("open");
             Classes.Set("open", false);
+            SyncCardPickOpen(false);
             DetachWheelForwarder();
         };
 
@@ -214,9 +227,9 @@ public partial class OptionPicker : UserControl
         }
 
         Cur.Text = current ?? "选择";
-        // 触发器上的房间标注跟着选中项走，排在名称后面；没有就不留空底板
+        // 触发器上的房间标注跟着选中项走，排在名称后面；趋势卡可关掉，房间只留在展开列表里
         RoomTx.Text = meta ?? "";
-        Room.IsVisible = !string.IsNullOrEmpty(meta);
+        Room.IsVisible = ShowMeta && !string.IsNullOrEmpty(meta);
     }
 
     private void OnItemClick(object? sender, RoutedEventArgs args)
@@ -228,6 +241,29 @@ public partial class OptionPicker : UserControl
 
     /// <summary>宿主窗口收起时（如托盘菜单）跟着关掉浮层，Popup 不会随窗口 Hide 一起消失。</summary>
     public void CloseDropDown() => Pop.IsOpen = false;
+
+    /// <summary>
+    /// 首页趋势卡同一张卡上有两个下拉（设备来源 + 时间范围）。浮层一开，卡片就收不到 :pointerover，
+    /// 旁边那个触发器会跟着消失；这里给整张卡挂一个 .pick-open，让两个触发器一起留在场上。
+    /// 关掉时先看卡里还有没有别的浮层开着，最后一个小号才摘类。
+    /// </summary>
+    private void SyncCardPickOpen(bool open)
+    {
+        var card = this.GetVisualAncestors().OfType<Border>()
+            .FirstOrDefault(b => b.Classes.Contains("TrendCard"));
+        if (card is null) return;
+
+        if (open)
+        {
+            card.Classes.Add("pick-open");
+            return;
+        }
+
+        if (card.GetVisualDescendants().OfType<OptionPicker>()
+                .Any(p => !ReferenceEquals(p, this) && p.Classes.Contains("open")))
+            return;
+        card.Classes.Remove("pick-open");
+    }
 
     /// <summary>浮层打开期间挂到所在窗口上的滚轮拦截宿主。</summary>
     private TopLevel? _wheelHost;

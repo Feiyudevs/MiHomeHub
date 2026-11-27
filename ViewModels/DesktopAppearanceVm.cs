@@ -3,6 +3,9 @@
 
 using System;
 using System.Collections.Generic;
+using System.Linq;
+using Avalonia;
+using Avalonia.Media;
 using Avalonia.Threading;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
@@ -20,10 +23,10 @@ public partial class DesktopAppearanceVm : ObservableObject
     /// <summary>
     /// 背景浓度的滑杆范围与默认值（百分比）。值直接就是卡片底色的 alpha，
     /// 屏幕上的最终浓度还要叠一层 DWM 磨砂染色（DesktopPalette.TintOpacity，随浓度联动）。
-    /// 0% = 完全无底色、纯磨砂；72% 已接近实心。
+    /// 0% = 完全无底色、纯磨砂；100% 就是一块实心底色。
     /// </summary>
     public const double MinOpacityPercent = 0;
-    public const double MaxOpacityPercent = 72;
+    public const double MaxOpacityPercent = 100;
 
     /// <summary>默认浓度：DeskBox 那一档（= DesktopPalette.DefaultDensity）。</summary>
     public const double DefaultOpacityPercent = 34;
@@ -48,6 +51,52 @@ public partial class DesktopAppearanceVm : ObservableObject
 
     /// <summary>预设色块（选中态随当前 hex 重算，不是记索引：手输任意 hex 也能对上）。</summary>
     public System.Collections.ObjectModel.ObservableCollection<ColorSwatch> Presets { get; } = new();
+
+    /// <summary>
+    /// 预设色最后的「自定义颜色」圆点：选了非常用色就显示这个颜色，
+    /// 没选 / 选了常用色则显示彩色渐变，提示这里能打开调色盘。
+    /// </summary>
+    public IBrush CustomColorBrush
+    {
+        get
+        {
+            var hex = ExpandHex(ColorHex);
+            if (hex is not null)
+            {
+                try { return new SolidColorBrush(Color.Parse(hex)); }
+                catch { /* 坏值用渐变兜底 */ }
+            }
+            return CustomColorGradient;
+        }
+    }
+
+    /// <summary>当前颜色不是预设里的任何一枚时，自定义圆点才带选中环。</summary>
+    public bool IsCustomColorSelected => !FollowTheme
+        && ExpandHex(ColorHex) is not null
+        && !Presets.Any(p => p.IsSelected);
+
+    private static readonly IBrush CustomColorGradient = new LinearGradientBrush
+    {
+        StartPoint = new RelativePoint(0, 0, RelativeUnit.Relative),
+        EndPoint = new RelativePoint(1, 1, RelativeUnit.Relative),
+        GradientStops =
+        {
+            new GradientStop(Color.Parse("#F87171"), 0),
+            new GradientStop(Color.Parse("#FCD34D"), 0.3),
+            new GradientStop(Color.Parse("#4ADE80"), 0.55),
+            new GradientStop(Color.Parse("#7FABFF"), 0.8),
+            new GradientStop(Color.Parse("#ED43BD"), 1),
+        }
+    };
+
+    private static string? ExpandHex(string? raw)
+    {
+        var hex = CustomIconStore.NormalizeColor(raw);
+        if (string.IsNullOrEmpty(hex)) return null;
+        return hex.Length == 4
+            ? $"#{hex[1]}{hex[1]}{hex[2]}{hex[2]}{hex[3]}{hex[3]}".ToUpperInvariant()
+            : hex.ToUpperInvariant();
+    }
 
     /// <summary>关窗回调，由窗口挂上。</summary>
     public Action? CloseRequested { get; set; }
@@ -103,6 +152,12 @@ public partial class DesktopAppearanceVm : ObservableObject
         Push();
     }
 
+    partial void OnColorHexChanged(string value)
+    {
+        OnPropertyChanged(nameof(CustomColorBrush));
+        OnPropertyChanged(nameof(IsCustomColorSelected));
+    }
+
     /// <summary>选自定义色：颜色走 hex，跟随主题自动关闭。</summary>
     [RelayCommand]
     private void PickColor(string? hex)
@@ -142,6 +197,8 @@ public partial class DesktopAppearanceVm : ObservableObject
                 && !string.IsNullOrWhiteSpace(ColorHex)
                 && string.Equals(swatch.Hex, ColorHex, StringComparison.OrdinalIgnoreCase);
         }
+        OnPropertyChanged(nameof(CustomColorBrush));
+        OnPropertyChanged(nameof(IsCustomColorSelected));
     }
 
     [RelayCommand]

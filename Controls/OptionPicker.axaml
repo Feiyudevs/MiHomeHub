@@ -77,7 +77,7 @@
             <Setter Property="CornerRadius" Value="12" />
         </Style>
         <Style Selector="Button.PickBtn.pill TextBlock.Cur">
-            <Setter Property="Foreground" Value="{DynamicResource Text2Brush}" />
+            <Setter Property="Foreground" Value="{DynamicResource Text3Brush}" />
         </Style>
         <!-- 箭头与文字的间距写在基础样式里（不写在元素上），这样 .mini 才有机会压过它 -->
         <Style Selector="Button.PickBtn Path#Chev">

@@ -9,6 +9,10 @@
             <!-- ======== 侧栏导航图标：玻璃 SVG 优先，缺资源回退细线 ======== -->
             <conv:NavSvgConverter x:Key="NavSvg" />
             <conv:NavLineConverter x:Key="NavLine" />
+            <!-- 房间图标可被用户换成自定义 SVG / PNG：这三位负责取图、判断有无、隐掉默认画法 -->
+            <conv:NavCustomImageConverter x:Key="NavCustomImage" />
+            <conv:NavCustomVisibleConverter x:Key="NavCustomVisible" />
+            <conv:NavIconOpacityConverter x:Key="NavIconOpacity" />
             <conv:DeviceIconConverter x:Key="DeviceIcon" />
             <!-- 场景编辑：执行顺序卡片行首图标（设备沿用设备卡同款，其余按动作类型取语义图标） -->
             <conv:SceneRowIconConverter x:Key="SceneRowIcon" />

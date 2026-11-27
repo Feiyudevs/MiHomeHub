@@ -39,7 +39,7 @@ internal static class DesktopPalette
     /// <para>
     /// 屏幕上的最终浓度 = 底色 alpha 再叠一层 DWM tint（<see cref="TintOpacity"/>，两者近似相乘）。
     /// 下限 0：文字可读性已由灰度抗锯齿（RenderOptions.TextRenderingMode="Antialias"）兜底，
-    /// 允许完全无底色、只留磨砂模糊，壁纸最透；上限收在 0.72，再高就是一块实心板。
+    /// 允许完全无底色、只留磨砂模糊，壁纸最透；上限放到 1.0，拉满就是一块实心底。
     /// </para>
     /// <para>
     /// 这里是**唯一**的对比度来源：文字上不叠任何阴影。曾经按 DeskBox 的思路给 TextBlock
@@ -49,8 +49,8 @@ internal static class DesktopPalette
     /// </summary>
     public const double MinDensity = 0.0;
 
-    /// <summary>满浓度上限：再往上就是一块实心板，通透感彻底消失。</summary>
-    private const double MaxDensity = 0.72;
+    /// <summary>满浓度上限：拉到头就是实心底色，通透感完全让位给可读性。</summary>
+    private const double MaxDensity = 1.0;
 
     /// <summary>默认浓度：DeskBox 那一档的等效观感（配合 tint 后约 0.4）。</summary>
     public const double DefaultDensity = 0.34;

@@ -9,6 +9,21 @@
     xmlns:svc="clr-namespace:MiHomeHub.Services"
     x:Class="MiHomeHub.Views.DeviceDrawerView"
     x:DataType="vm:MainViewModel">
+    <UserControl.Styles>
+        <!-- 详情头部设备图标入口：透明按钮壳，外观全交给里面那块圆角图标 -->
+        <Style Selector="Button.DeviceIconButton">
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="BorderThickness" Value="0" />
+            <Setter Property="Padding" Value="0" />
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="Template">
+                <ControlTemplate>
+                    <ContentPresenter Content="{TemplateBinding Content}"
+                                      HorizontalAlignment="Stretch" VerticalAlignment="Stretch" />
+                </ControlTemplate>
+            </Setter>
+        </Style>
+    </UserControl.Styles>
         <!-- 边距对齐主内容面板（设备列表卡片）外沿：父级主体网格左右下各留 10、上留 0，
              抽屉右/上/下三边因此贴着面板边框铺开，不再四周悬空 5px、右下探出面板。 -->
         <Border x:Name="DeviceDrawer" Width="380" HorizontalAlignment="Right"
@@ -25,84 +40,117 @@
             <DockPanel LastChildFill="True">
                 <Panel DockPanel.Dock="Top" Margin="22,20,20,0">
                     <StackPanel Spacing="0">
-                        <Panel Width="56" Height="56" Margin="0,0,0,14" HorizontalAlignment="Left">
-                            <Border CornerRadius="17"
-                                    IsVisible="{Binding DrawerDevice.Icon, Converter={x:Static ObjectConverters.IsNull}}">
-                                <Path Width="28" Height="28" Stretch="Uniform" StrokeThickness="1.7"
-                                      StrokeLineCap="Round" StrokeJoin="Round" Stroke="{DynamicResource Accent2Brush}"
-                                      Data="{Binding DrawerDevice, Converter={StaticResource DeviceIcon}}" />
-                            </Border>
-                            <Border Classes="DevPhoto" Width="56" Height="56"
-                                    IsVisible="{Binding DrawerDevice.Icon, Converter={x:Static ObjectConverters.IsNotNull}}">
-                                <Image Source="{Binding DrawerDevice.Icon}" Stretch="Uniform"
-                                       RenderOptions.BitmapInterpolationMode="MediumQuality" />
-                            </Border>
-                        </Panel>
-                        <!-- 名称/房间与右侧操作胶囊同处一行：胶囊靠右并垂直居中对齐这两行文字 -->
-                        <Grid ColumnDefinitions="*,Auto">
-                            <StackPanel Grid.Column="0" Spacing="0">
-                                <TextBlock Text="{Binding DrawerDevice.Name}" FontSize="19" FontWeight="Bold"
-                                           TextWrapping="Wrap"
+                        <!-- 图标在左、名称在右：图标放大到与「名称 + 房间」两行同高，两者上沿对齐，
+                             整套标题收成一行，不再先压一块空图标行、再在下面出名字 -->
+                        <Grid ColumnDefinitions="Auto,*">
+                            <!-- 图标列：72 的方框，真机图按原比例装进去，线条占位图同比放大到 36；
+                                 点一下换自定义图，右键恢复默认 -->
+                            <Button Grid.Column="0" Classes="DeviceIconButton" Width="72" Height="72"
+                                    Margin="0,0,16,0" VerticalAlignment="Top"
+                                    Command="{Binding EditDrawerDeviceIconCommand}"
+                                    ToolTip.Tip="点击自定义设备图标；右键可恢复默认">
+                                <Button.ContextMenu>
+                                    <ContextMenu Padding="4" MinWidth="0" FontSize="11.5">
+                                        <MenuItem Theme="{StaticResource CardMenuItem}"
+                                                  Header="自定义图标…"
+                                                  Command="{Binding $parent[Window].((vm:MainViewModel)DataContext).EditDrawerDeviceIconCommand}" />
+                                        <MenuItem Theme="{StaticResource CardMenuItem}"
+                                                  Header="恢复默认图标"
+                                                  IsVisible="{Binding $parent[Window].((vm:MainViewModel)DataContext).DrawerDevice.HasCustomIcon}"
+                                                  Command="{Binding $parent[Window].((vm:MainViewModel)DataContext).ResetDrawerDeviceIconCommand}" />
+                                    </ContextMenu>
+                                </Button.ContextMenu>
+                                <Panel Width="72" Height="72">
+                                    <Panel IsVisible="{Binding !DrawerDevice.HasCustomIcon}">
+                                        <Border CornerRadius="21"
+                                                IsVisible="{Binding DrawerDevice.Icon, Converter={x:Static ObjectConverters.IsNull}}">
+                                            <Path Width="36" Height="36" Stretch="Uniform" StrokeThickness="1.7"
+                                                  StrokeLineCap="Round" StrokeJoin="Round" Stroke="{DynamicResource Accent2Brush}"
+                                                  Data="{Binding DrawerDevice, Converter={StaticResource DeviceIcon}}" />
+                                        </Border>
+                                        <Border Classes="DevPhoto" Width="72" Height="72"
+                                                IsVisible="{Binding DrawerDevice.Icon, Converter={x:Static ObjectConverters.IsNotNull}}">
+                                            <Image Source="{Binding DrawerDevice.Icon}" Stretch="Uniform"
+                                                   RenderOptions.BitmapInterpolationMode="MediumQuality" />
+                                        </Border>
+                                    </Panel>
+                                    <!-- 自定义设备图铺满 72 圆角框，盖住真机图 / 矢量图标 -->
+                                    <ctl:RoundedImage Width="72" Height="72" CornerRadius="21"
+                                                      IsHitTestVisible="False"
+                                                      IsVisible="{Binding DrawerDevice.HasCustomIcon}"
+                                                      Source="{Binding DrawerDevice.CustomIcon.Image}" />
+                                </Panel>
+                            </Button>
+                            <!-- 名称独占首行（整列宽度都留给长名换行）；房间与两颗操作胶囊同处第二行，
+                                 胶囊靠右，右侧留 38 给右上角的关闭钮，两者错开不叠 -->
+                            <Grid Grid.Column="1" ColumnDefinitions="*,Auto" RowDefinitions="Auto,Auto"
+                                  VerticalAlignment="Top" Margin="0,0,38,0">
+                                <TextBlock Grid.Row="0" Grid.ColumnSpan="2" Text="{Binding DrawerDevice.Name}"
+                                           FontSize="19" FontWeight="Bold" TextWrapping="Wrap"
                                            Foreground="{DynamicResource TextBrush}" />
-                                <StackPanel Orientation="Horizontal" Spacing="8" Margin="0,6,0,0">
+                                <!-- 房间名留在原位（顶对齐），不跟着胶囊那块更高的行居中往下跑 -->
+                                <Grid Grid.Row="1" Grid.Column="0" ColumnDefinitions="*,Auto"
+                                      Margin="0,6,0,0" VerticalAlignment="Top">
                                     <TextBlock Text="{Binding DrawerDevice.RoomName}" Foreground="{DynamicResource Text3Brush}"
-                                               FontSize="12.5" />
+                                               FontSize="12.5" TextWrapping="NoWrap" TextTrimming="CharacterEllipsis"
+                                               VerticalAlignment="Center" />
                                     <!-- 仅离线时提示；开/关状态不在此处展示，避免“已关闭”叠在标题区 -->
-                                    <TextBlock Classes="DevStatus"
+                                    <TextBlock Grid.Column="1" Classes="DevStatus" Margin="8,0,0,0"
                                                Classes.is-warn="{Binding !DrawerDevice.IsOnline}"
                                                IsVisible="{Binding !DrawerDevice.IsOnline}"
                                                Text="离线" />
+                                </Grid>
+                                <!-- 两颗胶囊并排放在房间那一行的右端：「桌面」把设备放上桌面，
+                                     「隐藏 / 恢复」把它从房间宫格收进列表末尾的「已隐藏」区
+                                     （与卡片右键同一套动作、同一个命令）。上边距 14 让胶囊底部与
+                                     左侧图标底边齐平，比房间名略低一点，不再压着房间名 -->
+                                <StackPanel Grid.Row="1" Grid.Column="1" Orientation="Horizontal" Spacing="6"
+                                            Margin="10,14,0,0" VerticalAlignment="Center" HorizontalAlignment="Right">
+                                    <!-- 胶囊钮：加号 + 「桌面」两个字，告诉用户这颗钮是把设备放到桌面上 -->
+                                    <Button Classes="IconPill"
+                                            Command="{Binding AddToDesktopCommand}"
+                                            CommandParameter="{Binding DrawerDevice}"
+                                            ToolTip.Tip="添加到桌面组件">
+                                        <StackPanel Orientation="Horizontal" Spacing="5">
+                                            <Viewbox Width="13" Height="13" Stretch="Uniform"
+                                                     HorizontalAlignment="Center" VerticalAlignment="Center">
+                                                <Panel Width="24" Height="24">
+                                                    <Path StrokeThickness="2" StrokeLineCap="Round"
+                                                          Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}"
+                                                          Data="{StaticResource GeoPlus}" />
+                                                </Panel>
+                                            </Viewbox>
+                                            <TextBlock Text="桌面" FontSize="12.5" VerticalAlignment="Center"
+                                                       Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" />
+                                        </StackPanel>
+                                    </Button>
+                                    <!-- 隐藏 / 恢复：未隐藏时是划掉的眼睛 + 「隐藏」，隐藏后同一颗钮变回眼睛 + 「恢复」，
+                                         就地可撤销，不用再去列表末尾找 -->
+                                    <Button Classes="IconPill"
+                                            Command="{Binding HideDeviceCommand}"
+                                            CommandParameter="{Binding DrawerDevice}"
+                                            ToolTip.Tip="{Binding DrawerDevice.IsHidden, Converter={x:Static conv:BoolTextConverter.Instance}, ConverterParameter='取消隐藏，放回原房间宫格|隐藏后从房间宫格收起，可在列表末尾「已隐藏」里找回'}">
+                                        <StackPanel Orientation="Horizontal" Spacing="5">
+                                            <Viewbox Width="13" Height="13" Stretch="Uniform"
+                                                     HorizontalAlignment="Center" VerticalAlignment="Center">
+                                                <Panel Width="24" Height="24">
+                                                    <Path StrokeThickness="2" StrokeLineCap="Round" StrokeJoin="Round"
+                                                          Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}"
+                                                          IsVisible="{Binding !DrawerDevice.IsHidden}"
+                                                          Data="M2,12 C5,7 8.5,5 12,5 C15.5,5 19,7 22,12 C19,17 15.5,19 12,19 C8.5,19 5,17 2,12 Z M12,8.6 A3.4,3.4 0 1,1 11.99,8.6 M4,4 L20,20" />
+                                                    <Path StrokeThickness="2" StrokeLineCap="Round" StrokeJoin="Round"
+                                                          Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}"
+                                                          IsVisible="{Binding DrawerDevice.IsHidden}"
+                                                          Data="M2,12 C5,7 8.5,5 12,5 C15.5,5 19,7 22,12 C19,17 15.5,19 12,19 C8.5,19 5,17 2,12 Z M12,8.6 A3.4,3.4 0 1,1 11.99,8.6" />
+                                                </Panel>
+                                            </Viewbox>
+                                            <TextBlock FontSize="12.5" VerticalAlignment="Center"
+                                                       Text="{Binding DrawerDevice.IsHidden, Converter={x:Static conv:BoolTextConverter.Instance}, ConverterParameter='恢复|隐藏'}"
+                                                       Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" />
+                                        </StackPanel>
+                                    </Button>
                                 </StackPanel>
-                            </StackPanel>
-                            <!-- 右侧两颗胶囊并排一行：「桌面」把设备放上桌面，「隐藏 / 恢复」把它
-                                 从房间宫格收进列表末尾的「已隐藏」区（与卡片右键同一套动作、同一个命令）。
-                                 标题放在左边换行，长设备名不再被按钮挤掉 -->
-                            <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="6" Margin="10,0,0,0"
-                                        VerticalAlignment="Center" HorizontalAlignment="Right">
-                                <!-- 胶囊钮：加号 + 「桌面」两个字，告诉用户这颗钮是把设备放到桌面上 -->
-                                <Button Classes="IconPill"
-                                        Command="{Binding AddToDesktopCommand}"
-                                        CommandParameter="{Binding DrawerDevice}"
-                                        ToolTip.Tip="添加到桌面组件">
-                                    <StackPanel Orientation="Horizontal" Spacing="5">
-                                        <Viewbox Width="13" Height="13" Stretch="Uniform"
-                                                 HorizontalAlignment="Center" VerticalAlignment="Center">
-                                            <Panel Width="24" Height="24">
-                                                <Path StrokeThickness="2" StrokeLineCap="Round"
-                                                      Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}"
-                                                      Data="{StaticResource GeoPlus}" />
-                                            </Panel>
-                                        </Viewbox>
-                                        <TextBlock Text="桌面" FontSize="12.5" VerticalAlignment="Center"
-                                                   Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" />
-                                    </StackPanel>
-                                </Button>
-                                <!-- 隐藏 / 恢复：未隐藏时是划掉的眼睛 + 「隐藏」，隐藏后同一颗钮变回眼睛 + 「恢复」，
-                                     就地可撤销，不用再去列表末尾找 -->
-                                <Button Classes="IconPill"
-                                        Command="{Binding HideDeviceCommand}"
-                                        CommandParameter="{Binding DrawerDevice}"
-                                        ToolTip.Tip="{Binding DrawerDevice.IsHidden, Converter={x:Static conv:BoolTextConverter.Instance}, ConverterParameter='取消隐藏，放回原房间宫格|隐藏后从房间宫格收起，可在列表末尾「已隐藏」里找回'}">
-                                    <StackPanel Orientation="Horizontal" Spacing="5">
-                                        <Viewbox Width="13" Height="13" Stretch="Uniform"
-                                                 HorizontalAlignment="Center" VerticalAlignment="Center">
-                                            <Panel Width="24" Height="24">
-                                                <Path StrokeThickness="2" StrokeLineCap="Round" StrokeJoin="Round"
-                                                      Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}"
-                                                      IsVisible="{Binding !DrawerDevice.IsHidden}"
-                                                      Data="M2,12 C5,7 8.5,5 12,5 C15.5,5 19,7 22,12 C19,17 15.5,19 12,19 C8.5,19 5,17 2,12 Z M12,8.6 A3.4,3.4 0 1,1 11.99,8.6 M4,4 L20,20" />
-                                                <Path StrokeThickness="2" StrokeLineCap="Round" StrokeJoin="Round"
-                                                      Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}"
-                                                      IsVisible="{Binding DrawerDevice.IsHidden}"
-                                                      Data="M2,12 C5,7 8.5,5 12,5 C15.5,5 19,7 22,12 C19,17 15.5,19 12,19 C8.5,19 5,17 2,12 Z M12,8.6 A3.4,3.4 0 1,1 11.99,8.6" />
-                                            </Panel>
-                                        </Viewbox>
-                                        <TextBlock FontSize="12.5" VerticalAlignment="Center"
-                                                   Text="{Binding DrawerDevice.IsHidden, Converter={x:Static conv:BoolTextConverter.Instance}, ConverterParameter='恢复|隐藏'}"
-                                                   Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" />
-                                    </StackPanel>
-                                </Button>
-                            </StackPanel>
+                            </Grid>
                         </Grid>
                     </StackPanel>
                     <Button Classes="ThemeBtn" Width="32" Height="32" Padding="8"

@@ -85,8 +85,8 @@ public static class EnergyStatsService
     public static bool MightHaveStats(MijiaDevice d) =>
         CachedKey(d) != null || CandidateKeys(d).Count > 0;
 
-    /// <summary>取一台设备今天（含昨天用于对比）的云端用电。返回 null 表示云端没有它的统计表。</summary>
-    public static async Task<DeviceEnergy?> FetchTodayAsync(MijiaClient client, MijiaDevice d)
+    /// <summary>取一台设备今天（含历史与昨天对比）的云端用电；historyDays 最多 365（接口只留一年）。</summary>
+    public static async Task<DeviceEnergy?> FetchTodayAsync(MijiaClient client, MijiaDevice d, int historyDays = 365)
     {
         if (string.IsNullOrEmpty(d.TargetDid)) return null;
         var model = d.Model ?? "";
@@ -98,7 +98,7 @@ public static class EnergyStatsService
 
         if (key != null)
         {
-            var cached = await ReadAsync(client, d, key, DayType);
+            var cached = await ReadAsync(client, d, key, DayType, historyDays);
             if (cached.Ok) day = cached;
             else
             {
@@ -115,7 +115,7 @@ public static class EnergyStatsService
                 await Gate.WaitAsync();
                 try
                 {
-                    var probe = await ReadAsync(client, d, candidate, DayType);
+                    var probe = await ReadAsync(client, d, candidate, DayType, historyDays);
                     lastCode = probe.Code;
                     lastMessage = probe.Message;
                     if (!probe.Ok) continue;
@@ -143,12 +143,15 @@ public static class EnergyStatsService
 
         var energy = new DeviceEnergy { Did = d.TargetDid };
         var today = DateTime.Now.Date;
+        // 云端统计跟设备计数器同一套单位：规格写 0.01 度 / 1Wh 的机型要按倍率缩回来，
+        // 否则一个月用电会被放大 100 / 1000 倍（用户看到 61921 度这种数字）
+        var scale = CounterScaleOf(d, key);
 
         // 日统计：今天的值就是今天用了多少度；昨天那一笔留着对比；其余日子进历史
         var seenDays = new HashSet<DateTime>();
         foreach (var (time, value) in day.Items)
         {
-            var kwh = NormalizeKwh(value);
+            var kwh = NormalizeKwh(value, scale);
             var date = time.Date;
             if (date == today)
             {
@@ -164,11 +167,11 @@ public static class EnergyStatsService
         energy.Days.Sort((a, b) => a.Date.CompareTo(b.Date));
 
         // 小时统计：不是每个型号都申请了这一维度，失败就用本地采样铺柱子
-        var hourly = await ReadAsync(client, d, key, HourType);
+        var hourly = await ReadAsync(client, d, key, HourType, historyDays);
         if (hourly.Ok)
             foreach (var (time, value) in hourly.Items)
                 if (time.Date == today)
-                    energy.HourlyKwh[time.Hour] = NormalizeKwh(value);
+                    energy.HourlyKwh[time.Hour] = NormalizeKwh(value, scale);
 
         // 只有小时统计、没有日统计时，把小时值加起来当今天的总量
         if (!energy.HasData && energy.HasHourly)
@@ -181,21 +184,43 @@ public static class EnergyStatsService
         {
             var sample = string.Join("/", energy.HourlyKwh.Where(v => !double.IsNaN(v)).Take(6).Select(v => $"{v:0.##}"));
             var daysText = string.Join("/", energy.Days.TakeLast(8).Select(x => $"{x.Date:M-dd}={x.Kwh:0.##}"));
-            Log($"统计可用：{d.Name} 型号={model} key={key} 今日={energy.TodayKwh:0.##} 昨日={energy.YesterdayKwh:0.##} 天数={day.Items.Count} 日档={daysText} 小时样本={sample}");
+            Log($"统计可用：{d.Name} 型号={model} key={key} 倍率={scale:0.###} 今日={energy.TodayKwh:0.##} 昨日={energy.YesterdayKwh:0.##} 天数={day.Items.Count} 日档={daysText} 小时样本={sample}");
         }
 
         return energy;
     }
 
-    private static Task<StatSeries> ReadAsync(MijiaClient client, MijiaDevice d, string key, string dataType)
+    private static Task<StatSeries> ReadAsync(MijiaClient client, MijiaDevice d, string key,
+        string dataType, int historyDays)
     {
         var now = DateTime.Now;
-        var from = dataType == DayType ? now.Date.AddDays(-59) : now.Date;
+        var days = Math.Clamp(historyDays, 1, 365);
+        var from = dataType == DayType ? now.Date.AddDays(-(days - 1)) : now.Date;
         return client.GetStatisticsAsync(d.TargetDid, key, dataType, from, now);
     }
 
-    /// <summary>统计接口的原始值可能是 0.01 度定点数；按量级判断，超过 1 万度/天说明是定点编码，按百分之一缩回。</summary>
-    public static double NormalizeKwh(double value) => value > 10_000 ? value / 100 : value;
+    /// <summary>
+    /// 这个统计 key 对应的计数器倍率。key 落在功率（electric-power）上时统计值就是瓦数，
+    /// 不要再乘倍率；只有耗电量计数器（0.01 度 / 瓦时编码）才需要缩。
+    /// </summary>
+    private static double CounterScaleOf(MijiaDevice d, string key)
+    {
+        if (d.Spec is not { } spec) return 1;
+        foreach (var p in spec.Properties)
+            if ($"{p.Siid}.{p.Piid}" == key)
+                return p.Name is "power-consumption" or "energy-consumption" ? p.UnitScale : 1;
+        return 1;
+    }
+
+    /// <summary>
+    /// 统计接口的原始值可能是 0.01 度定点数；按量级判断，超过 1 万度/天说明是定点编码，按百分之一缩回。
+    /// 规格描述的倍率优先（0.01 / 0.001），没写时才走量级兜底。
+    /// </summary>
+    public static double NormalizeKwh(double value, double scale = 1)
+    {
+        if (scale > 0 && scale != 1) return value * scale;
+        return value > 10_000 ? value / 100 : value;
+    }
 
     private static void Remember(string model, string key)
     {

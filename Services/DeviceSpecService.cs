@@ -76,30 +76,142 @@ public static class DeviceSpecService
         {
             var root = await client.GetSpecAsync(device.Did);
             var spec = ParseRoot(root);
-            if (spec.Valid) return spec;
+            if (spec.Valid)
+            {
+                ApplyModelQuirks(spec, device.Model);
+                return spec;
+            }
         }
         catch
         {
             // 设备级规格可能因离线/权限失败，继续走公开规格
         }
 
-        try
+        // 公开规格站：先按上报的 spec_type，再试去掉尾部 ID 的写法；
+        // 一些第三方设备（文光汇这类计量插座）列表里根本没有 spec_type，
+        // 这时再用 model 反推公开规格地址，否则插座永远只有开关、没有电量/电压读数。
+        foreach (var type in PublicSpecTypes(device))
         {
-            if (string.IsNullOrEmpty(device.SpecType)) return null;
-            var url = "https://miot-spec.org/miot-spec-v2/instance?type=" +
-                      Uri.EscapeDataString(device.SpecType);
-            var json = await Http.GetStringAsync(url);
-            using var doc = JsonDocument.Parse(json);
-            var spec = ParseRoot(doc.RootElement);
-            if (spec.Valid) return spec;
-        }
-        catch
-        {
-            // 网络失败不缓存，下次打开抽屉或重新加载时再试
+            try
+            {
+                var url = "https://miot-spec.org/miot-spec-v2/instance?type=" +
+                          Uri.EscapeDataString(type);
+                var json = await Http.GetStringAsync(url);
+                using var doc = JsonDocument.Parse(json);
+                var spec = ParseRoot(doc.RootElement);
+                if (spec.Valid)
+                {
+                    ApplyModelQuirks(spec, device.Model);
+                    return spec;
+                }
+            }
+            catch
+            {
+                // 单个地址 404/网络失败继续试下一个候选
+            }
         }
 
         Cache.TryRemove(key, out _);
         return null;
+    }
+
+    /// <summary>
+    /// 公开规格站可尝试的地址：设备上报的 spec_type、去掉尾部 0000XXXX ID 的写法，
+    /// 以及 spec_type 缺失时按 model 反推的插座类规格（厂家-型号、厂家-中段-型号，版本 1/2）。
+    /// </summary>
+    private static List<string> PublicSpecTypes(MijiaDevice device)
+    {
+        var list = new List<string>();
+        var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        void Add(string? type)
+        {
+            if (!string.IsNullOrWhiteSpace(type) && seen.Add(type)) list.Add(type);
+        }
+
+        var specType = device.SpecType?.Trim() ?? "";
+        Add(specType);
+        var parts = specType.Split(':');
+        if (parts.Length >= 8) Add(string.Join(':', parts.Take(parts.Length - 1)));
+
+        var category = device.CategoryName;
+        var isSocket = category is "outlet" or "smart-outlet" ||
+                       (category.Length == 0 && device.IconKey == "socket");
+        if (isSocket)
+        {
+            var model = (device.Model ?? "").Trim().ToLowerInvariant();
+            var segs = model.Split('.');
+            if (segs.Length >= 2)
+            {
+                var names = new List<string> { $"{segs[0]}-{segs[^1]}" };
+                if (segs.Length >= 3) names.Add($"{segs[0]}-{string.Join('-', segs.Skip(1))}");
+                foreach (var name in names)
+                {
+                    for (var version = 1; version <= 2; version++)
+                        Add($"urn:miot-spec-v2:device:outlet:0000A002:{name}:{version}");
+                }
+            }
+        }
+
+        return list;
+    }
+
+    /// <summary>
+    /// 个别第三方型号的规格单位与固件上报口径对不上，解析完按型号校准：
+    /// 文光汇 v8icwf 的耗电量是 0.01Wh 计数器（1/100000 度），v9wh 是 0.01 度；
+    /// v9wh 还把功率（高 20 位）、电压（低 12 位）打包在 5.1 data 里，这里补两条只读读数。
+    /// </summary>
+    private static void ApplyModelQuirks(DeviceSpec spec, string? model)
+    {
+        var m = (model ?? "").Trim().ToLowerInvariant();
+        if (m == "sixwgh.plug.v8icwf")
+        {
+            SetCounterScale(spec, 0.00001);
+        }
+        else if (m == "sixwgh.plug.v9wh")
+        {
+            SetCounterScale(spec, 0.01);
+            if (spec.FindProp(5, 1) is { } data)
+            {
+                AddPackedProp(spec, data, "electric-power", "功率", "W", 0.01, 31, 12);
+                AddPackedProp(spec, data, "voltage", "电压", "V", 0.1, 11, 0);
+            }
+        }
+    }
+
+    private static void SetCounterScale(DeviceSpec spec, double scale)
+    {
+        foreach (var p in spec.Properties)
+        {
+            if (p.Name is "power-consumption" or "energy-consumption" or "power-consume" or "electricity-consumption")
+            {
+                p.UnitScale = scale;
+                p.ValueScale = scale;
+            }
+        }
+    }
+
+    private static void AddPackedProp(DeviceSpec spec, SpecPropertyDef source,
+        string name, string desc, string unit, double scale, int highBit, int lowBit)
+    {
+        if (spec.Properties.Any(p => p.Name == name)) return;
+        spec.Properties.Add(new SpecPropertyDef
+        {
+            Siid = source.Siid,
+            Piid = source.Piid,
+            Name = name,
+            Desc = desc,
+            RawDesc = desc,
+            ServiceName = source.ServiceName,
+            ServiceDesc = source.ServiceDesc,
+            Format = "uint32",
+            Readable = true,
+            Writable = false,
+            Unit = unit,
+            UnitScale = 1,
+            ValueScale = scale,
+            BitHigh = highBit,
+            BitLow = lowBit
+        });
     }
 
     /// <summary>兼容 getspec（{services:[…]}）和 miot-spec.org（{services:[…]}）两种外壳。</summary>
@@ -125,6 +237,7 @@ public static class DeviceSpecService
             var parts = (typeEl.GetString() ?? "").Split(':');
             if (parts.Length < 5 || parts[0] != "urn" || parts[2] != "service") continue;
             var serviceName = parts[3];
+            spec.Services.Add(serviceName);
             if (InternalServices.Contains(serviceName)) continue;
 
             var siid = svc.TryGetProperty("iid", out var siidEl) ? siidEl.GetInt32() : 0;
@@ -230,6 +343,8 @@ public static class DeviceSpecService
         var rawDesc = ReadText(p, "comment") ?? Translate(name) ?? ReadText(p, "description") ?? name;
         // 属性描述也可能带括号技术说明和末尾数字，统一清理
         var desc = CleanLabel(rawDesc);
+        var rawUnit = ReadText(p, "unit");
+        var unitScale = CounterScale(rawUnit, rawDesc, name);
 
         var def = new SpecPropertyDef
         {
@@ -243,7 +358,10 @@ public static class DeviceSpecService
             Format = ReadText(p, "format") ?? "",
             Readable = readable,
             Writable = writable,
-            Unit = NormalizeUnit(ReadText(p, "unit"), name),
+            Unit = NormalizeUnit(rawUnit, name),
+            UnitScale = unitScale,
+            ValueScale = name is "power-consumption" or "energy-consumption" or "power-consume"
+                or "electricity-consumption" ? unitScale : UnitValueScale(name, rawUnit),
             Min = min,
             Max = max,
             Step = step,
@@ -322,30 +440,66 @@ public static class DeviceSpecService
         return string.IsNullOrWhiteSpace(s) ? null : s;
     }
 
-    /// <summary>规格里的单位是英文键（percentage / kelvin / celsius），换成界面符号。</summary>
-    private static string NormalizeUnit(string? unit, string name) => unit switch
+    /// <summary>
+    /// 规格里的单位是英文键（percentage / kelvin / celsius），换成界面符号。
+    /// 第三方机型常把「没有单位」写成 none / null / n/a / 「-」，这些一律当没写，
+    /// 否则电压就成了「650none」这种读不通的字；交回 <see cref="GuessUnit"/> 按属性名补。
+    /// </summary>
+    private static string NormalizeUnit(string? unit, string name)
     {
-        "percentage" => "%",
-        "kelvin" => "K",
-        "celsius" => "℃",
-        "degrees" => "°",
-        "seconds" => "秒",
-        "minutes" => "分钟",
-        "hours" => "小时",
-        "days" => "天",
-        "watt" or "watts" => "W",
-        "kilowatt" or "kilowatts" => "kW",
-        "volt" or "volts" => "V",
-        "ampere" or "amperes" => "A",
-        "lux" => "lx",
-        "ppm" => "ppm",
-        "microgram-per-cubic-meter" => "µg/m³",
-        "mg/m3" or "mg/m³" => "mg/m³",
-        "db" => "dB",
-        "rgb" => "",
-        null or "" => GuessUnit(name),
-        _ => unit
-    };
+        var text = unit?.Trim() ?? "";
+        if (text.Length == 0 || IsPlaceholderUnit(text)) return GuessUnit(name);
+
+        var lower = text.ToLowerInvariant();
+        // 耗电量统一按「度」展示，倍率由 ValueScale 折算（0.01 度 / 1Wh 计数器都能读对）
+        if (name is "power-consumption" or "energy-consumption" or "power-consume" or "electricity-consumption")
+        {
+            if (lower.Contains("wh") || lower.Contains("千瓦时") || lower.Contains("度")) return "度";
+        }
+
+        return lower switch
+        {
+            "percentage" => "%",
+            "kelvin" => "K",
+            "celsius" => "℃",
+            "degrees" => "°",
+            "seconds" => "秒",
+            "minutes" => "分钟",
+            "hours" => "小时",
+            "days" => "天",
+            "watt" or "watts" => "W",
+            "kilowatt" or "kilowatts" => name is "electric-power" or "power" or "surge-power" ? "W" : "kW",
+            "volt" or "volts" or "mv" or "毫伏" => "V",
+            "ampere" or "amperes" or "ma" or "毫安" => "A",
+            "lux" => "lx",
+            "ppm" => "ppm",
+            "microgram-per-cubic-meter" => "µg/m³",
+            "mg/m3" or "mg/m³" => "mg/m³",
+            "db" => "dB",
+            "rgb" => "",
+            _ => text
+        };
+    }
+
+    /// <summary>非耗电量属性里，原始值到展示值的倍率（mA→A、mV→V、kW→W）。</summary>
+    private static double UnitValueScale(string name, string? unit)
+    {
+        var u = (unit ?? "").Trim().ToLowerInvariant();
+        if (name is "electric-current" or "current" && (u == "ma" || u.Contains("毫安"))) return 0.001;
+        if (name is "voltage" or "electric-voltage" && (u == "mv" || u.Contains("毫伏"))) return 0.001;
+        if (name is "electric-power" or "power" or "surge-power" && (u == "kw" || u.Contains("千瓦"))) return 1000;
+        return 1;
+    }
+
+    /// <summary>规格里表示「这个属性没有单位」的占位写法。</summary>
+    private static bool IsPlaceholderUnit(string text) =>
+        text.Equals("none", StringComparison.OrdinalIgnoreCase) ||
+        text.Equals("null", StringComparison.OrdinalIgnoreCase) ||
+        text.Equals("na", StringComparison.OrdinalIgnoreCase) ||
+        text.Equals("n/a", StringComparison.OrdinalIgnoreCase) ||
+        text.Equals("unknown", StringComparison.OrdinalIgnoreCase) ||
+        text.Equals("default", StringComparison.OrdinalIgnoreCase) ||
+        text is "-" or "—" or "无" or "无单位";
 
     /// <summary>规格常不给 unit，按属性名补一个展示单位。</summary>
     private static string GuessUnit(string name) => name switch
@@ -357,11 +511,42 @@ public static class DeviceSpecService
         "co2" or "co2-density" => "ppm",
         "hcho" or "hcho-density" => "mg/m³",
         "noise" or "noise-decibel" => "dB",
-        "power-consumption" => "度",
+        "voltage" or "electric-voltage" => "V",
+        "electric-current" or "current" => "A",
+        "electric-power" or "power" or "surge-power" => "W",
+        "power-consumption" or "energy-consumption" => "度",
         "color-temperature" => "K",
         "brightness" => "%",
+        "tds-in" or "tds-out" => "ppm",
+        "filter-used-flow" or "filter-left-flow" => "L",
+        "cumu-flow-out" or "cumu-flow-in" or "flow-out" or "flow-in" => "mL",
         _ => ""
     };
+
+    /// <summary>
+    /// 耗电量计数器的单位倍率。MIoT 规格把倍率写进属性描述里（「耗电量（单位:0,01Kwh）」「电量（单位：1Wh）」），
+    /// 属性值只是整数计数器：不换算就会把 0.01 度读成 1 度（放 100 倍），把 1Wh 读成 1 度（放 1000 倍）。
+    /// 描述在 <see cref="CleanLabel"/> 前取，括号里的单位说明会被清理掉，所以只看原始描述。
+    /// </summary>
+    public static double CounterScale(string? unit, string? rawDesc, string name)
+    {
+        if (name is not ("power-consumption" or "energy-consumption" or "power-consume" or "electricity-consumption"))
+            return 1;
+
+        var text = $"{unit} {rawDesc}".ToLowerInvariant()
+            .Replace('，', ',').Replace('：', ':').Replace(" ", "");
+
+        var isKwh = text.Contains("kwh") || text.Contains("kw·h") || text.Contains("千瓦时") || text.Contains("度");
+        if (isKwh)
+        {
+            if (text.Contains("0,001") || text.Contains("0.001")) return 0.001;
+            if (text.Contains("0,01") || text.Contains("0.01")) return 0.01;
+            return 1;
+        }
+        // 只写 Wh 没写 kWh 的是瓦时计数器
+        if (text.Contains("wh") || text.Contains("瓦时")) return 0.001;
+        return 1;
+    }
 
     /// <summary>
     /// MIoT 短名到中文的翻译表。公开规格站只有英文 description，云端 getspec 的 comment 优先，
@@ -420,8 +605,20 @@ public static class DeviceSpecService
         ["dust"] = "粉尘",
         ["dust-density"] = "粉尘",
         ["tds-in"] = "TDS进水",
+        ["tds-out"] = "TDS出水",
         ["air-quality"] = "空气质量",
         ["water-level"] = "水位",
+        ["cumu-flow-out"] = "累计制水",
+        ["cumu-flow-in"] = "累计进水",
+        ["flow-out"] = "本次制水",
+        ["flow-in"] = "本次进水",
+        ["filter-used-flow"] = "滤芯已用",
+        ["filter-left-flow"] = "滤芯剩余",
+        ["discharge-water"] = "水流量",
+        ["input-water-temp"] = "进水温度",
+        ["single-water"] = "单次用水",
+        ["single-gas"] = "单次用气",
+        ["usage-time"] = "使用时长",
         ["power-consumption"] = "耗电量",
         ["electric-power"] = "功率",
         ["voltage"] = "电压",

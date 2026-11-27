@@ -74,8 +74,27 @@ public static class AppSettingsStore
 
     private static Dictionary<string, string[]> _cardMetrics = new(StringComparer.Ordinal);
 
-    /// <summary>趋势卡选中的数据来源：key = temp / hum / power，value = 设备 did；空串（缺键）= 全屋口径。</summary>
+    /// <summary>趋势卡选中的数据来源：key = temp / hum / power / water / tds，value = 设备 did；空串（缺键）= 全屋口径。</summary>
     private static Dictionary<string, string> _trendSources = new(StringComparer.Ordinal);
+
+    /// <summary>首页趋势卡的显示开关：key = temp / hum / power / water / gas / tds；
+    /// 缺键表示还没选过，默认全部铺出来（没有设备的卡展示预览数据）。</summary>
+    private static Dictionary<string, bool> _trendCards = new(StringComparer.Ordinal);
+
+    /// <summary>首页趋势卡的排列顺序（key 数组）；空表示还没拖过，按默认顺序铺。</summary>
+    private static List<string> _trendCardOrder = new();
+
+    /// <summary>用户是否把整个「数据看板」从首页隐藏（与单卡显隐独立；隐藏后可从设置重新打开）。</summary>
+    public static bool DataBoardHidden { get; private set; }
+
+    /// <summary>
+    /// 「数据看板」自己的重算间隔（分钟）：0 = 跟随设备轮询（约 40 秒一次），1 / 5 / 15 = 隔这么久才重算读数与曲线。
+    /// 只影响这块看板，设备卡与首页统计照旧。
+    /// </summary>
+    public static int DataBoardRefreshMinutes { get; private set; }
+
+    /// <summary>「预览数据」说明弹窗是否已经自动提示过：只自动弹一次，之后点卡片上的「预览」标识再看。</summary>
+    public static bool TrendPreviewNoticeSeen { get; private set; }
 
     /// <summary>每盏灯自定义的色温区间：key = 设备 did，value = [最小K, 最大K]；没设过的灯按设备规格量程。</summary>
     private static Dictionary<string, int[]> _lightRanges = new(StringComparer.Ordinal);
@@ -145,6 +164,29 @@ public static class AppSettingsStore
                         item.Value.GetString() is { Length: > 0 } did)
                         _trendSources[item.Name] = did;
             }
+            if (root.TryGetProperty("trendCards", out var tc) && tc.ValueKind == JsonValueKind.Object)
+            {
+                foreach (var item in tc.EnumerateObject())
+                    if (item.Value.ValueKind is JsonValueKind.True or JsonValueKind.False)
+                        _trendCards[item.Name] = item.Value.ValueKind == JsonValueKind.True;
+            }
+            if (root.TryGetProperty("trendCardOrder", out var tco) && tco.ValueKind == JsonValueKind.Array)
+            {
+                foreach (var item in tco.EnumerateArray())
+                    if (item.ValueKind == JsonValueKind.String &&
+                        item.GetString() is { Length: > 0 } key &&
+                        !_trendCardOrder.Contains(key))
+                        _trendCardOrder.Add(key);
+            }
+            if (root.TryGetProperty("dataBoardHidden", out var dbh))
+                DataBoardHidden = dbh.ValueKind == JsonValueKind.True;
+            if (root.TryGetProperty("dataBoardRefreshMinutes", out var dbrm) && dbrm.ValueKind == JsonValueKind.Number)
+            {
+                var minutes = (int)Math.Round(dbrm.GetDouble());
+                if (minutes is 1 or 5 or 15) DataBoardRefreshMinutes = minutes;
+            }
+            if (root.TryGetProperty("trendPreviewNoticeSeen", out var tpn))
+                TrendPreviewNoticeSeen = tpn.ValueKind == JsonValueKind.True;
             if (root.TryGetProperty("roomOrder", out var ro) && ro.ValueKind == JsonValueKind.Array)
             {
                 var order = new List<string>();
@@ -290,7 +332,7 @@ public static class AppSettingsStore
     public static string GetHubIp(string did) =>
         string.IsNullOrWhiteSpace(did) ? "" : (_hubIps.TryGetValue(did, out var ip) ? ip : "");
 
-    /// <summary>趋势卡选中的数据来源；<paramref name="key"/> 取 temp / hum / power。</summary>
+    /// <summary>趋势卡选中的数据来源；<paramref name="key"/> 取 temp / hum / power / water / gas / tds。</summary>
     public static string GetTrendSource(string key) =>
         _trendSources.TryGetValue(key, out var did) ? did : "";
 
@@ -304,16 +346,119 @@ public static class AppSettingsStore
         Save();
     }
 
-    /// <summary>用电卡选中的范围：0 = 今日逐小时，7 / 30 = 近 7 / 30 天逐日；没选过默认近 30 天。</summary>
+    /// <summary>首页某张趋势卡用户选过显隐没有：null = 没选过，跟随设备自动决定。</summary>
+    public static bool? GetTrendCardShown(string key) =>
+        _trendCards.TryGetValue(key, out var on) ? on : null;
+
+    /// <summary>记住某张趋势卡显不显示：关掉的卡不上首页；打开的卡没设备也会展示预览数据。</summary>
+    public static void SetTrendCardShown(string key, bool on)
+    {
+        if (GetTrendCardShown(key) == on) return;
+        _trendCards[key] = on;
+        Save();
+    }
+
+    /// <summary>首页趋势卡当前的排列顺序；空数组表示还没拖过，按默认顺序走。</summary>
+    public static IReadOnlyList<string> GetTrendCardOrder() => _trendCardOrder;
+
+    /// <summary>记住用户拖出来的卡片顺序。去重并只留前 12 个 key（七张大卡 + 五枚空气小卡），顺序没变就不重复写盘。</summary>
+    public static void SetTrendCardOrder(IEnumerable<string> keys)
+    {
+        var next = keys.Where(k => !string.IsNullOrWhiteSpace(k))
+            .Distinct(StringComparer.Ordinal)
+            .Take(12)
+            .ToList();
+        if (next.Count == 0 || _trendCardOrder.SequenceEqual(next)) return;
+
+        _trendCardOrder.Clear();
+        _trendCardOrder.AddRange(next);
+        Save();
+    }
+
+    /// <summary>「恢复默认」一次清掉显隐、排序和整块隐藏：三件事只写一次盘，避免异步写互相覆盖。</summary>
+    public static void ClearTrendCardLayout()
+    {
+        if (_trendCards.Count == 0 && _trendCardOrder.Count == 0 && !DataBoardHidden) return;
+        _trendCards.Clear();
+        _trendCardOrder.Clear();
+        DataBoardHidden = false;
+        Save();
+    }
+
+    /// <summary>从设置重新打开数据看板：取消整块隐藏；showAllCards 为 true 时把所有卡片恢复显示（保留拖动顺序）。
+    /// 两件事一次写盘，避免「取消隐藏」和「恢复卡片」两次异步写互相覆盖。</summary>
+    public static void ShowDataBoard(bool showAllCards)
+    {
+        var changed = DataBoardHidden;
+        DataBoardHidden = false;
+        if (showAllCards && _trendCards.Count > 0)
+        {
+            _trendCards.Clear();
+            changed = true;
+        }
+        if (changed) Save();
+    }
+
+    /// <summary>隐藏 / 显示整块「数据看板」；不改变每张卡自己的显隐选择。</summary>
+    public static void SetDataBoardHidden(bool hidden)
+    {
+        if (DataBoardHidden == hidden) return;
+        DataBoardHidden = hidden;
+        Save();
+    }
+
+    /// <summary>记下「预览数据说明」已经自动提示过。</summary>
+    public static void SetTrendPreviewNoticeSeen()
+    {
+        if (TrendPreviewNoticeSeen) return;
+        TrendPreviewNoticeSeen = true;
+        Save();
+    }
+
+    /// <summary>「数据看板」刷新频率：0 = 跟随设备刷新，1 / 5 / 15 = 每分钟 / 每 5 分钟 / 每 15 分钟重算一次。</summary>
+    public static int GetDataBoardRefreshMinutes() => DataBoardRefreshMinutes;
+
+    /// <summary>记住看板的刷新节奏；非法值一律落回「跟随设备刷新」。</summary>
+    public static void SetDataBoardRefreshMinutes(int minutes)
+    {
+        var value = minutes is 1 or 5 or 15 ? minutes : 0;
+        if (DataBoardRefreshMinutes == value) return;
+        DataBoardRefreshMinutes = value;
+        Save();
+    }
+
+    /// <summary>用电卡选中的范围：0 = 今日逐小时，7 / 30 / 180 / 365 = 近几天逐日；没选过默认近 30 天。</summary>
     public static int GetPowerRange()
     {
         var raw = GetTrendSource("powerRange");
-        return int.TryParse(raw, out var days) && days is 0 or 7 or 30 ? days : 30;
+        return int.TryParse(raw, out var days) && days is 0 or 7 or 30 or 180 or 365 ? days : 30;
     }
 
     /// <summary>记住用电卡看的是今天的逐小时还是几天来的逐日。</summary>
     public static void SetPowerRange(int days) =>
-        SetTrendSource("powerRange", (days is 7 or 30 ? days : 0).ToString());
+        SetTrendSource("powerRange", (days is 7 or 30 or 180 or 365 ? days : 0).ToString());
+
+    /// <summary>用水卡选中的范围：0 = 今日逐小时，7 / 30 / 180 = 近几天逐日，month = 本月；没选过默认今天。</summary>
+    public static string GetWaterRange()
+    {
+        var raw = GetTrendSource("waterRange");
+        return raw is "7" or "30" or "180" or "month" ? raw : "0";
+    }
+
+    /// <summary>记住用水卡看今天、近几天、本月还是近半年。</summary>
+    public static void SetWaterRange(string range) =>
+        SetTrendSource("waterRange", range is "7" or "30" or "180" or "month" ? range : "0");
+
+    /// <summary>用气卡选中的范围：0 = 今日逐小时，7 / 30 / 180 = 近几天逐日，month = 本月；没选过默认今天。</summary>
+    public static string GetGasRange()
+    {
+        var raw = GetTrendSource("gasRange");
+        return raw is "7" or "30" or "180" or "month" ? raw : "0";
+    }
+
+    /// <summary>记住用气卡看今天、近几天、本月还是近半年。</summary>
+    public static void SetGasRange(string range) =>
+        SetTrendSource("gasRange", range is "7" or "30" or "180" or "month" ? range : "0");
 
     /// <summary>卡片外显参数按设备类型写入；空数组表示这类设备一张读数都不外显。</summary>
     public static void SetCardMetrics(string typeKey, IEnumerable<string> names)
@@ -376,6 +521,11 @@ public static class AppSettingsStore
             hubIps = _hubIps,
             cardMetrics = _cardMetrics,
             trendSources = _trendSources,
+            trendCards = _trendCards,
+            trendCardOrder = _trendCardOrder,
+            dataBoardHidden = DataBoardHidden,
+            dataBoardRefreshMinutes = DataBoardRefreshMinutes,
+            trendPreviewNoticeSeen = TrendPreviewNoticeSeen,
             lightRanges = _lightRanges
         });
         // 写盘出 UI 线程；进程被强杀时可能丢最后一次偏好，可接受

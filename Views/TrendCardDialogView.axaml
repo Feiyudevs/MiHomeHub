@@ -1,0 +1,133 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:m="clr-namespace:MiHomeHub.Models"
+             xmlns:vm="clr-namespace:MiHomeHub.ViewModels"
+             xmlns:ctl="clr-namespace:MiHomeHub.Controls"
+             x:Class="MiHomeHub.Views.TrendCardDialogView"
+             x:DataType="vm:MainViewModel">
+    <UserControl.Styles>
+        <!-- 拖动抓手：平时淡一点，鼠标移上去才亮，提示这块能按住拖动 -->
+        <Style Selector="Border#Grip">
+            <Setter Property="Opacity" Value="0.5" />
+        </Style>
+        <Style Selector="Border#Grip:pointerover">
+            <Setter Property="Opacity" Value="1" />
+        </Style>
+    </UserControl.Styles>
+    <!-- 首页「数据看板」标题旁「编辑」打开的弹窗：逐张勾选要铺的卡，改完即时生效 -->
+    <Panel>
+    <ctl:DialogPopup CardWidth="460" Title="数据看板" Subtitle="选择首页显示哪几张卡片，以及多久刷新一次"
+                     IsOpen="{Binding IsTrendCardEditOpen}"
+                     CloseCommand="{Binding FinishTrendCardEditCommand}">
+        <ctl:DialogPopup.Footer>
+            <Border BorderBrush="{DynamicResource LineBrush}" BorderThickness="0,1,0,0"
+                    Padding="0,14,0,0" Margin="28,0,22,20">
+                <Grid ColumnDefinitions="Auto,*,Auto">
+                    <Button Classes="BtnGhost" Height="34" Content="恢复默认"
+                            Command="{Binding ResetTrendCardChoicesCommand}"
+                            ToolTip.Tip="清掉手动选择和排序，全部卡片按默认顺序铺出来" />
+                    <Button Grid.Column="2" Classes="BtnPrimary" Height="34" Content="完成"
+                            Command="{Binding FinishTrendCardEditCommand}" />
+                </Grid>
+            </Border>
+        </ctl:DialogPopup.Footer>
+        <StackPanel Spacing="10">
+            <!-- 看板自己的刷新节奏：调慢后数字不会每拍都跳；设备卡与首页统计不受影响 -->
+            <Border Classes="Card" Padding="14,11">
+                <Grid ColumnDefinitions="*,Auto">
+                    <StackPanel VerticalAlignment="Center" Margin="0,0,12,0">
+                        <TextBlock Text="更新频率" FontSize="13.5" FontWeight="Normal"
+                                   Foreground="{DynamicResource TextBrush}" />
+                        <TextBlock Text="看板读数与曲线多久重算一次，调慢后数字不会一直跳"
+                                   Classes="Hint Sub" Margin="0,2,0,0" TextWrapping="Wrap" />
+                    </StackPanel>
+                    <ctl:OptionPicker Grid.Column="1" VerticalAlignment="Center"
+                                      Options="{Binding BoardRefreshOptions}"
+                                      SelectedValue="{Binding SelectedBoardRefresh, Mode=TwoWay}"
+                                      ToolTip.Tip="设备卡与首页统计仍按原来的节奏刷新" />
+                </Grid>
+            </Border>
+            <!-- 每张卡各占一块：左边抓手拖动排序，中间一行说明，右边开关 -->
+            <ItemsControl x:Name="CardOptionsList" ItemsSource="{Binding TrendCardOptions}">
+                <ItemsControl.ItemsPanel>
+                    <ItemsPanelTemplate>
+                        <StackPanel Spacing="8" />
+                    </ItemsPanelTemplate>
+                </ItemsControl.ItemsPanel>
+                <ItemsControl.ItemTemplate>
+                    <DataTemplate x:DataType="m:TrendCardOptionItem">
+                        <Border Classes="Card" Padding="14,10">
+                            <Grid ColumnDefinitions="Auto,*,Auto">
+                                <!-- 六点抓手：按住就能上下拖动，松手后顺序立即写回首页 -->
+                                <Border Name="Grip" Width="18" Margin="0,0,10,0"
+                                        Background="Transparent" Cursor="SizeAll"
+                                        ToolTip.Tip="按住拖动调整首页卡片顺序">
+                                    <Grid Width="8" Height="12" HorizontalAlignment="Center" VerticalAlignment="Center"
+                                          ColumnDefinitions="*,*" RowDefinitions="*,*,*">
+                                        <Ellipse Grid.Row="0" Grid.Column="0" Width="2" Height="2"
+                                                 Fill="{DynamicResource Text3Brush}"
+                                                 HorizontalAlignment="Center" VerticalAlignment="Center" />
+                                        <Ellipse Grid.Row="0" Grid.Column="1" Width="2" Height="2"
+                                                 Fill="{DynamicResource Text3Brush}"
+                                                 HorizontalAlignment="Center" VerticalAlignment="Center" />
+                                        <Ellipse Grid.Row="1" Grid.Column="0" Width="2" Height="2"
+                                                 Fill="{DynamicResource Text3Brush}"
+                                                 HorizontalAlignment="Center" VerticalAlignment="Center" />
+                                        <Ellipse Grid.Row="1" Grid.Column="1" Width="2" Height="2"
+                                                 Fill="{DynamicResource Text3Brush}"
+                                                 HorizontalAlignment="Center" VerticalAlignment="Center" />
+                                        <Ellipse Grid.Row="2" Grid.Column="0" Width="2" Height="2"
+                                                 Fill="{DynamicResource Text3Brush}"
+                                                 HorizontalAlignment="Center" VerticalAlignment="Center" />
+                                        <Ellipse Grid.Row="2" Grid.Column="1" Width="2" Height="2"
+                                                 Fill="{DynamicResource Text3Brush}"
+                                                 HorizontalAlignment="Center" VerticalAlignment="Center" />
+                                    </Grid>
+                                </Border>
+                                <StackPanel Grid.Column="1" Margin="0,0,12,0" VerticalAlignment="Center">
+                                    <TextBlock Text="{Binding Title}" FontSize="13.5" FontWeight="Normal"
+                                               Foreground="{DynamicResource TextBrush}" />
+                                    <TextBlock Text="{Binding Desc}" Classes="Hint Sub"
+                                               Margin="0,2,0,0" TextWrapping="Wrap" />
+                                    <TextBlock Text="暂无可用设备 · 打开后显示预览数据" FontSize="11"
+                                               Margin="0,3,0,0"
+                                               Foreground="{DynamicResource AmberTextBrush}"
+                                               IsVisible="{Binding IsMissingDevice}" />
+                                </StackPanel>
+                                <ToggleButton Grid.Column="2" Classes="Switch" VerticalAlignment="Center"
+                                              IsChecked="{Binding IsOn, Mode=TwoWay}" />
+                            </Grid>
+                        </Border>
+                    </DataTemplate>
+                </ItemsControl.ItemTemplate>
+            </ItemsControl>
+        </StackPanel>
+    </ctl:DialogPopup>
+    <!-- 全部卡片被关掉时的重点提示：点「完成」或关闭编辑弹窗都要先过这一层 -->
+    <ctl:DialogPopup CardWidth="440" Title="首页将不再显示数据看板"
+                     IsOpen="{Binding IsTrendHideConfirmOpen}"
+                     CloseCommand="{Binding CancelTrendHideCommand}">
+        <ctl:DialogPopup.Footer>
+            <Border BorderBrush="{DynamicResource LineBrush}" BorderThickness="0,1,0,0"
+                    Padding="0,14,0,0" Margin="28,0,22,20">
+                <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Spacing="8">
+                    <Button Classes="BtnGhost" Height="34" Content="返回调整"
+                            Command="{Binding CancelTrendHideCommand}" />
+                    <Button Classes="BtnDanger" Height="34" Content="仍然隐藏"
+                            Command="{Binding ConfirmTrendHideCommand}" />
+                </StackPanel>
+            </Border>
+        </ctl:DialogPopup.Footer>
+        <StackPanel Spacing="10">
+            <Border Background="{DynamicResource AmberSoftBrush}" CornerRadius="10" Padding="12,10">
+                <TextBlock Text="所有卡片都关掉了，首页的「数据看板」会整块消失——标题、编辑入口和卡片都不会留下。"
+                           FontSize="13" Foreground="{DynamicResource TextBrush}" TextWrapping="Wrap" />
+            </Border>
+            <TextBlock Text="之后可以在「设置 → 通用 → 首页」把「数据看板」重新打开，届时会把卡片恢复显示。"
+                       Classes="Hint Sub" TextWrapping="Wrap" />
+        </StackPanel>
+    </ctl:DialogPopup>
+    </Panel>
+</UserControl>
+
+

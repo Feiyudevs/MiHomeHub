@@ -328,15 +328,26 @@ public partial class MainViewModel : ObservableObject
         StatDevices.Clear();
         SpeakerOptions.Clear();
         HasEnvironment = false;
-        // 趋势卡的数据来源也跟着清空，否则退出登录后首页还会留着上一账户的「环境与能耗」
+        // 趋势卡的数据来源也跟着清空，否则退出登录后首页还会留着上一账户的「数据看板」
         HasTempReading = false;
         HasHumReading = false;
         HasMetering = false;
+        HasScale = false;
+        IsTempPreview = false;
+        IsHumPreview = false;
+        IsPowerPreview = false;
+        IsWaterPreview = false;
+        IsGasPreview = false;
+        IsQualityPreview = false;
+        IsScalePreview = false;
+        IsTrendPreviewNoticeOpen = false;
+        ResetScaleHistory();
         ShowEnvTrend = false;
         HasConsumables = false;
         HasConsumableWarning = false;
         ConsumableLowCount = 0;
         IsEnvDetailOpen = false;
+        IsTrendCardEditOpen = false;
         IsStatListOpen = false;
         HasStatDevices = false;
         StatListSubtitle = null;
@@ -384,6 +395,7 @@ public partial class MainViewModel : ObservableObject
         BannerTotal = 0;
         BannerOn = 0;
         BannerOffline = 0;
+        BannerLightOn = 0;
 
         // 退出登录后立即强制回收：压缩 LOH、执行完整 GC，并请示 Windows 收缩工作集，
         // 让内存立即回落，不再等待 30 秒空闲自动回收或下一次 GC。

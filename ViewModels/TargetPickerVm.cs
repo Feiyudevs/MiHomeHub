@@ -480,6 +480,9 @@ public partial class PickerItem : ObservableObject
 
     public bool HasGlyph => Device is { Icon: null };
 
+    /// <summary>设备用户自定义图优先，显示时盖住真机图 / 矢量图标。</summary>
+    public bool HasCustomIcon => Device?.HasCustomIcon == true;
+
     public string Name => Scene?.Name ?? Device?.Name ?? "";
 
     /// <summary>卡片副标题：设备类别（房间已经做成分组标题了，副标题再写房间是重复信息）。</summary>

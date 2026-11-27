@@ -1,6 +1,7 @@
 <Window xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:vm="clr-namespace:MiHomeHub.ViewModels"
+        xmlns:ctl="clr-namespace:MiHomeHub.Controls"
         x:Class="MiHomeHub.Views.TargetPickerWindow"
         x:DataType="vm:TargetPickerVm"
         Title="选择设备"
@@ -291,21 +292,28 @@
                                                             CommandParameter="{Binding}">
                                                         <Grid ColumnDefinitions="Auto,*">
                                                             <Panel Width="32" Height="32" VerticalAlignment="Center">
-                                                                <Border IsVisible="{Binding HasGlyph}">
+                                                                <Panel IsVisible="{Binding !HasCustomIcon}">
+                                                                    <Border IsVisible="{Binding HasGlyph}">
+                                                                        <Path Classes="PickIc" Width="18" Height="18" Stretch="Uniform"
+                                                                              StrokeThickness="1.6" StrokeLineCap="Round" StrokeJoin="Round"
+                                                                              VerticalAlignment="Center" HorizontalAlignment="Center"
+                                                                              Data="{Binding Device, Converter={StaticResource DeviceIcon}}" />
+                                                                    </Border>
+                                                                    <Image Classes="PickPhoto" Width="32" Height="32" Source="{Binding Device.Icon}"
+                                                                           Stretch="Uniform"
+                                                                           RenderOptions.BitmapInterpolationMode="MediumQuality"
+                                                                           IsVisible="{Binding HasPhoto}" />
+                                                                    <!-- 场景 / 自动化用自带线性图标，和设备同一套描边色 -->
                                                                     <Path Classes="PickIc" Width="18" Height="18" Stretch="Uniform"
                                                                           StrokeThickness="1.6" StrokeLineCap="Round" StrokeJoin="Round"
                                                                           VerticalAlignment="Center" HorizontalAlignment="Center"
-                                                                          Data="{Binding Device, Converter={StaticResource DeviceIcon}}" />
-                                                                </Border>
-                                                                <Image Classes="PickPhoto" Width="32" Height="32" Source="{Binding Device.Icon}"
-                                                                       Stretch="Uniform"
-                                                                       RenderOptions.BitmapInterpolationMode="MediumQuality"
-                                                                       IsVisible="{Binding HasPhoto}" />
-                                                                <!-- 场景 / 自动化用自带线性图标，和设备同一套描边色 -->
-                                                                <Path Classes="PickIc" Width="18" Height="18" Stretch="Uniform"
-                                                                      StrokeThickness="1.6" StrokeLineCap="Round" StrokeJoin="Round"
-                                                                      VerticalAlignment="Center" HorizontalAlignment="Center"
-                                                                      Data="{Binding Scene.Icon}" IsVisible="{Binding IsScene}" />
+                                                                          Data="{Binding Scene.Icon}" IsVisible="{Binding IsScene}" />
+                                                                </Panel>
+                                                                <!-- 自定义设备图铺满 32 圆角框 -->
+                                                                <ctl:RoundedImage Width="32" Height="32" CornerRadius="8"
+                                                                                  IsHitTestVisible="False"
+                                                                                  IsVisible="{Binding HasCustomIcon}"
+                                                                                  Source="{Binding Device.CustomIcon.Image}" />
                                                             </Panel>
                                                             <StackPanel Grid.Column="1" Margin="10,0,4,0"
                                                                         VerticalAlignment="Center" Spacing="2">

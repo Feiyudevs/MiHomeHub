@@ -62,33 +62,48 @@
                         <Button Grid.Column="1" Classes="BtnGhost" Height="26" Padding="10,0" FontSize="11.5"
                                 Content="恢复默认" Command="{Binding RestoreDefaultCommand}" />
                     </Grid>
-                    <!-- 预设色板：Zonex 同款 7 色 + 一支纸白，点一下即设为分区底色（并自动关掉「跟随主题」） -->
-                    <ItemsControl ItemsSource="{Binding Presets}">
-                        <ItemsControl.ItemsPanel>
-                            <ItemsPanelTemplate>
-                                <StackPanel Orientation="Horizontal" Spacing="7" />
-                            </ItemsPanelTemplate>
-                        </ItemsControl.ItemsPanel>
-                        <ItemsControl.ItemTemplate>
-                            <DataTemplate x:DataType="vm:ColorSwatch">
-                                <Button Classes="Swatch"
-                                        Tag="{Binding Hex}" Click="OnSwatchClick"
-                                        ToolTip.Tip="{Binding Hex}">
-                                    <Panel>
-                                        <!-- 色点 -->
-                                        <Border Width="20" Height="20" CornerRadius="10"
-                                                Background="{Binding Brush}"
-                                                BorderThickness="1" BorderBrush="#33FFFFFF" />
-                                        <!-- 选中环：只切可见性，避免再和主题样式抢属性 -->
-                                        <Border Width="26" Height="26" CornerRadius="13"
-                                                BorderThickness="2"
-                                                BorderBrush="{DynamicResource AccentBrush}"
-                                                IsVisible="{Binding IsSelected}" />
-                                    </Panel>
-                                </Button>
-                            </DataTemplate>
-                        </ItemsControl.ItemTemplate>
-                    </ItemsControl>
+                    <!-- 预设色板：Zonex 同款 7 色 + 一支纸白，点一下即设为分区底色（并自动关掉「跟随主题」）；
+                         最右的彩色圆点是自定义调色盘入口 -->
+                    <StackPanel Orientation="Horizontal" Spacing="7">
+                        <ItemsControl ItemsSource="{Binding Presets}">
+                            <ItemsControl.ItemsPanel>
+                                <ItemsPanelTemplate>
+                                    <StackPanel Orientation="Horizontal" Spacing="7" />
+                                </ItemsPanelTemplate>
+                            </ItemsControl.ItemsPanel>
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate x:DataType="vm:ColorSwatch">
+                                    <Button Classes="Swatch"
+                                            Tag="{Binding Hex}" Click="OnSwatchClick"
+                                            ToolTip.Tip="{Binding Hex}">
+                                        <Panel>
+                                            <!-- 色点 -->
+                                            <Border Width="20" Height="20" CornerRadius="10"
+                                                    Background="{Binding Brush}"
+                                                    BorderThickness="1" BorderBrush="#33FFFFFF" />
+                                            <!-- 选中环：只切可见性，避免再和主题样式抢属性 -->
+                                            <Border Width="26" Height="26" CornerRadius="13"
+                                                    BorderThickness="2"
+                                                    BorderBrush="{DynamicResource AccentBrush}"
+                                                    IsVisible="{Binding IsSelected}" />
+                                        </Panel>
+                                    </Button>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                        <Button Classes="Swatch" Click="OnCustomColorClick"
+                                ToolTip.Tip="自定义颜色（打开调色盘）">
+                            <Panel>
+                                <Border Width="20" Height="20" CornerRadius="10"
+                                        Background="{Binding CustomColorBrush}"
+                                        BorderThickness="1" BorderBrush="#33FFFFFF" />
+                                <Border Width="26" Height="26" CornerRadius="13"
+                                        BorderThickness="2"
+                                        BorderBrush="{DynamicResource AccentBrush}"
+                                        IsVisible="{Binding IsCustomColorSelected}" />
+                            </Panel>
+                        </Button>
+                    </StackPanel>
                     <TextBlock Classes="Hint" Text="未选背景色时，底色随深/浅色主题自动切换"
                                IsVisible="{Binding FollowTheme}" />
                 </StackPanel>
@@ -106,7 +121,7 @@
                     <Slider Classes="DrSlider" Minimum="{x:Static vm:DesktopAppearanceVm.MinOpacityPercent}"
                             Maximum="{x:Static vm:DesktopAppearanceVm.MaxOpacityPercent}" TickFrequency="1"
                             Value="{Binding OpacityPercent, Mode=TwoWay}" />
-                    <TextBlock Classes="Hint" Text="数值是底色自身的不透明度，磨砂染色随之联动：0% 纯磨砂无底色（文字靠抗锯齿保持清晰）、72% 最沉。模糊只让墙纸不干扰，压住文字的始终是这层底色" />
+                    <TextBlock Classes="Hint" Text="数值是底色自身的不透明度，磨砂染色随之联动：0% 纯磨砂无底色（文字靠抗锯齿保持清晰）、100% 最沉。模糊只让墙纸不干扰，压住文字的始终是这层底色" />
                 </StackPanel>
             </Border>
 

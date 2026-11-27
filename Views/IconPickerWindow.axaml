@@ -1,0 +1,242 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="clr-namespace:MiHomeHub.ViewModels"
+        xmlns:ctl="clr-namespace:MiHomeHub.Controls"
+        x:Class="MiHomeHub.Views.IconPickerWindow"
+        x:DataType="vm:IconPickerVm"
+        Title="{Binding Title}"
+        Width="676" Height="696"
+        SystemDecorations="None"
+        CanResize="False"
+        ShowInTaskbar="False"
+        Topmost="True"
+        WindowStartupLocation="CenterOwner"
+        TransparencyLevelHint="Transparent"
+        Background="Transparent"
+        RenderOptions.TextRenderingMode="Antialias">
+    <Window.Styles>
+        <StyleInclude Source="avares://MiHomeHub/Themes/MainWindowStyles.axaml" />
+
+        <!-- 取色小圆点：默认只描一圈淡边（白色块也看得见），选中时换成主题紫加粗 -->
+        <Style Selector="Button.ColorDot">
+            <Setter Property="Width" Value="26" />
+            <Setter Property="Height" Value="26" />
+            <Setter Property="Margin" Value="0,0,7,0" />
+            <Setter Property="Padding" Value="0" />
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="BorderBrush" Value="{DynamicResource LineStrongBrush}" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="Template">
+                <ControlTemplate>
+                    <Border Name="Bd" CornerRadius="13"
+                            Background="{TemplateBinding Background}"
+                            BorderBrush="{TemplateBinding BorderBrush}"
+                            BorderThickness="{TemplateBinding BorderThickness}">
+                        <ContentPresenter Content="{TemplateBinding Content}"
+                                          HorizontalAlignment="Center" VerticalAlignment="Center" />
+                    </Border>
+                </ControlTemplate>
+            </Setter>
+        </Style>
+        <Style Selector="Button.ColorDot:pointerover /template/ Border#Bd">
+            <Setter Property="BorderBrush" Value="{DynamicResource Accent2Brush}" />
+        </Style>
+        <Style Selector="Button.ColorDot.on /template/ Border#Bd">
+            <Setter Property="BorderBrush" Value="{DynamicResource AccentBrush}" />
+            <Setter Property="BorderThickness" Value="2.5" />
+        </Style>
+
+        <!-- SVG 素材站：只做成可点的文字链接，放在导入按钮右侧，不额外占一行高度 -->
+        <Style Selector="TextBlock.SiteLink">
+            <Setter Property="FontSize" Value="10.5" />
+            <Setter Property="Foreground" Value="{DynamicResource Accent2Brush}" />
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="TextDecorations" Value="Underline" />
+        </Style>
+        <Style Selector="TextBlock.SiteLink:pointerover">
+            <Setter Property="Foreground" Value="{DynamicResource AccentBrush}" />
+        </Style>
+    </Window.Styles>
+
+    <!-- 图标选择：贴 SVG 代码 / 导入 .svg 文件 / 选 PNG 位图，三选一，预览跟手 -->
+    <ctl:DialogPopup CardWidth="560" CardMaxHeight="580"
+                     CanDrag="True"
+                     Title="{Binding Title}"
+                     Subtitle="{Binding Description}"
+                     IsOpen="True"
+                     CloseCommand="{Binding CancelCommand}">
+        <ctl:DialogPopup.Resources>
+            <SolidColorBrush x:Key="MaskBrush" Color="Transparent" />
+        </ctl:DialogPopup.Resources>
+
+        <ctl:DialogPopup.Footer>
+            <Border BorderBrush="{DynamicResource LineBrush}" BorderThickness="0,1,0,0"
+                    Padding="0,14,0,0" Margin="28,0,22,20">
+                <Grid ColumnDefinitions="*,Auto,Auto,Auto">
+                    <Button Classes="BtnGhost" Content="恢复默认图标"
+                            IsVisible="{Binding HasExisting}"
+                            Command="{Binding ClearCommand}" />
+                    <Button Grid.Column="1" Classes="BtnGhost" Content="取消" Margin="8,0,8,0"
+                            Command="{Binding CancelCommand}" />
+                    <Button Grid.Column="2" Classes="BtnPrimary" Content="应用"
+                            Command="{Binding ApplyCommand}"
+                            IsEnabled="{Binding CanApply}" />
+                </Grid>
+            </Border>
+        </ctl:DialogPopup.Footer>
+
+        <StackPanel Spacing="16">
+            <!-- 顶部：当前预览 + 一段说明，先让用户知道改完会落在哪里 -->
+            <Grid ColumnDefinitions="Auto,*">
+                <Border Width="92" Height="92" CornerRadius="22"
+                        Background="{DynamicResource Surface4Brush}" VerticalAlignment="Center">
+                    <Panel>
+                        <!-- 预览也铺满：上传的照片 / 图标不留一圈预览底色 -->
+                        <ctl:RoundedImage CornerRadius="22"
+                                          IsHitTestVisible="False"
+                                          IsVisible="{Binding HasPreview}"
+                                          Source="{Binding Preview}" />
+                        <StackPanel IsVisible="{Binding !HasPreview}"
+                                    HorizontalAlignment="Center" VerticalAlignment="Center" Spacing="7">
+                            <Viewbox Width="30" Height="30">
+                                <Panel Width="24" Height="24">
+                                    <Path StrokeThickness="1.7" StrokeLineCap="Round" StrokeJoin="Round"
+                                          Stroke="{DynamicResource Text3Brush}"
+                                          Data="M3,4.5 H21 V19.5 H3 Z M3,16 L8.5,10.5 L13,15 L16.5,11.5 L21,15.5 M15.5,7.8 A1.2,1.2 0 1 1 15.49,7.8" />
+                                </Panel>
+                            </Viewbox>
+                            <TextBlock Text="默认图标" FontSize="11"
+                                       Foreground="{DynamicResource Text3Brush}" />
+                        </StackPanel>
+                    </Panel>
+                </Border>
+                <StackPanel Grid.Column="1" Margin="16,0,0,0" VerticalAlignment="Center" Spacing="7">
+                    <TextBlock Text="图片会保存到应用的图标目录，之后删掉原文件也不受影响"
+                               FontSize="11.5" TextWrapping="Wrap"
+                               Foreground="{DynamicResource Text3Brush}" />
+                    <TextBlock Text="{Binding PngFileName}" FontSize="11.5"
+                               Foreground="{DynamicResource Accent2Brush}"
+                               TextTrimming="CharacterEllipsis"
+                               IsVisible="{Binding HasPngFile}" />
+                </StackPanel>
+            </Grid>
+
+            <Border Classes="TabBar" HorizontalAlignment="Left">
+                <ctl:SlidingTabPanel Classes="SlidingTab" SelectedIndex="{Binding ModeIndex}" Spacing="4">
+                    <Button Classes="Tab" Classes.on="{Binding IsSvgMode}"
+                            Command="{Binding ShowSvgCommand}"
+                            Content="SVG 代码 / 文件" />
+                    <Button Classes="Tab" Classes.on="{Binding IsPngMode}"
+                            Command="{Binding ShowPngCommand}"
+                            Content="PNG 图片" />
+                </ctl:SlidingTabPanel>
+            </Border>
+
+            <!-- SVG：代码直接贴，或者选一个 .svg 文件把代码读进来 -->
+            <StackPanel Spacing="10" IsVisible="{Binding IsSvgMode}">
+                <TextBox x:Name="SvgBox" Height="110" AcceptsReturn="True" TextWrapping="Wrap"
+                         FontSize="12" Padding="12"
+                         VerticalContentAlignment="Top"
+                         Text="{Binding SvgText, Mode=TwoWay}"
+                         Watermark="粘贴以 &lt;svg 开头的代码，或点下面从 .svg 文件导入…" />
+                <Grid ColumnDefinitions="Auto,*">
+                    <Button Classes="BtnGhost" Height="32" Padding="12,0"
+                            Content="从 .svg 文件导入…"
+                            Click="OnPickSvgClick" />
+                    <StackPanel Grid.Column="1" Margin="12,0,0,0" Spacing="2"
+                                VerticalAlignment="Center">
+                        <TextBlock Text="建议 24×24 或正方形 viewBox，透明背景"
+                                   FontSize="10.5" Foreground="{DynamicResource Text3Brush}" />
+                        <WrapPanel Orientation="Horizontal" VerticalAlignment="Center">
+                            <TextBlock Text="素材站·" FontSize="10.5"
+                                       Foreground="{DynamicResource Text3Brush}" />
+                            <TextBlock Classes="SiteLink" Text="svgrepo.com"
+                                       Tag="https://www.svgrepo.com/"
+                                       ToolTip.Tip="打开 SVG Repo"
+                                       PointerPressed="OnSvgSiteClick" />
+                            <TextBlock Classes="SiteLink" Text="Lucide" Margin="8,0,0,0"
+                                       Tag="https://lucide.dev/icons/"
+                                       ToolTip.Tip="打开 Lucide 图标库"
+                                       PointerPressed="OnSvgSiteClick" />
+                            <TextBlock Classes="SiteLink" Text="Tabler" Margin="8,0,0,0"
+                                       Tag="https://tabler.io/icons"
+                                       ToolTip.Tip="打开 Tabler 图标库"
+                                       PointerPressed="OnSvgSiteClick" />
+                            <TextBlock Classes="SiteLink" Text="Iconify" Margin="8,0,0,0"
+                                       Tag="https://icon-sets.iconify.design/"
+                                       ToolTip.Tip="打开 Iconify 图标库"
+                                       PointerPressed="OnSvgSiteClick" />
+                        </WrapPanel>
+                    </StackPanel>
+                </Grid>
+
+                <!-- 统一颜色：写进 SVG 源码里替换 stroke / fill，不是叠一层色块，所以 PNG 没有这一行 -->
+                <StackPanel Spacing="8">
+                    <Grid ColumnDefinitions="Auto,*">
+                        <TextBlock Text="图标颜色" FontSize="11.5" FontWeight="SemiBold"
+                                   Foreground="{DynamicResource Text2Brush}"
+                                   VerticalAlignment="Center" />
+                        <TextBlock Grid.Column="1" Margin="10,0,0,0" FontSize="11"
+                                   Foreground="{DynamicResource Text3Brush}"
+                                   VerticalAlignment="Center"
+                                   Text="留空 = 原色；选色会统一替换描边和填充" />
+                    </Grid>
+                    <Grid ColumnDefinitions="Auto,Auto,Auto,*" VerticalAlignment="Center">
+                        <ItemsControl Grid.Column="0" ItemsSource="{Binding ColorOptions}"
+                                      VerticalAlignment="Center">
+                            <ItemsControl.ItemsPanel>
+                                <ItemsPanelTemplate>
+                                    <WrapPanel Orientation="Horizontal" />
+                                </ItemsPanelTemplate>
+                            </ItemsControl.ItemsPanel>
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate x:DataType="vm:IconColorOption">
+                                    <Button Classes="ColorDot"
+                                            Classes.on="{Binding IsSelected}"
+                                            Background="{Binding Brush}"
+                                            Tag="{Binding Hex}"
+                                            ToolTip.Tip="{Binding Label}"
+                                            Click="OnColorClick" />
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                        <Button Grid.Column="1" Classes="ColorDot"
+                                Classes.on="{Binding IsCustomColorSelected}"
+                                Background="{Binding CustomColorBrush}"
+                                VerticalAlignment="Center"
+                                Click="OnCustomColorClick"
+                                ToolTip.Tip="自定义颜色（打开调色盘）" />
+                        <Button Grid.Column="2" Classes="BtnGhost" Height="26" Padding="9,0"
+                                Content="原色" Margin="8,0,0,0"
+                                VerticalAlignment="Center"
+                                Command="{Binding ResetSvgColorCommand}" />
+                        <TextBox Grid.Column="3" Width="92" Height="26" Padding="7,0" FontSize="11.5"
+                                 Margin="8,0,0,0"
+                                 VerticalAlignment="Center"
+                                 VerticalContentAlignment="Center"
+                                 MaxLength="9"
+                                 Text="{Binding SvgColor, Mode=TwoWay}"
+                                 Watermark="#RRGGBB" />
+                    </Grid>
+                </StackPanel>
+            </StackPanel>
+
+            <!-- PNG：只选一张图，尺寸按卡片位置等比缩放 -->
+            <StackPanel Spacing="10" IsVisible="{Binding IsPngMode}">
+                <Button Classes="BtnGhost" Height="34" Padding="14,0"
+                        HorizontalAlignment="Left"
+                        Content="选择 PNG 图片…"
+                        Click="OnPickPngClick" />
+                <TextBlock Text="PNG / JPG / WebP · 建议正方形、透明底，尺寸至少 128×128"
+                           FontSize="11" TextWrapping="Wrap"
+                           Foreground="{DynamicResource Text3Brush}" />
+            </StackPanel>
+
+            <TextBlock Text="{Binding Status}"
+                       FontSize="11.5" TextWrapping="Wrap"
+                       Foreground="{DynamicResource DangerBrush}"
+                       IsVisible="{Binding HasStatus}" />
+        </StackPanel>
+    </ctl:DialogPopup>
+</Window>

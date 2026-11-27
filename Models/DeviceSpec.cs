@@ -64,6 +64,38 @@ public sealed class SpecPropertyDef
     /// <summary>展示单位，规格未给出时按属性名兜底（温度 °C、湿度 % 等）。</summary>
     public string Unit { get; init; } = "";
 
+    /// <summary>
+    /// 耗电量计数器的单位倍率：规格描述写「单位:0,01Kwh」的为 0.01、写「单位:1Wh」的为 0.001，
+    /// 其余计数器按度（1）。值本身是整数计数器，不乘这个倍率就会把 62 度的月用电读成 61921 度。
+    /// 非耗电量属性恒为 1。个别第三方型号的单位说明不可信，解析后再按型号校准。
+    /// </summary>
+    public double UnitScale { get; set; } = 1;
+
+    /// <summary>
+    /// 原始值到展示值的倍率：电流 mA→A、电压 mV→V、功率 kW→W、耗电量计数器→度。
+    /// 展示与卡片读数都要乘它；写入类属性不受影响（这些计量属性都是只读）。
+    /// </summary>
+    public double ValueScale { get; set; } = 1;
+
+    /// <summary>
+    /// 打包属性里的 bit 段（按 uint32 从低位 0 起算）：文光汇这类插座把功率/电压塞进一个
+    /// 32 位 data 属性，高 20 位是功率、低 12 位是电压；非打包属性为 -1。
+    /// </summary>
+    public int BitHigh { get; init; } = -1;
+    public int BitLow { get; init; } = -1;
+
+    public bool IsPacked => BitHigh >= 0 && BitLow >= 0 && BitHigh >= BitLow && BitHigh < 32;
+
+    /// <summary>取出打包属性里的原始读数；普通属性原样返回。</summary>
+    public double Decode(double raw)
+    {
+        if (!IsPacked) return raw;
+        var value = raw <= 0 ? 0u : raw >= uint.MaxValue ? uint.MaxValue : (uint)Math.Round(raw);
+        var width = BitHigh - BitLow + 1;
+        var mask = width >= 32 ? uint.MaxValue : (uint)((1UL << width) - 1);
+        return (value >> BitLow) & mask;
+    }
+
     public bool IsOn => Name == "on" || Name.StartsWith("on-", StringComparison.Ordinal);
 
     public bool IsBool => Format == "bool";
@@ -135,6 +167,14 @@ public sealed class DeviceSpec
     /// <summary>可做触发条件的事件（门锁的开锁、门铃、低电量等都在这里）。</summary>
     public List<SpecEventDef> Events { get; } = new();
 
+    /// <summary>
+    /// 规格里出现过的服务短名（switch-sensor / scene / inching 等）。
+    /// 用来区分「墙上的按键面板」和「单路通断模块」——两者设备大类都叫 switch。
+    /// </summary>
+    public HashSet<string> Services { get; } = new(StringComparer.Ordinal);
+
+    public bool HasService(string name) => Services.Contains(name);
+
     public bool Valid => Properties.Count > 0 || Actions.Count > 0 || Events.Count > 0;
 
     public SpecPropertyDef? FindProp(int siid, int piid) =>
@@ -156,7 +196,8 @@ public sealed class DeviceSpec
         var p = Properties.FirstOrDefault(x => x.Readable && x.Name == name);
         if (p != null) return p;
         if (MetricAliases.TryGetValue(name, out var aliases))
-            return Properties.FirstOrDefault(x => x.Readable && aliases.Contains(x.Name));
+            // 别名只认只读读数：插座规格里的「功率阈值」也常叫 power，不能被当成实时功率
+            return Properties.FirstOrDefault(x => x.Readable && !x.Writable && aliases.Contains(x.Name));
         return null;
     }
 
@@ -174,7 +215,11 @@ public sealed class DeviceSpec
         ["tvoc"] = new[] { "tvoc-density", "voc-density", "etvoc-density" },
         ["hcho"] = new[] { "hcho-density", "formaldehyde-density", "formaldehyde" },
         ["noise"] = new[] { "noise-decibel", "noise" },
-        ["dust"] = new[] { "dust-density", "dust" }
+        ["dust"] = new[] { "dust-density", "dust" },
+        ["electric-power"] = new[] { "power", "surge-power", "active-power" },
+        ["voltage"] = new[] { "electric-voltage" },
+        ["electric-current"] = new[] { "current" },
+        ["power-consumption"] = new[] { "energy-consumption", "power-consume", "electricity-consumption" }
     };
 
     public SpecPropertyDef? FindProp(string name) =>
