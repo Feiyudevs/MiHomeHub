@@ -8,9 +8,10 @@ using System.IO;
 using System.Linq;
 using Avalonia;
 using Avalonia.Controls;
+using Avalonia.Controls.Primitives;
+using Avalonia.Controls.Primitives.PopupPositioning;
 using Avalonia.Data;
 using Avalonia.Input;
-using Avalonia.Controls.Primitives.PopupPositioning;
 using Avalonia.Interactivity;
 using Avalonia.Styling;
 using Avalonia.Threading;
@@ -44,6 +45,22 @@ public partial class OptionPicker : UserControl
     public static readonly StyledProperty<bool> ShowMetaProperty =
         AvaloniaProperty.Register<OptionPicker, bool>(nameof(ShowMeta), defaultValue: true);
 
+    /// <summary>浮层是否置顶。桌面数据卡贴在桌面最底层，普通浮层会被桌面图标层压住、点不到选项；
+    /// 只有这类宿主需要打开，普通页面保持默认（不压在其他应用上）。</summary>
+    public static readonly StyledProperty<bool> TopmostPopupProperty =
+        AvaloniaProperty.Register<OptionPicker, bool>(nameof(TopmostPopup));
+
+    /// <summary>玻璃档：桌面组件上的下拉。触发器与浮层的悬停 / 选中一律换成白色带透明度，
+    /// 压在用户自选的彩色卡面上不发灰，也不把品牌紫糊在上面。</summary>
+    public static readonly StyledProperty<bool> GlassProperty =
+        AvaloniaProperty.Register<OptionPicker, bool>(nameof(Glass));
+
+    public bool Glass
+    {
+        get => GetValue(GlassProperty);
+        set => SetValue(GlassProperty, value);
+    }
+
     public bool Pill
     {
         get => GetValue(PillProperty);
@@ -54,6 +71,12 @@ public partial class OptionPicker : UserControl
     {
         get => GetValue(ShowMetaProperty);
         set => SetValue(ShowMetaProperty, value);
+    }
+
+    public bool TopmostPopup
+    {
+        get => GetValue(TopmostPopupProperty);
+        set => SetValue(TopmostPopupProperty, value);
     }
 
     public bool Compact
@@ -81,6 +104,8 @@ public partial class OptionPicker : UserControl
         CompactProperty.Changed.AddClassHandler<OptionPicker>((x, _) => x.SyncCompact());
         PillProperty.Changed.AddClassHandler<OptionPicker>((x, _) => x.SyncPill());
         ShowMetaProperty.Changed.AddClassHandler<OptionPicker>((x, _) => x.SyncSelection());
+        TopmostPopupProperty.Changed.AddClassHandler<OptionPicker>((x, _) => x.SyncPopupTopmost());
+        GlassProperty.Changed.AddClassHandler<OptionPicker>((x, _) => x.SyncGlass());
     }
 
     public OptionPicker()
@@ -88,6 +113,7 @@ public partial class OptionPicker : UserControl
         InitializeComponent();
 
         Pop.PlacementTarget = Trigger;
+        Pop.Topmost = TopmostPopup;
         // 贴近窗口底部时（如小爱语音浮层）自动翻到触发点上方，避免列表伸出屏幕
         Pop.PlacementConstraintAdjustment = PopupPositionerConstraintAdjustment.SlideY
             | PopupPositionerConstraintAdjustment.FlipY;
@@ -95,12 +121,17 @@ public partial class OptionPicker : UserControl
 
         Pop.Opened += (_, _) =>
         {
+            // 上一轮关浮层后可能还替触发器占着「露面」状态，浮层重新打开就先把这个占位收回，
+            // 免得指针一离开卡片，那份占位的收尾逻辑把刚开出来的浮层又合回去
+            ClearRevealHold();
             Panel.MinWidth = Trigger.Bounds.Width;
             Trigger.Classes.Add("open");
             // 控件自己也挂一个 .open：宿主（如首页趋势卡）靠它把「悬停才露面的触发器」在浮层开着时留住
             Classes.Set("open", true);
             SyncCardPickOpen(true);
             AttachWheelForwarder();
+            AttachPressProbe();
+            Diag($"open op={Opacity:F2}");
             // 先让浮层以闭合态挂上树，下一帧再翻到展开态，过渡才有得播
             Dispatcher.UIThread.Post(() =>
             {
@@ -113,18 +144,21 @@ public partial class OptionPicker : UserControl
         {
             Trigger.Classes.Remove("open");
             Panel.Classes.Remove("open");
-            Classes.Set("open", false);
-            SyncCardPickOpen(false);
             DetachWheelForwarder();
+            DetachPressProbe();
+            HoldRevealUntilPointerLeaves();
+            StartDiagSampling();
         };
 
         // 行按钮在 ItemTemplate 里，挂事件路由接一次比每条模板写 Click 稳
         Panel.AddHandler(Button.ClickEvent, OnItemClick);
+        Panel.AddHandler(PointerPressedEvent, OnItemPointerPressed, RoutingStrategies.Tunnel, true);
 
         ActualThemeVariantChanged += (_, _) => SyncTheme();
         SyncTheme();
         SyncCompact();
         SyncPill();
+        SyncGlass();
 
         // 出现 / 消失纵向滚动条时，再决定要不要给右侧房间胶囊让出 14px
         Scroller.PropertyChanged += (_, e) =>
@@ -197,9 +231,24 @@ public partial class OptionPicker : UserControl
             if (border.Name is "Bd" or "Hov") border.CornerRadius = new CornerRadius(12);
     }
 
+    /// <summary>
+    /// 玻璃档的类同样挂在触发器和浮层上：悬停底、选中底、箭头浓淡都在这两处生效，
+    /// 挂控件自身匹配不到自己的样式（同 Compact / Pill 的理由）。
+    /// </summary>
+    private void SyncGlass()
+    {
+        Trigger.Classes.Set("glass", Glass);
+        Panel.Classes.Set("glass", Glass);
+    }
+
     private void SyncTheme()
     {        if (ActualThemeVariant == ThemeVariant.Light) Panel.Classes.Add("light");
         else Panel.Classes.Remove("light");
+    }
+
+    private void SyncPopupTopmost()
+    {
+        if (Pop is not null) Pop.Topmost = TopmostPopup;
     }
 
     private void Rebind()
@@ -234,13 +283,210 @@ public partial class OptionPicker : UserControl
 
     private void OnItemClick(object? sender, RoutedEventArgs args)
     {
-        if (args.Source is Button { Tag: IPickOption option })
+        // Click 的 Source 在不同模板下可能是文字/内容层，不一定是按钮本身；
+        // 往上找带 IPickOption 的那个按钮，避免菜单关了却没写回选中值。
+        if (ItemButtonOf(args.Source as Visual) is { Tag: IPickOption option })
             SetCurrentValue(SelectedValueProperty, option.Value);
         Pop.IsOpen = false;
     }
 
+    /// <summary>按下就落选：桌面浮层压在桌面上时，按钮的 Click 偶发收不到；
+    /// 直接按指针命中的行提交，菜单随即可关闭，不依赖按钮的点击语义。</summary>
+    private void OnItemPointerPressed(object? sender, PointerPressedEventArgs e)
+    {
+        if (!e.GetCurrentPoint(Panel).Properties.IsLeftButtonPressed) return;
+        if (ItemButtonOf(e.Source as Visual) is not { Tag: IPickOption option }) return;
+
+        SetCurrentValue(SelectedValueProperty, option.Value);
+        Pop.IsOpen = false;
+        e.Handled = true;
+    }
+
+    private static Button? ItemButtonOf(Visual? source)
+    {
+        for (var visual = source; visual is not null; visual = visual.GetVisualParent())
+        {
+            if (visual is Button { Tag: IPickOption }) return (Button)visual;
+            // 浮层的根是 TopLevel：往上走到这里就说明已经出了本控件所在的模板。
+            if (visual is TopLevel) break;
+        }
+        return null;
+    }
+
     /// <summary>宿主窗口收起时（如托盘菜单）跟着关掉浮层，Popup 不会随窗口 Hide 一起消失。</summary>
-    public void CloseDropDown() => Pop.IsOpen = false;
+    public void CloseDropDown()
+    {
+        Pop.IsOpen = false;
+        // 宿主窗口都要收起来了，不再替触发器占位，直接交还悬停状态
+        ClearRevealHold();
+        DropReveal();
+    }
+
+    /// <summary>桌面卡是贴桌面的特殊窗口，按钮自己的 Click 常被窗口层的拖动命中判定吃掉；
+    /// 由宿主在命中下拉区域时直接开合，绕开这条丢失的点击链。</summary>
+    public void ToggleDropDown() => Pop.IsOpen = !Pop.IsOpen;
+
+    /// <summary>浮层开着期间记下的按下点（顶层坐标），用来判断「收起它的那一下点在哪儿」。</summary>
+    private Point? _hostPressPoint;
+
+    private DateTime _hostPressAt;
+
+    private TopLevel? _pressRoot;
+
+    private void AttachPressProbe()
+    {
+        DetachPressProbe();
+        _pressRoot = TopLevel.GetTopLevel(this);
+        _pressRoot?.AddHandler(PointerPressedEvent, OnHostPointerPressed, RoutingStrategies.Tunnel, true);
+    }
+
+    private void DetachPressProbe()
+    {
+        // 只摘监听：按下点还要留给关浮层时判断点在哪儿
+        _pressRoot?.RemoveHandler(PointerPressedEvent, OnHostPointerPressed);
+    }
+
+    private void OnHostPointerPressed(object? sender, PointerPressedEventArgs e)
+    {
+        if (_pressRoot is null) return;
+        _hostPressPoint = e.GetPosition(_pressRoot);
+        _hostPressAt = DateTime.UtcNow;
+    }
+
+    /// <summary>关浮层后仍替触发器占着「露面」状态的宿主（等指针离开它再交还）。</summary>
+    private Control? _revealHold;
+
+    /// <summary>占位期间挂指针移动兜底的顶层。</summary>
+    private TopLevel? _revealHoldRoot;
+
+    /// <summary>
+    /// 关掉浮层后，把「触发器保持露面」的类留到指针真的离开宿主为止，而不是当场摘。
+    /// <para>
+    /// 点空白取消的那一下先被 LightDismiss 的透明层吃掉：光标明明还压在卡片上，
+    /// 卡片这一帧的 <c>:pointerover</c> 却是空的（悬停挂在那层透明层上），要等下一次重画
+    /// 才算回卡片。若关浮层时当场摘类，两枚胶囊会先淡出、下一帧再淡回 —— 就是那一下「闪」。
+    /// </para>
+    /// <para>
+    /// 所以判断不看悬停状态（刚关时它是过期的），只看坐标：收起它的那一下点在宿主卡片上，
+    /// 就把类留着，交给 <c>PointerExited</c> / 后续指针移动的位置来收尾；点在卡片外则照常淡出。
+    /// </para>
+    /// </summary>
+    private void HoldRevealUntilPointerLeaves()
+    {
+        var host = FindRevealHost();
+        var press = _hostPressPoint;
+        var fresh = press is not null && (DateTime.UtcNow - _hostPressAt).TotalMilliseconds < 800;
+
+        if (host is null || !fresh || !HitHost(host, press!.Value, _pressRoot))
+        {
+            Diag($"drop host={(host is null ? "null" : "ok")} press={(press is null ? "-" : "ok")} fresh={fresh}");
+            DropReveal();
+            return;
+        }
+
+        ClearRevealHold();
+        _revealHold = host;
+        host.PointerExited += OnRevealHostPointerExited;
+        _revealHoldRoot = TopLevel.GetTopLevel(host);
+        _revealHoldRoot?.AddHandler(PointerMovedEvent, OnRevealHostPointerMoved, RoutingStrategies.Tunnel, true);
+        Diag($"hold size={host.Bounds.Size}");
+    }
+
+    private void OnRevealHostPointerMoved(object? sender, PointerEventArgs e)
+    {
+        var host = _revealHold;
+        if (host is null) return;
+
+        var root = _revealHoldRoot ?? TopLevel.GetTopLevel(host);
+        if (root is null) return;
+
+        if (!HitHost(host, e.GetPosition(root), root)) ReleaseRevealHold("move-out");
+    }
+
+    private void OnRevealHostPointerExited(object? sender, PointerEventArgs e) => ReleaseRevealHold("host-exit");
+
+    /// <summary>指针已不在宿主的卡片上：占位到期，把「露面」类摘掉，两枚胶囊正常淡出。</summary>
+    private void ReleaseRevealHold(string reason)
+    {
+        ClearRevealHold();
+        Diag($"release {reason}");
+        DropReveal();
+    }
+
+    /// <summary>只拆占位用的监听，不动已经挂上的类（浮层重开、窗口收起时用）。</summary>
+    private void ClearRevealHold()
+    {
+        if (_revealHold is not null)
+            _revealHold.PointerExited -= OnRevealHostPointerExited;
+        _revealHoldRoot?.RemoveHandler(PointerMovedEvent, OnRevealHostPointerMoved);
+        _revealHold = null;
+        _revealHoldRoot = null;
+    }
+
+    private void DropReveal()
+    {
+        Classes.Set("open", false);
+        SyncCardPickOpen(false);
+    }
+
+    /// <summary>点（顶层坐标）是否落在宿主矩形里；宿主可能在滚动区 / 变换里，用 TranslatePoint 换算。</summary>
+    private static bool HitHost(Control host, Point point, TopLevel? root)
+    {
+        root ??= TopLevel.GetTopLevel(host);
+        if (root is null) return false;
+
+        var origin = host.TranslatePoint(new Point(0, 0), root);
+        if (origin is null) return false;
+        return new Rect(origin.Value, host.Bounds.Size).Contains(point);
+    }
+
+    /// <summary>
+    /// 谁在替触发器挡住「平时不露面」：首页趋势卡是整张 Border（两个下拉要一起留在场上），
+    /// 桌面数据卡是同级的 UserControl。规律一样：先找挂着 TrendCard 的 Border，
+    /// 找不到就退回最近的 UserControl 祖先。
+    /// </summary>
+    private Control? FindRevealHost()
+    {
+        var ancestors = this.GetVisualAncestors().ToList();
+        Control? card = ancestors.OfType<Border>().FirstOrDefault(b => b.Classes.Contains("TrendCard"));
+        if (card is not null) return card;
+        return ancestors.OfType<UserControl>().FirstOrDefault();
+    }
+
+    // ---------- 临时诊断：定位「点空白收起时胶囊闪一下」（定位完删掉） ----------
+    private DispatcherTimer? _diagTimer;
+    private DateTime _diagStart;
+
+    private void Diag(string text)
+    {
+        try
+        {
+            var card = this.GetVisualAncestors().OfType<Border>()
+                .FirstOrDefault(b => b.Classes.Contains("TrendCard"));
+            var ops = card is null
+                ? "-"
+                : string.Join("|", card.GetVisualDescendants().OfType<OptionPicker>()
+                    .Select(p => $"{p.Opacity:F2}{(p.Classes.Contains("open") ? "*" : "")}"));
+            var line = $"[{DateTime.Now:mm:ss.fff}] {text} op={Opacity:F2} ops=[{ops}] " +
+                       $"card={(card is null ? "-" : string.Join("|", card.Classes))} " +
+                       $"cardOver={(card?.IsPointerOver.ToString() ?? "-")}";
+            File.AppendAllText(Path.Combine(Path.GetTempPath(), "pick-reveal.log"), line + "\n");
+        }
+        catch { }
+    }
+
+    private void StartDiagSampling()
+    {
+        _diagTimer?.Stop();
+        _diagStart = DateTime.UtcNow;
+        _diagTimer = new DispatcherTimer(TimeSpan.FromMilliseconds(10), DispatcherPriority.Background, (_, _) =>
+        {
+            var ms = (DateTime.UtcNow - _diagStart).TotalMilliseconds;
+            Diag($"t={ms:F0}ms");
+            if (ms > 420) _diagTimer?.Stop();
+        });
+        _diagTimer.Start();
+    }
 
     /// <summary>
     /// 首页趋势卡同一张卡上有两个下拉（设备来源 + 时间范围）。浮层一开，卡片就收不到 :pointerover，

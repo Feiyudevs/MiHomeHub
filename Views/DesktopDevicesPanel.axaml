@@ -31,8 +31,8 @@
             <Setter Property="RenderTransform" Value="translate(0px,0px)" />
         </Style>
 
-        <!-- 卡面是半透明的（透出墙纸），主窗口那套灰压上去读不清：
-             名称用近纯白，房间 / 计数用提亮后的次级色（DskText2Brush） -->
+        <!-- 卡面是半透明的（透出墙纸），主窗口那套带灰的蓝灰压上去会发闷：
+             名称用纯白，房间 / 计数用 75% 白（DskText2Brush） -->
         <Style Selector="ctl|DeviceCardButton.DevCard TextBlock.DevName">
             <Setter Property="Foreground" Value="{DynamicResource DskTextBrush}" />
         </Style>
@@ -42,8 +42,8 @@
 
         <!-- 卡片「更多」按钮的方底与图标淡出都走全局样式（透明容器 + 悬停图标让位），
              这里只按玻璃卡面提亮三个点的颜色，不再另铺底色或描边。 -->
-        <!-- 三个点：全局那档是 Text2Brush（#99A1B3），压在半透明玻璃卡面上偏暗 ——
-             分区里改用提亮后的次级色 DskText2Brush，自身悬停再上一档到近纯白。
+        <!-- 三个点：全局那档是 Text2Brush（带灰的蓝灰），压在半透明玻璃卡面上偏暗发脏 ——
+             分区里改用白色带透明度那档 DskText2Brush，自身悬停再上一档到纯白。
              与 DevName / DevMeta 同一条思路。 -->
         <Style Selector="ctl|DeviceCardButton.DevCard ctl|DeviceMoreButton.MoreBtn">
             <Setter Property="Foreground" Value="{DynamicResource DskText2Brush}" />
@@ -59,8 +59,8 @@
         <Style Selector="ctl|DevicePowerButton.Power:checked /template/ Border#Disc">
             <Setter Property="Background" Value="{DynamicResource PowerOnBrush}" />
         </Style>
-        <!-- 未开启的电源图标提亮一档：全局用的是 Text2Brush（#99A1B3），压在半透明玻璃圆底上偏暗；
-             提到 DskText2Brush（#C9D1DF），与 DevMeta 次级文字同档 —— 不用近纯白，避免和开启态抢视觉。
+        <!-- 未开启的电源图标提亮一档：全局用的是 Text2Brush（带灰的蓝灰），压在半透明玻璃圆底上偏暗；
+             提到 DskText2Brush（75% 白），与 DevMeta 次级文字同档 —— 不用纯白，避免和开启态抢视觉。
              本地样式会压过全局 :checked 的白色，所以 checked 那条要就地恢复 White -->
         <Style Selector="ctl|DevicePowerButton.Power">
             <Setter Property="Foreground" Value="{DynamicResource DskText2Brush}" />
@@ -163,15 +163,17 @@
                 <Grid ColumnDefinitions="Auto,*,Auto">
                     <Panel Grid.Column="0" Width="48" Height="48" VerticalAlignment="Center">
                         <!-- 场景图标不跟首页那套浅色底：分区底是玻璃，色块压上去会糊，改为一档半透明白底 + 场景自己的图标色 -->
-                        <Border Width="42" Height="42" CornerRadius="12" VerticalAlignment="Center"
+                        <Border Width="42" Height="42" CornerRadius="14" VerticalAlignment="Center"
                                 HorizontalAlignment="Center" Background="{DynamicResource DskSwitchBrush}">
                             <Panel>
-                                <Path Width="20" Height="20" Stretch="Uniform" Stroke="{Binding IconFgBrush}"
+                                <Path Width="16" Height="16" Stretch="Uniform"
+                                      HorizontalAlignment="Center" VerticalAlignment="Center"
+                                      Stroke="{Binding IconFgBrush}"
                                       StrokeThickness="1.7" StrokeLineCap="Round" StrokeJoin="Round"
                                       Opacity="{Binding DefaultIconOpacity}"
                                       Data="{Binding Icon}" />
                                 <!-- 自定义图铺满 42 圆角底 -->
-                                <ctl:RoundedImage CornerRadius="12"
+                                <ctl:RoundedImage CornerRadius="14"
                                                   IsHitTestVisible="False"
                                                   IsVisible="{Binding HasCustomIcon}"
                                                   Source="{Binding CustomIcon.Image}" />

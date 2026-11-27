@@ -114,17 +114,29 @@ internal static class DesktopDoubleClickHook
         var hit = DesktopNative.WindowFromPoint(pt);
         if (hit == nint.Zero) return false;
 
+        // 先确认这块屏幕归桌面外壳（Progman / WorkerW）所有，
+        // 别的程序窗口（含资源管理器文件夹窗口）一律不算桌面空白。
         var root = DesktopNative.GetAncestor(hit, DesktopNative.GA_ROOT);
-        var cls = ClassName(root == nint.Zero ? hit : root);
-        if (cls is not ("Progman" or "WorkerW" or "SHELLDLL_DefView" or "SysListView32"))
+        var rootCls = ClassName(root == nint.Zero ? hit : root);
+        if (rootCls is not ("Progman" or "WorkerW" or "SHELLDLL_DefView"))
             return false;
 
-        // 桌面 ListView 铺满整块屏，图标与空白都会命中 SysListView32：
-        // 用 LVM_HITTEST 问一下条目，命中图标就不算「空白」。
-        if (string.Equals(cls, "SysListView32", StringComparison.Ordinal))
-            return !HitTestDesktopItem(hit, pt);
+        // 桌面图标都画在 SysListView32 里，这块列表铺满整屏：
+        // 命中列表本身时要问一下条目，命中图标就不算空白。
+        var list = FindDesktopListView(hit);
+        if (list == nint.Zero) return true;
+        return HitTestDesktopItem(list, pt) == IconHit.Blank;
+    }
 
-        return true;
+    /// <summary>从命中窗口往上找桌面图标列表（SysListView32）；命中窗口本身就是列表时直接返回它。</summary>
+    private static nint FindDesktopListView(nint h)
+    {
+        for (var i = 0; i < 8 && h != nint.Zero; i++)
+        {
+            if (string.Equals(ClassName(h), "SysListView32", StringComparison.Ordinal)) return h;
+            h = DesktopNative.GetAncestor(h, DesktopNative.GA_PARENT);
+        }
+        return nint.Zero;
     }
 
     private static string ClassName(nint h)
@@ -133,56 +145,95 @@ internal static class DesktopDoubleClickHook
         return DesktopNative.GetClassNameW(h, sb, sb.Capacity) > 0 ? sb.ToString() : "";
     }
 
+    private enum IconHit
+    {
+        Blank,
+        Icon,
+        /// <summary>问不到结果（线程忙 / 超时 / 没权限）：按「不是空白」处理，宁可漏切一次也不误隐藏。</summary>
+        Unknown
+    }
+
     /// <summary>
     /// 跨进程 LVM_HITTEST：指针参数必须落在 Explorer 的地址空间里，
     /// 否则 comctl32 会往本进程地址写，轻则拿不到结果、重则让 Explorer 崩掉。
     /// </summary>
-    private static bool HitTestDesktopItem(nint hListView, DesktopNative.POINT screenPt)
+    private static IconHit HitTestDesktopItem(nint hListView, DesktopNative.POINT screenPt)
     {
         var pid = 0u;
         DesktopNative.GetWindowThreadProcessId(hListView, out pid);
-        if (pid == 0) return false;
+        if (pid == 0) return IconHit.Unknown;
 
         var proc = DesktopNative.OpenProcess(
             DesktopNative.PROCESS_VM_OPERATION | DesktopNative.PROCESS_VM_READ | DesktopNative.PROCESS_VM_WRITE,
             false, pid);
-        if (proc == nint.Zero) return false;
+        if (proc == nint.Zero) return IconHit.Unknown;
 
+        const int sentinel = -2; // 合法条目号从 0 起，-2 只可能来自「没回填」
         var size = Marshal.SizeOf<DesktopNative.LVHITTESTINFO>();
         var remote = DesktopNative.VirtualAllocEx(proc, nint.Zero, (nuint)size,
             DesktopNative.MEM_COMMIT | DesktopNative.MEM_RESERVE, DesktopNative.PAGE_READWRITE);
         var local = Marshal.AllocHGlobal(size);
+        var sent = false;
         try
         {
-            if (remote == nint.Zero) return false;
+            if (remote == nint.Zero) return IconHit.Unknown;
 
             var client = screenPt;
             DesktopNative.MapWindowPoints(nint.Zero, hListView, ref client, 1);
 
-            var info = new DesktopNative.LVHITTESTINFO { pt = client, flags = 0, iItem = -1 };
+            var info = new DesktopNative.LVHITTESTINFO { pt = client, flags = 0, iItem = sentinel };
             Marshal.StructureToPtr(info, local, false);
             if (!DesktopNative.WriteProcessMemory(proc, remote, local, (nuint)size, out _))
-                return false;
+                return IconHit.Unknown;
 
-            if (DesktopNative.SendMessageTimeoutW(hListView, DesktopNative.LVM_HITTEST, nint.Zero, remote,
-                    DesktopNative.SMTO_ABORTIFHUNG, 50, out _) == nint.Zero)
-                return false;
+            // 返回值是命中的条目号，命中第一条（0）时也是 0，
+            // 所以只能看回填结果，不能用返回值当成败。
+            sent = DesktopNative.SendMessageTimeoutW(hListView, DesktopNative.LVM_HITTEST, nint.Zero, remote,
+                DesktopNative.SMTO_ABORTIFHUNG, 50, out _) != nint.Zero;
+            if (!sent) return IconHit.Unknown;
 
             if (!DesktopNative.ReadProcessMemory(proc, remote, local, (nuint)size, out _))
-                return false;
+                return IconHit.Unknown;
 
             info = Marshal.PtrToStructure<DesktopNative.LVHITTESTINFO>(local);
-            return (info.flags & DesktopNative.LVHT_ONITEM) != 0 && info.iItem >= 0;
+            if (info.iItem == sentinel) return IconHit.Unknown;
+            return (info.flags & DesktopNative.LVHT_ONITEM) != 0 && info.iItem >= 0 ? IconHit.Icon : IconHit.Blank;
         }
         catch
         {
-            return false;
+            return IconHit.Unknown;
         }
         finally
         {
             Marshal.FreeHGlobal(local);
-            if (remote != nint.Zero) DesktopNative.VirtualFreeEx(proc, remote, 0, DesktopNative.MEM_RELEASE);
-            DesktopNative.CloseHandle(proc);
+            // 超时后 Explorer 可能还在处理这条消息，这时释放远程缓冲会写到已释放的地址：留着，稍后再收。
+            if (sent)
+            {
+                if (remote != nint.Zero) DesktopNative.VirtualFreeEx(proc, remote, 0, DesktopNative.MEM_RELEASE);
+                DesktopNative.CloseHandle(proc);
+            }
+            else
+            {
+                _orphanRemotes.Add((proc, remote, Environment.TickCount64));
+            }
+            ReleaseOrphans();
+        }
+    }
+
+    /// <summary>超时那几次分出去的远程缓冲 / 进程句柄，等 Explorer 处理完消息后再回收（UI 线程独占，无需加锁）。</summary>
+    private static readonly System.Collections.Generic.List<(nint Proc, nint Remote, long AtMs)> _orphanRemotes = new();
+
+    private static void ReleaseOrphans()
+    {
+        long now = Environment.TickCount64;
+        for (var i = _orphanRemotes.Count - 1; i >= 0; i--)
+        {
+            var orphan = _orphanRemotes[i];
+            if (now - orphan.AtMs < 2000) continue;
+            _orphanRemotes.RemoveAt(i);
+            if (orphan.Remote != nint.Zero)
+                DesktopNative.VirtualFreeEx(orphan.Proc, orphan.Remote, 0, DesktopNative.MEM_RELEASE);
+            if (orphan.Proc != nint.Zero) DesktopNative.CloseHandle(orphan.Proc);
         }
     }
 }

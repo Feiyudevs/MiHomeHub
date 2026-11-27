@@ -72,6 +72,9 @@ public partial class DesktopGroupView : UserControl
 
     public DesktopGroupWindow? Host { get; set; }
 
+    /// <summary>整张分区的底色 Border：圆角由宿主窗口的玻璃外壳统一写（和数据卡同一份 20px）。</summary>
+    public Border CardSurface => Card;
+
     /// <summary>
     /// 宫格面板：宿主窗口要按它的实测列数/卡片行高推算「再加一项后窗口会长多高」，
     /// 从而判断该向下加行还是向宽加列。设备宫格没内容（只有场景）时取场景宫格，两面卡的宽度与行高同档。
@@ -136,8 +139,8 @@ public partial class DesktopGroupView : UserControl
 
     private void UpdateZoneContent()
     {
-        // 媒体卡 / 空调卡展开时仍由卡面承担拖动；折叠后留下同一标题壳，才能再次展开。
-        Header.IsVisible = _zone is { } zone && (!zone.IsMedia && !zone.IsAc || zone.Collapsed);
+        // 媒体 / 监控 / 空调卡展开时仍由卡面承担拖动；折叠后留下同一标题壳，才能再次展开。
+        Header.IsVisible = _zone is { } zone && (((!zone.IsMedia && !zone.IsAc && !zone.IsCamera) || zone.Collapsed));
         if (_zone is not { ContentVisible: true } activeZone)
         {
             UnloadZoneContent();
@@ -150,6 +153,7 @@ public partial class DesktopGroupView : UserControl
             DesktopGroupVm => new DesktopDevicesPanel(),
             DesktopMediaVm => new DesktopMediaPanel(),
             DesktopAcVm => new DesktopAcPanel(),
+            DesktopCameraVm => new DesktopCameraPanel(),
             _ => null
         };
         if (content is null) return;
@@ -458,7 +462,7 @@ public partial class DesktopGroupView : UserControl
 
     private void OnBodyPressed(object? sender, PointerPressedEventArgs e)
     {
-        if (DataContext is not DesktopZoneVm vm || (!vm.IsMedia && !vm.IsAc)) return;
+        if (DataContext is not DesktopZoneVm vm || (!vm.IsMedia && !vm.IsAc && !vm.IsCamera)) return;
         if (!e.GetCurrentPoint(this).Properties.IsLeftButtonPressed) return;
         if (IsOnHeaderButton(e.Source)) return;
 
@@ -585,7 +589,7 @@ public partial class DesktopGroupView : UserControl
     /// </summary>
     public void BeginRename()
     {
-        if (DataContext is not DesktopZoneVm vm || vm.IsMedia || vm.IsAc) return;
+        if (DataContext is not DesktopZoneVm vm || vm.IsMedia || vm.IsAc || vm.IsCamera) return;
         CancelPendingClick();
         if (TitleAnchor() is { } anchor) DesktopHost.OpenRename(vm, anchor);
     }

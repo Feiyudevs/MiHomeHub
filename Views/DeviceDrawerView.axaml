@@ -81,16 +81,17 @@
                                                       Source="{Binding DrawerDevice.CustomIcon.Image}" />
                                 </Panel>
                             </Button>
-                            <!-- 名称独占首行（整列宽度都留给长名换行）；房间与两颗操作胶囊同处第二行，
-                                 胶囊靠右，右侧留 38 给右上角的关闭钮，两者错开不叠 -->
-                            <Grid Grid.Column="1" ColumnDefinitions="*,Auto" RowDefinitions="Auto,Auto"
-                                  VerticalAlignment="Top" Margin="0,0,38,0">
-                                <TextBlock Grid.Row="0" Grid.ColumnSpan="2" Text="{Binding DrawerDevice.Name}"
+                            <!-- 标题区：名称、房间、两颗操作胶囊上下三行，统一靠左起排。
+                                 名称和房间右侧留 38，避开右上角的关闭钮；
+                                 胶囊单独放宽到下面那排卡片的右沿（卡片内边距 24，本行 20+4），两者右端对齐 -->
+                            <Grid Grid.Column="1" ColumnDefinitions="*" RowDefinitions="Auto,Auto,Auto"
+                                  VerticalAlignment="Top" Margin="0">
+                                <TextBlock Grid.Row="0" Margin="0,0,38,0" Text="{Binding DrawerDevice.Name}"
                                            FontSize="19" FontWeight="Bold" TextWrapping="Wrap"
                                            Foreground="{DynamicResource TextBrush}" />
-                                <!-- 房间名留在原位（顶对齐），不跟着胶囊那块更高的行居中往下跑 -->
+                                <!-- 房间名留在第二行左端，与名称同一左沿 -->
                                 <Grid Grid.Row="1" Grid.Column="0" ColumnDefinitions="*,Auto"
-                                      Margin="0,6,0,0" VerticalAlignment="Top">
+                                      Margin="0,6,38,0" VerticalAlignment="Top">
                                     <TextBlock Text="{Binding DrawerDevice.RoomName}" Foreground="{DynamicResource Text3Brush}"
                                                FontSize="12.5" TextWrapping="NoWrap" TextTrimming="CharacterEllipsis"
                                                VerticalAlignment="Center" />
@@ -100,12 +101,11 @@
                                                IsVisible="{Binding !DrawerDevice.IsOnline}"
                                                Text="离线" />
                                 </Grid>
-                                <!-- 两颗胶囊并排放在房间那一行的右端：「桌面」把设备放上桌面，
+                                <!-- 两颗胶囊另起一行、靠右排，右端和下面那排设备卡片的右沿对齐：「桌面」把设备放上桌面，
                                      「隐藏 / 恢复」把它从房间宫格收进列表末尾的「已隐藏」区
-                                     （与卡片右键同一套动作、同一个命令）。上边距 14 让胶囊底部与
-                                     左侧图标底边齐平，比房间名略低一点，不再压着房间名 -->
-                                <StackPanel Grid.Row="1" Grid.Column="1" Orientation="Horizontal" Spacing="6"
-                                            Margin="10,14,0,0" VerticalAlignment="Center" HorizontalAlignment="Right">
+                                     （与卡片右键同一套动作、同一个命令） -->
+                                <StackPanel Grid.Row="2" Grid.Column="0" Orientation="Horizontal" Spacing="6"
+                                            Margin="0,10,4,0" VerticalAlignment="Top" HorizontalAlignment="Right">
                                     <!-- 胶囊钮：加号 + 「桌面」两个字，告诉用户这颗钮是把设备放到桌面上 -->
                                     <Button Classes="IconPill"
                                             Command="{Binding AddToDesktopCommand}"

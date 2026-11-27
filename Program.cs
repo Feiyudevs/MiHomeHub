@@ -26,6 +26,28 @@ internal sealed class Program
         // 品牌改名后首次启动：把旧 MiHome 目录的登录态/缓存/偏好搬到 MiHomeHub（仅迁移一次）
         AppPaths.TryMigrateLegacy();
 
+        // 内置摄像头画面链路自检（只读）：释放内置画面源、硬解取帧、落一张样张后退出。
+        var clp = Array.FindIndex(args, a => a.Equals("--camera-live-probe", StringComparison.OrdinalIgnoreCase));
+        if (clp >= 0)
+        {
+            var rest = args.Skip(clp + 1).Where(a => !a.StartsWith("--", StringComparison.Ordinal)).ToArray();
+            var did = rest.Length > 0 ? rest[0] : null;
+            var count = rest.Length > 1 ? int.TryParse(rest[1], out var n) ? n : 60 : 60;
+            Services.CameraMedia.CameraLiveProbe.RunAsync(did, count).GetAwaiter().GetResult();
+            return;
+        }
+
+        // 内置摄像头声音自检（只读）：起画面源、走 RTSP 收音频、落一段 WAV 后退出。
+        var cap = Array.FindIndex(args, a => a.Equals("--camera-audio-probe", StringComparison.OrdinalIgnoreCase));
+        if (cap >= 0)
+        {
+            var rest = args.Skip(cap + 1).Where(a => !a.StartsWith("--", StringComparison.Ordinal)).ToArray();
+            var did = rest.Length > 0 ? rest[0] : null;
+            var seconds = rest.Length > 1 ? int.TryParse(rest[1], out var s) ? s : 4 : 4;
+            Services.CameraMedia.CameraLiveProbe.RunAudioAsync(did, seconds).GetAwaiter().GetResult();
+            return;
+        }
+
         // 隐藏诊断口：把场景/自动化候选接口全打一遍，原始响应落盘后退出，不启界面。
         // 见 Services/SceneProbe.cs；服务端结构确认后可连同该文件一起删掉。
         if (args.Any(a => string.Equals(a, "--scene-probe", StringComparison.OrdinalIgnoreCase)))

@@ -206,17 +206,18 @@
                                               Command="{Binding $parent[Window].((vm:MainViewModel)DataContext).ResetEditingSceneIconCommand}" />
                                 </ContextMenu>
                             </Button.ContextMenu>
-                            <Border Width="46" Height="46" CornerRadius="14"
+                            <Border Width="46" Height="46" CornerRadius="16"
                                     Background="{DynamicResource Surface4Brush}"
                                     BorderBrush="{DynamicResource LineBrush}" BorderThickness="1">
                                 <Panel>
-                                    <Path Width="22" Height="22" Stretch="Uniform"
+                                    <Path Width="18" Height="18" Stretch="Uniform"
+                                          HorizontalAlignment="Center" VerticalAlignment="Center"
                                           Stroke="{DynamicResource Accent2Brush}"
                                           StrokeThickness="1.7" StrokeLineCap="Round" StrokeJoin="Round"
                                           Opacity="{Binding SceneEditDefaultIconOpacity}"
                                           Data="{Binding SceneEditIconGeometry}" />
                                     <!-- 自定义图铺满 46 圆角框（内圈 44，留出 1px 描边） -->
-                                    <ctl:RoundedImage CornerRadius="13"
+                                    <ctl:RoundedImage CornerRadius="14"
                                                       IsHitTestVisible="False"
                                                       IsVisible="{Binding SceneEditHasCustomIcon}"
                                                       Source="{Binding SceneEditCustomIcon.Image}" />
@@ -423,7 +424,8 @@
                                     <Style Selector="Border.EditRow.dragging">
                                         <Setter Property="Opacity" Value="0.4" />
                                     </Style>
-                                    <!-- 插入位置提示：只画一条贴着卡片物理边缘的亮线。
+                                    <!-- 插入位置提示：只画一条贴着卡片物理边缘的亮线，两端渐隐收口，
+                                         短短一条细线不会两头突然截断。
                                          不再整卡描边——「整卡框 + 插入线」两套信号叠在一起反而看不懂；
                                          也不用 BoxShadow（外发光会被列表裁掉两边）。
                                          卡片自身不带 Padding（内距挪到内部 Grid 上），Panel 的原点才是
@@ -434,7 +436,7 @@
                                         <Setter Property="CornerRadius" Value="1.25" />
                                         <Setter Property="Margin" Value="12,0" />
                                         <Setter Property="HorizontalAlignment" Value="Stretch" />
-                                        <Setter Property="Background" Value="{DynamicResource Accent2Brush}" />
+                                        <Setter Property="Background" Value="{DynamicResource Accent2FadeBrush}" />
                                         <Setter Property="ZIndex" Value="20" />
                                     </Style>
                                     <Style Selector="Border.EditRow Border.DropTip.top">

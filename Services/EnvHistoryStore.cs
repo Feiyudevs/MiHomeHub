@@ -33,7 +33,8 @@ public sealed class EnvHistoryStore
     /// <summary>采样间隔（分钟）。改这个值要同步改 <see cref="MainViewModel.TrendStepMinutes"/> 的口径。</summary>
     public const int SampleMinutes = 5;
 
-    private const int KeepDays = 7;
+    /// <summary>本地历史保留的天数：更早的日子没有本地采样，按月回看时别白扫一遍点。</summary>
+    public const int KeepDays = 7;
     private const int MaxPoints = KeepDays * 24 * 60 / SampleMinutes;
 
     private readonly string _file;

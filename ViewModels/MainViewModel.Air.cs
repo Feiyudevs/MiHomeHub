@@ -117,7 +117,7 @@ public partial class MainViewModel
         return $"{head} · 数据来自 {where}";
     }
 
-    /// <summary>家里有没有能报某个空气指标的设备（编辑弹窗据此提示「暂无可用设备」）。</summary>
+    /// <summary>家里有没有能报某个空气指标的设备（编辑弹窗据此判断要不要留那句「暂无设备」）。</summary>
     private bool HasAirMetric(string standard) =>
         _allDevices.Any(d => d.Spec?.FindMetric(standard) is not null);
 }

@@ -1,0 +1,127 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="clr-namespace:MiHomeHub.ViewModels"
+        x:Class="MiHomeHub.Views.CardMenuWindow"
+        x:DataType="vm:DataCardVm"
+        Title="数据卡菜单"
+        SizeToContent="WidthAndHeight" MinWidth="136"
+        SystemDecorations="None" CanResize="False"
+        ShowInTaskbar="False" Topmost="True"
+        WindowStartupLocation="Manual"
+        TransparencyLevelHint="Transparent"
+        Background="Transparent"
+        RenderOptions.TextRenderingMode="Antialias"
+        RequestedThemeVariant="Light">
+
+    <Window.Styles>
+        <Style Selector="Button.MItem">
+            <Setter Property="Height" Value="28" />
+            <Setter Property="Padding" Value="8,0" />
+            <Setter Property="CornerRadius" Value="7" />
+            <Setter Property="HorizontalAlignment" Value="Stretch" />
+            <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+            <Setter Property="Background" Value="{DynamicResource SelBgFromBrush}" />
+            <Setter Property="BorderThickness" Value="0" />
+            <Setter Property="Focusable" Value="False" />
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="FontSize" Value="11.5" />
+            <Setter Property="Transitions">
+                <Transitions>
+                    <BrushTransition Property="Background" Duration="0:0:0.1" />
+                </Transitions>
+            </Setter>
+        </Style>
+        <Style Selector="Button.MItem TextBlock">
+            <Setter Property="Foreground" Value="{DynamicResource TextBrush}" />
+        </Style>
+        <Style Selector="Button.MItem Path.MIc">
+            <Setter Property="Stroke" Value="{DynamicResource Text2Brush}" />
+            <Setter Property="StrokeThickness" Value="1.2" />
+            <Setter Property="StrokeLineCap" Value="Round" />
+            <Setter Property="StrokeJoin" Value="Round" />
+        </Style>
+        <Style Selector="Button.MItem:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+            <Setter Property="Background" Value="{DynamicResource SelBgHoverBrush}" />
+        </Style>
+        <Style Selector="Button.MItem:pressed /template/ ContentPresenter#PART_ContentPresenter">
+            <Setter Property="Background" Value="{DynamicResource SelBgPressBrush}" />
+        </Style>
+        <Style Selector="Button.MItem:pointerover TextBlock">
+            <Setter Property="Foreground" Value="{DynamicResource SelTextBrush}" />
+        </Style>
+        <Style Selector="Button.MItem:pointerover Path.MIc">
+            <Setter Property="Stroke" Value="{DynamicResource SelTextBrush}" />
+        </Style>
+        <Style Selector="Button.MItem.danger TextBlock">
+            <Setter Property="Foreground" Value="#D92D20" />
+        </Style>
+        <Style Selector="Button.MItem.danger Path.MIc">
+            <Setter Property="Stroke" Value="#D92D20" />
+        </Style>
+        <Style Selector="Button.MItem.danger:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+            <Setter Property="Background" Value="#1FD92D20" />
+        </Style>
+        <Style Selector="Button.MItem.danger:pointerover TextBlock">
+            <Setter Property="Foreground" Value="#B42318" />
+        </Style>
+        <Style Selector="Button.MItem.danger:pointerover Path.MIc">
+            <Setter Property="Stroke" Value="#B42318" />
+        </Style>
+        <Style Selector="Border.PopupCard">
+            <Setter Property="Opacity" Value="0" />
+            <Setter Property="RenderTransformOrigin" Value="50%, 0%" />
+            <Setter Property="RenderTransform" Value="scale(0.94) translate(0px,8px)" />
+            <Setter Property="Transitions">
+                <Transitions>
+                    <DoubleTransition Property="Opacity" Duration="0:0:0.14" Easing="CubicEaseOut" />
+                    <TransformOperationsTransition Property="RenderTransform" Duration="0:0:0.22" Easing="CubicEaseOut" />
+                </Transitions>
+            </Setter>
+        </Style>
+        <Style Selector="Border.PopupCard.open">
+            <Setter Property="Opacity" Value="1" />
+            <Setter Property="RenderTransform" Value="scale(1) translate(0px,0px)" />
+        </Style>
+    </Window.Styles>
+
+    <Border x:Name="Card" Classes="PopupCard"
+            Background="{DynamicResource DrawerBgBrush}"
+            BorderBrush="{DynamicResource LineBrush}"
+            BorderThickness="1"
+            CornerRadius="12"
+            Padding="6"
+            BoxShadow="0 2 6 0 #140F172A, 0 12 28 0 #1F0F172A">
+        <StackPanel>
+            <Button Classes="MItem" Tag="size" Click="OnItemClick" IsVisible="{Binding CanChangeSize}">
+                <Grid ColumnDefinitions="12,*">
+                    <Path Classes="MIc" Width="12" Height="12" Stretch="Uniform" VerticalAlignment="Center"
+                          Data="M4,4 H20 V20 H4 Z M9,9 H15 V15 H9 Z" />
+                    <TextBlock Grid.Column="1" Text="{Binding SizeActionText}" Margin="8,0,0,0"
+                               VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
+                </Grid>
+            </Button>
+            <Button Classes="MItem" Tag="appearance" Click="OnItemClick">
+                <Grid ColumnDefinitions="12,*">
+                    <Path Classes="MIc" Width="12" Height="12" Stretch="Uniform" VerticalAlignment="Center"
+                          Data="M12,8 A4,4 0 1 0 12,16 A4,4 0 1 0 12,8 Z M12,2.5 V5 M12,19 V21.5 M2.5,12 H5 M19,12 H21.5" />
+                    <TextBlock Grid.Column="1" Text="外观设置" Margin="8,0,0,0" VerticalAlignment="Center" />
+                </Grid>
+            </Button>
+            <Border Height="1" Background="{DynamicResource LineBrush}" Margin="8,4" />
+            <Button Classes="MItem" Tag="close" Click="OnItemClick">
+                <Grid ColumnDefinitions="12,*">
+                    <Path Classes="MIc" Width="12" Height="12" Stretch="Uniform" VerticalAlignment="Center"
+                          Data="M5,5 L19,19 M19,5 L5,19" />
+                    <TextBlock Grid.Column="1" Text="关闭卡片" Margin="8,0,0,0" VerticalAlignment="Center" />
+                </Grid>
+            </Button>
+            <Button Classes="MItem danger" Tag="remove" Click="OnItemClick">
+                <Grid ColumnDefinitions="12,*">
+                    <Path Classes="MIc" Width="12" Height="12" Stretch="Uniform" VerticalAlignment="Center"
+                          Data="M5,6 H19 M8,6 V4 H16 V6 M6,6 L7,19 Q7.2,20.5 8.5,20.5 H15.5 Q16.8,20.5 17,19 L18,6 M10,9.5 V16.5 M14,9.5 V16.5" />
+                    <TextBlock Grid.Column="1" Text="移除数据卡" Margin="8,0,0,0" VerticalAlignment="Center" />
+                </Grid>
+            </Button>
+        </StackPanel>
+    </Border>
+</Window>

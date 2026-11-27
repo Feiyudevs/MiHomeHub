@@ -1,0 +1,225 @@
+﻿<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="clr-namespace:MiHomeHub.ViewModels"
+        xmlns:ctl="clr-namespace:MiHomeHub.Controls"
+        x:Class="MiHomeHub.Views.CameraPlayerWindow"
+        x:DataType="vm:MainViewModel"
+        Title="实时画面"
+        Width="1040" Height="660"
+        MinWidth="760" MinHeight="500"
+        Background="{DynamicResource BgBrush}"
+        WindowStartupLocation="Manual"
+        ExtendClientAreaToDecorationsHint="True"
+        ExtendClientAreaChromeHints="NoChrome"
+        ExtendClientAreaTitleBarHeightHint="-1">
+    <!-- 放大看画面的独立窗：和详情抽屉共用同一个视图模型，帧数据是同一份，不在别处再解一路。 -->
+    <Window.Styles>
+        <StyleInclude Source="avares://MiHomeHub/Themes/MainWindowStyles.axaml" />
+
+        <!-- 连接中：细底环 + 一段亮弧匀速转。关键帧只写 RotateTransform.Angle，
+             不对 RenderTransform 本身写：Avalonia 11 没有 ITransform 动画器，会直接抛异常 -->
+        <Style Selector="Path.CamSpin">
+            <Setter Property="RenderTransformOrigin" Value="50%,50%" />
+            <Setter Property="RenderTransform">
+                <Setter.Value>
+                    <RotateTransform Angle="0" />
+                </Setter.Value>
+            </Setter>
+            <Style.Animations>
+                <Animation Duration="0:0:1.1" IterationCount="Infinite" Easing="LinearEasing">
+                    <KeyFrame Cue="0%">
+                        <Setter Property="RotateTransform.Angle" Value="0" />
+                    </KeyFrame>
+                    <KeyFrame Cue="100%">
+                        <Setter Property="RotateTransform.Angle" Value="360" />
+                    </KeyFrame>
+                </Animation>
+            </Style.Animations>
+        </Style>
+        <Style Selector="Button.PlayerIc">
+            <Setter Property="Height" Value="34" />
+            <Setter Property="Padding" Value="12,0" />
+            <Setter Property="CornerRadius" Value="9" />
+            <Setter Property="Background" Value="{DynamicResource Surface4Brush}" />
+            <Setter Property="Foreground" Value="{DynamicResource Text2Brush}" />
+            <Setter Property="BorderBrush" Value="Transparent" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="FontSize" Value="12.5" />
+            <Setter Property="VerticalContentAlignment" Value="Center" />
+        </Style>
+        <Style Selector="Button.PlayerIc:pointerover /template/ Border#Bd">
+            <Setter Property="Background" Value="{DynamicResource Surface5Brush}" />
+            <Setter Property="BorderBrush" Value="#26FFFFFF" />
+        </Style>
+        <Style Selector="Button.PlayerIc.is-on /template/ Border#Bd">
+            <Setter Property="Background" Value="{DynamicResource Surface5Brush}" />
+            <Setter Property="BorderBrush" Value="#33FFFFFF" />
+        </Style>
+        <Style Selector="Button.PlayerIc.is-on Path">
+            <Setter Property="Stroke" Value="{DynamicResource Accent2Brush}" />
+            <Setter Property="Fill" Value="{DynamicResource Accent2Brush}" />
+        </Style>
+        <Style Selector="Button.PlayerIc:pointerover Path">
+            <Setter Property="Stroke" Value="{DynamicResource TextBrush}" />
+        </Style>
+
+        <Style Selector="Button.PlayerClose">
+            <Setter Property="Width" Value="34" />
+            <Setter Property="Height" Value="34" />
+            <Setter Property="Padding" Value="0" />
+            <Setter Property="CornerRadius" Value="9" />
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="BorderThickness" Value="0" />
+        </Style>
+        <Style Selector="Button.PlayerClose:pointerover /template/ Border#Bd">
+            <Setter Property="Background" Value="#1FFFFFFF" />
+        </Style>
+        <Style Selector="Button.PlayerClose.CloseRed:pointerover /template/ Border#Bd">
+            <Setter Property="Background" Value="#33E5484D" />
+        </Style>
+        <Style Selector="Button.PlayerClose.CloseRed:pointerover Path">
+            <Setter Property="Stroke" Value="#FF7B80" />
+        </Style>
+    </Window.Styles>
+
+    <Grid RowDefinitions="Auto,*" Background="{DynamicResource BgBrush}">
+        <!-- 顶部：设备身份 + 状态，右侧是声音 / 停止 / 关闭 -->
+        <Grid Grid.Row="0" ColumnDefinitions="Auto,*,Auto" Margin="20,14,12,10" Background="Transparent"
+              PointerPressed="OnTitleBarPressed" DoubleTapped="OnTitleBarDoubleTapped">
+            <Border Width="36" Height="36" CornerRadius="10" VerticalAlignment="Center"
+                    Background="{DynamicResource Surface4Brush}">
+                <Path Data="M2,6 L2,4 L4,4 M10,4 L12,4 L12,6 M12,10 L12,12 L10,12 M4,12 L2,12 L2,10"
+                      Width="14" Height="14" Stretch="None" Stroke="{DynamicResource Text2Brush}"
+                      StrokeThickness="1.3" HorizontalAlignment="Center" VerticalAlignment="Center" />
+            </Border>
+
+            <StackPanel Grid.Column="1" Margin="12,0,0,0" Spacing="3" VerticalAlignment="Center">
+                <StackPanel Orientation="Horizontal" Spacing="8">
+                    <TextBlock Text="{Binding CameraWindowTitle}" FontSize="15.5" FontWeight="SemiBold"
+                               Foreground="{DynamicResource TextBrush}" VerticalAlignment="Center" />
+                    <Border IsVisible="{Binding IsCameraLive}" CornerRadius="5" Padding="6,1"
+                            Background="#1AA855F7" VerticalAlignment="Center">
+                        <TextBlock Text="LIVE" FontSize="10" FontWeight="SemiBold"
+                                   Foreground="#7BA9FF" />
+                    </Border>
+                </StackPanel>
+                <StackPanel Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+                    <TextBlock Text="{Binding CameraLiveStatus}" FontSize="12"
+                               Foreground="{DynamicResource Text3Brush}" VerticalAlignment="Center" />
+                    <Border IsVisible="{Binding IsCameraLive}" CornerRadius="6" Padding="7,2"
+                            VerticalAlignment="Center" Background="{DynamicResource Surface4Brush}">
+                        <TextBlock Text="{Binding CameraLiveBadge}" FontSize="11.5"
+                                   Foreground="{DynamicResource Text3Brush}" />
+                    </Border>
+                </StackPanel>
+            </StackPanel>
+
+            <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+                <Button Classes="PlayerIc" Command="{Binding ToggleCameraSoundCommand}"
+                        IsEnabled="{Binding CameraSoundAvailable}"
+                        Classes.is-on="{Binding CameraSoundOn}"
+                        ToolTip.Tip="声音开关">
+                    <StackPanel Orientation="Horizontal" Spacing="7">
+                        <Panel Width="13" Height="11" VerticalAlignment="Center">
+                            <Path Data="M0,3.2 L3,3.2 L6.2,0.4 L6.2,10.8 L3,8 L0,8 Z"
+                                  Fill="{DynamicResource Text2Brush}" />
+                            <Path Data="M8,2.4 C9.5,3.9 9.5,7.3 8,8.8" IsVisible="{Binding CameraSoundOn}"
+                                  Stroke="{DynamicResource Text2Brush}" StrokeThickness="1.1" />
+                            <Path Data="M9.9,0.7 C12.2,2.8 12.2,8.4 9.9,10.5" IsVisible="{Binding CameraSoundOn}"
+                                  Stroke="{DynamicResource Text2Brush}" StrokeThickness="1.1" />
+                            <Path Data="M8.4,1.6 L11.4,9.6 M11.4,1.6 L8.4,9.6" IsVisible="{Binding !CameraSoundOn}"
+                                  Stroke="{DynamicResource Text3Brush}" StrokeThickness="1.1" />
+                        </Panel>
+                        <TextBlock Text="{Binding CameraSoundLabel}" VerticalAlignment="Center" />
+                    </StackPanel>
+                </Button>
+
+                <Button Classes="PlayerIc" Command="{Binding StopCameraLiveCommand}"
+                        IsVisible="{Binding IsCameraLive}" ToolTip.Tip="停止画面">
+                    <StackPanel Orientation="Horizontal" Spacing="7">
+                        <Path Data="M0,0 L9,0 L9,9 L0,9 Z" Width="9" Height="9"
+                              Fill="{DynamicResource Text2Brush}" VerticalAlignment="Center" />
+                        <TextBlock Text="停止" VerticalAlignment="Center" />
+                    </StackPanel>
+                </Button>
+
+                <Button Classes="PlayerIc" Command="{Binding StartCameraLiveCommand}"
+                        IsVisible="{Binding !IsCameraLive}" ToolTip.Tip="打开实时画面">
+                    <StackPanel Orientation="Horizontal" Spacing="7">
+                        <Path Data="M0,2 Q0,0 1.65,1.01 L7.35,4.49 Q9,5.5 7.35,6.51 L1.65,9.99 Q0,11 0,9 Z" Width="9" Height="11"
+                              Fill="{DynamicResource Text2Brush}" VerticalAlignment="Center" />
+                        <TextBlock Text="播放" VerticalAlignment="Center" />
+                    </StackPanel>
+                </Button>
+
+                <Border Width="1" Height="18" Background="#1AFFFFFF" VerticalAlignment="Center" />
+
+                <StackPanel Orientation="Horizontal" Spacing="2" VerticalAlignment="Center">
+                    <Button Classes="PlayerClose" Click="OnMinimize" ToolTip.Tip="最小化">
+                        <Path Data="M0,5 L10,5" Width="10" Height="10" Stretch="None"
+                              Stroke="{DynamicResource Text3Brush}" StrokeThickness="1.3"
+                              HorizontalAlignment="Center" VerticalAlignment="Center" />
+                    </Button>
+                    <Button Classes="PlayerClose" Click="OnToggleMaximize" ToolTip.Tip="最大化">
+                        <Path x:Name="MaxGlyph" Data="M0,0 L10,0 L10,10 L0,10 Z" Width="10" Height="10" Stretch="None"
+                              Stroke="{DynamicResource Text3Brush}" StrokeThickness="1.3"
+                              HorizontalAlignment="Center" VerticalAlignment="Center" />
+                    </Button>
+                    <Button Classes="PlayerClose CloseRed" Click="OnClose" ToolTip.Tip="关闭窗口">
+                        <Path Data="M0,0 L10,10 M10,0 L0,10" Width="10" Height="10" Stretch="None"
+                              Stroke="{DynamicResource Text3Brush}" StrokeThickness="1.3"
+                              HorizontalAlignment="Center" VerticalAlignment="Center" />
+                    </Button>
+                </StackPanel>
+            </StackPanel>
+        </Grid>
+
+        <!-- 画面：圆角黑底，16:9 居中，满宽不出黑边 -->
+        <Border Grid.Row="1" Margin="20,0,20,18" CornerRadius="16" ClipToBounds="True"
+                Background="{DynamicResource CamStageBrush}" BorderBrush="{DynamicResource CamStageLineBrush}" BorderThickness="1">
+            <Panel>
+                <ctl:AspectRatioBox Ratio="1.7777" VerticalAlignment="Center">
+                    <Panel>
+                        <ctl:CameraFrameView Frame="{Binding CameraLiveFrame}"
+                                            FrameVersion="{Binding CameraFrameVersion}"
+                                            IsVisible="{Binding IsCameraLive}" />
+
+                        <StackPanel IsVisible="{Binding IsCameraConnecting}" Spacing="16"
+                                    HorizontalAlignment="Center" VerticalAlignment="Center">
+                            <Panel Width="48" Height="48" HorizontalAlignment="Center">
+                                <Ellipse Width="48" Height="48" Stroke="{DynamicResource CamSpinTrackBrush}" StrokeThickness="2.5" />
+                                <Path Classes="CamSpin" Data="M24,3 A21,21 0 0 1 45,24"
+                                      Stroke="{DynamicResource Accent2Brush}" StrokeThickness="2.5"
+                                      StrokeLineCap="Round" />
+                            </Panel>
+                            <TextBlock Text="正在连接摄像机…" FontSize="13" Foreground="#8E919E"
+                                       HorizontalAlignment="Center" />
+                        </StackPanel>
+
+                        <StackPanel IsVisible="{Binding !IsCameraLive}" Spacing="14"
+                                    HorizontalAlignment="Center" VerticalAlignment="Center">
+                            <Border Width="54" Height="54" CornerRadius="27" Background="{DynamicResource CamPlayRingBrush}"
+                                    BorderBrush="{DynamicResource CamPlayLineBrush}" BorderThickness="1" HorizontalAlignment="Center">
+                                <Path Data="M0,3 Q0,0 2.56,1.56 L11.44,6.94 Q14,8.5 11.44,10.06 L2.56,15.44 Q0,17 0,14 Z" Width="14" Height="17"
+                                      Fill="{DynamicResource CamPlayGlyphBrush}" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                            </Border>
+                            <TextBlock Text="画面还没有打开" FontSize="13" Foreground="{DynamicResource CamIdleTextBrush}"
+                                       HorizontalAlignment="Center" />
+                            <Button Classes="SegBtn" Content="打开实时画面" HorizontalAlignment="Center"
+                                    Command="{Binding StartCameraLiveCommand}" />
+                        </StackPanel>
+
+
+                    </Panel>
+                </ctl:AspectRatioBox>
+
+                <Border IsVisible="{Binding CameraSoundSilent}" HorizontalAlignment="Right"
+                        VerticalAlignment="Top" Margin="14" CornerRadius="8" Padding="10,5"
+                        Background="#CC101116">
+                    <TextBlock Text="声音已接上，但摄像机那头一直是静默" FontSize="11.5"
+                               Foreground="#A8ABB6" TextWrapping="Wrap" MaxWidth="230" />
+                </Border>
+            </Panel>
+        </Border>
+    </Grid>
+</Window>

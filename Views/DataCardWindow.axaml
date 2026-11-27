@@ -1,0 +1,66 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:ctl="clr-namespace:MiHomeHub.Controls"
+        xmlns:vm="clr-namespace:MiHomeHub.ViewModels"
+        xmlns:views="clr-namespace:MiHomeHub.Views"
+        x:Class="MiHomeHub.Views.DataCardWindow"
+        x:DataType="vm:DataCardVm"
+        Title="{Binding TitleText}"
+        SystemDecorations="None"
+        ExtendClientAreaToDecorationsHint="True"
+        ExtendClientAreaChromeHints="NoChrome"
+        TransparencyLevelHint="Transparent"
+        Background="Transparent"
+        ShowInTaskbar="False"
+        ShowActivated="False"
+        CanResize="False"
+        SizeToContent="Manual"
+        WindowStartupLocation="Manual"
+        RequestedThemeVariant="Dark"
+        RenderOptions.TextRenderingMode="Antialias">
+
+    <!-- 和首页趋势卡同一套：时间 / 来源下拉平时藏起来，鼠标移进整张卡才淡入；
+         浮层展开时 OptionPicker 会给 Card 挂 .pick-open，让另一枚也留在场上，
+         不会因为指针进了菜单、卡片丢了 :pointerover 而闪掉。
+         桌面卡贴在最底层，指针进出的 :pointerover 在弹窗关闭后会失真，
+         所以悬停由窗口用原生光标位置算出来，挂在 Card 的 .pick-hover 上。 -->
+    <Window.Styles>
+        <Style Selector="Border.TrendCard ctl|OptionPicker.TrendPick">
+            <Setter Property="Opacity" Value="0" />
+            <Setter Property="Transitions">
+                <Transitions>
+                    <DoubleTransition Property="Opacity" Duration="0:0:0.16" Easing="CubicEaseOut" />
+                </Transitions>
+            </Setter>
+        </Style>
+        <Style Selector="Border.TrendCard.pick-hover ctl|OptionPicker.TrendPick, Border.TrendCard.pick-open ctl|OptionPicker.TrendPick">
+            <Setter Property="Opacity" Value="1" />
+        </Style>
+        <!-- 右上角那两行小字（体感 / 水温这些）平时不露面：鼠标压到整张卡才淡进来，
+             浮层展开期间也留住，指针进了菜单不会提前收回去。显隐走 Opacity，卡片不会重排。 -->
+        <Style Selector="Border.TrendCard StackPanel.TrendAside">
+            <Setter Property="Opacity" Value="0" />
+            <Setter Property="Transitions">
+                <Transitions>
+                    <DoubleTransition Property="Opacity" Duration="0:0:0.16" Easing="CubicEaseOut" />
+                </Transitions>
+            </Setter>
+        </Style>
+        <Style Selector="Border.TrendCard.pick-hover StackPanel.TrendAside, Border.TrendCard.pick-open StackPanel.TrendAside">
+            <Setter Property="Opacity" Value="1" />
+        </Style>
+    </Window.Styles>
+
+    <!-- 桌面卡上的下拉仍可点：Card 有 400×200 的完整底色，:pointerover 稳定命中整张卡；
+         触发器是玻璃档（Glass=True）的小胶囊，悬停与展开列表都走白色带透明度，不再压一层深灰。
+         给 Card 挂 TrendCard 类，浮层展开时 OptionPicker 也能识别宿主。 -->
+    <Border x:Name="Card" Classes="TrendCard"
+            CornerRadius="20"
+            BorderThickness="1"
+            ClipToBounds="True"
+            Background="{Binding CardBrush}"
+            BorderBrush="{Binding BorderBrush}">
+        <views:DataCardView />
+    </Border>
+
+</Window>

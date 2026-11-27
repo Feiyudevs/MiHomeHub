@@ -49,8 +49,30 @@ public class TrendChart : Control
     private DispatcherTimer? _transitionTimer;
     private Stopwatch? _transitionWatch;
 
+    /// <summary>
+    /// 上次被隐藏的时刻（<see cref="Visual.IsVisibleProperty"/> 变 false）。
+    /// 定时刷新时会有一拍里「先清 ChartReady 再置回」的 false→true，那不是曲线后长出来，
+    /// 不能拿它播入场淡入 —— 否则每次刷新整条曲线都从全透明重新淡入一遍，
+    /// 几张卡同一拍刷新，肉眼看就是所有卡一起闪。只有真隐藏过一小段时间才播。
+    /// </summary>
+    private long _hiddenSince;
+    private const long FadeInMinHiddenMs = 120;
+
     public static readonly StyledProperty<IReadOnlyList<double>?> ValuesProperty =
         AvaloniaProperty.Register<TrendChart, IReadOnlyList<double>?>(nameof(Values));
+
+    /// <summary>
+    /// 变动/入场要不要做动画。桌面卡关掉：桌面组件是常驻背景，刷新时只该把数字和曲线换掉，
+    /// 任何逐帧插值都会让整卡连着重绘几十帧，看着像在闪。首页看板保持默认 true（那里有入场与平滑过渡）。
+    /// </summary>
+    public static readonly StyledProperty<bool> AnimateProperty =
+        AvaloniaProperty.Register<TrendChart, bool>(nameof(Animate), true);
+
+    public bool Animate
+    {
+        get => GetValue(AnimateProperty);
+        set => SetValue(AnimateProperty, value);
+    }
 
     /// <summary>线/柱的主色。</summary>
     public static readonly StyledProperty<IBrush?> StrokeProperty =
@@ -82,6 +104,16 @@ public class TrendChart : Control
     /// <summary>点阵背后的区间带：取这一串有效值的最低到最高，用主色淡淡铺一层。</summary>
     public static readonly StyledProperty<bool> ShowBandProperty =
         AvaloniaProperty.Register<TrendChart, bool>(nameof(ShowBand));
+
+    /// <summary>
+    /// 点阵每一格的下沿 / 上沿（体重一格横轴可能压了多次称重）：画成一段淡色短竖线，
+    /// 点落在均值上。不给这两个序列就只画点。
+    /// </summary>
+    public static readonly StyledProperty<IReadOnlyList<double>?> LowsProperty =
+        AvaloniaProperty.Register<TrendChart, IReadOnlyList<double>?>(nameof(Lows));
+
+    public static readonly StyledProperty<IReadOnlyList<double>?> HighsProperty =
+        AvaloniaProperty.Register<TrendChart, IReadOnlyList<double>?>(nameof(Highs));
 
     /// <summary>均值虚线：给点阵补一条「这段时间平均」的横线。</summary>
     public static readonly StyledProperty<bool> ShowMeanLineProperty =
@@ -133,7 +165,8 @@ public class TrendChart : Control
         AffectsRender<TrendChart>(ValuesProperty, StrokeProperty, FillProperty, GridBrushProperty,
             IsBarsProperty, HighlightIndexProperty, ShowEndDotProperty, ThicknessProperty,
             UnitTextProperty, TimeStepMinutesProperty, XLabelsProperty, TipBackgroundProperty, TipForegroundProperty,
-            IsDailyBarsProperty, IsDotsProperty, ShowBandProperty, ShowMeanLineProperty, BaselineProperty);
+            IsDailyBarsProperty, IsDotsProperty, ShowBandProperty, ShowMeanLineProperty, BaselineProperty,
+            LowsProperty, HighsProperty);
     }
 
     /// <summary>序列换新时开一段过渡；卡片里后长出来的图也淡入，不整块突然亮起。</summary>
@@ -143,11 +176,30 @@ public class TrendChart : Control
 
         if (change.Property == ValuesProperty)
         {
+            if (!Animate)
+            {
+                // 只换数据：直接落到终值，一次重绘，不跑逐帧插值
+                ResetTransition();
+                _renderValues = change.GetNewValue<IReadOnlyList<double>?>();
+                InvalidateVisual();
+                return;
+            }
             BeginTransition(change.GetOldValue<IReadOnlyList<double>?>(), change.GetNewValue<IReadOnlyList<double>?>());
         }
-        else if (change.Property == Visual.IsVisibleProperty && change.GetNewValue<bool>())
+        else if (change.Property == Visual.IsVisibleProperty)
         {
-            BeginFadeIn();
+            if (!change.GetNewValue<bool>())
+            {
+                // 隐藏时记下时刻，并顺手把没跑完的过渡收口（别在不可见时还在逐帧插值）
+                _hiddenSince = Environment.TickCount64;
+                FinishTransition();
+                return;
+            }
+
+            // 同一拍里的 false→true（刷新先清后置）隐藏时长近乎 0，不当作入场。
+            var hiddenFor = _hiddenSince == 0 ? long.MaxValue : Environment.TickCount64 - _hiddenSince;
+            _hiddenSince = 0;
+            if (Animate && hiddenFor >= FadeInMinHiddenMs) BeginFadeIn();
         }
     }
 
@@ -204,6 +256,18 @@ public class TrendChart : Control
     {
         get => GetValue(ShowBandProperty);
         set => SetValue(ShowBandProperty, value);
+    }
+
+    public IReadOnlyList<double>? Lows
+    {
+        get => GetValue(LowsProperty);
+        set => SetValue(LowsProperty, value);
+    }
+
+    public IReadOnlyList<double>? Highs
+    {
+        get => GetValue(HighsProperty);
+        set => SetValue(HighsProperty, value);
     }
 
     public bool ShowMeanLine
@@ -545,9 +609,11 @@ public class TrendChart : Control
         if (run.Count > 0) runs.Add(run);
         if (runs.Count == 0) return;
 
-        // 平滑只在段内做（末端不动），再把各段接成一条，跨断档的那一段也交给贝塞尔去画
+        // 一天一个点的曲线不磨皮：一天的尖峰会被前后低值平掉一半，最高那天就永远够不到
+        // 值域顶端；半小时/5 分钟的密集采样才需要这一步把锯齿抹顺。段与段照样接成一条，
+        // 跨断档的那一段仍交给贝塞尔去画
         var shape = new List<Point>(values.Count);
-        foreach (var r in runs) shape.AddRange(Soften(r));
+        foreach (var r in runs) shape.AddRange(IsDailyBars ? r : Soften(r));
 
         if (Fill is { } fill)
         {
@@ -668,6 +734,10 @@ public class TrendChart : Control
         var (rawMin, rawMax) = Range(values);
         if (double.IsNaN(rawMin)) return;
 
+        // 每格的上下沿也要进值域：周内极值比均值高一点，值域不带上就会被切出画布
+        rawMin = Widen(rawMin, Lows, lower: true);
+        rawMax = Widen(rawMax, Highs, lower: false);
+
         var min = rawMin;
         var max = rawMax;
         Pad(ref min, ref max);
@@ -711,11 +781,37 @@ public class TrendChart : Control
             var v = values[i];
             if (double.IsNaN(v)) continue;
             var p = new Point(X(i), Y(v));
+
+            // 这一格里从最低到最高的那段竖线：一格压了多次称重时，波动不该被均值吃掉
+            var low = At(Lows, i);
+            var high = At(Highs, i);
+            if (color is { } whisker && !double.IsNaN(low) && !double.IsNaN(high) && high - low > 1e-9)
+            {
+                var pen = new Pen(new SolidColorBrush(Color.FromArgb(64, whisker.R, whisker.G, whisker.B)),
+                    2.5, lineCap: PenLineCap.Round);
+                context.DrawLine(pen, new Point(p.X, Y(high)), new Point(p.X, Y(low)));
+            }
+
             if (color is { } glow)
                 context.DrawEllipse(new SolidColorBrush(Color.FromArgb(30, glow.R, glow.G, glow.B)),
                     null, p, 6, 6);
             context.DrawEllipse(stroke, null, p, 3, 3);
         }
+    }
+
+    private static double At(IReadOnlyList<double>? series, int index) =>
+        series is { } list && index >= 0 && index < list.Count ? list[index] : double.NaN;
+
+    /// <summary>把值域撑到边缘序列的极值：<paramref name="lower"/> 取更小，否则取更大。</summary>
+    private static double Widen(double value, IReadOnlyList<double>? series, bool lower)
+    {
+        if (series is null) return value;
+        foreach (var v in series)
+        {
+            if (double.IsNaN(v)) continue;
+            if (lower ? v < value : v > value) value = v;
+        }
+        return value;
     }
 
     /// <summary>1-2-1 权重的轻平滑：只让线条更圆润，起点终点不动，也不改原始数据。</summary>
@@ -802,6 +898,12 @@ public class TrendChart : Control
             var (min, max) = Range(values);
             if (!double.IsNaN(min))
             {
+                // 和点阵用同一套值域：带上下沿时极值也参与换算，悬停落点才不会偏
+                if (IsDots)
+                {
+                    min = Widen(min, Lows, lower: true);
+                    max = Widen(max, Highs, lower: false);
+                }
                 Pad(ref min, ref max);
                 if (!double.IsNaN(v)) y = PadT + plotH * (1 - (v - min) / (max - min));
             }

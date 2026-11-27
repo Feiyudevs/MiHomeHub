@@ -43,6 +43,21 @@ public class AdaptiveGridPanel : Panel
     public static readonly StyledProperty<double> MaxSingleItemWidthProperty =
         AvaloniaProperty.Register<AdaptiveGridPanel, double>(nameof(MaxSingleItemWidth), 0d);
 
+    /// <summary>
+    /// 末行至少有这么多张卡时，把末行按实际张数重新分宽、铺满整行。
+    /// 用于固定张数的小卡行：5 张排进 6 列时右边会空出半格，凑得差不多就一起拉宽吃掉这块空白。
+    /// 0 表示不启用（默认），保持「统一列宽、末行不拉伸」的老行为。
+    /// </summary>
+    public static readonly StyledProperty<int> FillLastRowMinItemsProperty =
+        AvaloniaProperty.Register<AdaptiveGridPanel, int>(nameof(FillLastRowMinItems), 0);
+
+    /// <summary>
+    /// 单格的最大宽度，0 表示不限制。末行铺满（或宽窗口把格子算得很宽）时，
+    /// 格子宽过上限就收在这一档，剩下的横向空间留在行尾，整行保持靠左对齐。
+    /// </summary>
+    public static readonly StyledProperty<double> MaxItemWidthProperty =
+        AvaloniaProperty.Register<AdaptiveGridPanel, double>(nameof(MaxItemWidth), 0d);
+
     /// <summary>单个子项的最小宽度，决定最多能排几列。</summary>
     public double MinItemWidth
     {
@@ -92,10 +107,25 @@ public class AdaptiveGridPanel : Panel
         set => SetValue(MaxSingleItemWidthProperty, value);
     }
 
+    /// <summary>末行卡片数达到这个值时铺满整行（0 = 不启用）。</summary>
+    public int FillLastRowMinItems
+    {
+        get => GetValue(FillLastRowMinItemsProperty);
+        set => SetValue(FillLastRowMinItemsProperty, value);
+    }
+
+    /// <summary>单格最大宽度（0 = 不限制），超出后余量摊成卡间空隙。</summary>
+    public double MaxItemWidth
+    {
+        get => GetValue(MaxItemWidthProperty);
+        set => SetValue(MaxItemWidthProperty, value);
+    }
+
     static AdaptiveGridPanel()
     {
         AffectsMeasure<AdaptiveGridPanel>(MinItemWidthProperty, SpacingProperty, MaxRowsProperty,
-            MaxColumnsProperty, SkipInvisibleProperty, BalanceRowsProperty, MaxSingleItemWidthProperty);
+            MaxColumnsProperty, SkipInvisibleProperty, BalanceRowsProperty, MaxSingleItemWidthProperty,
+            FillLastRowMinItemsProperty, MaxItemWidthProperty);
     }
 
     /// <summary>被行数上限裁掉的子项统一排到画布外，避免内容画在原点。</summary>
@@ -214,8 +244,21 @@ public class AdaptiveGridPanel : Panel
             for (var row = 0; row < rows; row++)
             {
                 var start = row * columns;
-                regular.Add(new RowLayout(start, Math.Min(columns, count - start), itemWidth));
+                regular.Add(MakeRow(start, Math.Min(columns, count - start), itemWidth));
             }
+
+            // 末行凑得差不多（如 5 张排进 6 列）就按实际张数重新分宽、铺满整行：
+            // 右边那半格空着比卡片宽一点更难看。张数太少时仍保持原列宽，免得拉成一根长条。
+            if (FillLastRowMinItems > 0 && regular.Count > 0)
+            {
+                var last = regular[^1];
+                if (last.Count > 1 && last.Count < columns && last.Count >= FillLastRowMinItems)
+                {
+                    var fillWidth = Math.Max(1, (availableWidth - spacing * (last.Count - 1)) / last.Count);
+                    regular[^1] = MakeRow(last.Start, last.Count, fillWidth);
+                }
+            }
+
             return new LayoutInfo(regular);
         }
 
@@ -239,6 +282,20 @@ public class AdaptiveGridPanel : Panel
         }
 
         return new LayoutInfo(balanced);
+    }
+
+    /// <summary>
+    /// 生成一行：格子宽超过 <see cref="MaxItemWidth"/> 就收在上限，卡片从左边起紧排，
+    /// 剩下的空间留在行尾——宽窗口下也不会把一张小卡拉成一块大宽板。
+    /// </summary>
+    private RowLayout MakeRow(int start, int count, double rawWidth)
+    {
+        var itemWidth = Math.Max(1, rawWidth);
+        var maxWidth = MaxItemWidth;
+        if (maxWidth > 0 && itemWidth > maxWidth)
+            itemWidth = maxWidth;
+
+        return new RowLayout(start, count, itemWidth);
     }
 
     private readonly record struct LayoutInfo(IReadOnlyList<RowLayout> Rows);

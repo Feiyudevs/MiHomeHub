@@ -1,0 +1,67 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="clr-namespace:MiHomeHub.ViewModels"
+             xmlns:ctl="clr-namespace:MiHomeHub.Controls"
+             x:Class="MiHomeHub.Views.SupportDialogView"
+             x:DataType="vm:MainViewModel">
+    <!-- 赞赏支持：关于页那颗按钮唤出，只放感谢文案和两张收款码，不发网络请求、不埋点 -->
+    <ctl:DialogPopup CardWidth="680" Title="赞赏支持"
+                     Subtitle="全凭自愿 · 不打赏也能用全部功能"
+                     IsOpen="{Binding IsSupportOpen}"
+                     CloseCommand="{Binding CloseSupportCommand}">
+        <ctl:DialogPopup.Footer>
+            <Border BorderBrush="{DynamicResource LineBrush}" BorderThickness="0,1,0,0"
+                    Padding="0,14,0,0" Margin="28,0,22,20">
+                <Grid ColumnDefinitions="*,Auto">
+                    <TextBlock Text="谢谢每一个愿意把它留在桌面上的人" FontSize="11.5"
+                               Foreground="{DynamicResource TextSubBrush}" VerticalAlignment="Center"
+                               TextTrimming="CharacterEllipsis" />
+                    <Button Grid.Column="1" Classes="BtnGhost" Height="34" Content="关闭"
+                            Command="{Binding CloseSupportCommand}" />
+                </Grid>
+            </Border>
+        </ctl:DialogPopup.Footer>
+
+        <StackPanel Spacing="16">
+            <StackPanel Spacing="7">
+                <TextBlock Text="MiHomeHub 一直免费、开源，没有广告，也没有收费版本。"
+                           FontSize="14.5" FontWeight="SemiBold"
+                           Foreground="{DynamicResource TextBrush}" TextWrapping="Wrap" />
+                <TextBlock Text="如果它帮你省下了一点折腾的时间，可以扫码请作者喝杯咖啡；赞赏只是心意，不换任何功能。"
+                           FontSize="13" LineHeight="20" Foreground="{DynamicResource Text2Brush}"
+                           TextWrapping="Wrap" />
+            </StackPanel>
+
+            <!-- 两张收款码并排：微信赞赏码（左）与支付宝收款码（右），手机扫屏幕上的码即可 -->
+            <Grid ColumnDefinitions="*,*" ColumnSpacing="14">
+                <Border Grid.Column="0" Background="{DynamicResource SurfaceBrush}" CornerRadius="14"
+                        Padding="14">
+                    <StackPanel Spacing="10" HorizontalAlignment="Center">
+                        <Border Width="244" Height="244" CornerRadius="12" ClipToBounds="True">
+                            <Image Width="244" Height="244" Stretch="UniformToFill"
+                                   RenderOptions.BitmapInterpolationMode="MediumQuality"
+                                   Source="avares://MiHomeHub/Assets/support/wechat.png" />
+                        </Border>
+                        <TextBlock Text="微信扫一扫" FontSize="12.5"
+                                   Foreground="{DynamicResource TextSubBrush}" HorizontalAlignment="Center" />
+                    </StackPanel>
+                </Border>
+                <Border Grid.Column="1" Background="{DynamicResource SurfaceBrush}" CornerRadius="14"
+                        Padding="14">
+                    <StackPanel Spacing="10" HorizontalAlignment="Center">
+                        <Border Width="244" Height="244" CornerRadius="12" ClipToBounds="True">
+                            <Image Width="244" Height="244" Stretch="UniformToFill"
+                                   RenderOptions.BitmapInterpolationMode="MediumQuality"
+                                   Source="avares://MiHomeHub/Assets/support/alipay.jpg" />
+                        </Border>
+                        <TextBlock Text="支付宝扫一扫" FontSize="12.5"
+                                   Foreground="{DynamicResource TextSubBrush}" HorizontalAlignment="Center" />
+                    </StackPanel>
+                </Border>
+            </Grid>
+
+            <TextBlock Text="二维码不会收集任何信息，金额随意；不打赏也照旧用全部功能，作者不会少做一寸。"
+                       Classes="Hint Sub" TextWrapping="Wrap" />
+        </StackPanel>
+    </ctl:DialogPopup>
+</UserControl>

@@ -127,6 +127,9 @@ public partial class MainViewModel : ObservableObject
     private bool _pendingGpuValue;
 
     /// <summary>摄像头画面桥（go2rtc）地址，改动即写回 app.json。</summary>
+    /// <summary>打开实时画面时是否默认静音（默认静音）。</summary>
+    [ObservableProperty] private bool _cameraMuteOnOpen = AppSettingsStore.CameraMuteOnOpen;
+
     [ObservableProperty] private string _go2rtcBase = AppSettingsStore.Go2rtcBase;
 
     /// <summary>打开摄像头抽屉时探测到的桥接状态，显示在「监控画面」卡片里。</summary>
@@ -139,6 +142,7 @@ public partial class MainViewModel : ObservableObject
     [ObservableProperty] private bool _isCameraSetupExpanded;
 
     partial void OnGo2rtcBaseChanged(string value) => AppSettingsStore.SetGo2rtcBase(value);
+    partial void OnCameraMuteOnOpenChanged(bool value) => AppSettingsStore.SetCameraMuteOnOpen(value);
 
     // ===== 中枢网关「自动化极客版」：端口固定 80（实时通道 8082），只有 IP 需要确定 =====
 
@@ -3036,6 +3040,13 @@ public partial class MainViewModel : ObservableObject
     [RelayCommand]
     private void OpenSettings() => IsSettingsOpen = true;
 
+    /// <summary>关于页「赞赏支持」：只打开收款码弹窗，不发任何网络请求。</summary>
+    [RelayCommand]
+    private void OpenSupport() => IsSupportOpen = true;
+
+    [RelayCommand]
+    private void CloseSupport() => IsSupportOpen = false;
+
     [RelayCommand]
     private void OpenLog() => IsLogOpen = true;
 
@@ -3044,9 +3055,12 @@ public partial class MainViewModel : ObservableObject
     {
         // 关掉登录面板就打断长轮询，否则命令一直执行中，再点登录会「无反应」
         if (IsLoginOpen) CancelAuth();
+        // 抽屉收起就不再需要画面：解码线程和内置画面源一起收掉，别在后台吃 CPU
+        if (IsCameraLive) StopCameraLiveCore("已停止内置画面");
         if (IsDrawerOpen) ClearSpecPanel();
         IsDrawerOpen = false;
         IsLoginOpen = false;
+        IsSupportOpen = false;
         IsSettingsOpen = false;
         IsEnvDetailOpen = false;
         IsTrendCardEditOpen = false;

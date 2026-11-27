@@ -667,6 +667,8 @@
             <Setter Property="Background" Value="{DynamicResource CardBrush}" />
             <Setter Property="BoxShadow" Value="{DynamicResource CardShadow}" />
             <Setter Property="Padding" Value="16,12,16,10" />
+            <!-- 七张大卡统一卡高 150：图表区行是 *，多出来的高度全部给曲线，一排排下来不会再高低参差 -->
+            <Setter Property="MinHeight" Value="150" />
             <!-- 投影必须画到边框外面：Border 自己不裁、由外层留白接住 -->
             <Setter Property="ClipToBounds" Value="False" />
             <Setter Property="Margin" Value="8" />

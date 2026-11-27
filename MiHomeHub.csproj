@@ -1,4 +1,4 @@
-<Project Sdk="Microsoft.NET.Sdk">
+﻿<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
     <OutputType>WinExe</OutputType>
@@ -20,6 +20,8 @@
     <!-- 编译绑定：XAML 绑定错误编译期暴露，运行时零反射查找（Zonex 经验 P0）。
          View 需有 x:DataType；个别无法类型化的路径可显式 {ReflectionBinding}。 -->
     <AvaloniaUseCompiledBindingsByDefault>true</AvaloniaUseCompiledBindingsByDefault>
+    <!-- Zonex 的玻璃宿主源码使用 unsafe 指针解析 WINDOWPOS / NCCALCSIZE_PARAMS。 -->
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
   </PropertyGroup>
 
   <ItemGroup>
@@ -28,6 +30,10 @@
     <Content Include="MiHomeHub.settings.json" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
     <!-- 本机覆盖（已 .gitignore）：只填私有后台等字段，不进仓库；存在才复制，且不进安装包 payload。 -->
     <Content Include="MiHomeHub.settings.local.json" Condition="Exists('MiHomeHub.settings.local.json')" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
+    <!-- 数据卡的 20px 圆角磨砂 / 投影：Zonex.Glass.dll，源码在 native/Glass.cpp。
+         Link 到输出根目录：DllImport("Zonex.Glass.dll") 只在 exe 同级找；
+         单文件发布靠 IncludeNativeLibrariesForSelfExtract 运行时解压。 -->
+    <None Include="native\Zonex.Glass.dll" Link="Zonex.Glass.dll" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
   </ItemGroup>
 
   <!-- Release/分发：自包含单文件 + 压缩。
@@ -81,7 +87,20 @@
     <PackageReference Include="Avalonia.Svg.Skia" Version="11.3.0" />
     <PackageReference Include="Avalonia.Themes.Fluent" Version="11.3.9" />
     <PackageReference Include="CommunityToolkit.Mvvm" Version="8.4.0" />
+    <!-- 摄像头声音：G.711 解码后的 PCM 直接推给 Windows 音频输出，不依赖系统外置播放器 -->
+    <PackageReference Include="NAudio" Version="2.2.1" />
     <PackageReference Include="QRCoder" Version="1.6.0" />
+    <PackageReference Include="Vortice.Direct3D11" Version="3.8.3" />
+    <!-- 摄像头画面：Media Foundation 的 SourceReader + D3D11 设备管理器走显卡硬解，
+         不用 ffmpeg、不依赖外部播放器。 -->
+    <PackageReference Include="Vortice.MediaFoundation" Version="3.8.3" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- 内置画面源（go2rtc，MIT）：只负责小米 P2P 握手与本地转发，
+         首用时释放到数据目录，按设备生成配置后以隐藏进程运行。 -->
+    <EmbeddedResource Include="Assets\camera\go2rtc.exe" LogicalName="MiHomeHub.camera.go2rtc.exe" />
+    <EmbeddedResource Include="Assets\camera\native\*.dll" LogicalName="MiHomeHub.camera.native.%(Filename)%(Extension)" />
   </ItemGroup>
 
 </Project>

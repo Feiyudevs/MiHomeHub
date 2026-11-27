@@ -1,10 +1,21 @@
-<UserControl xmlns="https://github.com/avaloniaui"
+﻿<UserControl xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:m="clr-namespace:MiHomeHub.Models"
              xmlns:vm="clr-namespace:MiHomeHub.ViewModels"
              xmlns:ctl="clr-namespace:MiHomeHub.Controls"
              x:Class="MiHomeHub.Views.SettingsDialogView"
              x:DataType="vm:MainViewModel">
+    <UserControl.Styles>
+        <!-- 分区卡：设置页里的次级卡片。底色比外层 Card 再亮/暗一档，靠 1px 淡描边分层；
+             不叠投影，避免一屏里出现十几个各自带阴影的小块 -->
+        <Style Selector="Border.CompTile">
+            <Setter Property="Background" Value="{DynamicResource PickCardBrush}" />
+            <Setter Property="BorderBrush" Value="{DynamicResource LineBrush}" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="CornerRadius" Value="14" />
+            <Setter Property="Padding" Value="14,13" />
+        </Style>
+    </UserControl.Styles>
     <ctl:DialogPopup
                      Title="设置"
                      IsOpen="{Binding IsSettingsOpen}"
@@ -126,155 +137,180 @@
                         </Grid>
                     </StackPanel>
                 </Border>
-                <Border Classes="Card">
-                    <StackPanel Spacing="20">
-                        <TextBlock Text="启动与窗口" FontSize="14.5" FontWeight="SemiBold"
-                                   Foreground="{DynamicResource TextBrush}" />
-                        <Grid ColumnDefinitions="Auto,*,Auto">
-                            <Border Classes="SetIc" Background="{DynamicResource GreenSoftBrush}">
-                                <Viewbox HorizontalAlignment="Center" VerticalAlignment="Center">
-                                    <Panel Width="24" Height="24">
-                                        <Path Stroke="{DynamicResource GreenBrush}" Data="{StaticResource GeoPower}" />
-                                    </Panel>
-                                </Viewbox>
-                            </Border>
-                            <StackPanel Grid.Column="1" Margin="12,0" VerticalAlignment="Center">
-                                <TextBlock Text="开机启动" FontSize="13.5" FontWeight="Normal"
-                                           Foreground="{DynamicResource TextBrush}" />
-                                <TextBlock Text="登录 Windows 后自动启动应用" Classes="Hint Sub" Margin="0,2,0,0" />
                             </StackPanel>
-                            <ToggleButton Grid.Column="2" Classes="Switch" VerticalAlignment="Center"
-                                          IsChecked="{Binding AutoStart}" />
-                        </Grid>
-                        <Grid ColumnDefinitions="Auto,*,Auto">
-                            <Border Classes="SetIc" Background="{DynamicResource BlueSoftBrush}">
-                                <Viewbox HorizontalAlignment="Center" VerticalAlignment="Center">
-                                    <Panel Width="24" Height="24">
-                                        <Path Stroke="{DynamicResource BlueBrush}" Data="{StaticResource GeoMax}" />
-                                    </Panel>
-                                </Viewbox>
-                            </Border>
-                            <StackPanel Grid.Column="1" Margin="12,0" VerticalAlignment="Center">
-                                <TextBlock Text="启动后显示主界面" FontSize="13.5" FontWeight="Normal"
-                                           Foreground="{DynamicResource TextBrush}" />
-                                <TextBlock Text="关掉后启动直接收进托盘，需要时点托盘图标打开" Classes="Hint Sub" Margin="0,2,0,0" />
-                            </StackPanel>
-                            <ToggleButton Grid.Column="2" Classes="Switch" VerticalAlignment="Center"
-                                          IsChecked="{Binding ShowMainWindowOnStartup}" />
-                        </Grid>
-                        <Grid ColumnDefinitions="Auto,*,Auto">
-                            <Border Classes="SetIc" Background="{DynamicResource PurpleSoftBrush}">
-                                <Viewbox HorizontalAlignment="Center" VerticalAlignment="Center">
-                                    <Panel Width="24" Height="24">
-                                        <Path Stroke="{DynamicResource PurpleBrush}" Data="{StaticResource GeoTray}" />
-                                    </Panel>
-                                </Viewbox>
-                            </Border>
-                            <StackPanel Grid.Column="1" Margin="12,0" VerticalAlignment="Center">
-                                <TextBlock Text="关闭后进托盘" FontSize="13.5" FontWeight="Normal"
-                                           Foreground="{DynamicResource TextBrush}" />
-                                <TextBlock Text="关掉这项后点关闭直接退出应用" Classes="Hint Sub" Margin="0,2,0,0" />
-                            </StackPanel>
-                            <ToggleButton Grid.Column="2" Classes="Switch" VerticalAlignment="Center"
-                                          IsChecked="{Binding CloseToTray}" />
-                        </Grid>
-                    </StackPanel>
-                </Border>
-            </StackPanel>
 
             <!-- 桌面组件 -->
             <StackPanel Spacing="14" IsVisible="{Binding SettingsTab, Converter={StaticResource IntEq}, ConverterParameter=1}">
+                <!-- 总开关：一块窗全开全关，分区自己的开关留在下面 -->
                 <Border Classes="Card">
-                    <StackPanel Spacing="20">
-                        <TextBlock Text="桌面组件" FontSize="14.5" FontWeight="SemiBold"
-                                   Foreground="{DynamicResource TextBrush}" />
-                        <Grid ColumnDefinitions="Auto,*,Auto">
-                            <Border Classes="SetIc" Background="{DynamicResource BlueSoftBrush}">
-                                <Viewbox HorizontalAlignment="Center" VerticalAlignment="Center">
-                                    <Panel Width="24" Height="24">
-                                        <Path Stroke="{DynamicResource BlueBrush}" Data="{StaticResource GeoGrid}" />
-                                    </Panel>
-                                </Viewbox>
-                            </Border>
-                            <StackPanel Grid.Column="1" Margin="12,0" VerticalAlignment="Center">
-                                <TextBlock Text="在桌面显示设备分区" FontSize="13.5" FontWeight="Normal"
-                                           Foreground="{DynamicResource TextBrush}" />
-                                <TextBlock Text="设备卡悬停点「＋」即可添加入口；关掉只是收起，分区配置保留"
-                                           Classes="Hint Sub" Margin="0,2,0,0" TextWrapping="Wrap" />
-                            </StackPanel>
-                            <ToggleButton Grid.Column="2" Classes="Switch" VerticalAlignment="Center"
-                                          IsChecked="{Binding DesktopWidgetsEnabled}" />
-                        </Grid>
-                        <Grid ColumnDefinitions="Auto,*,Auto">
-                            <Border Classes="SetIc" Background="{DynamicResource PurpleSoftBrush}">
-                                <Viewbox HorizontalAlignment="Center" VerticalAlignment="Center">
-                                    <Panel Width="24" Height="24">
-                                        <Path Stroke="{DynamicResource PurpleBrush}" Data="{StaticResource GeoSpeaker}" />
-                                    </Panel>
-                                </Viewbox>
-                            </Border>
-                            <StackPanel Grid.Column="1" Margin="12,0" VerticalAlignment="Center">
-                                <TextBlock Text="在桌面显示媒体分区" FontSize="13.5" FontWeight="Normal"
-                                           Foreground="{DynamicResource TextBrush}" />
-                                <TextBlock Text="控制的音箱与首页「音响播放」是同一台；关掉后不会自动放回"
-                                           Classes="Hint Sub" Margin="0,2,0,0" TextWrapping="Wrap" />
-                            </StackPanel>
-                            <ToggleButton Grid.Column="2" Classes="Switch" VerticalAlignment="Center"
-                                          IsChecked="{Binding DesktopMediaZone}" />
-                        </Grid>
-                        <Grid ColumnDefinitions="Auto,*,Auto">
-                            <Border Classes="SetIc" Background="{DynamicResource BlueSoftBrush}">
-                                <Viewbox HorizontalAlignment="Center" VerticalAlignment="Center">
-                                    <Panel Width="24" Height="24">
-                                        <Path Stroke="{DynamicResource BlueBrush}" Data="{StaticResource GeoAirCon}" />
-                                    </Panel>
-                                </Viewbox>
-                            </Border>
-                            <StackPanel Grid.Column="1" Margin="12,0" VerticalAlignment="Center">
-                                <TextBlock Text="在桌面显示空调分区" FontSize="13.5" FontWeight="Normal"
-                                           Foreground="{DynamicResource TextBrush}" />
-                                <TextBlock Text="一张空调控制卡，温度、模式、风速都能在桌面直接调；关掉后不会自动放回"
-                                           Classes="Hint Sub" Margin="0,2,0,0" TextWrapping="Wrap" />
-                            </StackPanel>
-                            <ToggleButton Grid.Column="2" Classes="Switch" VerticalAlignment="Center"
-                                          IsChecked="{Binding DesktopAcZone}" />
-                        </Grid>
-                        <Grid ColumnDefinitions="Auto,*,Auto">
-                            <Border Classes="SetIc" Background="{DynamicResource GreenSoftBrush}">
-                                <Viewbox HorizontalAlignment="Center" VerticalAlignment="Center">
-                                    <Panel Width="24" Height="24">
-                                        <Path Stroke="{DynamicResource GreenBrush}" Data="{StaticResource GeoMax}" />
-                                    </Panel>
-                                </Viewbox>
-                            </Border>
-                            <StackPanel Grid.Column="1" Margin="12,0" VerticalAlignment="Center">
-                                <TextBlock Text="双击桌面隐藏组件" FontSize="13.5" FontWeight="Normal"
-                                           Foreground="{DynamicResource TextBrush}" />
-                                <TextBlock Text="双击桌面空白处，快速收起 / 恢复所有桌面卡片"
-                                           Classes="Hint Sub" Margin="0,2,0,0" TextWrapping="Wrap" />
-                            </StackPanel>
-                            <ToggleButton Grid.Column="2" Classes="Switch" VerticalAlignment="Center"
-                                          IsChecked="{Binding DoubleClickDesktopToggles}" />
-                        </Grid>
-                        <Grid ColumnDefinitions="Auto,*,Auto">
-                            <Border Classes="SetIc" Background="{DynamicResource PurpleSoftBrush}">
-                                <Viewbox HorizontalAlignment="Center" VerticalAlignment="Center">
-                                    <Panel Width="24" Height="24">
-                                        <Path Stroke="{DynamicResource PurpleBrush}" Data="{StaticResource GeoGrid}" />
-                                    </Panel>
-                                </Viewbox>
-                            </Border>
-                            <StackPanel Grid.Column="1" Margin="12,0" VerticalAlignment="Center">
-                                <TextBlock Text="移入自动展开" FontSize="13.5" FontWeight="Normal"
-                                           Foreground="{DynamicResource TextBrush}" />
-                                <TextBlock Text="鼠标移入折叠的分区时自动展开，移出后自动收起"
-                                           Classes="Hint Sub" Margin="0,2,0,0" TextWrapping="Wrap" />
-                            </StackPanel>
-                            <ToggleButton Grid.Column="2" Classes="Switch" VerticalAlignment="Center"
-                                          IsChecked="{Binding HoverExpand}" />
-                        </Grid>
-                    </StackPanel>
+                    <Grid ColumnDefinitions="Auto,*,Auto">
+                        <Border Classes="SetIc" Background="{DynamicResource BlueSoftBrush}">
+                            <Viewbox HorizontalAlignment="Center" VerticalAlignment="Center">
+                                <Panel Width="24" Height="24">
+                                    <Path Stroke="{DynamicResource BlueBrush}" Data="{StaticResource GeoGrid}" />
+                                </Panel>
+                            </Viewbox>
+                        </Border>
+                        <StackPanel Grid.Column="1" Margin="12,0" VerticalAlignment="Center">
+                            <TextBlock Text="在桌面显示设备分区" FontSize="13.5" FontWeight="Normal"
+                                       Foreground="{DynamicResource TextBrush}" />
+                            <TextBlock Text="总开关：关掉后所有分区一起收起，分区与外观设置都保留"
+                                       Classes="Hint Sub" Margin="0,2,0,0" />
+                        </StackPanel>
+                        <ToggleButton Grid.Column="2" Classes="Switch" VerticalAlignment="Center"
+                                      IsChecked="{Binding DesktopWidgetsEnabled}" />
+                    </Grid>
                 </Border>
+
+                <!-- 分区：逐块方卡，开关就压在各自卡上，不用在一长条列表里找 -->
+                <StackPanel Spacing="10">
+                    <Grid ColumnDefinitions="*,Auto">
+                        <TextBlock Classes="SecTitle" Margin="2,4,0,0" Text="分区" />
+                        <TextBlock Grid.Column="1" Classes="Hint" Margin="0,0,14,0" VerticalAlignment="Center"
+                                   Text="设备卡悬停点「＋」即可添加入口" />
+                    </Grid>
+                    <Grid ColumnDefinitions="*,12,*" RowDefinitions="Auto,12,Auto">
+                        <!-- 媒体分区 -->
+                        <Border Classes="CompTile" Grid.Row="0" Grid.Column="0">
+                            <Grid ColumnDefinitions="Auto,*,Auto">
+                                <Border Classes="SetIc" Background="{DynamicResource PurpleSoftBrush}">
+                                    <Viewbox HorizontalAlignment="Center" VerticalAlignment="Center">
+                                        <Panel Width="24" Height="24">
+                                            <Path Stroke="{DynamicResource PurpleBrush}" Data="{StaticResource GeoSpeaker}" />
+                                        </Panel>
+                                    </Viewbox>
+                                </Border>
+                                <StackPanel Grid.Column="1" Margin="11,0,10,0" VerticalAlignment="Center" Spacing="1">
+                                    <TextBlock Text="媒体分区" FontSize="13.5" FontWeight="Normal"
+                                               Foreground="{DynamicResource TextBrush}" />
+                                    <TextBlock Text="与首页「音响播放」是同一台音箱" Classes="Hint Sub" />
+                                </StackPanel>
+                                <ToggleButton Grid.Column="2" Classes="Switch" VerticalAlignment="Center"
+                                              IsChecked="{Binding DesktopMediaZone}" />
+                            </Grid>
+                        </Border>
+
+                        <!-- 空调分区 -->
+                        <Border Classes="CompTile" Grid.Row="0" Grid.Column="2">
+                            <Grid ColumnDefinitions="Auto,*,Auto">
+                                <Border Classes="SetIc" Background="{DynamicResource BlueSoftBrush}">
+                                    <Viewbox HorizontalAlignment="Center" VerticalAlignment="Center">
+                                        <Panel Width="24" Height="24">
+                                            <Path Stroke="{DynamicResource BlueBrush}" Data="{StaticResource GeoAirCon}" />
+                                        </Panel>
+                                    </Viewbox>
+                                </Border>
+                                <StackPanel Grid.Column="1" Margin="11,0,10,0" VerticalAlignment="Center" Spacing="1">
+                                    <TextBlock Text="空调分区" FontSize="13.5" FontWeight="Normal"
+                                               Foreground="{DynamicResource TextBrush}" />
+                                    <TextBlock Text="桌面直接调温度、模式、风速" Classes="Hint Sub" />
+                                </StackPanel>
+                                <ToggleButton Grid.Column="2" Classes="Switch" VerticalAlignment="Center"
+                                              IsChecked="{Binding DesktopAcZone}" />
+                            </Grid>
+                        </Border>
+
+                        <!-- 监控分区：摄像头多于一台时，选哪一台就收在卡里 -->
+                        <Border Classes="CompTile" Grid.Row="2" Grid.Column="0">
+                            <StackPanel Spacing="9">
+                                <Grid ColumnDefinitions="Auto,*,Auto">
+                                    <Border Classes="SetIc" Background="{DynamicResource BlueSoftBrush}">
+                                        <Viewbox HorizontalAlignment="Center" VerticalAlignment="Center">
+                                            <Panel Width="24" Height="24">
+                                                <Path Stroke="{DynamicResource BlueBrush}" Data="{StaticResource GeoCamera}" />
+                                            </Panel>
+                                        </Viewbox>
+                                    </Border>
+                                    <StackPanel Grid.Column="1" Margin="11,0,10,0" VerticalAlignment="Center" Spacing="1">
+                                        <TextBlock Text="监控分区" FontSize="13.5" FontWeight="Normal"
+                                                   Foreground="{DynamicResource TextBrush}" />
+                                        <TextBlock Text="桌面直接看实时画面，关窗即停流" Classes="Hint Sub" />
+                                    </StackPanel>
+                                    <ToggleButton Grid.Column="2" Classes="Switch" VerticalAlignment="Center"
+                                                  IsChecked="{Binding DesktopCameraZone}" />
+                                </Grid>
+                                <!-- 摄像头多于一台才给下拉：只有一台时没什么好选的，这一行不占位置 -->
+                                <Grid ColumnDefinitions="*,Auto" IsVisible="{Binding ShowCameraPicker}">
+                                    <TextBlock Text="显示画面" FontSize="12" VerticalAlignment="Center"
+                                               Foreground="{DynamicResource Text2Brush}" />
+                                    <ctl:OptionPicker Grid.Column="1" VerticalAlignment="Center" MaxWidth="150"
+                                                      Options="{Binding CameraOptions}"
+                                                      SelectedValue="{Binding SelectedCameraValue, Mode=TwoWay}" />
+                                </Grid>
+                            </StackPanel>
+                        </Border>
+
+                        <!-- 桌面数据卡：逐张开关收在首页「数据看板」的编辑弹窗里，这里只留已投数量和入口 -->
+                        <Border Classes="CompTile" Grid.Row="2" Grid.Column="2">
+                            <StackPanel Spacing="8">
+                                <Grid ColumnDefinitions="Auto,*,Auto">
+                                    <Border Classes="SetIc" Background="{DynamicResource PurpleSoftBrush}">
+                                        <Viewbox HorizontalAlignment="Center" VerticalAlignment="Center">
+                                            <Panel Width="24" Height="24">
+                                                <Path Stroke="{DynamicResource PurpleBrush}" Data="{StaticResource GeoDashboard}" />
+                                            </Panel>
+                                        </Viewbox>
+                                    </Border>
+                                    <StackPanel Grid.Column="1" Margin="11,0,10,0" VerticalAlignment="Center" Spacing="1">
+                                        <TextBlock Text="桌面数据卡" FontSize="13.5" FontWeight="Normal"
+                                                   Foreground="{DynamicResource TextBrush}" />
+                                        <TextBlock Text="{Binding DesktopDataCards.SummaryText}" Classes="Hint Sub" />
+                                    </StackPanel>
+                                    <Button Grid.Column="2" Classes="BtnGhost" Height="28" Padding="12,0" FontSize="12"
+                                            Content="管理" VerticalAlignment="Center"
+                                            Command="{Binding ManageDesktopDataCardsCommand}"
+                                            ToolTip.Tip="打开首页「数据看板」的编辑弹窗，和首页显隐一起逐张勾选" />
+                                </Grid>
+                                <TextBlock Text="逐张开关在首页「数据看板」的编辑里，和首页显隐放在同一行"
+                                           Classes="Hint" TextWrapping="Wrap" />
+                            </StackPanel>
+                        </Border>
+                    </Grid>
+                </StackPanel>
+
+                <!-- 桌面交互：管的是鼠标怎么用桌面组件，和上面的分区显隐分开成一节 -->
+                <StackPanel Spacing="10">
+                    <TextBlock Classes="SecTitle" Margin="2,4,0,0" Text="桌面交互" />
+                    <Grid ColumnDefinitions="*,12,*">
+                        <Border Classes="CompTile" Grid.Column="0">
+                            <Grid ColumnDefinitions="Auto,*,Auto">
+                                <Border Classes="SetIc" Background="{DynamicResource GreenSoftBrush}">
+                                    <Viewbox HorizontalAlignment="Center" VerticalAlignment="Center">
+                                        <Panel Width="24" Height="24">
+                                            <Path Stroke="{DynamicResource GreenBrush}" Data="{StaticResource GeoMax}" />
+                                        </Panel>
+                                    </Viewbox>
+                                </Border>
+                                <StackPanel Grid.Column="1" Margin="11,0,10,0" VerticalAlignment="Center" Spacing="1">
+                                    <TextBlock Text="双击桌面隐藏组件" FontSize="13.5" FontWeight="Normal"
+                                               Foreground="{DynamicResource TextBrush}" />
+                                    <TextBlock Text="双击桌面空白处收起 / 恢复所有卡片" Classes="Hint Sub" />
+                                </StackPanel>
+                                <ToggleButton Grid.Column="2" Classes="Switch" VerticalAlignment="Center"
+                                              IsChecked="{Binding DoubleClickDesktopToggles}" />
+                            </Grid>
+                        </Border>
+
+                        <Border Classes="CompTile" Grid.Column="2">
+                            <Grid ColumnDefinitions="Auto,*,Auto">
+                                <Border Classes="SetIc" Background="{DynamicResource PurpleSoftBrush}">
+                                    <Viewbox HorizontalAlignment="Center" VerticalAlignment="Center">
+                                        <Panel Width="24" Height="24">
+                                            <Path Stroke="{DynamicResource PurpleBrush}" Data="{StaticResource GeoGrid}" />
+                                        </Panel>
+                                    </Viewbox>
+                                </Border>
+                                <StackPanel Grid.Column="1" Margin="11,0,10,0" VerticalAlignment="Center" Spacing="1">
+                                    <TextBlock Text="移入自动展开" FontSize="13.5" FontWeight="Normal"
+                                               Foreground="{DynamicResource TextBrush}" />
+                                    <TextBlock Text="移入折叠的分区自动展开" Classes="Hint Sub" />
+                                </StackPanel>
+                                <ToggleButton Grid.Column="2" Classes="Switch" VerticalAlignment="Center"
+                                              IsChecked="{Binding HoverExpand}" />
+                            </Grid>
+                        </Border>
+                    </Grid>
+                </StackPanel>
 
                 <!-- 分区外观：直接内联，不再弹独立窗口 -->
                 <Border Classes="Card">
@@ -313,17 +349,11 @@
                                         </DataTemplate>
                                     </ItemsControl.ItemTemplate>
                                 </ItemsControl>
-                                <Button Classes="Swatch" Click="OnCustomColorClick"
-                                        ToolTip.Tip="自定义颜色（打开调色盘）">
-                                    <Panel>
-                                        <Border Width="20" Height="20" CornerRadius="10"
-                                                Background="{Binding DesktopAppearance.CustomColorBrush}"
-                                                BorderThickness="1" BorderBrush="#33FFFFFF" />
-                                        <Border Width="26" Height="26" CornerRadius="13"
-                                                BorderThickness="2" BorderBrush="{DynamicResource AccentBrush}"
-                                                IsVisible="{Binding DesktopAppearance.IsCustomColorSelected}" />
-                                    </Panel>
-                                </Button>
+                                <Button Classes="ColorOrb"
+                                        Classes.on="{Binding DesktopAppearance.IsCustomColorSelected}"
+                                        Background="{Binding DesktopAppearance.CustomColorBrush}"
+                                        Click="OnCustomColorClick"
+                                        ToolTip.Tip="自定义颜色（打开调色盘）" />
                             </StackPanel>
                             <TextBlock Classes="Hint" Text="未选背景色时，底色随深/浅色主题自动切换"
                                        IsVisible="{Binding DesktopAppearance.FollowTheme}" />
@@ -346,17 +376,6 @@
                             <TextBlock Classes="Hint"
                                        Text="数值是底色自身的不透明度，磨砂染色随之联动：0% 纯磨砂无底色、100% 最沉。" />
                         </StackPanel>
-
-                        <!-- 毛玻璃 -->
-                        <Grid ColumnDefinitions="*,Auto">
-                            <StackPanel Spacing="3" VerticalAlignment="Center">
-                                <TextBlock Text="毛玻璃" FontSize="13" FontWeight="Normal"
-                                           Foreground="{DynamicResource Text2Brush}" />
-                                <TextBlock Classes="Hint" Text="用系统亚克力模糊墙纸，与透明度叠加生效" />
-                            </StackPanel>
-                            <ToggleButton Grid.Column="1" Classes="Switch" VerticalAlignment="Center"
-                                          IsChecked="{Binding DesktopAppearance.Glass, Mode=TwoWay}" />
-                        </Grid>
                     </StackPanel>
                 </Border>
             </StackPanel>
@@ -483,6 +502,9 @@
                                     ToolTip.Tip="https://space.bilibili.com/3546951903611444"
                                     Command="{Binding OpenUrlCommand}"
                                     CommandParameter="{Binding BilibiliUrl}" />
+                            <!-- 赞赏支持：点开只弹收款码，不影响任何功能 -->
+                            <Button Classes="BtnGhost" Height="34" Content="赞赏支持"
+                                    Command="{Binding OpenSupportCommand}" />
                         </StackPanel>
                     </StackPanel>
                 </Border>

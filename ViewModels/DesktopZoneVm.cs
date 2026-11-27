@@ -39,6 +39,7 @@ public abstract partial class DesktopZoneVm : ObservableObject
 
     [ObservableProperty] private double _width = DesktopGroupModel.DefaultWidth;
     [ObservableProperty] private IBrush _cardBrush = Brushes.Transparent;
+    [ObservableProperty] private IBrush _borderBrush = Brushes.Transparent;
     [ObservableProperty] private IBrush _hoverBrush = Brushes.Transparent;
 
     /// <summary>危险操作按钮当前文案：第一次点只改文案，再点一次才真执行。</summary>
@@ -55,12 +56,26 @@ public abstract partial class DesktopZoneVm : ObservableObject
         _collapsed = model.Collapsed;
         _isTopmost = model.Topmost;
         _contentVisible = !model.Collapsed;
+        // 构造器里不能调虚成员：DataCardVm 的 MaxWidthDip 依赖派生字段 _def，
+        // 那时还没赋值，会直接 NRE。这里先用公共上下限，派生类拿到自己的定义后再按档位夹一次。
         _width = Math.Clamp(model.Width, DesktopGroupModel.MinWidth, DesktopGroupModel.MaxWidth);
         _dissolveLabel = DangerText;
     }
 
+    /// <summary>宽度下限（DIP）：数据卡的窄档只有 200，普通分区要放得下一整张设备卡。</summary>
+    protected virtual double MinWidthDip => DesktopGroupModel.MinWidth;
+
+    /// <summary>宽度上限（DIP）：数据卡可拉到 800，普通分区仍按 640。</summary>
+    protected virtual double MaxWidthDip => DesktopGroupModel.MaxWidth;
+
     /// <summary>这块分区是不是媒体（音响播放）分区。</summary>
     public bool IsMedia => Model.IsMedia;
+
+    /// <summary>这块分区是不是数据卡（单指标卡窗，独立卡面）。</summary>
+    public bool IsData => Model.IsData;
+
+    /// <summary>这块分区是不是监控画面（摄像头实时画面卡，没有标题栏）。</summary>
+    public bool IsCamera => Model.IsCamera;
 
     /// <summary>改名浮层覆盖的这块标题区（名称文字 + 设备数徽标）透明度：浮层盖上来时置 0（保留占位不回流），半透明浮层就不会透出双重名称。</summary>
     public double TitleOpacity => IsRenaming ? 0 : 1;
@@ -96,7 +111,7 @@ public abstract partial class DesktopZoneVm : ObservableObject
     public virtual bool IsAc => false;
 
     /// <summary>是否设备分区（标题栏「＋」按钮只在这里出现）。</summary>
-    public bool IsDevice => !IsMedia && !IsAc;
+    public bool IsDevice => !IsData && !IsMedia && !IsAc && !IsCamera;
 
     partial void OnCollapsedChanged(bool value)
     {
@@ -143,7 +158,9 @@ public abstract partial class DesktopZoneVm : ObservableObject
     partial void OnWidthChanged(double value)
     {
         Model.Width = value;
-        DesktopHost.Save();
+        // 数据卡拖右下角缩放时每帧都会走这里：落盘留给卡窗松手后统一做，
+        // 否则一次拖动会把 desktop.json 连写几十遍。
+        if (!Model.IsData) DesktopHost.Save();
     }
 
     partial void OnIsTopmostChanged(bool value)
@@ -160,6 +177,7 @@ public abstract partial class DesktopZoneVm : ObservableObject
     {
         var look = DesktopHost.Look;
         CardBrush = DesktopPalette.CardBrush(look);
+        BorderBrush = new SolidColorBrush(DesktopPalette.CardBorderColor(look));
         HoverBrush = DesktopPalette.HoverBrush(look);
     }
 

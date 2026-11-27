@@ -44,6 +44,10 @@ public partial class MainViewModel
     [ObservableProperty] private bool _hasScaleDelta;
     [ObservableProperty] private IReadOnlyList<double> _scaleTrendSeries = Array.Empty<double>();
     [ObservableProperty] private IReadOnlyList<string> _scaleTrendLabels = Array.Empty<string>();
+
+    /// <summary>点阵每一格的下沿 / 上沿：一格横轴压了多次称重时，画出这一段的波动范围。</summary>
+    [ObservableProperty] private IReadOnlyList<double> _scaleTrendLows = Array.Empty<double>();
+    [ObservableProperty] private IReadOnlyList<double> _scaleTrendHighs = Array.Empty<double>();
     [ObservableProperty] private string _scaleTrendRange = "";
     [ObservableProperty] private string _scaleTrendPlaceholder = "正在读取称重记录…";
     [ObservableProperty] private bool _showScaleChart;
@@ -164,6 +168,8 @@ public partial class MainViewModel
                 HasScaleDelta = false;
                 ScaleTrendSeries = Array.Empty<double>();
                 ScaleTrendLabels = Array.Empty<string>();
+                ScaleTrendLows = Array.Empty<double>();
+                ScaleTrendHighs = Array.Empty<double>();
                 ScaleTrendRange = "";
                 ShowScaleChart = false;
                 ScaleTrendPlaceholder = "还没有称重记录";
@@ -177,29 +183,44 @@ public partial class MainViewModel
                 ? $"体脂 {latest.BodyFatPercent:0.0}% · BMI {latest.Bmi:0.0}"
                 : (latest.Bmi > 0 ? $"仅体重 · BMI {latest.Bmi:0.0}" : "仅体重");
 
-            // 一天取最后一次，按选中的窗口（最多一年）截，够画曲线又不至于把同一天的多次称重压成锯齿
-            var rangeDays = ScaleRangeDays;
+            // 一天只留最后一次：同一天翻来覆去上秤，不该在图上叠出一串锯齿
             var daily = records
                 .GroupBy(r => r.Time.Date)
                 .Select(g => g.Last())
-                .TakeLast(rangeDays)
+                .OrderBy(r => r.Time)
                 .ToList();
 
-            ScaleTrendSeries = daily.Select(r => r.WeightKg).ToList();
-            // 悬停气泡只显示称重日期：同年省掉年份，跨年补上
-            var thisYear = DateTime.Now.Year;
-            ScaleTrendLabels = daily
-                .Select(r => r.Time.Year == thisYear ? r.Time.ToString("M/d") : r.Time.ToString("yyyy/M/d"))
+            // 用户选的跨度先按今天取；这一段没记录就把窗口整体后推到最近一次称重，
+            // 点数还不够画就把跨度放大——两个月没上秤时，别只剩一张空坐标轴
+            var filter = FitScaleWindow(daily, DateTime.Today, ScaleRangeDays);
+            var inWindow = daily
+                .Where(r => r.Time.Date >= filter.Start && r.Time.Date <= filter.End)
                 .ToList();
-            ShowScaleChart = daily.Count >= 3;
+
+            // 窗口里只有一段有记录（例如一年只称了两个月）时，横轴收口到首尾称重日：
+            // 按整年铺格子会把点全挤到右边，左边一大块空白，看着像卡没铺满
+            var window = filter;
+            if (inWindow.Count > 0)
+            {
+                var first = inWindow[0].Time.Date;
+                var last = inWindow[^1].Time.Date;
+                if ((first - filter.Start).Days >= TrimGapDays || (filter.End - last).Days >= TrimGapDays)
+                    window = new ScaleWindow(first, last, (last - first).Days + 1);
+            }
+
+            ScaleTrendSeries = ScaleBuckets(inWindow, window, out var lows, out var highs, out var labels);
+            ScaleTrendLows = lows;
+            ScaleTrendHighs = highs;
+            ScaleTrendLabels = labels;
+            ShowScaleChart = inWindow.Count >= 3;
             ScaleTrendPlaceholder = ShowScaleChart
                 ? ""
-                : $"已记录 {daily.Count} 天 · 攒够 3 天后出曲线";
+                : $"已记录 {inWindow.Count} 天 · 攒够 3 天后出曲线";
 
-            var min = daily.Min(r => r.WeightKg);
-            var max = daily.Max(r => r.WeightKg);
-            ScaleTrendRange = daily.Count >= 2
-                ? $"{ScaleWindowText(rangeDays)} {min:0.0}–{max:0.0}kg"
+            var min = inWindow.Count > 0 ? inWindow.Min(r => r.WeightKg) : 0;
+            var max = inWindow.Count > 0 ? inWindow.Max(r => r.WeightKg) : 0;
+            ScaleTrendRange = inWindow.Count >= 2
+                ? $"{ScaleRangeText(window, filter)} {min:0.0}–{max:0.0}kg"
                 : "";
 
             if (records.Count >= 2)
@@ -218,6 +239,164 @@ public partial class MainViewModel
         {
             _applyingScale = false;
         }
+    }
+
+    /// <summary>实际画出来的那一截：起点、终点、跨度（天）。</summary>
+    private readonly record struct ScaleWindow(DateTime Start, DateTime End, int Span);
+
+    /// <summary>可放大的跨度档位，和下拉里的 30 / 90 / 半年 / 1 年对齐。</summary>
+    private static readonly int[] ScaleLadder = { 30, 90, 180, 365 };
+
+    /// <summary>一张卡最多铺这么多个点：再多点就叠在一起了，只有超了才让一格横轴代表几天。</summary>
+    private const int ScaleMaxBuckets = 30;
+
+    /// <summary>
+    /// 让选中的跨度落到真的有称重的那几天上：先按今天取窗；不足 3 天记录就把窗口整体后推到
+    /// 最近一次称重；还不够画就往上放大跨度。返回的窗口就是图上实际画的那一段。
+    /// </summary>
+    private static ScaleWindow FitScaleWindow(IReadOnlyList<ScaleRecord> daily, DateTime today, int preferred)
+    {
+        var last = daily[^1].Time.Date;
+        var span = preferred;
+        var end = today;
+
+        if (CountScaleDays(daily, today, span) < 3 && last < today) end = last;
+
+        var count = CountScaleDays(daily, end, span);
+        if (count < 3)
+        {
+            // 只有真的能多出称重日才放大：一年只称过两次，撑成一年也只是两个点
+            foreach (var bigger in ScaleLadder)
+            {
+                if (bigger <= preferred) continue;
+                if (CountScaleDays(daily, end, bigger) >= 3) { span = bigger; break; }
+            }
+        }
+
+        return new ScaleWindow(end.Date.AddDays(-(span - 1)), end.Date, span);
+    }
+
+    private static int CountScaleDays(IReadOnlyList<ScaleRecord> daily, DateTime end, int span)
+    {
+        var start = end.Date.AddDays(-(span - 1));
+        var count = 0;
+        foreach (var r in daily)
+            if (r.Time.Date >= start && r.Time.Date <= end.Date) count++;
+        return count;
+    }
+
+    /// <summary>
+    /// 把窗口里的称重日摊到横轴上：称重日放得下就一天一格，一点落在一个真实的称重日；
+    /// 只有多到会挤在一起（超过 <see cref="ScaleMaxBuckets"/> 个点）才按固定天数合并，
+    /// 均值做点、区间最低到最高做短竖线。
+    /// </summary>
+    private static double[] ScaleBuckets(IReadOnlyList<ScaleRecord> daily, ScaleWindow window,
+        out double[] lows, out double[] highs, out string[] labels)
+    {
+        var span = Math.Max(1, window.Span);
+
+        var inWindow = new List<ScaleRecord>();
+        foreach (var r in daily)
+        {
+            if (r.Time.Date < window.Start || r.Time.Date > window.End) continue;
+            inWindow.Add(r);
+        }
+
+        var bucketDays = ResolveBucketDays(inWindow, window, span);
+        var count = Math.Max(1, (int)Math.Ceiling(span / (double)bucketDays));
+
+        var slots = new List<ScaleRecord>?[count];
+        foreach (var r in inWindow)
+        {
+            var idx = (r.Time.Date - window.Start).Days / bucketDays;
+            idx = Math.Clamp(idx, 0, count - 1);
+            (slots[idx] ??= new List<ScaleRecord>()).Add(r);
+        }
+
+        var averages = new double[count];
+        lows = new double[count];
+        highs = new double[count];
+        labels = new string[count];
+        Array.Fill(averages, double.NaN);
+        Array.Fill(lows, double.NaN);
+        Array.Fill(highs, double.NaN);
+
+        var thisYear = DateTime.Now.Year;
+        string DayText(DateTime d) => d.Year == thisYear ? d.ToString("M/d") : d.ToString("yyyy/M/d");
+
+        for (var i = 0; i < count; i++)
+        {
+            var slot = slots[i];
+            if (slot is null)
+            {
+                // 空格也要有标签：悬停到这片空白时，气泡写的是它代表的那几天
+                var from = window.Start.AddDays(i * (double)bucketDays);
+                var to = window.Start.AddDays(Math.Min(span, (i + 1) * (double)bucketDays) - 1);
+                labels[i] = from == to ? DayText(from) : $"{DayText(from)}–{DayText(to)}";
+                continue;
+            }
+
+            // 有称重的格子按真实称重日标：一格只压到一天时，别硬写成「8/5–8/6」这两天一段
+            var firstDay = slot[0].Time.Date;
+            var lastDay = slot[^1].Time.Date;
+            labels[i] = firstDay == lastDay ? DayText(firstDay) : $"{DayText(firstDay)}–{DayText(lastDay)}";
+
+            var sum = 0.0;
+            var lo = double.MaxValue;
+            var hi = double.MinValue;
+            foreach (var r in slot)
+            {
+                sum += r.WeightKg;
+                if (r.WeightKg < lo) lo = r.WeightKg;
+                if (r.WeightKg > hi) hi = r.WeightKg;
+            }
+            averages[i] = sum / slot.Count;
+            lows[i] = lo;
+            highs[i] = hi;
+        }
+
+        return averages;
+    }
+
+    /// <summary>
+    /// 一格横轴压几天：称重日不超过 <see cref="ScaleMaxBuckets"/> 就一天一格，
+    /// 点落在真实称重日上，横轴空着也认；真挤了才从小到大试最小合并天数，刚好压进上限就停。
+    /// </summary>
+    private static int ResolveBucketDays(IReadOnlyList<ScaleRecord> days, ScaleWindow window, int span)
+    {
+        var offsets = new List<int>(days.Count);
+        foreach (var r in days)
+        {
+            var offset = (r.Time.Date - window.Start).Days;
+            if (offset < 0 || offset >= span || offsets.Contains(offset)) continue;
+            offsets.Add(offset);
+        }
+        if (offsets.Count <= ScaleMaxBuckets) return 1;
+
+        var occupied = new HashSet<int>();
+        for (var bucketDays = 2; bucketDays < span; bucketDays++)
+        {
+            occupied.Clear();
+            foreach (var offset in offsets) occupied.Add(offset / bucketDays);
+            if (occupied.Count <= ScaleMaxBuckets) return bucketDays;
+        }
+        return span;
+    }
+
+    /// <summary>
+    /// 卡片右侧的窗口说明：请求的那段从头到尾都有记录就写「近 30 天」，
+    /// 后推或收口过就写实际画出来的日期段，别让「近 1 年」指着一个两个月的横轴。
+    /// </summary>
+    private static string ScaleRangeText(ScaleWindow window, ScaleWindow filter) =>
+        window.Start == filter.Start && window.End == filter.End && filter.End.Date == DateTime.Today
+            ? ScaleWindowText(window.Span)
+            : DateRangeText(window.Start, window.End);
+
+    /// <summary>日期段：同年只写 M/d，跨年给起点补上年份。</summary>
+    private static string DateRangeText(DateTime start, DateTime end)
+    {
+        var head = start.Year == DateTime.Now.Year ? start.ToString("M/d") : start.ToString("yyyy/M/d");
+        return $"{head}–{end:M/d}";
     }
 
     private static string TimeText(DateTime time)

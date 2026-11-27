@@ -1,0 +1,238 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="clr-namespace:MiHomeHub.ViewModels"
+             xmlns:ctl="clr-namespace:MiHomeHub.Controls"
+             x:Class="MiHomeHub.Views.DesktopCameraPanel"
+             x:DataType="vm:DesktopCameraVm"
+             ClipToBounds="False">
+
+    <UserControl.Styles>
+        <!-- 身份行：整行可点（点它打开详情），玻璃底 + 悬停提亮 -->
+        <Style Selector="Button.DskPick">
+            <Setter Property="Padding" Value="0" />
+            <Setter Property="HorizontalAlignment" Value="Stretch" />
+            <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="Focusable" Value="False" />
+        </Style>
+        <Style Selector="Button.DskPick /template/ ContentPresenter#PART_ContentPresenter">
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="BorderThickness" Value="0" />
+            <Setter Property="CornerRadius" Value="12" />
+        </Style>
+        <Style Selector="Button.DskPick Border#Pk">
+            <Setter Property="Transitions">
+                <Transitions>
+                    <BrushTransition Property="Background" Duration="0:0:0.16" />
+                    <BrushTransition Property="BorderBrush" Duration="0:0:0.16" />
+                </Transitions>
+            </Setter>
+        </Style>
+        <Style Selector="Button.DskPick:pointerover /template/ Border#Pk">
+            <Setter Property="Background" Value="#2EFFFFFF" />
+        </Style>
+        <Style Selector="Button.DskPick:pressed /template/ Border#Pk">
+            <Setter Property="Background" Value="#3AFFFFFF" />
+        </Style>
+
+        <!-- 画面右下角的放大键：只占一只小圆钮，画面本身留给拖动 -->
+        <Style Selector="Button.CamOpen">
+            <Setter Property="Width" Value="26" />
+            <Setter Property="Height" Value="26" />
+            <Setter Property="Padding" Value="0" />
+            <Setter Property="CornerRadius" Value="13" />
+            <Setter Property="Background" Value="#99000000" />
+            <Setter Property="BorderThickness" Value="0" />
+            <Setter Property="Focusable" Value="False" />
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="HorizontalContentAlignment" Value="Center" />
+            <Setter Property="VerticalContentAlignment" Value="Center" />
+            <Setter Property="Transitions">
+                <Transitions>
+                    <BrushTransition Property="Background" Duration="0:0:0.12" />
+                </Transitions>
+            </Setter>
+        </Style>
+        <Style Selector="Button.CamOpen:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+            <Setter Property="Background" Value="#CC1F2230" />
+        </Style>
+
+        <!-- 画面上的「重试」：玻璃胶囊，别在取流失败的块面上再开一个强色块 -->
+        <Style Selector="Button.CamRetry">
+            <Setter Property="Height" Value="26" />
+            <Setter Property="Padding" Value="12,0" />
+            <Setter Property="CornerRadius" Value="13" />
+            <Setter Property="Background" Value="#1FFFFFFF" />
+            <Setter Property="BorderBrush" Value="#33FFFFFF" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="FontSize" Value="11.5" />
+            <Setter Property="Focusable" Value="False" />
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="Foreground" Value="#F4F4F7" />
+        </Style>
+        <Style Selector="Button.CamRetry:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+            <Setter Property="Background" Value="#2EFFFFFF" />
+        </Style>
+
+        <!-- 骨架占位 -->
+        <Style Selector="Border.CamSkelBar">
+            <Setter Property="Height" Value="11" />
+            <Setter Property="CornerRadius" Value="5" />
+            <Setter Property="Background" Value="{DynamicResource DskSwitchBrush}" />
+        </Style>
+    </UserControl.Styles>
+
+    <Panel>
+        <StackPanel Spacing="10">
+            <!-- ===== 加载骨架：首拉还没结束、摄像头还没认出来 ===== -->
+            <StackPanel Spacing="10" IsVisible="{Binding IsLoading}">
+                <Panel ClipToBounds="True">
+                    <Border CornerRadius="14" Background="{DynamicResource DskCardBrush}"
+                            BorderBrush="{DynamicResource LineBrush}" BorderThickness="1">
+                        <ctl:AspectRatioBox Ratio="1.7777">
+                            <Border CornerRadius="14" Background="{DynamicResource DskSwitchBrush}" />
+                        </ctl:AspectRatioBox>
+                    </Border>
+                    <Canvas IsHitTestVisible="False">
+                        <Border Classes="SkelShine" Classes.run="{Binding IsLoading}" />
+                    </Canvas>
+                </Panel>
+                <Border CornerRadius="12" Padding="9,8"
+                        Background="{DynamicResource DskCardBrush}"
+                        BorderBrush="{DynamicResource LineBrush}" BorderThickness="1">
+                    <StackPanel Spacing="7">
+                        <Border Classes="CamSkelBar" Width="112" />
+                        <Border Classes="CamSkelBar" Width="64" Height="9" />
+                    </StackPanel>
+                </Border>
+            </StackPanel>
+
+            <!-- 空态：家里没有摄像头 -->
+            <TextBlock Text="{Binding EmptyHint}" FontSize="11.5"
+                       Margin="2,4,2,6" TextAlignment="Center" TextWrapping="Wrap"
+                       Foreground="{DynamicResource DskText3Brush}"
+                       IsVisible="{Binding IsEmpty}" />
+
+            <StackPanel Spacing="10" IsVisible="{Binding ShowControls}">
+                <!-- ===== 画面：16:9 黑底，没出帧时给进度 / 失败原因 + 重试 ===== -->
+                <Border CornerRadius="14" ClipToBounds="True"
+                        Background="#05060A" BorderBrush="#1FFFFFFF" BorderThickness="1">
+                    <ctl:AspectRatioBox Ratio="1.7777">
+                        <Panel>
+                            <ctl:CameraFrameView Frame="{Binding LiveFrame}"
+                                                FrameVersion="{Binding FrameVersion}"
+                                                IsVisible="{Binding IsLive}" />
+
+                            <StackPanel IsVisible="{Binding IsConnecting}" Spacing="9"
+                                        HorizontalAlignment="Center" VerticalAlignment="Center">
+                                <ProgressBar IsIndeterminate="True" Width="132" Height="3"
+                                             Foreground="#7BA9FF" Background="Transparent" />
+                                <TextBlock Text="正在连接摄像机…" FontSize="11.5" Foreground="#9093A0"
+                                           HorizontalAlignment="Center" />
+                            </StackPanel>
+
+                            <StackPanel IsVisible="{Binding ShowPlaceholder}" Spacing="9"
+                                        HorizontalAlignment="Center" VerticalAlignment="Center"
+                                        Margin="16,0">
+                                <Border Width="42" Height="42" CornerRadius="21" Background="#14FFFFFF"
+                                        BorderBrush="#26FFFFFF" BorderThickness="1"
+                                        HorizontalAlignment="Center">
+                                    <Path Data="M2,6 L2,4 L4,4 M10,4 L12,4 L12,6 M12,10 L12,12 L10,12 M4,12 L2,12 L2,10"
+                                          Width="14" Height="14" Stretch="None" Stroke="#9FA2AE"
+                                          StrokeThickness="1.3"
+                                          HorizontalAlignment="Center" VerticalAlignment="Center" />
+                                </Border>
+                                <TextBlock Text="{Binding LiveHint}" FontSize="11" Foreground="#A8ABB6"
+                                           TextWrapping="Wrap" TextAlignment="Center" MaxWidth="230"
+                                           IsVisible="{Binding HasLiveHint}" />
+                                <Button Classes="CamRetry" Content="重试" HorizontalAlignment="Center"
+                                        Command="{Binding RetryCommand}" />
+                            </StackPanel>
+
+                            <!-- 摄像机自己会把时间印在左上角，LIVE 角标固定左下 -->
+                            <Border IsVisible="{Binding IsLive}" HorizontalAlignment="Left" VerticalAlignment="Bottom"
+                                    Margin="10" CornerRadius="6" Padding="6,2" Background="#B0000000">
+                                <TextBlock Text="LIVE" FontSize="9.5" FontWeight="SemiBold" Foreground="#7BA9FF" />
+                            </Border>
+
+                            <!-- 放大键：打开详情里的大画面（听声音、全屏都在那边） -->
+                            <Button Classes="CamOpen" HorizontalAlignment="Right" VerticalAlignment="Bottom"
+                                    Margin="10" Click="OnOpenClick" ToolTip.Tip="打开监控详情">
+                                <Path Data="M3,9 L3,3 L9,3 M15,3 L21,3 L21,9 M21,15 L21,21 L15,21 M9,21 L3,21 L3,15"
+                                      Width="12" Height="12" Stretch="None" Stroke="#D8DBE6"
+                                      StrokeThickness="1.3"
+                                      HorizontalAlignment="Center" VerticalAlignment="Center" />
+                            </Button>
+                        </Panel>
+                    </ctl:AspectRatioBox>
+                </Border>
+
+                <!-- ===== 身份行：这台分区看的是哪台摄像头（点它打开详情）+ 分区菜单 ===== -->
+                <Grid ColumnDefinitions="*,Auto" ColumnSpacing="6">
+                    <Button Classes="DskPick" Click="OnOpenClick" ToolTip.Tip="打开监控详情">
+                        <Border Name="Pk" CornerRadius="12" Padding="9,7"
+                                Background="{DynamicResource DskCardBrush}"
+                                BorderBrush="{DynamicResource LineBrush}" BorderThickness="1">
+                            <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="7">
+                                <Border Classes="RoomTag" VerticalAlignment="Center"
+                                        IsVisible="{Binding CameraRoom, Converter={x:Static StringConverters.IsNotNullOrEmpty}}">
+                                    <TextBlock Text="{Binding CameraRoom}" FontSize="10"
+                                               Foreground="{DynamicResource DskText2Brush}" />
+                                </Border>
+                                <TextBlock Grid.Column="1" Text="{Binding CameraName}" FontSize="12.5"
+                                           FontWeight="SemiBold" TextTrimming="CharacterEllipsis"
+                                           VerticalAlignment="Center"
+                                           Foreground="{DynamicResource DskTextBrush}" />
+                                <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="5"
+                                            VerticalAlignment="Center">
+                                    <Ellipse Width="5" Height="5" Fill="{DynamicResource GreenBrush}"
+                                             IsVisible="{Binding IsLive}" />
+                                    <TextBlock Text="{Binding CameraMeta}" FontSize="10"
+                                               TextTrimming="CharacterEllipsis"
+                                               Foreground="{DynamicResource DskText3Brush}" />
+                                    <Viewbox Width="11" Height="11" Stretch="Uniform" VerticalAlignment="Center">
+                                        <Panel Width="24" Height="24">
+                                            <Path StrokeThickness="2" StrokeLineCap="Round" StrokeJoin="Round"
+                                                  Stroke="{DynamicResource DskText3Brush}"
+                                                  Data="{StaticResource GeoChevron}" />
+                                        </Panel>
+                                    </Viewbox>
+                                </StackPanel>
+                            </Grid>
+                        </Border>
+                    </Button>
+
+                    <Button Grid.Column="1" Classes="DskIcon" Width="26" Height="26"
+                            VerticalAlignment="Center" HorizontalAlignment="Right"
+                            Click="OnMoreClick" ToolTip.Tip="分区菜单">
+                        <StackPanel Orientation="Horizontal" Spacing="2.4"
+                                    HorizontalAlignment="Center" VerticalAlignment="Center">
+                            <Ellipse Width="2.4" Height="2.4"
+                                     Fill="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" />
+                            <Ellipse Width="2.4" Height="2.4"
+                                     Fill="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" />
+                            <Ellipse Width="2.4" Height="2.4"
+                                     Fill="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" />
+                        </StackPanel>
+                    </Button>
+                </Grid>
+            </StackPanel>
+        </StackPanel>
+
+        <!-- 没有可看的摄像头 / 加载中失败时，分区菜单落回右上角，否则这块没有标题栏的分区关不掉 -->
+        <Button Classes="DskIcon" Width="26" Height="26" Margin="0,10,8,0"
+                HorizontalAlignment="Right" VerticalAlignment="Top"
+                IsVisible="{Binding ShowCornerMenu}"
+                Click="OnMoreClick" ToolTip.Tip="分区菜单">
+            <StackPanel Orientation="Horizontal" Spacing="2.4"
+                        HorizontalAlignment="Center" VerticalAlignment="Center">
+                <Ellipse Width="2.4" Height="2.4"
+                         Fill="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" />
+                <Ellipse Width="2.4" Height="2.4"
+                         Fill="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" />
+                <Ellipse Width="2.4" Height="2.4"
+                         Fill="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" />
+            </StackPanel>
+        </Button>
+    </Panel>
+</UserControl>

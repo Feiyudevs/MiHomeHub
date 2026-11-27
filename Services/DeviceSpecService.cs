@@ -242,9 +242,12 @@ public static class DeviceSpecService
 
             var siid = svc.TryGetProperty("iid", out var siidEl) ? siidEl.GetInt32() : 0;
             if (siid <= 0) continue;
-            // 公开规格站只有英文 description，中文放在 comment（如「灯带」「布窗」「运动状态切换」），中文优先；
-            // 部分设备（第三方电视/红外遥控）云端无规格或 comment 缺失，用短名翻译兜底
-            var serviceDesc = ReadText(svc, "comment") ?? Translate(serviceName) ?? ReadText(svc, "description") ?? serviceName;
+            // 中文 comment 优先（如「灯带」「布窗」「运动状态切换」）；只带英文 description 的设备
+            // （chuangmi 摄像机这类贴牌机）先查短名表，再按词表翻译，翻不出来才保留英文
+            var svcComment = ReadText(svc, "comment");
+            var svcDescText = ReadText(svc, "description");
+            var serviceDesc = SpecZh.Localize(svcComment) ?? SpecZh.TranslateName(serviceName)
+                ?? SpecZh.Localize(svcDescText) ?? svcDescText ?? serviceName;
 
             if (svc.TryGetProperty("properties", out var props) && props.ValueKind == JsonValueKind.Array)
             {
@@ -299,7 +302,8 @@ public static class DeviceSpecService
         }
 
         // 事件名不做 CleanLabel：中文 comment 里常有「（除钥匙）」这类关键区分信息
-        var desc = ReadText(e, "comment") ?? ReadText(e, "description") ?? parts[3];
+        var desc = SpecZh.Localize(ReadText(e, "comment")) ?? SpecZh.Localize(ReadText(e, "description"))
+            ?? parts[3];
         return new SpecEventDef
         {
             Siid = siid,
@@ -340,11 +344,16 @@ public static class DeviceSpecService
             hasRange = true;
         }
 
-        var rawDesc = ReadText(p, "comment") ?? Translate(name) ?? ReadText(p, "description") ?? name;
+        // 中文 comment 优先；纯英文描述走短名表 / 词表翻译。CounterScale 仍用英文原文判单位，
+        // 否则「耗电量（单位:1Wh）」被翻成中文后括号里的倍率说明被 CleanLabel 削掉，换算就失真。
+        var comment = ReadText(p, "comment");
+        var descText = ReadText(p, "description");
+        var rawDesc = SpecZh.Localize(comment) ?? SpecZh.TranslateName(name)
+            ?? SpecZh.Localize(descText) ?? descText ?? name;
         // 属性描述也可能带括号技术说明和末尾数字，统一清理
         var desc = CleanLabel(rawDesc);
         var rawUnit = ReadText(p, "unit");
-        var unitScale = CounterScale(rawUnit, rawDesc, name);
+        var unitScale = CounterScale(rawUnit, comment ?? descText, name);
 
         var def = new SpecPropertyDef
         {
@@ -375,8 +384,10 @@ public static class DeviceSpecService
                 if (!item.TryGetProperty("value", out var v) || v.ValueKind != JsonValueKind.Number) continue;
                 var value = v.TryGetInt32(out var iv) ? iv : (int)v.GetDouble();
                 var rawLabel = ReadText(item, "comment") ?? ReadText(item, "description");
+                // 英文标签（Auto / Not Recording / 1920_1080_20）先中文化
+                rawLabel = SpecZh.LocalizeValue(rawLabel ?? "");
                 // 清理标签：去掉括号内的技术说明和末尾的数字 ID
-                var label = CleanLabel(rawLabel ?? "");
+                var label = CleanLabel(rawLabel);
                 // 规格里没写 comment/description 时只剩值本身，而 CleanLabel 会把纯数字标签整段削空，
                 // 空标签在下拉 / 分段按钮里就是一枚没有字的胶囊，回落到原始数值
                 if (string.IsNullOrWhiteSpace(label)) label = value.ToString();
@@ -404,7 +415,8 @@ public static class DeviceSpecService
             Siid = siid,
             Aiid = aiid,
             Name = parts[3],
-            Desc = ReadText(a, "comment") ?? Translate(parts[3]) ?? ReadText(a, "description") ?? parts[3],
+            Desc = SpecZh.Localize(ReadText(a, "comment")) ?? SpecZh.TranslateName(parts[3])
+                ?? SpecZh.Localize(ReadText(a, "description")) ?? ReadText(a, "description") ?? parts[3],
             ServiceDesc = serviceDesc,
             InputCount = inputs
         };
@@ -462,7 +474,8 @@ public static class DeviceSpecService
             "percentage" => "%",
             "kelvin" => "K",
             "celsius" => "℃",
-            "degrees" => "°",
+            // arcdegrees 是摄像机画面翻转的角度（0 / 180），和 degrees 一样直接写度符号
+            "degrees" or "degree" or "arcdegree" or "arcdegrees" or "deg" => "°",
             "seconds" => "秒",
             "minutes" => "分钟",
             "hours" => "小时",
@@ -547,120 +560,6 @@ public static class DeviceSpecService
         if (text.Contains("wh") || text.Contains("瓦时")) return 0.001;
         return 1;
     }
-
-    /// <summary>
-    /// MIoT 短名到中文的翻译表。公开规格站只有英文 description，云端 getspec 的 comment 优先，
-    /// 但部分设备（如第三方电视/红外遥控）云端无规格或 comment 缺失，这里兜底。
-    /// </summary>
-    private static readonly Dictionary<string, string> ZhNames = new(StringComparer.Ordinal)
-    {
-        // 服务
-        ["light"] = "灯",
-        ["television"] = "电视",
-        ["ir-tv-control"] = "红外电视控制",
-        ["remote-control-management"] = "遥控器管理",
-        ["switch"] = "开关",
-        ["outlet"] = "插座",
-        ["curtain"] = "窗帘",
-        ["air-conditioner"] = "空调",
-        ["fan"] = "风扇",
-        ["humidifier"] = "加湿器",
-        ["purifier"] = "净化器",
-        ["vacuum"] = "扫地机",
-        ["sensor"] = "传感器",
-        ["battery"] = "电池",
-        ["environment"] = "环境",
-        ["physical-controls-locked"] = "童锁",
-        ["indicator-light"] = "指示灯",
-
-        // 属性
-        ["on"] = "开关",
-        ["brightness"] = "亮度",
-        ["color-temperature"] = "色温",
-        ["mode"] = "模式",
-        ["fan-level"] = "风速",
-        ["target-temperature"] = "目标温度",
-        ["temperature"] = "温度",
-        ["relative-humidity"] = "湿度",
-        ["humidity"] = "湿度",
-        ["pm2.5"] = "PM2.5",
-        ["pm2.5-density"] = "PM2.5",
-        ["pm10"] = "PM10",
-        ["pm10-density"] = "PM10",
-        ["pm1"] = "PM1",
-        ["pm1-density"] = "PM1",
-        ["illuminance"] = "照度",
-        ["battery-level"] = "电量",
-        ["battery"] = "电量",
-        ["charge-progress"] = "电量",
-        ["co2"] = "二氧化碳",
-        ["co2-density"] = "二氧化碳",
-        ["tvoc"] = "TVOC",
-        ["tvoc-density"] = "eTVOC",
-        ["voc-density"] = "VOC",
-        ["hcho"] = "甲醛",
-        ["hcho-density"] = "甲醛",
-        ["noise"] = "噪音",
-        ["noise-decibel"] = "噪音",
-        ["dust"] = "粉尘",
-        ["dust-density"] = "粉尘",
-        ["tds-in"] = "TDS进水",
-        ["tds-out"] = "TDS出水",
-        ["air-quality"] = "空气质量",
-        ["water-level"] = "水位",
-        ["cumu-flow-out"] = "累计制水",
-        ["cumu-flow-in"] = "累计进水",
-        ["flow-out"] = "本次制水",
-        ["flow-in"] = "本次进水",
-        ["filter-used-flow"] = "滤芯已用",
-        ["filter-left-flow"] = "滤芯剩余",
-        ["discharge-water"] = "水流量",
-        ["input-water-temp"] = "进水温度",
-        ["single-water"] = "单次用水",
-        ["single-gas"] = "单次用气",
-        ["usage-time"] = "使用时长",
-        ["power-consumption"] = "耗电量",
-        ["electric-power"] = "功率",
-        ["voltage"] = "电压",
-        ["electric-current"] = "电流",
-        ["motion-detected"] = "运动检测",
-        ["contact-state"] = "接触状态",
-        ["occupancy"] = "占用",
-        ["smoke-state"] = "烟雾状态",
-        ["leak"] = "漏水",
-        ["door-state"] = "门状态",
-        ["submersion-state"] = "浸水状态",
-        ["default-power-on-state"] = "默认上电状态",
-        ["flex-switch"] = "凌动开关",
-        ["night-light-switch"] = "夜灯开关",
-        ["remote-control-addable"] = "遥控器添加开关",
-        ["remote-control-list"] = "遥控器管理",
-        ["remote-add"] = "添加遥控",
-        ["remote-del"] = "删除遥控",
-        ["remote-switch"] = "遥控开关",
-
-        // 动作
-        ["toggle"] = "切换",
-        ["brightness-up"] = "亮度+",
-        ["brightness-down"] = "亮度-",
-        ["channel-down"] = "频道-",
-        ["channel-up"] = "频道+",
-        ["volume-down"] = "音量-",
-        ["volume-up"] = "音量+",
-        ["volume-increase"] = "音量增加值",
-        ["volume-decrease"] = "音量减少值",
-        ["turn-on"] = "开机",
-        ["turn-off"] = "关机",
-        ["mute-on"] = "静音",
-        ["mute-off"] = "取消静音",
-        ["input-source-switch"] = "切换输入源",
-        ["toggle-light-mode"] = "切换灯光模式",
-        ["delete-remote-control"] = "删除遥控器"
-    };
-
-    /// <summary>按短名查中文，未命中返回 null。</summary>
-    private static string? Translate(string name) =>
-        ZhNames.TryGetValue(name, out var zh) ? zh : null;
 
     /// <summary>
     /// 清理值列表标签和属性描述：去掉括号内的技术说明、冒号后的详细解释、

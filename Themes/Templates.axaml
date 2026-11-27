@@ -424,15 +424,19 @@
                         <Border CornerRadius="16" Background="{Binding GlowBrush}" IsHitTestVisible="False"/>
                         <Grid ColumnDefinitions="Auto,*,Auto" Margin="14,11">
                             <!-- 左：场景色图标（用户换过自定义图时叠在默认线性图标上） -->
-                            <Border Width="38" Height="38" CornerRadius="12" Background="{Binding IconBgBrush}"
+                            <Border Width="38" Height="38" CornerRadius="13" Background="{Binding IconBgBrush}"
                                     VerticalAlignment="Center">
                                 <Panel>
-                                    <Path Width="19" Height="19" Stretch="Uniform" Stroke="{Binding IconFgBrush}"
+                                    <!-- 线稿已按同一外包框（最长边 18、中心 12,12）归一化，
+                                         因此 Uniform 缩放到 15 时每个图标都落在底块正中、大小一致 -->
+                                    <Path Width="15" Height="15" Stretch="Uniform"
+                                          HorizontalAlignment="Center" VerticalAlignment="Center"
+                                          Stroke="{Binding IconFgBrush}"
                                           StrokeThickness="1.7" StrokeLineCap="Round" StrokeJoin="Round"
                                           Opacity="{Binding DefaultIconOpacity}"
                                           Data="{Binding Icon}" />
                                     <!-- 自定义图铺满整枚 38 圆角底，别在四周留出图标底色 -->
-                                    <ctl:RoundedImage CornerRadius="12"
+                                    <ctl:RoundedImage CornerRadius="13"
                                                       IsHitTestVisible="False"
                                                       IsVisible="{Binding HasCustomIcon}"
                                                       Source="{Binding CustomIcon.Image}" />
@@ -476,15 +480,18 @@
                 <Grid ColumnDefinitions="Auto,*,Auto">
                     <!-- 左：场景色图标（设备卡是裸线性图标，这里保留柔色底块，一眼区分类别；
                          用户换过图就给自定义 SVG / PNG 让位） -->
-                    <Border Width="46" Height="46" CornerRadius="14" Background="{Binding IconBgBrush}"
+                    <Border Width="46" Height="46" CornerRadius="16" Background="{Binding IconBgBrush}"
                             VerticalAlignment="Center">
                         <Panel>
-                            <Path Width="22" Height="22" Stretch="Uniform" Stroke="{Binding IconFgBrush}"
+                            <!-- 线稿已按同一外包框归一化，18 即原尺寸，四个场景入口用同一套 -->
+                            <Path Width="18" Height="18" Stretch="Uniform"
+                                  HorizontalAlignment="Center" VerticalAlignment="Center"
+                                  Stroke="{Binding IconFgBrush}"
                                   StrokeThickness="1.7" StrokeLineCap="Round" StrokeJoin="Round"
                                   Opacity="{Binding DefaultIconOpacity}"
                                   Data="{Binding Icon}" />
                             <!-- 自定义图铺满 46 圆角底 -->
-                            <ctl:RoundedImage CornerRadius="14"
+                            <ctl:RoundedImage CornerRadius="15"
                                               IsHitTestVisible="False"
                                               IsVisible="{Binding HasCustomIcon}"
                                               Source="{Binding CustomIcon.Image}" />
@@ -532,15 +539,17 @@
                     Command="{Binding $parent[UserControl].((vm:MainViewModel)DataContext).OpenSceneEditorCommand}"
                     CommandParameter="{Binding}">
                 <Grid ColumnDefinitions="Auto,*,Auto,Auto,Auto">
-                    <Border Width="28" Height="28" CornerRadius="9" Background="{Binding IconBgBrush}"
+                    <Border Width="28" Height="28" CornerRadius="10" Background="{Binding IconBgBrush}"
                             VerticalAlignment="Center">
                         <Panel>
-                            <Path Width="15" Height="15" Stretch="Uniform" Stroke="{Binding IconFgBrush}"
+                            <Path Width="11" Height="11" Stretch="Uniform"
+                                  HorizontalAlignment="Center" VerticalAlignment="Center"
+                                  Stroke="{Binding IconFgBrush}"
                                   StrokeThickness="1.7" StrokeLineCap="Round" StrokeJoin="Round"
                                   Opacity="{Binding DefaultIconOpacity}"
                                   Data="{Binding Icon}" />
                             <!-- 自定义图铺满 28 圆角底 -->
-                            <ctl:RoundedImage CornerRadius="9"
+                            <ctl:RoundedImage CornerRadius="10"
                                               IsHitTestVisible="False"
                                               IsVisible="{Binding HasCustomIcon}"
                                               Source="{Binding CustomIcon.Image}" />

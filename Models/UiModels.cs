@@ -331,24 +331,9 @@ public sealed partial class SceneCardItem : ObservableObject
         };
     }
 
-    // 整圆同样用两段半圆弧拼，避免闭合弧被解析成空路径。
-    // 场景编辑弹窗的图标预览也用它，保证「列表卡片 / 编辑弹窗」两处默认画法完全一致。
-    public static Geometry SceneIconFor(string name)
-    {
-        string data = name switch
-        {
-            _ when name.Contains("回家") || name.Contains("到家") => "M3,10.5 L12,3 L21,10.5 M5.5,9.5 V20 H18.5 V9.5 M9.5,20 V14 H14.5 V20",
-            _ when name.Contains("离家") || name.Contains("外出") || name.Contains("出门") => "M14,4 H19 V20 H14 M3,12 H14 M10,8 L14,12 L10,16",
-            _ when name.Contains("睡眠") || name.Contains("晚安") || name.Contains("睡觉") => "M20,14.5 A8.5,8.5 0 1 1 9.5,4 A7,7 0 0 0 20,14.5 Z",
-            _ when name.Contains("起床") || name.Contains("早晨") || name.Contains("早安") => "M12,12 m-4,0 a4,4 0 1 0 8,0 a4,4 0 1 0 -8,0 M12,2 V5 M12,19 V22 M2,12 H5 M19,12 H22 M4.9,4.9 L7,7 M17,17 L19.1,19.1 M19.1,4.9 L17,7 M7,17 L4.9,19.1",
-            _ when name.Contains("清扫") || name.Contains("扫地") || name.Contains("清洁") => "M12,12 m-9,0 a9,9 0 1 0 18,0 a9,9 0 1 0 -18,0 M12,12 m-3.5,0 a3.5,3.5 0 1 0 7,0 a3.5,3.5 0 1 0 -7,0 M12,3 V6 M12,18 V21 M3,12 H6 M18,12 H21",
-            _ when name.Contains("净化") || name.Contains("空气") || name.Contains("新风") => "M12,3 S18,9.5 18,14 A6,6 0 1 1 6,14 C6,9.5 12,3 12,3 Z",
-            _ when name.Contains("观影") || name.Contains("影院") => "M3,5 H21 V19 H3 Z M8,5 V19 M16,5 V19 M3,10 H8 M16,10 H21 M3,15 H8 M16,15 H21",
-            _ when name.Contains("布防") || name.Contains("安防") || name.Contains("门锁") => "M12,22 S20,18 20,12 V5 L12,2 L4,5 V12 C4,18 12,22 12,22 Z M9,12 L11,14 L15,10",
-            _ => "M12,3 L13.9,8.6 L19.5,10.5 L13.9,12.4 L12,18 L10.1,12.4 L4.5,10.5 L10.1,8.6 Z M19,15 L19.9,17.6 L22.5,18.5 L19.9,19.4 L19,22 L18.1,19.4 L15.5,18.5 L18.1,17.6 Z"
-        };
-        return Geometry.Parse(data);
-    }
+    // 默认线稿统一由 SceneIcons 出：列表卡片 / 首页快捷场景 / 桌面分区 / 编辑弹窗预览同源，
+    // 换图、改名后两处画法仍然一致，不会出现「列表一种、弹窗另一种」。
+    public static Geometry SceneIconFor(string name) => SceneIcons.For(name);
 }
 
 /// <summary>环境概览明细里的一行读数（设备名 + 房间 + 「26.5℃ 48%」）。</summary>
@@ -375,20 +360,24 @@ public sealed class ConsumableItem
     public double BarWidth => Percent < 0 ? 0 : Math.Clamp(Percent, 0, 100) * 92.0 / 100.0;
 }
 
-/// <summary>「数据看板」编辑弹窗里的一行：一张趋势卡的显示开关。
-/// 界面只改 <see cref="IsOn"/>，落盘与重算交回 ViewModel 的回调，各卡不直接碰设置。</summary>
+/// <summary>「数据看板」编辑弹窗里的一行：一张卡的两个去处——首页看板、桌面组件。
+/// 界面只改 <see cref="IsOn"/> / <see cref="IsOnDesktop"/>，落盘与重算交回 ViewModel 的回调，各卡不直接碰设置。</summary>
 public sealed partial class TrendCardOptionItem : ObservableObject
 {
     private readonly Action<TrendCardOptionItem>? _onToggled;
+    private readonly Action<TrendCardOptionItem>? _onDesktopToggled;
     private bool _mute;
+    private bool _muteDesktop;
 
     public TrendCardOptionItem(string key, string title, string desc,
-        Action<TrendCardOptionItem>? onToggled = null)
+        Action<TrendCardOptionItem>? onToggled = null,
+        Action<TrendCardOptionItem>? onDesktopToggled = null)
     {
         Key = key;
         Title = title;
         Desc = desc;
         _onToggled = onToggled;
+        _onDesktopToggled = onDesktopToggled;
     }
 
     /// <summary>设置里认的键：temp / hum / power / water / gas / tds。</summary>
@@ -399,20 +388,33 @@ public sealed partial class TrendCardOptionItem : ObservableObject
     /// <summary>这张卡到底画的是什么，一句话说明。</summary>
     public string Desc { get; }
 
-    /// <summary>家里有没有能给这张卡提供读数的设备；没有也可以打开，首页上是一张带「预览」标识的示例数据卡。</summary>
+    /// <summary>家里有没有能给这张卡提供读数的设备；没有也照样铺，首页和桌面都显示示例数据。</summary>
     [ObservableProperty] private bool _hasDevice;
 
+    /// <summary>弹窗里据此在卡下留一句「暂无设备 · 显示示例数据」。</summary>
     public bool IsMissingDevice => !HasDevice;
 
     partial void OnHasDeviceChanged(bool value) => OnPropertyChanged(nameof(IsMissingDevice));
 
+    /// <summary>首页看板整块被隐藏时，「首页」开关先停用：点了也看不见，不如直接说清楚。</summary>
+    [ObservableProperty] private bool _homeEnabled = true;
+
     /// <summary>是否出现在首页（和开关 TwoWay 绑定）。</summary>
     [ObservableProperty] private bool _isOn;
+
+    /// <summary>是否已经放到桌面组件（独立开关，和首页显隐互不影响）。</summary>
+    [ObservableProperty] private bool _isOnDesktop;
 
     partial void OnIsOnChanged(bool value)
     {
         if (_mute) return;
         _onToggled?.Invoke(this);
+    }
+
+    partial void OnIsOnDesktopChanged(bool value)
+    {
+        if (_muteDesktop) return;
+        _onDesktopToggled?.Invoke(this);
     }
 
     /// <summary>打开弹窗时同步一次已有选择：静默改值，不触发回调（否则会把「跟随设备」固化成手动选择）。</summary>
@@ -421,5 +423,13 @@ public sealed partial class TrendCardOptionItem : ObservableObject
         _mute = true;
         IsOn = on;
         _mute = false;
+    }
+
+    /// <summary>同步桌面组件上的现状：同样静默，避免把一次打开弹窗写成增删操作。</summary>
+    public void SyncDesktop(bool on)
+    {
+        _muteDesktop = true;
+        IsOnDesktop = on;
+        _muteDesktop = false;
     }
 }

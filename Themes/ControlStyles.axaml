@@ -1186,25 +1186,29 @@
         </Style>
         <!-- ======== 输入框统一外观 ========
              Fluent 深色默认给 TextBox 一块纯黑底 + 亮白边，压在卡片上像个窟窿。
-             这里换成「半透明底 + 10 圆角 + 极淡描边」：静止一档、悬停亮一档、
-             聚焦只把描边换成主色，底色不动，避免输入时整块跳色。
+             这里换成「极淡半透明底 + 10 圆角 + 淡描边」：静止一档、悬停亮一档、
+             聚焦只把描边换成主色（更深色下用高不透明度那一支），底色只微提一档，
+             避免输入时整块跳色。
              带类的输入框（.Search / .Log / .VoiceInput）选择器更具体，各自的外观不受影响。 -->
         <Style Selector="TextBox">
             <Setter Property="Foreground" Value="{DynamicResource TextBrush}"/>
             <Setter Property="CaretBrush" Value="{DynamicResource AccentBrush}"/>
             <Setter Property="SelectionBrush" Value="{DynamicResource AccentBrush}"/>
-            <Setter Property="Background" Value="{DynamicResource Surface4Brush}"/>
-            <Setter Property="BorderBrush" Value="{DynamicResource LineBrush}"/>
+            <Setter Property="Background" Value="{DynamicResource FieldBgBrush}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource FieldLineBrush}"/>
             <Setter Property="BorderThickness" Value="1"/>
             <Setter Property="CornerRadius" Value="10"/>
             <Setter Property="Padding" Value="12,0"/>
             <Setter Property="FontSize" Value="13"/>
             <Setter Property="VerticalContentAlignment" Value="Center"/>
         </Style>
-        <!-- 模板里的 Border 才是真正画底和边的元素：Fluent 的 pointerover / focus 会改它，必须逐档压回来 -->
+        <!-- 模板里的 Border 才是真正画底和边的元素：Fluent 的 pointerover / focus 会改它，必须逐档压回来。
+             **聚焦那档必须补 BorderThickness**：Fluent 主题在 :focus 里把边框换成
+             TextControlBorderThemeThicknessFocused（2px），只改颜色会让输入框一点进去就粗一圈；
+             模板自带的 :focus 规则只在 ControlTheme 内层，全局样式补上厚度才盖得住。 -->
         <Style Selector="TextBox /template/ Border#PART_BorderElement">
-            <Setter Property="Background" Value="{DynamicResource Surface4Brush}"/>
-            <Setter Property="BorderBrush" Value="{DynamicResource LineBrush}"/>
+            <Setter Property="Background" Value="{DynamicResource FieldBgBrush}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource FieldLineBrush}"/>
             <Setter Property="BorderThickness" Value="1"/>
             <Setter Property="CornerRadius" Value="10"/>
             <Setter Property="Transitions">
@@ -1215,12 +1219,14 @@
             </Setter>
         </Style>
         <Style Selector="TextBox:pointerover /template/ Border#PART_BorderElement">
-            <Setter Property="Background" Value="{DynamicResource Surface5Brush}"/>
+            <Setter Property="Background" Value="{DynamicResource FieldBgHoverBrush}"/>
             <Setter Property="BorderBrush" Value="{DynamicResource LineStrongBrush}"/>
+            <Setter Property="BorderThickness" Value="1"/>
         </Style>
         <Style Selector="TextBox:focus /template/ Border#PART_BorderElement">
-            <Setter Property="Background" Value="{DynamicResource Surface5Brush}"/>
-            <Setter Property="BorderBrush" Value="{DynamicResource AccentBrush}"/>
+            <Setter Property="Background" Value="{DynamicResource FieldBgHoverBrush}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource FieldLineFocusBrush}"/>
+            <Setter Property="BorderThickness" Value="1"/>
         </Style>
         <!-- 占位文字：本项目锁定 Avalonia 11.3.9，Fluent 模板里的占位 TextBlock 叫 PART_Watermark
              （不带浮动水印时只有这一个），直接给它上色即可。
@@ -1483,7 +1489,7 @@
                     <Grid>
                         <!-- 遮罩：跨满宿主容器，点击即关闭（模板里挂 Mask 类，由控件识别） -->
                         <Border Classes="Mask" Background="{DynamicResource MaskBrush}"/>
-                        <Border Classes="DialogCard" HorizontalAlignment="Center" VerticalAlignment="Center"
+                        <Border Name="DialogCard" Classes="DialogCard" HorizontalAlignment="Center" VerticalAlignment="Center"
                                 Width="{TemplateBinding CardWidth}"
                                 Height="{TemplateBinding CardHeight}"
                                 MaxHeight="{TemplateBinding CardMaxHeight}">
@@ -1798,6 +1804,35 @@
         </Style>
         <Style Selector="Button.Swatch:pointerover">
             <Setter Property="Opacity" Value="0.9"/>
+        </Style>
+
+        <!-- 自定义取色入口：照抄图标选择窗里那颗「自定义颜色」按钮——
+             26px 实心圆、1px 淡描边，悬停描边转淡紫，选中转主紫并加粗。
+             背景交给绑定（没取过自定义色时是多色渐变，取过就是那枚颜色）。 -->
+        <Style Selector="Button.ColorOrb">
+            <Setter Property="Width" Value="26"/>
+            <Setter Property="Height" Value="26"/>
+            <Setter Property="Padding" Value="0"/>
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource LineStrongBrush}"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="Focusable" Value="False"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="Template">
+                <ControlTemplate>
+                    <Border Name="Bd" CornerRadius="13"
+                            Background="{TemplateBinding Background}"
+                            BorderBrush="{TemplateBinding BorderBrush}"
+                            BorderThickness="{TemplateBinding BorderThickness}"/>
+                </ControlTemplate>
+            </Setter>
+        </Style>
+        <Style Selector="Button.ColorOrb:pointerover /template/ Border#Bd">
+            <Setter Property="BorderBrush" Value="{DynamicResource Accent2Brush}"/>
+        </Style>
+        <Style Selector="Button.ColorOrb.on /template/ Border#Bd">
+            <Setter Property="BorderBrush" Value="{DynamicResource AccentBrush}"/>
+            <Setter Property="BorderThickness" Value="2.5"/>
         </Style>
 
         <!-- ======== 滑杆（抽屉 / 桌面分区浮层共用） ======== -->

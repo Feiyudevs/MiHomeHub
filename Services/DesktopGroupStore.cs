@@ -2,7 +2,9 @@
 // SPDX-License-Identifier: GPL-3.0-only
 
 using System;
+using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using System.Text.Json;
 using System.Threading.Tasks;
 using MiHomeHub.Models;
@@ -30,8 +32,12 @@ public static class DesktopGroupStore
             var text = File.ReadAllText(FilePath);
             if (string.IsNullOrWhiteSpace(text)) return new DesktopLayout();
             var layout = JsonSerializer.Deserialize<DesktopLayout>(text, Options) ?? new DesktopLayout();
+            // 毛玻璃开关已从界面移除：卡片恒为磨砂玻璃，旧配置里的 false 一律归位，
+            // 免得升级后卡面停在「实心底」却再也找不到地方打开。
+            layout.Appearance.Glass = true;
             MigrateDensity(layout);
             CleanZoneContents(layout);
+            NormalizeDataCards(layout);
             return layout;
         }
         catch
@@ -84,8 +90,8 @@ public static class DesktopGroupStore
     private const int CurrentAppearanceVersion = 2;
 
     /// <summary>
-    /// 媒体 / 空调分区是专用卡面（音响播放 / 空调控制），本来就不吃 Dids / SceneIds。
-    /// 老版本曾把设备写进这两块分区的清单里（选择分区的弹窗因此把它们列成「N 台设备」），
+    /// 媒体 / 空调 / 监控分区是专用卡面（音响播放 / 空调控制 / 实时画面），本来就不吃 Dids / SceneIds。
+    /// 老版本曾把设备写进这些分区的清单里（选择分区的弹窗因此把它们列成「N 台设备」），
     /// 读到就顺手清干净，改完直接落盘。
     /// </summary>
     private static void CleanZoneContents(DesktopLayout layout)
@@ -93,7 +99,8 @@ public static class DesktopGroupStore
         var cleaned = false;
         foreach (var g in layout.Groups)
         {
-            if (!g.IsMedia && !g.IsAc) continue;
+            // 数据卡也没有 Dids/SceneIds，不能按媒体/空调那套清（清内容是清空，不是删除）
+            if (g.IsData || (!g.IsMedia && !g.IsAc && !g.IsCamera)) continue;
             if (g.Dids.Count == 0 && g.SceneIds.Count == 0) continue;
             g.Dids.Clear();
             g.SceneIds.Clear();
@@ -101,6 +108,75 @@ public static class DesktopGroupStore
         }
 
         if (cleaned) Save(layout);
+    }
+
+    /// <summary>
+    /// 数据卡读档归一：指标 key 必须合法；宽高落回该指标的默认档位与缩放范围；
+    /// v1 一个指标只留一张（老配置里如果手工塞了重复项，后来的收回配置，不显示）。
+    /// </summary>
+    private static void NormalizeDataCards(DesktopLayout layout)
+    {
+        var changed = false;
+        var seen = new HashSet<string>(StringComparer.Ordinal);
+
+        foreach (var g in layout.Groups.ToList())
+        {
+            if (!g.IsData) continue;
+
+            var def = DataCardCatalog.Find(g.Metric);
+            if (def is null)
+            {
+                layout.Groups.Remove(g);
+                changed = true;
+                continue;
+            }
+
+            if (!seen.Add(def.Key))
+            {
+                // 同 key 的第二张：保留配置（用户可能只是暂时关掉），但默认收起，避免叠在桌面上
+                if (g.Shown)
+                {
+                    g.Shown = false;
+                    changed = true;
+                }
+                continue;
+            }
+
+            var minW = 200d;
+            var maxW = def.Compact ? 400d : 800d;
+            var minH = 100d;
+            var maxH = def.Compact ? 200d : 400d;
+            var w = double.IsFinite(g.Width) && g.Width > 0
+                ? Math.Clamp(g.Width, minW, maxW)
+                : def.DefaultWidth;
+            var h = double.IsFinite(g.Height) && g.Height > 0
+                ? Math.Clamp(g.Height, minH, maxH)
+                : def.DefaultHeight;
+
+            if (Math.Abs(g.Width - w) > 0.5)
+            {
+                g.Width = w;
+                changed = true;
+            }
+            if (Math.Abs(g.Height - h) > 0.5)
+            {
+                g.Height = h;
+                changed = true;
+            }
+            if (g.Name.Length == 0)
+            {
+                g.Name = def.Title;
+                changed = true;
+            }
+            if (g.Dids.Count > 0 || g.SceneIds.Count > 0)
+            {
+                g.Dids.Clear();
+                g.SceneIds.Clear();
+                changed = true;
+            }
+        }
+
+        if (changed) Save(layout);
     }
 
     public static void Save(DesktopLayout layout)

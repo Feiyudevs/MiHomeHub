@@ -46,7 +46,6 @@ public class CustomWindow : Window
     private bool _inSizeMove;
     private bool _sizeMoveIsResize;
     private PixelRect? _sizeMoveStartOuter;
-    private bool _contentFrozen;
 
     /// <summary>卡片圆角（DIP）。必须与派生窗 Border.CornerRadius 用同一个数。</summary>
     public double SurfaceCornerRadius { get; set; } = 20d;
@@ -119,12 +118,6 @@ public class CustomWindow : Window
     /// 缩放期间整窗每帧重绘，派生窗可在此临时卸掉大面积特效；纯移动不触发。
     /// </summary>
     protected virtual void OnResizeInteractionChanged(bool resizing) { }
-
-    /// <summary>
-    /// 缩放过程中内容是否要钉在原尺寸：缩小时钉住（内容被裁、不重排），
-    /// 任一维度超过进入时的尺寸就解冻（内容跟着重排，避免拖大时露出底色）。
-    /// </summary>
-    protected virtual void OnResizeContentFreezeChanged(bool frozen) { }
 
     protected override void OnOpened(EventArgs e)
     {
@@ -263,7 +256,6 @@ public class CustomWindow : Window
         {
             _inSizeMove = true;
             _sizeMoveIsResize = false;
-            _contentFrozen = false;
             _sizeMoveStartOuter = DesktopNative.GetWindowRect(hWnd, out var entering)
                 ? new PixelRect(entering.Left, entering.Top, entering.Right - entering.Left, entering.Bottom - entering.Top)
                 : null;
@@ -280,22 +272,6 @@ public class CustomWindow : Window
                 {
                     _sizeMoveIsResize = true;
                     OnResizeInteractionChanged(true);
-                }
-
-                // 内容冻结只在「不比进入时更大」的方向生效：
-                // 拖小时钉住内容（被裁但不重排），一旦任一维度超过进入尺寸就解冻重排 ——
-                // 否则拖大时右侧 / 底部会露出一条底色，观感比掉帧更差。
-                var beyondStart = proposed.cx > start.Width || proposed.cy > start.Height;
-                var shrunkFromStart = proposed.cx < start.Width || proposed.cy < start.Height;
-                if (beyondStart && _contentFrozen)
-                {
-                    _contentFrozen = false;
-                    OnResizeContentFreezeChanged(false);
-                }
-                else if (!beyondStart && shrunkFromStart && !_contentFrozen)
-                {
-                    _contentFrozen = true;
-                    OnResizeContentFreezeChanged(true);
                 }
             }
         }
@@ -375,11 +351,6 @@ public class CustomWindow : Window
             _inSizeMove = false;
             _sizeMoveIsResize = false;
             _sizeMoveStartOuter = null;
-            if (_contentFrozen)
-            {
-                _contentFrozen = false;
-                OnResizeContentFreezeChanged(false);
-            }
             RememberNormalOuter(hWnd);
             if (!_repairing && WindowChrome.NeedsRepair(hWnd, CanResize))
             {

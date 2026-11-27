@@ -236,18 +236,31 @@ public partial class MainViewModel
         }
     }
 
+    /// <summary>用户是否主动把「数据看板」整块隐藏：编辑弹窗据此停用「首页」开关并说明原因。</summary>
+    public bool IsDataBoardHidden => AppSettingsStore.DataBoardHidden;
+
     /// <summary>整块显隐或卡片数量变化后，同步首页区块、骨架和设置开关。</summary>
     private void RefreshDataBoardVisibility()
     {
         ShowEnvTrend = DataBoardVisible;
         OnPropertyChanged(nameof(DataBoardVisible));
+        OnPropertyChanged(nameof(IsDataBoardHidden));
         OnPropertyChanged(nameof(ShowTrendSkeleton));
         RaiseTrendRowFlags();
     }
 
-    /// <summary>数据看板默认顺序：温度、湿度、用电、用水、用气、水质、体重，末尾接五枚空气小卡。</summary>
+    /// <summary>首页上排的大趋势卡。编辑弹窗里排在左列，顺序只管左列内部。</summary>
+    private static readonly string[] BigTrendCardKeys =
+        { "temp", "hum", "power", "water", "gas", "tds", "scale" };
+
+    /// <summary>首页大卡下方那一排的空气小卡。编辑弹窗里排在右列，顺序与大卡互不影响。</summary>
+    private static readonly string[] SmallTrendCardKeys = { "pm25", "pm10", "hcho", "tvoc", "co2" };
+
+    /// <summary>数据看板默认顺序：先是七张大卡，后面接五枚空气小卡。</summary>
     private static readonly string[] DefaultTrendCardOrder =
-        { "temp", "hum", "power", "water", "gas", "tds", "scale", "pm25", "pm10", "hcho", "tvoc", "co2" };
+        BigTrendCardKeys.Concat(SmallTrendCardKeys).ToArray();
+
+    private static bool IsBigTrendCardKey(string key) => Array.IndexOf(BigTrendCardKeys, key) >= 0;
 
     /// <summary>首页趋势卡的排列顺序，编辑弹窗里拖过之后即时更新；首页面板按它排卡片。</summary>
     [ObservableProperty] private IReadOnlyList<string> _trendCardOrder = LoadTrendCardOrder();
@@ -271,17 +284,22 @@ public partial class MainViewModel
 
     private static bool IsTrendCardKey(string key) => Array.IndexOf(DefaultTrendCardOrder, key) >= 0;
 
-    /// <summary>弹窗里拖完排序：把当前列表顺序落盘，并通知首页面板重排（不会重播入场动画）。</summary>
+    /// <summary>
+    /// 弹窗里拖完排序：大卡、小卡两列各按自己的顺序落盘，首页按同一个 key 数组重排。
+    /// 两列的顺序互不影响——左边拖大卡不会带动右边的小卡，反之亦然。
+    /// </summary>
     public void CommitTrendCardOrder()
     {
-        if (TrendCardOptions.Count == 0) return;
+        if (BigTrendCardOptions.Count == 0 && SmallTrendCardOptions.Count == 0) return;
 
-        var keys = TrendCardOptions.Select(option => option.Key).ToList();
+        var keys = BigTrendCardOptions.Concat(SmallTrendCardOptions)
+            .Select(option => option.Key)
+            .ToList();
         AppSettingsStore.SetTrendCardOrder(keys);
         TrendCardOrder = keys;
     }
 
-    /// <summary>按给定顺序重排弹窗里的行；未列出的行保持原有相对位置。</summary>
+    /// <summary>按给定顺序重排弹窗里的行；未列出的行保持原有相对位置。重排后按大卡 / 小卡拆回两列。</summary>
     private void ApplyTrendCardOrderToOptions(IReadOnlyList<string> order)
     {
         for (var target = 0; target < order.Count; target++)
@@ -292,6 +310,18 @@ public partial class MainViewModel
             var current = TrendCardOptions.IndexOf(item);
             if (current >= 0 && current != target) TrendCardOptions.Move(current, target);
         }
+
+        SplitTrendCardOptions();
+    }
+
+    /// <summary>把 12 行分成两列：左列大卡、右列空气小卡；各自保留在主列表里的相对顺序。</summary>
+    private void SplitTrendCardOptions()
+    {
+        BigTrendCardOptions.Clear();
+        SmallTrendCardOptions.Clear();
+
+        foreach (var option in TrendCardOptions)
+            (IsBigTrendCardKey(option.Key) ? BigTrendCardOptions : SmallTrendCardOptions).Add(option);
     }
 
     private bool CardShown(string key)
@@ -301,7 +331,7 @@ public partial class MainViewModel
         return AppSettingsStore.GetTrendCardShown(key) ?? true;
     }
 
-    /// <summary>这张卡对应的真实设备在不在：编辑弹窗据此提示「暂无设备 · 显示预览数据」。</summary>
+    /// <summary>这张卡对应的真实设备在不在：编辑弹窗据此在卡下留一句「暂无设备 · 显示示例数据」。</summary>
     private bool CardHasDevice(string key) => key switch
     {
         "temp" => HasTempReading,
@@ -323,6 +353,12 @@ public partial class MainViewModel
 
     public ObservableCollection<TrendCardOptionItem> TrendCardOptions { get; } = new();
 
+    /// <summary>弹窗左列：七张大趋势卡，拖动只改这一列内部顺序。</summary>
+    public ObservableCollection<TrendCardOptionItem> BigTrendCardOptions { get; } = new();
+
+    /// <summary>弹窗右列：五枚空气小卡，顺序与大卡各自独立。</summary>
+    public ObservableCollection<TrendCardOptionItem> SmallTrendCardOptions { get; } = new();
+
     private bool _trendCardOptionsBuilt;
 
     [RelayCommand]
@@ -332,6 +368,17 @@ public partial class MainViewModel
         SyncTrendCardOptions();
         IsTrendHideConfirmOpen = false;
         IsTrendCardEditOpen = true;
+    }
+
+    /// <summary>
+    /// 设置页「桌面数据卡」摘要里的「管理」：收起设置，直接回到首页看板的编辑弹窗。
+    /// 看板整块被隐藏时也走这里——那个弹窗里还会说明「首页」开关当前不生效。
+    /// </summary>
+    [RelayCommand]
+    private void ManageDesktopDataCards()
+    {
+        IsSettingsOpen = false;
+        OpenTrendCardEdit();
     }
 
     /// <summary>关闭编辑弹窗：如果一张卡都没开，先弹重点提示，确认后才真正收起。</summary>
@@ -377,31 +424,34 @@ public partial class MainViewModel
     {
         if (_trendCardOptionsBuilt) return;
         _trendCardOptionsBuilt = true;
-        TrendCardOptions.Add(new TrendCardOptionItem("temp", "温度", "室内温度的曲线与舒适度", OnTrendCardToggled));
-        TrendCardOptions.Add(new TrendCardOptionItem("hum", "湿度", "室内湿度的曲线", OnTrendCardToggled));
-        TrendCardOptions.Add(new TrendCardOptionItem("power", "用电", "用电量与用电趋势", OnTrendCardToggled));
-        TrendCardOptions.Add(new TrendCardOptionItem("water", "用水", "热水器、净水器的用水量", OnTrendCardToggled));
-        TrendCardOptions.Add(new TrendCardOptionItem("gas", "用气", "燃气热水器的用气量", OnTrendCardToggled));
-        TrendCardOptions.Add(new TrendCardOptionItem("tds", "水质", "净水器出水 TDS 与滤芯余量", OnTrendCardToggled));
-        TrendCardOptions.Add(new TrendCardOptionItem("scale", "体重", "体重、体脂率与体重曲线", OnTrendCardToggled));
+        TrendCardOptions.Add(new TrendCardOptionItem("temp", "温度", "室内温度的曲线与舒适度", OnTrendCardToggled, OnTrendCardDesktopToggled));
+        TrendCardOptions.Add(new TrendCardOptionItem("hum", "湿度", "室内湿度的曲线", OnTrendCardToggled, OnTrendCardDesktopToggled));
+        TrendCardOptions.Add(new TrendCardOptionItem("power", "用电", "用电量与用电趋势", OnTrendCardToggled, OnTrendCardDesktopToggled));
+        TrendCardOptions.Add(new TrendCardOptionItem("water", "用水", "热水器、净水器的用水量", OnTrendCardToggled, OnTrendCardDesktopToggled));
+        TrendCardOptions.Add(new TrendCardOptionItem("gas", "用气", "燃气热水器的用气量", OnTrendCardToggled, OnTrendCardDesktopToggled));
+        TrendCardOptions.Add(new TrendCardOptionItem("tds", "水质", "净水器出水 TDS 与滤芯余量", OnTrendCardToggled, OnTrendCardDesktopToggled));
+        TrendCardOptions.Add(new TrendCardOptionItem("scale", "体重", "体重、体脂率与体重曲线", OnTrendCardToggled, OnTrendCardDesktopToggled));
         // 空气小卡：一项一枚，只报当前数值与一句档位，没有对应设备的卡铺示例数据
-        TrendCardOptions.Add(new TrendCardOptionItem("pm25", "PM2.5", "PM2.5 细颗粒物浓度", OnTrendCardToggled));
-        TrendCardOptions.Add(new TrendCardOptionItem("pm10", "PM10", "PM10 可吸入颗粒物浓度", OnTrendCardToggled));
-        TrendCardOptions.Add(new TrendCardOptionItem("hcho", "甲醛", "室内甲醛浓度（mg/m³）", OnTrendCardToggled));
-        TrendCardOptions.Add(new TrendCardOptionItem("tvoc", "TVOC", "挥发性有机物浓度（mg/m³）", OnTrendCardToggled));
-        TrendCardOptions.Add(new TrendCardOptionItem("co2", "CO₂", "室内二氧化碳浓度（ppm）", OnTrendCardToggled));
+        TrendCardOptions.Add(new TrendCardOptionItem("pm25", "PM2.5", "PM2.5 细颗粒物浓度", OnTrendCardToggled, OnTrendCardDesktopToggled));
+        TrendCardOptions.Add(new TrendCardOptionItem("pm10", "PM10", "PM10 可吸入颗粒物浓度", OnTrendCardToggled, OnTrendCardDesktopToggled));
+        TrendCardOptions.Add(new TrendCardOptionItem("hcho", "甲醛", "室内甲醛浓度（mg/m³）", OnTrendCardToggled, OnTrendCardDesktopToggled));
+        TrendCardOptions.Add(new TrendCardOptionItem("tvoc", "TVOC", "挥发性有机物浓度（mg/m³）", OnTrendCardToggled, OnTrendCardDesktopToggled));
+        TrendCardOptions.Add(new TrendCardOptionItem("co2", "CO₂", "室内二氧化碳浓度（ppm）", OnTrendCardToggled, OnTrendCardDesktopToggled));
 
         // 上次拖过的顺序优先：弹窗每次打开看到的行序就是首页实际的卡片顺序
         ApplyTrendCardOrderToOptions(TrendCardOrder);
     }
 
-    /// <summary>把弹窗里的每一行对齐到当前状态：设备有没有、首页上现在显不显示。</summary>
+    /// <summary>把弹窗里的每一行对齐到当前状态：首页上现在显不显示、桌面上有没有。</summary>
     private void SyncTrendCardOptions()
     {
         foreach (var item in TrendCardOptions)
         {
             item.HasDevice = CardHasDevice(item.Key);
+            // 看板整块隐藏时「首页」开关先停用：打开了首页也看不见，留一句提示比让人白点强
+            item.HomeEnabled = !IsDataBoardHidden;
             item.SyncOn(CardShown(item.Key));
+            item.SyncDesktop(DesktopHost.IsDataCardShown(item.Key));
         }
     }
 
@@ -409,6 +459,25 @@ public partial class MainViewModel
     {
         AppSettingsStore.SetTrendCardShown(item.Key, item.IsOn);
         ReapplyTrendCardChoices();
+    }
+
+    /// <summary>弹窗里的「桌面」开关：直接投/收这张数据卡；位置尺寸由 DesktopHost 保留，下次原样回来。</summary>
+    private void OnTrendCardDesktopToggled(TrendCardOptionItem item)
+        => DesktopHost.SetDataCardShown(item.Key, item.IsOnDesktop);
+
+    /// <summary>桌面卡片被别处增删（卡窗右键关闭 / 移除）时，把弹窗里的开关跟着回写。</summary>
+    private void OnDesktopDataCardStateChanged()
+    {
+        if (!IsTrendCardEditOpen) return;
+        foreach (var item in TrendCardOptions)
+            item.SyncDesktop(DesktopHost.IsDataCardShown(item.Key));
+    }
+
+    /// <summary>编辑弹窗开着才订阅桌面数据卡的增删事件，关掉就摘掉，别让静态事件一直攥着视图模型。</summary>
+    partial void OnIsTrendCardEditOpenChanged(bool value)
+    {
+        if (value) DesktopHost.DataCardStateChanged += OnDesktopDataCardStateChanged;
+        else DesktopHost.DataCardStateChanged -= OnDesktopDataCardStateChanged;
     }
 
     /// <summary>显隐一改：重算整段与逐卡去留，并让读数跟着刷一遍（新铺出来的卡不该是空的）。</summary>
@@ -499,7 +568,7 @@ public partial class MainViewModel
 
     // —— 用水卡：和用电卡同构（今日逐小时 / 近 7 天逐日），数据来自热水器水表或净水器累计制水 ——
 
-    [ObservableProperty] private string _waterTitle = "今日用水";
+    [ObservableProperty] private string _waterTitle = "用水";
     [ObservableProperty] private string _waterChartUnit = "L";
     /// <summary>大数字后面的单位：日常按升，月度 / 半年按吨（括号带上立方数，和米家账单一致）。</summary>
     [ObservableProperty] private string _waterValueUnit = "L（升）";
@@ -536,7 +605,7 @@ public partial class MainViewModel
 
     // —— 用气卡：燃气热水器每次洗完一单的用气量累加成气表，今日逐小时 / 近 7 天逐日 ——
 
-    [ObservableProperty] private string _gasTitle = "今日用气";
+    [ObservableProperty] private string _gasTitle = "用气";
     [ObservableProperty] private string _gasChartUnit = "m³";
     [ObservableProperty] private bool _gasIsDailyBars;
     /// <summary>用气卡画每日柱状：一天的用气量本来就是一个台阶，柱高比曲线好比较；半年那种上百格仍退回曲线。</summary>
@@ -613,8 +682,8 @@ public partial class MainViewModel
 
     // —— 用电卡的范围：今日逐小时，或近 7 / 30 天逐日（历史靠云端电量统计 + 本地采样拼） ——
 
-    /// <summary>卡片大标题：今日用电 / 近 7 天用电。</summary>
-    [ObservableProperty] private string _powerTitle = "今日用电";
+    /// <summary>卡片大标题固定是「用电」：看今天还是看近 30 天由右上角的范围下拉表示，标题不重复带时间口径。</summary>
+    [ObservableProperty] private string _powerTitle = "用电";
 
     /// <summary>柱子单位：逐小时是 W，逐日是度。</summary>
     [ObservableProperty] private string _powerChartUnit = "W";
@@ -804,7 +873,25 @@ public partial class MainViewModel
     /// 重算数据看板每张卡的文字与序列：有设备就用真实采样，没有设备的卡改铺一份示例数据并标「预览」。
     /// 没有历史时真实卡的序列为空、数值退回当前读数。
     /// </summary>
+    /// <summary>
+    /// 数据看板整拍重算完成。桌面数据卡、其他独立窗口都挂在这一拍上同步，
+    /// 不再靠猜属性名去拼刷新时机。
+    /// </summary>
+    public event Action? TrendCardsUpdated;
+
     public void RefreshTrendCards()
+    {
+        try
+        {
+            RefreshTrendCardsCore();
+        }
+        finally
+        {
+            TrendCardsUpdated?.Invoke();
+        }
+    }
+
+    private void RefreshTrendCardsCore()
     {
         var now = DateTime.Now;
         // 记下这一拍：开了「更新频率」后，轮询里的定时重算按这一刻起算
@@ -1242,13 +1329,6 @@ public partial class MainViewModel
         if (rangeDays > 0)
         {
             var daily = DemoPowerDays(now, rangeDays);
-            PowerTitle = rangeDays switch
-            {
-                7 => "近 7 天用电",
-                180 => "近半年用电",
-                365 => "近 1 年用电",
-                _ => $"近 {rangeDays} 天用电"
-            };
             PowerChartUnit = "度";
             PowerIsDailyBars = true;
             PowerIsBars = rangeDays <= 30;
@@ -1268,7 +1348,6 @@ public partial class MainViewModel
         }
 
         var bars = DemoPowerBars(now);
-        PowerTitle = "今日用电";
         PowerChartUnit = "W";
         PowerIsDailyBars = false;
         PowerIsBars = true;
@@ -1314,9 +1393,6 @@ public partial class MainViewModel
         {
             var daily = DemoDailyUsage(now, length, 196, 38);
             var series = useM3 ? daily.Select(v => v / 1000.0).ToArray() : daily;
-            WaterTitle = isMonth
-                ? $"{now.Month} 月用水"
-                : rangeDays == 180 ? "近半年用水" : $"近 {rangeDays} 天用水";
             WaterIsDailyBars = true;
             WaterIsBars = false; // 和接了燃气热水器的真卡一致：多天是折线，不是一天一根柱
             WaterChartUnit = useM3 ? "吨" : "L";
@@ -1335,7 +1411,6 @@ public partial class MainViewModel
         }
 
         var bars = DemoWaterBars(now);
-        WaterTitle = "今日用水";
         WaterIsBars = true;
         WaterIsDailyBars = false;
         WaterChartUnit = "L";
@@ -1380,9 +1455,6 @@ public partial class MainViewModel
         if (length > 0)
         {
             var daily = DemoDailyUsage(now, length, 2.1, 0.34);
-            GasTitle = isMonth
-                ? $"{now.Month} 月用气"
-                : rangeDays == 180 ? "近半年用气" : $"近 {rangeDays} 天用气";
             // 一天一根柱子：用量是台阶，柱高才好比；半年上百格仍走曲线，和真实卡一致
             GasIsBars = rangeDays != 180;
             GasIsDailyBars = true;
@@ -1400,7 +1472,6 @@ public partial class MainViewModel
         }
 
         var bars = DemoGasBars(now);
-        GasTitle = "今日用气";
         GasIsBars = true;
         GasIsDailyBars = false;
         GasTrendBaseline = double.NaN;
@@ -1477,6 +1548,8 @@ public partial class MainViewModel
         }
 
         ScaleTrendSeries = weights;
+        ScaleTrendLows = Array.Empty<double>();
+        ScaleTrendHighs = Array.Empty<double>();
         ScaleTrendLabels = dates
             .Select(d => d.Year == today.Year ? d.ToString("M/d") : d.ToString("yyyy/M/d"))
             .ToList();
@@ -1607,7 +1680,6 @@ public partial class MainViewModel
             return;
         }
 
-        PowerTitle = "今日用电";
         PowerChartUnit = "W";
         PowerIsDailyBars = false;
         PowerIsBars = true;
@@ -1727,6 +1799,109 @@ public partial class MainViewModel
     private static int ParseRangeDays(string raw) =>
         int.TryParse(raw, out var n) && n is 30 or 180 ? n : n == 7 ? 7 : 0;
 
+    // ===== 范围的智能取窗 =====
+
+    /// <summary>「这几天有数据」的最低标准：不足 3 天就当这段是空的，该后推 / 放大范围。</summary>
+    private const int DayWindowMinPoints = 3;
+
+    /// <summary>
+    /// 数据没铺满窗口时，空出超过一周的那一头才收口到第一 / 最后一天；
+    /// 只差几天就保持原窗口，免得为了两天空缺改掉「近半年」的口径。
+    /// </summary>
+    private const int TrimGapDays = 7;
+
+    /// <summary>放大范围时按这串档位往上走，和下拉里的选项对齐。</summary>
+    private static readonly int[] PowerSpanLadder = { 7, 30, 180, 365 };
+    private static readonly int[] UsageSpanLadder = { 7, 30, 180 };
+
+    /// <summary>
+    /// 把「用户选的天数」落到真有数据的日期上：先以今天为终点，够 3 天就原样用；
+    /// 不够就把窗口整体后推到最后一笔记录（跨度不变）；再不够就沿档位放大跨度。
+    /// 返回实际窗口，卡片标题、累计值和「日均」都按这个口径算。
+    /// </summary>
+    private static (DateTime End, int Span) FitDayWindow(int preferred, DateTime today, DateTime? lastDataDay,
+        Func<DateTime, int, int> count, IReadOnlyList<int> ladder)
+    {
+        var end = today;
+        var span = preferred;
+        if (lastDataDay is null) return (end, span);
+
+        if (count(end, span) < DayWindowMinPoints && lastDataDay.Value.Date < today)
+            end = lastDataDay.Value.Date;
+
+        if (count(end, span) >= DayWindowMinPoints) return (end, span);
+
+        // 放大只在「真的能多出点东西」时生效：新装的设备只有一天数据，
+        // 别把 7 天硬撑成一年，那样图上还是一根柱子，只是横轴拉得更空
+        foreach (var bigger in ladder)
+        {
+            if (bigger <= preferred) continue;
+            if (count(end, bigger) >= DayWindowMinPoints) return (end, bigger);
+        }
+        return (end, span);
+    }
+
+    /// <summary>
+    /// 数据没铺满窗口时把空边收口到第一 / 最后一天：两头空得都不足一周就保持原窗口。
+    /// 只裁两头，中间的空档照旧留着——那是真的没记录，不该被抹平。
+    /// </summary>
+    private static (DateTime Start, int Length) TrimToData(DateTime start, int length, Func<int, bool> hasData)
+    {
+        var first = -1;
+        var last = -1;
+        for (var i = 0; i < length; i++)
+        {
+            if (!hasData(i)) continue;
+            if (first < 0) first = i;
+            last = i;
+        }
+        if (first < 0) return (start, length);
+
+        if (first < TrimGapDays && length - 1 - last < TrimGapDays) return (start, length);
+        return (start.AddDays(first), last - first + 1);
+    }
+
+    /// <summary>水 / 气真正用过的日子：云端日统计和逐单记录里任一有大干零的那天。</summary>
+    private static HashSet<DateTime> UsageDataDays(IReadOnlyList<MijiaDevice> devices,
+        IReadOnlyDictionary<string, StatSeries> stats, IReadOnlyList<UsageRecord> records, bool water)
+    {
+        var days = new HashSet<DateTime>();
+        foreach (var d in devices)
+        {
+            if (!stats.TryGetValue(d.TargetDid, out var stat) || !stat.Ok) continue;
+            foreach (var (time, value) in stat.Items)
+                if (value > 0) days.Add(time.Date);
+        }
+        foreach (var r in records)
+            if ((water ? r.WaterL : r.GasL) > 0) days.Add(r.Time.Date);
+        return days;
+    }
+
+    private static int CountUsageDays(IReadOnlyCollection<DateTime> dataDays, DateTime end, int span)
+    {
+        var start = end.Date.AddDays(-(span - 1));
+        var count = 0;
+        foreach (var day in dataDays)
+            if (day >= start && day <= end.Date) count++;
+        return count;
+    }
+
+    /// <summary>
+    /// 「本月」没记录时往前翻：从本月开始一个月一个月往回找，哪个月有 3 天以上用过水 / 气就用哪个月。
+    /// 本月的长度按已过天数算，往月的长度按整月算；返回的起点也决定标题上的月份。
+    /// </summary>
+    private static (DateTime Start, int Length) FitUsageMonth(IReadOnlyCollection<DateTime> dataDays, DateTime now)
+    {
+        for (var back = 0; back < 12; back++)
+        {
+            var start = new DateTime(now.Year, now.Month, 1).AddMonths(-back);
+            var length = back == 0 ? now.Day : DateTime.DaysInMonth(start.Year, start.Month);
+            if (CountUsageDays(dataDays, start.AddDays(length - 1), length) >= DayWindowMinPoints)
+                return (start, length);
+        }
+        return (new DateTime(now.Year, now.Month, 1), now.Day);
+    }
+
     partial void OnSelectedWaterRangeChanged(string value)
     {
         AppSettingsStore.SetWaterRange(SelectedWaterRange);
@@ -1766,18 +1941,13 @@ public partial class MainViewModel
         // 燃气热水器能拿到米家云端的逐单记录：整张卡就用这份数据，和温度/湿度卡一样只有一张图
         if (pickedHeaters.Count > 0)
         {
-            WaterTitle = isMonth
-                ? $"{now.Month} 月{noun}"
-                : rangeDays == 180
-                    ? $"近半年{noun}"
-                    : rangeDays > 0 ? $"近 {rangeDays} 天{noun}" : $"今日{noun}";
             RefreshWaterFromRecords(now, sources, pickedHeaters, rangeDays, isMonth, noun);
             return;
         }
 
         // 只有净水器（累计制水）时仍按本地采样，历史只留 7 天
         if (rangeDays > 7 || isMonth) rangeDays = 0;
-        WaterTitle = rangeDays > 0 ? $"近 {rangeDays} 天{noun}" : $"今日{noun}";
+        WaterTitle = noun;
         WaterChartUnit = "L";
         WaterValueUnit = "L（升）";
         WaterIsBars = true;
@@ -1868,15 +2038,52 @@ public partial class MainViewModel
     /// 用水卡（有燃气热水器时）：优先用米家云端日统计（和「使用记录」页同一份），
     /// 还没拉到统计时退回逐单事件缓存。今日按小时（事件），7 / 30 天、本月、半年按天（统计）；
     /// 月度口径按「吨（m³）」，和米家账单一致。
+    /// 选中的跨度里没有记录时，窗口会整体后推到最后一笔用水，再不够就放大跨度——
+    /// 热水器关了一个月，这张卡也不该只剩空坐标轴。
     /// </summary>
     private void RefreshWaterFromRecords(DateTime now, IReadOnlyList<MijiaDevice> sources,
         List<MijiaDevice> heaters, int rangeDays, bool isMonth, string noun)
     {
         var records = heaters.SelectMany(d => UsageRecordStore.Cached(d.TargetDid)).ToList();
+        var dataDays = UsageDataDays(heaters, _waterDayStats, records, water: true);
+
+        DateTime start;
+        var length = 0;
+        if (isMonth)
+        {
+            (start, length) = FitUsageMonth(dataDays, now);
+        }
+        else if (rangeDays > 0)
+        {
+            var (end, span) = FitDayWindow(rangeDays, now.Date,
+                dataDays.Count > 0 ? dataDays.Max() : (DateTime?)null,
+                (windowEnd, windowSpan) => CountUsageDays(dataDays, windowEnd, windowSpan),
+                UsageSpanLadder);
+            start = end.AddDays(-(span - 1));
+            length = span;
+            rangeDays = span;
+        }
+        else
+        {
+            start = now.Date;
+        }
+
+        // 半年里只有最近几天用过水时，横轴收口到首尾有记录的那天，
+        // 否则柱子全挤在右端，左边一大截空着
+        if (rangeDays > 0 && length > 0)
+        {
+            var trimmed = TrimToData(start, length, i => dataDays.Contains(start.AddDays(i)));
+            if (trimmed.Length != length)
+            {
+                start = trimmed.Start;
+                length = trimmed.Length;
+            }
+        }
+
         var stats = rangeDays > 0 || isMonth
-            ? StatsDailySeries(heaters, _waterDayStats, now, rangeDays, isMonth, water: true)
+            ? StatsDailySeries(heaters, _waterDayStats, start, length, water: true)
             : null;
-        var seriesLiters = stats ?? UsageSeries(records, now, rangeDays, isMonth, water: true);
+        var seriesLiters = stats ?? UsageSeries(records, now, start, length, water: true);
         var useM3 = isMonth || rangeDays >= 30;
         var series = useM3 ? seriesLiters.Select(v => v / 1000.0).ToArray() : seriesLiters;
         var total = series.Sum();
@@ -1884,6 +2091,7 @@ public partial class MainViewModel
         var hasUse = total > floor;
         var format = isMonth ? "0.##" : useM3 ? "0.###" : "0.#";
 
+        WaterTitle = noun;
         WaterIsBars = false;
         WaterIsDailyBars = isMonth || rangeDays > 0;
         WaterChartUnit = useM3 ? "吨" : "L";
@@ -1919,26 +2127,11 @@ public partial class MainViewModel
         WaterTrendHigh = hasUse ? range.High : "—";
     }
 
-    /// <summary>把逐单记录按范围聚合成曲线：今日每小时一个点，多天（含本月）每天一个点。</summary>
-    private static double[] UsageSeries(IReadOnlyList<UsageRecord> records, DateTime now, int days,
-        bool month, bool water)
+    /// <summary>把逐单记录按范围聚合成曲线：今日每小时一个点，多天每天一个点。</summary>
+    private static double[] UsageSeries(IReadOnlyList<UsageRecord> records, DateTime now,
+        DateTime start, int length, bool water)
     {
-        if (month)
-        {
-            var start = new DateTime(now.Year, now.Month, 1);
-            var count = now.Day;
-            var daily = new double[count];
-            foreach (var r in records)
-            {
-                if (r.Time.Year != now.Year || r.Time.Month != now.Month) continue;
-                var idx = r.Time.Day - 1;
-                if (idx < 0 || idx >= count) continue;
-                daily[idx] += water ? r.WaterL : r.GasL / 1000.0;
-            }
-            return daily;
-        }
-
-        if (days <= 0)
+        if (length <= 0)
         {
             var hours = Math.Clamp(now.Hour + 1, 1, 24);
             var hourly = new double[hours];
@@ -1952,12 +2145,12 @@ public partial class MainViewModel
             return hourly;
         }
 
-        var startDay = now.Date.AddDays(-(days - 1));
-        var series = new double[days];
+        var series = new double[length];
+        var startDay = start.Date;
         foreach (var r in records)
         {
             var idx = (r.Time.Date - startDay).Days;
-            if (idx < 0 || idx >= days) continue;
+            if (idx < 0 || idx >= length) continue;
             series[idx] += water ? r.WaterL : r.GasL / 1000.0;
         }
         return series;
@@ -1969,26 +2162,21 @@ public partial class MainViewModel
     /// 返回 null 表示这几台设备还没拉到统计，交给事件记录兜底。
     /// </summary>
     private static double[]? StatsDailySeries(IReadOnlyList<MijiaDevice> heaters,
-        IReadOnlyDictionary<string, StatSeries> stats, DateTime now, int days, bool month, bool water)
+        IReadOnlyDictionary<string, StatSeries> stats, DateTime start, int length, bool water)
     {
-        var length = month ? now.Day : days;
         if (length <= 0) return null;
-
-        var start = month ? new DateTime(now.Year, now.Month, 1) : now.Date.AddDays(-(length - 1));
-        var end = month ? start.AddDays(length - 1) : now.Date;
         var series = new double[length];
         var any = false;
 
         foreach (var d in heaters)
         {
             if (!stats.TryGetValue(d.TargetDid, out var stat) || !stat.Ok) continue;
-            any = true;
             foreach (var (time, value) in stat.Items)
             {
-                if (time.Date < start || time.Date > end) continue;
-                var idx = (time.Date - start).Days;
+                var idx = (time.Date - start.Date).Days;
                 if (idx < 0 || idx >= length) continue;
                 series[idx] += water ? value : value / 1000.0;
+                any = true;
             }
         }
 
@@ -2211,25 +2399,56 @@ public partial class MainViewModel
 
         var rangeDays = GasRangeDays;
         var isMonth = GasIsMonthRange;
-        GasTitle = isMonth
-            ? $"{now.Month} 月用气"
-            : rangeDays == 180
-                ? "近半年用气"
-                : rangeDays > 0 ? $"近 {rangeDays} 天用气" : "今日用气";
-        GasChartUnit = "m³";
-        // 一天一根柱子：用量是台阶，柱高才好比；半年上百格塞不下柱子，仍走曲线
-        GasIsBars = rangeDays != 180;
-        GasIsDailyBars = isMonth || rangeDays > 0;
 
         var picked = did.Length == 0 ? devices : devices.Where(d => d.TargetDid == did).ToList();
         var records = picked.SelectMany(d => UsageRecordStore.Cached(d.TargetDid)).ToList();
+        var dataDays = UsageDataDays(picked, _gasDayStats, records, water: false);
+
+        DateTime start;
+        var length = 0;
+        if (isMonth)
+        {
+            (start, length) = FitUsageMonth(dataDays, now);
+        }
+        else if (rangeDays > 0)
+        {
+            // 选中的跨度先按今天取；这段时间没记录就整体后推到最后一笔用气，再不足 3 天就放大跨度
+            var (end, span) = FitDayWindow(rangeDays, now.Date,
+                dataDays.Count > 0 ? dataDays.Max() : (DateTime?)null,
+                (windowEnd, windowSpan) => CountUsageDays(dataDays, windowEnd, windowSpan),
+                UsageSpanLadder);
+            start = end.AddDays(-(span - 1));
+            length = span;
+            rangeDays = span;
+
+            // 半年里只有最近几天用过气时，横轴收口到首尾有记录的那天，
+            // 否则柱子全挤在右端，左边一大截空着
+            var trimmed = TrimToData(start, length, i => dataDays.Contains(start.AddDays(i)));
+            if (trimmed.Length != length)
+            {
+                start = trimmed.Start;
+                length = trimmed.Length;
+            }
+        }
+        else
+        {
+            start = now.Date;
+        }
+
         var stats = rangeDays > 0 || isMonth
-            ? StatsDailySeries(picked, _gasDayStats, now, rangeDays, isMonth, water: false)
+            ? StatsDailySeries(picked, _gasDayStats, start, length, water: false)
             : null;
-        var series = stats ?? UsageSeries(records, now, rangeDays, isMonth, water: false);
+        var series = stats ?? UsageSeries(records, now, start, length, water: false);
         var total = series.Sum();
         var hasUse = total > 0.0005;
         var format = isMonth ? "0.##" : "0.###";
+
+        GasTitle = "用气";
+        GasChartUnit = "m³";
+        // 一天一根柱子：用量是台阶，柱高才好比；上百格塞不下柱子仍走曲线。
+        // 长范围收口到几十天后也照样能用柱子，按真正画出来的格数判断
+        GasIsBars = isMonth || length <= 30;
+        GasIsDailyBars = isMonth || rangeDays > 0;
 
         ShowGasChart = HasGasMeter && hasUse;
         GasTrendPlaceholder = !HasGasMeter
@@ -2248,13 +2467,7 @@ public partial class MainViewModel
         // 柱后参照线：上一等长窗口的日均，看这期比上期多还是少
         GasTrendBaseline = double.NaN;
         if (hasUse && GasIsBars && (isMonth || rangeDays > 0))
-        {
-            var seriesStart = isMonth
-                ? new DateTime(now.Year, now.Month, 1)
-                : now.Date.AddDays(-(rangeDays - 1));
-            GasTrendBaseline = PreviousWindowDailyAverage(picked, _gasDayStats, seriesStart,
-                series.Length, water: false);
-        }
+            GasTrendBaseline = PreviousWindowDailyAverage(picked, _gasDayStats, start, length, water: false);
 
         var yesterday = rangeDays == 0 && !isMonth && hasUse
             ? RecordDayTotal(records, now.Date.AddDays(-1), water: false)
@@ -2444,43 +2657,40 @@ public partial class MainViewModel
     /// <summary>
     /// 逐日柱状：每根柱子是那天一共用了多少度。云端日统计（空调这类只有累计电量的）优先，
     /// 没有就用本地采样积分；两边都没有的那天留空，不画假柱子。
+    /// 选中的跨度里没有读数时，窗口整体后推到最后一笔记录；仍不足 3 天就放大跨度。
     /// </summary>
     private void RefreshPowerDays(DateTime now, int days, IReadOnlyList<MijiaDevice> sources,
         MijiaDevice? single, string did)
     {
-        var bars = new double[days];
-        Array.Fill(bars, double.NaN);
-        var any = false;
+        var (end, span) = FitDayWindow(days, now.Date, LastPowerDay(sources, now),
+            (windowEnd, windowSpan) => CountPowerDays(sources, now, windowEnd, windowSpan),
+            PowerSpanLadder);
 
-        for (var i = 0; i < days; i++)
+        var filterStart = end.AddDays(-(span - 1));
+        var bars = BuildPowerDays(sources, now, end, span);
+
+        // 数据没铺满这段窗口时（例如一年里只装了两个月），把横轴收口到首尾有读数的那天，
+        // 否则柱子全挤在右边一小块，卡片看着像空的
+        var trimmed = TrimToData(filterStart, span, i => !double.IsNaN(bars[i]));
+        var trimmedView = trimmed.Length != span;
+        if (trimmedView)
         {
-            var day = now.Date.AddDays(i - (days - 1));
-            var end = day >= now.Date ? now : day.AddDays(1);
-            var sum = 0.0;
-            var hit = false;
-            foreach (var d in sources)
-            {
-                if (DayKwhOf(d, day, end) is not { } kwh) continue;
-                sum += kwh;
-                hit = true;
-            }
-            if (!hit) continue;
-            bars[i] = sum;
-            any = true;
+            var skip = (trimmed.Start - filterStart).Days;
+            bars = bars[skip..(skip + trimmed.Length)];
+            end = trimmed.Start.AddDays(trimmed.Length - 1);
+            span = trimmed.Length;
         }
 
-        if (days <= 30) DiagDays(now, days, sources);
+        var any = false;
+        foreach (var v in bars)
+            if (!double.IsNaN(v)) { any = true; break; }
 
-        PowerTitle = days switch
-        {
-            7 => "近 7 天用电",
-            180 => "近半年用电",
-            365 => "近 1 年用电",
-            _ => $"近 {days} 天用电"
-        };
+        if (span <= 30) DiagDays(sources, now, end, span);
+
+        PowerTitle = "用电";
         PowerChartUnit = "度";
         PowerIsDailyBars = true;
-        PowerIsBars = days <= 30;
+        PowerIsBars = span <= 30;
 
         ShowPowerChart = HasMetering && any;
         PowerTrendPlaceholder = !HasMetering
@@ -2509,9 +2719,9 @@ public partial class MainViewModel
         PowerTrendValue = any ? $"{total:0.##}" : "—";
         PowerTrendNow = !any
             ? ""
-            : counted < days
+            : counted < span
                 ? $"{counted} 天有记录 · 日均 {total / counted:0.##} 度"
-                : $"日均 {total / days:0.##} 度";
+                : $"日均 {total / span:0.##} 度";
 
         // 逐日范围和「较昨日」不是一个口径，切换期间先不挂这枚对比胶囊
         PowerTrendDelta = "";
@@ -2531,19 +2741,19 @@ public partial class MainViewModel
     }
 
     /// <summary>排查用：逐日柱子里每台设备各贡献多少、取自云端还是本地，写进 energy-days.log（内容变了才写）。</summary>
-    private void DiagDays(DateTime now, int days, IReadOnlyList<MijiaDevice> sources)
+    private void DiagDays(IReadOnlyList<MijiaDevice> sources, DateTime now, DateTime end, int days)
     {
         try
         {
             var sb = new System.Text.StringBuilder();
             for (var i = 0; i < days; i++)
             {
-                var day = now.Date.AddDays(i - (days - 1));
-                var end = day >= now.Date ? now : day.AddDays(1);
+                var day = end.Date.AddDays(i - (days - 1));
+                var dayEnd = day >= now.Date ? now : day.AddDays(1);
                 var parts = new List<string>();
                 foreach (var d in sources)
                 {
-                    if (DayKwhOf(d, day, end) is not { } kwh || kwh <= 0.005) continue;
+                    if (DayKwhOf(d, day, dayEnd) is not { } kwh || kwh <= 0.005) continue;
                     var fromCloud = !d.PowerWatts.HasValue && CloudDayKwh(d.TargetDid, day) is not null;
                     parts.Add($"{d.Name}={kwh:0.###}{(fromCloud ? "(云)" : "(本地)")}");
                 }
@@ -2557,12 +2767,74 @@ public partial class MainViewModel
 
             System.IO.File.WriteAllText(
                 System.IO.Path.Combine(AppPaths.Dir, "energy-days.log"),
-                $"{DateTime.Now:yyyy-MM-dd HH:mm:ss} 范围 {days} 天 设备 {sources.Count}{Environment.NewLine}{body}");
+                $"{DateTime.Now:yyyy-MM-dd HH:mm:ss} 范围 {days} 天（至 {end:M/d}）设备 {sources.Count}{Environment.NewLine}{body}");
         }
         catch
         {
             // 排查日志失败不影响界面
         }
+    }
+
+    /// <summary>逐日用电：给一段窗口（终点 + 天数），每天所有设备叠加。</summary>
+    private double[] BuildPowerDays(IReadOnlyList<MijiaDevice> sources, DateTime now, DateTime end, int days)
+    {
+        var bars = new double[days];
+        Array.Fill(bars, double.NaN);
+
+        for (var i = 0; i < days; i++)
+        {
+            var day = end.Date.AddDays(i - (days - 1));
+            var dayEnd = day >= now.Date ? now : day.AddDays(1);
+            var sum = 0.0;
+            var hit = false;
+            foreach (var d in sources)
+            {
+                if (DayKwhOf(d, day, dayEnd) is not { } kwh) continue;
+                sum += kwh;
+                hit = true;
+            }
+            if (hit) bars[i] = sum;
+        }
+
+        return bars;
+    }
+
+    /// <summary>窗口里有几天真的读到用电：不足 3 天就算「这段没数据」，该后推 / 放大范围。</summary>
+    private int CountPowerDays(IReadOnlyList<MijiaDevice> sources, DateTime now, DateTime end, int span)
+    {
+        var count = 0;
+        for (var i = 0; i < span; i++)
+        {
+            var day = end.Date.AddDays(i - (span - 1));
+            var dayEnd = day >= now.Date ? now : day.AddDays(1);
+            foreach (var d in sources)
+            {
+                if (DayKwhOf(d, day, dayEnd) is not null) { count++; break; }
+            }
+        }
+        return count;
+    }
+
+    /// <summary>最后一次读到用电是哪天：云端日统计能追一年，本地采样只补最近一周。</summary>
+    private DateTime? LastPowerDay(IReadOnlyList<MijiaDevice> sources, DateTime now)
+    {
+        DateTime? last = null;
+        foreach (var d in sources)
+        {
+            if (_cloudEnergy.TryGetValue(d.TargetDid, out var cloud))
+                foreach (var (date, _) in cloud.Days)
+                    if (date.Date <= now.Date && (last is null || date.Date > last.Value)) last = date.Date;
+
+            for (var i = 0; i < 7; i++)
+            {
+                var day = now.Date.AddDays(-i);
+                var to = day >= now.Date ? now : day.AddDays(1);
+                if (_envHistory.Energy(day, to, d.TargetDid).Coverage <= 0) continue;
+                if (last is null || day > last.Value) last = day;
+                break;
+            }
+        }
+        return last;
     }
 
     /// <summary>某台设备某一天用了多少度：历史日优先云端日统计（本地只留最近 7 天，撑不到半年 / 一年）。</summary>
@@ -2572,6 +2844,9 @@ public partial class MainViewModel
         var cloud = CloudDayKwh(d.TargetDid, day);
         if (cloud is { } past && day.Date < today) return past;
 
+        // 本地只留最近 7 天，再早的日子扫一遍点也只会得到 0 覆盖率
+        if (day.Date < today.AddDays(-(EnvHistoryStore.KeepDays - 1))) return cloud;
+
         var (kwh, coverage) = _envHistory.Energy(day, end, d.TargetDid);
         if (coverage > 0) return kwh;
 
@@ -2579,13 +2854,8 @@ public partial class MainViewModel
         return null;
     }
 
-    private double? CloudDayKwh(string did, DateTime day)
-    {
-        if (!_cloudEnergy.TryGetValue(did, out var cloud)) return null;
-        foreach (var (date, kwh) in cloud.Days)
-            if (date.Date == day.Date) return kwh;
-        return null;
-    }
+    private double? CloudDayKwh(string did, DateTime day) =>
+        _cloudEnergy.TryGetValue(did, out var cloud) ? cloud.DayKwh(day) : null;
 
     /// <summary>一台设备今天逐小时的平均功率（W）：能自己报瞬时功率的用本地采样，空调这类只有云端电量统计的用云端。</summary>
     private IEnumerable<(int Hour, double Watts)> DeviceHourly(MijiaDevice d, DateTime now)

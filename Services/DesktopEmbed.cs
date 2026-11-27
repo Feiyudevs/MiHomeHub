@@ -85,15 +85,16 @@ internal static class DesktopEmbed
                 | DesktopNative.SWP_NOOWNERZORDER);
     }
 
-    /// <summary>确保 WS_EX_NOACTIVATE 在位（Avalonia 合成时会重置 ExStyle）。</summary>
-    public static void EnsureNoActivate(nint hwnd)
+    /// <summary>确保 WS_EX_NOACTIVATE 在位（Avalonia 合成时会重置 ExStyle）。返回是否真的改过。</summary>
+    public static bool EnsureNoActivate(nint hwnd)
     {
-        if (hwnd == nint.Zero) return;
+        if (hwnd == nint.Zero) return false;
         var ex = (uint)DesktopNative.GetWindowLongPtr(hwnd, DesktopNative.GWL_EXSTYLE);
         var next = ex | DesktopNative.WS_EX_NOACTIVATE | DesktopNative.WS_EX_TOOLWINDOW;
         next &= ~DesktopNative.WS_EX_APPWINDOW;
-        if (next != ex)
-            DesktopNative.SetWindowLongPtr(hwnd, DesktopNative.GWL_EXSTYLE, (nint)next);
+        if (next == ex) return false;
+        DesktopNative.SetWindowLongPtr(hwnd, DesktopNative.GWL_EXSTYLE, (nint)next);
+        return true;
     }
 
     /// <summary>
@@ -119,12 +120,12 @@ internal static class DesktopEmbed
                 | DesktopNative.SWP_FRAMECHANGED | DesktopNative.SWP_NOSENDCHANGING);
     }
 
-    /// <summary>补回 WS_EX_TOPMOST（Avalonia 合成会重置 ExStyle，掉一次就被普通窗口盖住）。</summary>
-    public static void EnsureTopmost(nint hwnd)
+    /// <summary>补回 WS_EX_TOPMOST（Avalonia 合成会重置 ExStyle，掉一次就被普通窗口盖住）。返回是否真的改过。</summary>
+    public static bool EnsureTopmost(nint hwnd)
     {
-        if (hwnd == nint.Zero || !DesktopNative.IsWindow(hwnd)) return;
+        if (hwnd == nint.Zero || !DesktopNative.IsWindow(hwnd)) return false;
         var ex = (uint)DesktopNative.GetWindowLongPtr(hwnd, DesktopNative.GWL_EXSTYLE);
-        if ((ex & DesktopNative.WS_EX_TOPMOST) != 0) return;
+        if ((ex & DesktopNative.WS_EX_TOPMOST) != 0) return false;
         DesktopNative.SetWindowLongPtr(hwnd, DesktopNative.GWL_EXSTYLE,
             (nint)(ex | DesktopNative.WS_EX_TOPMOST | DesktopNative.WS_EX_NOACTIVATE
                        | DesktopNative.WS_EX_TOOLWINDOW));
@@ -132,6 +133,7 @@ internal static class DesktopEmbed
             DesktopNative.SetWindowPos(hwnd, DesktopNative.HWND_TOPMOST, 0, 0, 0, 0,
                 DesktopNative.SWP_NOSIZE | DesktopNative.SWP_NOMOVE | DesktopNative.SWP_NOACTIVATE
                 | DesktopNative.SWP_NOSENDCHANGING);
+        return true;
     }
 
     public static void StripNoRedirection(nint hwnd)
@@ -210,6 +212,27 @@ internal static class DesktopEmbed
         var corner = DesktopNative.DWMWCP_DONOTROUND;
         DesktopNative.DwmSetWindowAttribute(hwnd, DesktopNative.DWMWA_WINDOW_CORNER_PREFERENCE, ref corner, sizeof(int));
         SuppressSystemShadow(hwnd);
+    }
+
+    /// <summary>
+    /// 拖动 / 拉伸期间是否改用「降载」路径（摘掉磨砂与投影、宿主窗口原地不动，松手再补回来）。
+    ///
+    /// 桌面组件每跟手一帧都要把玻璃宿主 SetWindowPos 一次，而宿主带 HostBackdropBrush：
+    /// 每挪一次 DWM 就丢掉旧采样、重采背景并把高斯模糊 + 两层投影重跑一遍。Win11 的合成链路
+    /// 吃得下这份开销，Win10 上同样的链路就成了肉眼可见的发涩 / 掉帧（同为拖拽，普通窗口不带
+    /// 这层玻璃，所以「拖别的没事」）。这里只在 Win10（无 DWMWCP_ROUND 的那一代合成器）降载。
+    ///
+    /// 环境变量 <c>MIHOMEHUB_DRAG_LITE=1/0</c> 可强制开关：Win11 上复现、或在 Win10 上关掉验证对照。
+    /// </summary>
+    public static bool DragLite
+    {
+        get
+        {
+            var env = Environment.GetEnvironmentVariable("MIHOMEHUB_DRAG_LITE");
+            if (env is "1" or "true" or "on") return true;
+            if (env is "0" or "false" or "off") return false;
+            return !OperatingSystem.IsWindowsVersionAtLeast(10, 0, 22000);
+        }
     }
 
     /// <summary>

@@ -11,7 +11,8 @@ namespace MiHomeHub.Views;
 public partial class TrendCardDialogView : UserControl
 {
     private MainViewModel? _vm;
-    private TrendCardReorderDrag? _reorder;
+    private TrendCardReorderDrag? _bigReorder;
+    private TrendCardReorderDrag? _smallReorder;
 
     public TrendCardDialogView()
     {
@@ -26,7 +27,12 @@ public partial class TrendCardDialogView : UserControl
         if (vm == _vm) return;
 
         _vm = vm;
-        // 行集合与首页共用同一份 ViewModel 数据：拖动改的是集合顺序，提交时由 VM 落盘并通知首页
-        _reorder = vm is null ? null : new TrendCardReorderDrag(CardOptionsList, vm.TrendCardOptions, vm.CommitTrendCardOrder);
+        // 两列各挂一个拖动器：大卡、小卡的顺序互不干扰，拖哪一列只改那一列
+        _bigReorder = vm is null
+            ? null
+            : new TrendCardReorderDrag(BigCardOptionsList, vm.BigTrendCardOptions, vm.CommitTrendCardOrder);
+        _smallReorder = vm is null
+            ? null
+            : new TrendCardReorderDrag(SmallCardOptionsList, vm.SmallTrendCardOptions, vm.CommitTrendCardOrder);
     }
 }

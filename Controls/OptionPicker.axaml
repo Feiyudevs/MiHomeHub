@@ -222,6 +222,60 @@
         <Style Selector="Border.PickPanel.mini TextBlock.Meta">
             <Setter Property="FontSize" Value="9.5" />
         </Style>
+        <!-- ======== 玻璃档（Glass = True）：桌面组件上的下拉 ========
+             卡面是用户挑的彩色 / 渐变，深色不透明浮层像一块黑板、纯白实底又失去层次；
+             这一档走「墨色玻璃 + 白字」：胶囊和浮层都是半透明压深色，卡面颜色透得出来，
+             悬停 / 选中叠的是白色带透明度，文字与箭头一律近纯白 —— 压在任何颜色的卡面上都读得清。
+             这一套是固定的玻璃色，不跟卡片深浅主题来回翻。 -->
+        <Style Selector="Button.PickBtn.glass">
+            <Setter Property="Background" Value="#4D0F172A" />
+            <Setter Property="BorderBrush" Value="#40FFFFFF" />
+        </Style>
+        <Style Selector="Button.PickBtn.glass /template/ Border#Hov">
+            <Setter Property="Background" Value="#1FFFFFFF" />
+        </Style>
+        <Style Selector="Button.PickBtn.glass TextBlock.Cur">
+            <Setter Property="Foreground" Value="#F2FFFFFF" />
+        </Style>
+        <Style Selector="Button.PickBtn.glass Path#Chev">
+            <Setter Property="Stroke" Value="#C7D0DB" />
+        </Style>
+        <Style Selector="Button.PickBtn.glass:pointerover TextBlock.Cur, Button.PickBtn.glass.open TextBlock.Cur">
+            <Setter Property="Foreground" Value="#FFFFFFFF" />
+        </Style>
+        <Style Selector="Button.PickBtn.glass:pointerover Path#Chev, Button.PickBtn.glass.open Path#Chev">
+            <Setter Property="Stroke" Value="#FFFFFFFF" />
+        </Style>
+
+        <Style Selector="Border.PickPanel.glass">
+            <Setter Property="Background" Value="#B80F1422" />
+            <Setter Property="BorderBrush" Value="#40FFFFFF" />
+            <Setter Property="BoxShadow" Value="0 4 10 0 #33000000, 0 14 30 0 #4D000000" />
+        </Style>
+        <Style Selector="Border.PickPanel.glass TextBlock.Lbl">
+            <Setter Property="Foreground" Value="#E6FFFFFF" />
+        </Style>
+        <Style Selector="Border.PickPanel.glass TextBlock.Meta">
+            <Setter Property="Foreground" Value="#C7BCFF" />
+        </Style>
+        <Style Selector="Border.PickPanel.glass Button.PickItem:pointerover /template/ Border#Bd">
+            <Setter Property="Background" Value="#1FFFFFFF" />
+        </Style>
+        <Style Selector="Border.PickPanel.glass Button.PickItem:pointerover TextBlock">
+            <Setter Property="Foreground" Value="#FFFFFFFF" />
+        </Style>
+        <Style Selector="Border.PickPanel.glass Button.PickItem.is-on /template/ Border#Bd">
+            <Setter Property="Background" Value="#33FFFFFF" />
+        </Style>
+        <Style Selector="Border.PickPanel.glass Button.PickItem.is-on TextBlock">
+            <Setter Property="Foreground" Value="#FFFFFFFF" />
+        </Style>
+        <Style Selector="Border.PickPanel.glass Button.PickItem.is-on TextBlock.Lbl">
+            <Setter Property="FontWeight" Value="SemiBold" />
+        </Style>
+        <Style Selector="Border.PickPanel.glass Button.PickItem.is-on:pointerover /template/ Border#Bd">
+            <Setter Property="Background" Value="#33FFFFFF" />
+        </Style>
     </UserControl.Styles>
     <Grid>
         <Button Name="Trigger" Classes="PickBtn">

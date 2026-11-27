@@ -58,9 +58,9 @@ public partial class DesktopGroupPickVm : ObservableObject
         Groups.Clear();
         foreach (var g in DesktopHost.Layout.Groups)
         {
-            // 媒体 / 空调分区是专用卡面（音响播放 / 空调控制），没有设备清单，
+            // 媒体 / 空调 / 数据卡都是专用卡面（音响播放 / 空调控制 / 指标卡），没有设备清单，
             // 它们不接受设备，出现在这里只会让人以为能往里加
-            if (g.IsMedia || g.IsAc) continue;
+            if (g.IsMedia || g.IsAc || g.IsData) continue;
             Groups.Add(new GroupPickItem
             {
                 Id = g.Id,

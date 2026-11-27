@@ -100,16 +100,16 @@ public static class MijiaSpecService
         }
     }
 
-    /// <summary>解析 value-list 为可选段，优先用中文 comment，其次 description。</summary>
+    /// <summary>解析 value-list 为可选段，优先用中文 comment，其次 description（英文的按词表翻中文）。</summary>
     private static void FillOptions(JsonElement prop, List<AcOptionItem> into)
     {
         if (!prop.TryGetProperty("value-list", out var vl) || vl.ValueKind != JsonValueKind.Array) return;
         foreach (var item in vl.EnumerateArray())
         {
             var value = item.GetProperty("value").GetInt32();
-            var label = item.TryGetProperty("comment", out var c) && c.GetString() is { Length: > 0 } s ? s
-                : item.TryGetProperty("description", out var d) ? d.GetString() ?? $"档{value}"
-                : $"档{value}";
+            var raw = item.TryGetProperty("comment", out var c) && c.GetString() is { Length: > 0 } s ? s
+                : item.TryGetProperty("description", out var d) ? d.GetString() ?? "" : "";
+            var label = string.IsNullOrWhiteSpace(raw) ? $"档{value}" : SpecZh.LocalizeValue(raw);
             into.Add(new AcOptionItem { Value = value, Label = label });
         }
     }

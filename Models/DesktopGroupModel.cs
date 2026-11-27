@@ -34,13 +34,31 @@ public sealed class DesktopGroupModel
 
     public double Width { get; set; } = DefaultWidth;
 
+    /// <summary>
+    /// 卡片高度（DIP）。设备 / 媒体 / 空调分区由内容撑高，只有数据卡用这个字段；
+    /// 为了不改动老分区窗的 SizeToContent 逻辑，默认 0 = 不参与高度计算。
+    /// </summary>
+    public double Height { get; set; }
+
     public bool Collapsed { get; set; }
 
     /// <summary>置顶：脱离桌面层（不再跟随 Win+D），作为普通置顶窗浮在所有软件之上。</summary>
     public bool Topmost { get; set; }
 
-    /// <summary>分区内容形态：device = 设备宫格，media = 音响播放，ac = 空调控制卡。旧配置缺字段按设备分区处理。</summary>
+    /// <summary>
+    /// 数据卡是否在桌面上显示。关闭只把卡片收起来（保留位置与尺寸），
+    /// 需要彻底删除时从「移除数据卡」走，删掉这条配置。
+    /// </summary>
+    public bool Shown { get; set; } = true;
+
+    /// <summary>
+    /// 分区内容形态：device = 设备宫格，media = 音响播放，ac = 空调控制卡，
+    /// camera = 摄像头实时画面，data = 数据看板里的单张指标卡。旧配置缺字段按设备分区处理。
+    /// </summary>
     public string Kind { get; set; } = ZoneDevice;
+
+    /// <summary>数据卡的指标 key（temp/hum/power/.../co2）；只有 <see cref="IsData"/> 时有意义。</summary>
+    public string Metric { get; set; } = "";
 
     /// <summary>分区里的设备 did，顺序即显示顺序。</summary>
     public List<string> Dids { get; set; } = new();
@@ -54,9 +72,18 @@ public sealed class DesktopGroupModel
     [JsonIgnore]
     public bool IsAc => string.Equals(Kind, ZoneAc, StringComparison.Ordinal);
 
+    [JsonIgnore]
+    public bool IsData => string.Equals(Kind, ZoneData, StringComparison.Ordinal);
+
+    /// <summary>监控分区：一张 16:9 的实时画面 + 身份行，绑定设置里选中的那台摄像头。</summary>
+    [JsonIgnore]
+    public bool IsCamera => string.Equals(Kind, ZoneCamera, StringComparison.Ordinal);
+
     public const string ZoneDevice = "device";
     public const string ZoneMedia = "media";
     public const string ZoneAc = "ac";
+    public const string ZoneCamera = "camera";
+    public const string ZoneData = "data";
 }
 
 /// <summary>
@@ -119,11 +146,20 @@ public sealed class DesktopLayout
     /// <summary>空调分区被手动关闭过：为 true 时不再自动放回桌面，重新开启只走设置页开关。</summary>
     public bool AcHidden { get; set; }
 
+    /// <summary>
+    /// 监控分区默认关着：解一路 1080p 画面是实打实的开销，得用户自己在设置里打开才出现。
+    /// 打开后关掉分区会把这里置位，不再自动放回。
+    /// </summary>
+    public bool CameraHidden { get; set; } = true;
+
     /// <summary>媒体分区最后一次落位。为 null 表示从没摆过，重新打开时才挑默认空位。</summary>
     public ZoneSpot? MediaSpot { get; set; }
 
     /// <summary>空调分区最后一次落位。为 null 表示从没摆过，重新打开时才挑默认空位。</summary>
     public ZoneSpot? AcSpot { get; set; }
+
+    /// <summary>监控分区最后一次落位。为 null 表示从没摆过，重新打开时才挑默认空位。</summary>
+    public ZoneSpot? CameraSpot { get; set; }
 
     /// <summary>
     /// 外观迁移版本。滑杆语义每次变档（下限/上限重映射）都要 +1：

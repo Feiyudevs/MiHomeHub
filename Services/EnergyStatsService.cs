@@ -29,6 +29,19 @@ public sealed class DeviceEnergy
     /// <summary>按天的历史（含今天），日期升序；云端只给有记录的日子，没用的天不会出现。</summary>
     public List<(DateTime Date, double Kwh)> Days { get; } = new();
 
+    private Dictionary<DateTime, double>? _byDay;
+
+    /// <summary>某一天的统计值；这天没有记录返回 null。查得频繁，建一次索引就不再线性扫列表。</summary>
+    public double? DayKwh(DateTime day)
+    {
+        if (_byDay is null)
+        {
+            _byDay = new Dictionary<DateTime, double>(Days.Count);
+            foreach (var (date, kwh) in Days) _byDay[date.Date] = kwh;
+        }
+        return _byDay.TryGetValue(day.Date, out var value) ? value : null;
+    }
+
     /// <summary>今天有电可用（可能是 0）。</summary>
     public bool HasData { get; set; }
 

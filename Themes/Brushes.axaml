@@ -1,4 +1,4 @@
-<ResourceDictionary
+﻿<ResourceDictionary
     xmlns="https://github.com/avaloniaui"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:ani="clr-namespace:Avalonia.Animation.Easings;assembly=Avalonia.Base"
@@ -56,6 +56,16 @@
             <ResourceDictionary.ThemeDictionaries>
                 <ResourceDictionary x:Key="Dark">
                     <SolidColorBrush x:Key="BgBrush" Color="#07080C"/>
+                    <!-- ======== 摄像头实时画面：舞台与空态 ======== -->
+                    <SolidColorBrush x:Key="CamStageBrush" Color="#0B0B10"/>
+                    <SolidColorBrush x:Key="CamStageLineBrush" Color="#1AFFFFFF"/>
+                    <SolidColorBrush x:Key="CamPlayRingBrush" Color="#16FFFFFF"/>
+                    <SolidColorBrush x:Key="CamPlayLineBrush" Color="#2EFFFFFF"/>
+                    <SolidColorBrush x:Key="CamPlayRingHoverBrush" Color="#24FFFFFF"/>
+                    <SolidColorBrush x:Key="CamPlayLineHoverBrush" Color="#44FFFFFF"/>
+                    <SolidColorBrush x:Key="CamPlayGlyphBrush" Color="#EDEEF4"/>
+                    <SolidColorBrush x:Key="CamIdleTextBrush" Color="#8A8D9A"/>
+                    <SolidColorBrush x:Key="CamSpinTrackBrush" Color="#1FFFFFFF"/>
                     <SolidColorBrush x:Key="PanelBrush" Color="#0E1014"/>
                     <!-- 卡片：不另设色值，改用原卡色带一点透明度（82%），透出下层底色后
                          自然沉一档，也能吃到底下的色温；色相在中性灰与冷蓝灰之间取中 -->
@@ -78,6 +88,13 @@
                     <!-- 下拉触发器：比搜索框再轻一档，靠浮层投影而不是描边区分层次 -->
                     <SolidColorBrush x:Key="PickFillBrush" Color="#08FFFFFF"/>
                     <SolidColorBrush x:Key="PickLineBrush" Color="#0AFFFFFF"/>
+                    <!-- 输入框（TextBox）专用三档：底色只比卡片亮一丝（原来的 Surface4 5.9% 压上去发闷），
+                         静止描边比 LineBrush 亮一档，聚焦描边用高不透明度主色 —— AccentBrush 只有 47%，
+                         点在深色卡上会偏灰，看不出「已聚焦」 -->
+                    <SolidColorBrush x:Key="FieldBgBrush" Color="#07FFFFFF"/>
+                    <SolidColorBrush x:Key="FieldBgHoverBrush" Color="#0EFFFFFF"/>
+                    <SolidColorBrush x:Key="FieldLineBrush" Color="#1AFFFFFF"/>
+                    <SolidColorBrush x:Key="FieldLineFocusBrush" Color="#B884ECFF"/>
                     <SolidColorBrush x:Key="HoverBrush" Color="#272934"/>
                     <!-- 淡入起点：必须与 HoverBrush 同色、只把透明位拉满，配色改一处要改两处 -->
                     <SolidColorBrush x:Key="PlayHoverFromBrush" Color="#00272934"/>
@@ -103,11 +120,12 @@
                     <!-- 占位文字透明度：Fluent 模板会再乘一道 TextControlPlaceholderOpacity，默认那档带半透，
                          和上面带 alpha 的画笔一叠就变成「灰扑扑」。这里压成 1，只由画笔自己决定浓淡 -->
                     <x:Double x:Key="TextControlPlaceholderOpacity">1</x:Double>
-                    <!-- 桌面分区卡 / 半透明弹窗专用文字：底色是「透出墙纸的磨砂」，主窗口那套灰压上去读不清，
-                         这里统一往上提亮两档（主文字接近纯白，次级仍保持层次） -->
-                    <SolidColorBrush x:Key="DskTextBrush" Color="#F8FAFD"/>
-                    <SolidColorBrush x:Key="DskText2Brush" Color="#C9D1DF"/>
-                    <SolidColorBrush x:Key="DskText3Brush" Color="#A6AFC0"/>
+                    <!-- 桌面分区卡 / 半透明弹窗专用文字：桌面组件的底色常常是用户自己挑的彩色或渐变，
+                         掺了灰的蓝灰压上去会发闷、显脏；这里改成中性白直接带透明度，
+                         浓淡只由 alpha 分级（主文字纯白、次级 75%、三级 58%），换什么底色都不浑 -->
+                    <SolidColorBrush x:Key="DskTextBrush" Color="#FFFFFFFF"/>
+                    <SolidColorBrush x:Key="DskText2Brush" Color="#BFFFFFFF"/>
+                    <SolidColorBrush x:Key="DskText3Brush" Color="#94FFFFFF"/>
                     <!-- 滚动条胶囊：静止用 ScrollBarThumbFill，悬停/拖动由主题的 /template/ Border 规则取这两个画刷 -->
                     <SolidColorBrush x:Key="ScrollBarThumbFill" Color="#646C7E"/>
                     <SolidColorBrush x:Key="ScrollBarThumbFillPointerOver" Color="#99A1B3"/>
@@ -115,6 +133,14 @@
                     <SolidColorBrush x:Key="AccentBrush" Color="#7884ecff"/>
                     <SolidColorBrush x:Key="Accent2Brush" Color="#a69bdfff"/>
                     <Color x:Key="Accent2Color">#9bdfff</Color>
+                    <!-- 拖拽落点线（场景执行顺序 / 数据看板卡片）：主色横向渐变，两端透明收口，
+                         和侧栏拖拽落点线同一套收口比例——线只有 2.5px 高，硬端点会显得突兀 -->
+                    <LinearGradientBrush x:Key="Accent2FadeBrush" StartPoint="0%,50%" EndPoint="100%,50%">
+                        <GradientStop Color="#00A69BDF" Offset="0"/>
+                        <GradientStop Color="#A69BDF" Offset="0.16"/>
+                        <GradientStop Color="#A69BDF" Offset="0.84"/>
+                        <GradientStop Color="#00A69BDF" Offset="1"/>
+                    </LinearGradientBrush>
                     <!-- 侧栏拖拽落点线：主色横向渐变，两端透明收口（线细，硬端点会显得突兀） -->
                     <LinearGradientBrush x:Key="NavDropLineBrush" StartPoint="0%,50%" EndPoint="100%,50%">
                         <GradientStop Color="#0084ECFF" Offset="0"/>
@@ -382,6 +408,16 @@
                 </ResourceDictionary>
                 <ResourceDictionary x:Key="Light">
                     <SolidColorBrush x:Key="BgBrush" Color="#E6EAF1"/>
+                    <!-- ======== 摄像头实时画面：浅色下舞台改成浅灰蓝，不再是整块黑 ======== -->
+                    <SolidColorBrush x:Key="CamStageBrush" Color="#E7ECF4"/>
+                    <SolidColorBrush x:Key="CamStageLineBrush" Color="#140B1220"/>
+                    <SolidColorBrush x:Key="CamPlayRingBrush" Color="#FFFFFF"/>
+                    <SolidColorBrush x:Key="CamPlayLineBrush" Color="#1F0B1220"/>
+                    <SolidColorBrush x:Key="CamPlayRingHoverBrush" Color="#FDFEFF"/>
+                    <SolidColorBrush x:Key="CamPlayLineHoverBrush" Color="#380B1220"/>
+                    <SolidColorBrush x:Key="CamPlayGlyphBrush" Color="#39415A"/>
+                    <SolidColorBrush x:Key="CamIdleTextBrush" Color="#6B7385"/>
+                    <SolidColorBrush x:Key="CamSpinTrackBrush" Color="#140B1220"/>
                     <SolidColorBrush x:Key="PanelBrush" Color="#F7F9FC"/>
                     <SolidColorBrush x:Key="CardBrush" Color="#FFFFFF"/>
                     <SolidColorBrush x:Key="Card2Brush" Color="#F0F3F8"/>
@@ -400,6 +436,12 @@
                     <!-- 下拉触发器：底色 3%、边框 5%，比搜索框更轻，层次交给浮层投影 -->
                     <SolidColorBrush x:Key="PickFillBrush" Color="#080F172A"/>
                     <SolidColorBrush x:Key="PickLineBrush" Color="#0C0F172A"/>
+                    <!-- 输入框三档：浅色下底色同样压淡（比 Surface4 7% 更轻），描边略深一档；
+                         聚焦描边沿用主色本身（浅底上 100% 主色已经够亮，不需要再加不透明度） -->
+                    <SolidColorBrush x:Key="FieldBgBrush" Color="#0A0F172A"/>
+                    <SolidColorBrush x:Key="FieldBgHoverBrush" Color="#120F172A"/>
+                    <SolidColorBrush x:Key="FieldLineBrush" Color="#1A0F172A"/>
+                    <SolidColorBrush x:Key="FieldLineFocusBrush" Color="#8E83F0"/>
                     <SolidColorBrush x:Key="HoverBrush" Color="#E8EDF5"/>
                     <SolidColorBrush x:Key="PlayHoverFromBrush" Color="#00E8EDF5"/>
                     <SolidColorBrush x:Key="LineBrush" Color="#140F172A"/>
@@ -429,6 +471,13 @@
                     <SolidColorBrush x:Key="AccentBrush" Color="#8E83F0"/>
                     <SolidColorBrush x:Key="Accent2Brush" Color="#7E76E0"/>
                     <Color x:Key="Accent2Color">#7E76E0</Color>
+                    <!-- 拖拽落点线（场景执行顺序 / 数据看板卡片）：主色横向渐变，两端透明收口 -->
+                    <LinearGradientBrush x:Key="Accent2FadeBrush" StartPoint="0%,50%" EndPoint="100%,50%">
+                        <GradientStop Color="#007E76E0" Offset="0"/>
+                        <GradientStop Color="#7E76E0" Offset="0.16"/>
+                        <GradientStop Color="#7E76E0" Offset="0.84"/>
+                        <GradientStop Color="#007E76E0" Offset="1"/>
+                    </LinearGradientBrush>
                     <!-- 侧栏拖拽落点线：主色横向渐变，两端透明收口（线细，硬端点会显得突兀） -->
                     <LinearGradientBrush x:Key="NavDropLineBrush" StartPoint="0%,50%" EndPoint="100%,50%">
                         <GradientStop Color="#008E83F0" Offset="0"/>

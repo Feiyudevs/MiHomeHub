@@ -34,6 +34,8 @@ public partial class MainViewModel : ObservableObject
     [ObservableProperty] private bool _isLoginOpen;
     [ObservableProperty] private bool _isSettingsOpen;
     [ObservableProperty] private bool _isLogOpen;
+    /// <summary>关于页「赞赏支持」：收款码弹窗，叠在设置弹窗之上，打开时设置不关。</summary>
+    [ObservableProperty] private bool _isSupportOpen;
 
     [ObservableProperty] private bool _isLoggedIn;
     /// <summary>本地还留着 passToken，可一键登录、不必再扫码。</summary>

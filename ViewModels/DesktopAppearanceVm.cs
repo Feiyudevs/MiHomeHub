@@ -53,18 +53,21 @@ public partial class DesktopAppearanceVm : ObservableObject
     public System.Collections.ObjectModel.ObservableCollection<ColorSwatch> Presets { get; } = new();
 
     /// <summary>
-    /// 预设色最后的「自定义颜色」圆点：选了非常用色就显示这个颜色，
-    /// 没选 / 选了常用色则显示彩色渐变，提示这里能打开调色盘。
+    /// 预设色最后的「自定义颜色」圆点：取过调色盘里的颜色就显示这枚颜色，
+    /// 跟随主题或选的是常用色时仍显示多色渐变，提示这里能挑任意颜色。
     /// </summary>
     public IBrush CustomColorBrush
     {
         get
         {
-            var hex = ExpandHex(ColorHex);
-            if (hex is not null)
+            if (IsCustomColorSelected)
             {
-                try { return new SolidColorBrush(Color.Parse(hex)); }
-                catch { /* 坏值用渐变兜底 */ }
+                var hex = ExpandHex(ColorHex);
+                if (hex is not null)
+                {
+                    try { return new SolidColorBrush(Color.Parse(hex)); }
+                    catch { /* 坏值用渐变兜底 */ }
+                }
             }
             return CustomColorGradient;
         }

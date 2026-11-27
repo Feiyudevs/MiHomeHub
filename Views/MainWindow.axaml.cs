@@ -342,7 +342,6 @@ public partial class MainWindow : CustomWindow
 
     private IBrush? _resizePageMask;
     private bool _resizeLite;
-    private Size? _frozenContentSize;
 
     /// <summary>
     /// 拖边框改尺寸时整窗每帧都要重绘，先卸掉两处最贵的全窗特效：
@@ -374,33 +373,6 @@ public partial class MainWindow : CustomWindow
         }
         // 纯移动也会走到这里：拖动期间的分帧事件被跳过，松手后必须补记最终落位，否则下次启动回旧位置。
         QueueCaptureNormalBounds();
-    }
-
-    /// <summary>
-    /// 缩小时把内容钉在当时的尺寸（内容被裁，但不再每变 1px 就整页重排）；
-    /// 一旦拖大到超过进入尺寸就解冻，内容跟着重排，右侧 / 底部不会露出底色。
-    /// </summary>
-    protected override void OnResizeContentFreezeChanged(bool frozen)
-    {
-        if (frozen)
-        {
-            if (_frozenContentSize is not null) return;
-            var size = SurfaceContentHost.Bounds.Size;
-            if (size.Width <= 1 || size.Height <= 1) return;
-            _frozenContentSize = size;
-            SurfaceContentHost.HorizontalAlignment = Avalonia.Layout.HorizontalAlignment.Left;
-            SurfaceContentHost.VerticalAlignment = Avalonia.Layout.VerticalAlignment.Top;
-            SurfaceContentHost.Width = size.Width;
-            SurfaceContentHost.Height = size.Height;
-            return;
-        }
-
-        if (_frozenContentSize is null) return;
-        _frozenContentSize = null;
-        SurfaceContentHost.Width = double.NaN;
-        SurfaceContentHost.Height = double.NaN;
-        SurfaceContentHost.HorizontalAlignment = Avalonia.Layout.HorizontalAlignment.Stretch;
-        SurfaceContentHost.VerticalAlignment = Avalonia.Layout.VerticalAlignment.Stretch;
     }
 
     /// <summary>系统（Win+↑、贴边）发起的最大化同样会溢出屏幕，转成自己实现的铺满工作区。</summary>

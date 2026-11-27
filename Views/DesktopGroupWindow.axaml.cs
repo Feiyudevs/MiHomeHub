@@ -11,18 +11,18 @@ using Avalonia.Styling;
 using Avalonia.Threading;
 using MiHomeHub.Services;
 using MiHomeHub.ViewModels;
+using MiHomeHub.Widgets;
 
 namespace MiHomeHub.Views;
 
 /// <summary>
-/// 分区独立顶层小窗：贴桌面（owner=Progman）+ 压底 + NOACTIVATE + 窗口级亚克力。
+/// 分区独立顶层小窗：贴桌面（owner=Progman）+ 压底 + NOACTIVATE。
+/// 窗体外观完全复用数据卡那一套（<see cref="DesktopGlassFrame"/>：20px 大圆角、原生磨砂与投影，
+/// 原生玻璃不可用时回退 8px + 窗口级亚克力）。
 /// 位置/尺寸由 View 里的拖动与右缘拉伸改，落位后写回模型持久化。
 /// </summary>
-public partial class DesktopGroupWindow : Window
+public partial class DesktopGroupWindow : Window, IDesktopWindow
 {
-    /// <summary>卡片圆角（DIP）。必须与 DWM 圆角半径一致（8），否则角部会露出系统裁切的硬边。</summary>
-    public const int Corner = 8;
-
     /// <summary>
     /// 一行的推算高度（DIP）：设备卡 MinHeight 74 + 卡片外边距 8×2。
     /// 只在宫格还没布局过（空分区加第一台）时兜底，正常情况用实测的卡片高度。
@@ -33,6 +33,9 @@ public partial class DesktopGroupWindow : Window
     private const double ChromeDip = 46;
 
     private readonly DesktopZoneVm _vm;
+
+    /// <summary>和数据卡完全共用的窗体外观：20px 大圆角 + 原生磨砂 + 投影。</summary>
+    private readonly DesktopGlassFrame _frame;
 
     /// <summary>设备分区才有「加设备就加宽一列」那套推算，媒体分区走不到。</summary>
     private DesktopGroupVm? _group;
@@ -74,6 +77,9 @@ public partial class DesktopGroupWindow : Window
     public DesktopGroupWindow(DesktopZoneVm vm)
     {
         InitializeComponent();
+        // 和数据卡共用同一套窗体外观；先于尺寸赋值建好，尺寸回调里才能同步玻璃宿主
+        _frame = new DesktopGlassFrame(this, Root.CardSurface, () => Hwnd, "desktop-zone", OnOwnerRestored);
+
         _vm = vm;
         _group = vm as DesktopGroupVm;
         DataContext = vm;
@@ -91,6 +97,8 @@ public partial class DesktopGroupWindow : Window
     }
 
     public DesktopZoneVm ViewModel => _vm;
+
+    public Window Window => this;
 
     /// <summary>正在拖动 / 拉伸：此时禁止悬停自动展开与移出自动收起，对齐 Zonex 的交互保护。</summary>
     public bool IsManipulating => _dragging || _resizing;
@@ -197,6 +205,7 @@ public partial class DesktopGroupWindow : Window
         {
             Topmost = true;
             DesktopEmbed.KillSystemFrame(_hwnd);
+            _frame.EnsureHost();
             ApplyChrome();
             return;
         }
@@ -204,74 +213,76 @@ public partial class DesktopGroupWindow : Window
         // 必须先装：之后每一次坐标/尺寸写入都不准动 Z 序
         InstallWndProc();
 
-        // 贴桌面期间全程 cloak：改样式/打磨砂都会闪，用户看不到中间态
+        // 贴桌面期间全程 cloak：改样式/打磨砂都会闪，用户看不到中间态。
+        // 顺序和数据卡一致：先压底再摆玻璃宿主，解除 cloak 前把磨砂和首帧都准备好。
         DesktopEmbed.SetCloaked(_hwnd, true);
         try
         {
             DesktopEmbed.KillSystemFrame(_hwnd);
             DesktopEmbed.Attach(_hwnd);
+            _frame.EnsureHost();
             ApplyChrome();
+
+            DesktopEmbed.PinBottom(_hwnd);
+            if (_frame.UsesNativeGlass) _frame.SeatBehind();
+            DesktopEmbed.ForcePresent(_hwnd);
         }
         finally
         {
             DesktopEmbed.SetCloaked(_hwnd, false);
         }
 
-        DesktopEmbed.PinBottom(_hwnd);
-        DesktopEmbed.ForcePresent(_hwnd);
+        if (_frame.UsesNativeGlass)
+        {
+            _frame.PrimeForShow();
+            if (!_frame.Sync())
+            {
+                // 刚解除 cloak 时 DWM 属性可能还没同步，等到下一帧再复查一次
+                Dispatcher.UIThread.Post(() =>
+                {
+                    if (_frame.UsesNativeGlass && !_frame.Sync()) _frame.FallbackToAcrylic("attach-deferred");
+                }, DispatcherPriority.Render);
+            }
+            else
+            {
+                _frame.RepinBehindOwner();
+            }
+        }
+
         // 上次退出前钉住的分区：开机直接回到置顶态
         if (_vm.IsTopmost)
         {
             Topmost = true;
             DesktopEmbed.PinTop(_hwnd);
+            _frame.RepinBehindOwner();
         }
+
         StartGuard();
         StartMaterialSettle();
+    }
+
+    /// <summary>「显示桌面」还原后补一次层级与磨砂：DWM 会丢掉内容表面，宿主也要重新贴回卡下。</summary>
+    private void OnOwnerRestored()
+    {
+        var h = Hwnd;
+        if (h == nint.Zero || !IsVisible) return;
+        if (_vm.IsTopmost) DesktopEmbed.EnsureTopmost(h);
+        else DesktopEmbed.PinBottom(h);
+        _frame.RepinBehindOwner();
+        DesktopEmbed.ForcePresent(h);
     }
 
     private static readonly bool DebugMode =
         Environment.GetEnvironmentVariable("MIHOMEHUB_DESKTOP_DEBUG") == "1";
 
-    /// <summary>重打圆角 + 磨砂 + 桌面层级（外观变更、尺寸变化后调用）。</summary>
-    public void ApplyChrome()
-    {
-        var h = Hwnd;
-        if (h == nint.Zero) return;
-
-        DesktopEmbed.EnsureNoActivate(h);
-        DesktopEmbed.StripNoRedirection(h);
-
-        // 材质先打
-        var look = DesktopHost.Look;
-
-        // 底色是浅色（白色预设）时，整块分区切浅色主题：文字、图标、描边全部跟着主题资源走深色版，
-        // 否则白底上还是近白字，等于没有文字。切主题会让 DynamicResource 重新解析，换回来也自动还原。
-        var variant = DesktopPalette.IsLight(look) ? ThemeVariant.Light : ThemeVariant.Dark;
-        if (RequestedThemeVariant != variant) RequestedThemeVariant = variant;
-
-        if (look.Glass)
-            DesktopEmbed.ApplyAcrylic(h, DesktopPalette.TintColor(look), DesktopPalette.TintOpacity(look));
-        else
-            DesktopEmbed.ClearAcrylic(h);
-
-        // 形状最后打（改 NC/材质会重建合成 backdrop，先打会被冲掉）：
-        // 圆角必须交给 DWM —— 窗口级 ACCENT 磨砂是 DWM 铺满整个窗口矩形的，SetWindowRgn 只能裁
-        // Avalonia 的内容，裁不住那层模糊（实测 RGN 明明设上了，四角依旧方），
-        // 只有 DWM 的窗口形状会连磨砂一起收角。
-        // 代价是 DWM 会给圆角窗口补一层很淡的系统阴影（约 8px），比 thickframe 那套 20px 干净得多；
-        // NC 渲染/描边/边框仍在 SuppressSystemShadow 里关死，不留灰边。
-        DesktopEmbed.SuppressSystemShadow(h);
-        if (!DesktopEmbed.RoundByDwm(h))
-            DesktopEmbed.RoundCorners(h, Corner);   // Win10 无 DWMWCP_ROUND：回退 RGN（磨砂角部会方，accept）
-        else
-            DesktopEmbed.RoundCorners(h, 0);        // DWM 收角成功：Region 归零，避免双弧
-    }
+    /// <summary>重打圆角 + 磨砂 + 桌面层级（外观变更、尺寸变化后调用）。和数据卡共用同一套外观。</summary>
+    public void ApplyChrome() => _frame.ApplyChrome();
 
     /// <summary>
     /// 外观（背景浓度 / 毛玻璃 / 底色）改动后立即作用到这块分区：
     /// 1) 让 Avalonia 内容重画一帧 —— 底色是从 VM 换进来的画刷，必须真落到画面上；
-    /// 2) 清掉旧 ACCENT 再按新参数重打，DWM 才会重建模糊层；
-    /// 3) 把这一帧推出去等合成 —— 全程**不动窗口几何**，否则拖动时整块分区会跟着 1px 抖动。
+    /// 2) 让玻璃外壳按新参数重打磨砂 / 投影，再把这一帧推出去等合成；
+    /// 全程**不动窗口几何**，否则拖动时整块分区会跟着 1px 抖动。
     /// </summary>
     public void ReapplyAppearance()
     {
@@ -280,24 +291,23 @@ public partial class DesktopGroupWindow : Window
 
         var h = Hwnd;
         if (h == nint.Zero || !IsVisible || _dragging || _resizing) return;
-        DesktopEmbed.ClearAcrylic(h);
         ApplyChrome();
+        _frame.Sync();
         DesktopEmbed.NudgePresent(h);
         DesktopLog.Write($"[chrome] 重打磨砂 reason=appearance hwnd={h}");
     }
 
     /// <summary>
-    /// 重取一次磨砂材质：窗口级 ACCENT 的模糊是 DWM 按「窗口被 invalidate」取样的快照，
-    /// 开机那段时序里第一次取样时桌面还没合成完，材质就停在系统 fallback 的实心灰底上，
-    /// 之后壁纸画好了它也不会自己重取 —— 用户点一下能恢复，走的正是同一条重绘路径。
-    /// 重打 ACCENT + 1px 尺寸抖动 = 强制 DWM 重新取样。
+    /// 重取一次磨砂材质：原生宿主按「窗口被 invalidate」取样，
+    /// 开机那段时序里第一次取样时桌面还没合成完，材质会停在动画帧上，
+    /// 重打外壳 + 1px 尺寸抖动 = 强制重新取样。
     /// </summary>
     private void RefreshMaterial(string reason)
     {
         var h = Hwnd;
         if (h == nint.Zero || !IsVisible || _dragging || _resizing) return;
-        DesktopEmbed.ClearAcrylic(h);
         ApplyChrome();
+        _frame.Sync();
         DesktopEmbed.ForcePresent(h);
         DesktopLog.Write($"[chrome] 重打磨砂 reason={reason} hwnd={h}");
     }
@@ -339,11 +349,19 @@ public partial class DesktopGroupWindow : Window
                 return;
             }
             EnsureWndProc();
-            DesktopEmbed.EnsureNoActivate(h);
-            if (!_dragging && !_resizing)
+            // 只在 ExStyle 真被重置时补层级。无条件每 60ms 压一次底，
+            // 玻璃宿主会被反复挤到卡下面再重钉，DWM 每次都重采背景 —— 看起来就是背景连闪。
+            var exChanged = DesktopEmbed.EnsureNoActivate(h);
+            if (_vm.IsTopmost)
             {
-                if (_vm.IsTopmost) DesktopEmbed.EnsureTopmost(h);
-                else DesktopEmbed.PinBottom(h);
+                DesktopEmbed.EnsureTopmost(h);
+                if (exChanged) _frame.RepinBehindOwner();
+            }
+            else if (!_dragging && !_resizing && exChanged)
+            {
+                DesktopEmbed.PinBottom(h);
+                _frame.RepinBehindOwner();
+                if (_frame.UsesNativeGlass && !_frame.Sync()) _frame.FallbackToAcrylic("guard");
             }
 
             if (++_guardTicks < 24) return;
@@ -395,6 +413,15 @@ public partial class DesktopGroupWindow : Window
         if (uMsg == DesktopNative.WM_MOUSEACTIVATE)
             return new nint(DesktopNative.MA_NOACTIVATE);
 
+        // 系统 NC 一律不画：分区内容是 20px 大圆角，系统那层边框/标题会叠成双弧
+        if (uMsg == 0x0085 /* WM_NCPAINT */) return nint.Zero;
+        if (uMsg == 0x0086 /* WM_NCACTIVATE */) return (nint)1;
+
+        // Win+D 拒绝最小化：桌面组件不是普通应用窗口
+        if (uMsg == 0x0112 /* WM_SYSCOMMAND */
+            && ((int)wParam & 0xFFF0) == 0xF020 /* SC_MINIMIZE */)
+            return nint.Zero;
+
         // 桌面重合成（透明效果开关 / 分辨率或壁纸变化 / explorer 起停）会把窗口材质打回
         // 系统 fallback 的实心灰底，这几条广播就是「该重取磨砂了」的信号
         if (uMsg == DesktopNative.WM_DWMCOMPOSITIONCHANGED
@@ -407,37 +434,49 @@ public partial class DesktopGroupWindow : Window
         if (uMsg == DesktopNative.WM_DISPLAYCHANGE || uMsg == DesktopEmbed.ShellReadyMessage)
             Dispatcher.UIThread.Post(DisplayWatcher.Notify);
 
-        // 置顶态：Avalonia 的样式缓存里没有 WS_EX_TOPMOST（它写 ExStyle 是整份覆盖），
-        // 它写位置时又按普通窗口把整窗排回下面。这里每次位置写入都把插入位置改写回 topmost 带
-        // （系统会顺带补回 WS_EX_TOPMOST）—— 样式被谁覆盖都无所谓，下一次写位置自己就回顶层。
-        // 桌面态相反：补 SWP_NOZORDER | SWP_NOOWNERZORDER，坐标照改、层级不动。
-        if (uMsg == DesktopNative.WM_WINDOWPOSCHANGING && !DesktopEmbed.ZOrderChangeAllowed)
+        // 坐标照改、层级不动；玻璃宿主同帧跟住卡窗，避免拖动时糊影晚一帧
+        if (uMsg == DesktopNative.WM_WINDOWPOSCHANGING)
         {
-            var wp = Marshal.PtrToStructure<DesktopNative.WINDOWPOS>(lParam);
-            var changed = false;
-            if (_vm.IsTopmost)
+            _frame.FollowOwnerMove(lParam);
+            if (!DesktopEmbed.ZOrderChangeAllowed)
             {
-                if (wp.hwndInsertAfter != DesktopNative.HWND_TOPMOST)
+                var wp = Marshal.PtrToStructure<DesktopNative.WINDOWPOS>(lParam);
+                var changed = false;
+                if (_vm.IsTopmost)
                 {
-                    wp.hwndInsertAfter = DesktopNative.HWND_TOPMOST;
-                    changed = true;
+                    if (wp.hwndInsertAfter != DesktopNative.HWND_TOPMOST)
+                    {
+                        wp.hwndInsertAfter = DesktopNative.HWND_TOPMOST;
+                        changed = true;
+                    }
+                    if ((wp.flags & DesktopNative.SWP_NOZORDER) != 0)
+                    {
+                        wp.flags &= ~DesktopNative.SWP_NOZORDER;
+                        changed = true;
+                    }
                 }
-                if ((wp.flags & DesktopNative.SWP_NOZORDER) != 0)
+                else
                 {
-                    wp.flags &= ~DesktopNative.SWP_NOZORDER;
-                    changed = true;
+                    var flags = wp.flags | DesktopNative.SWP_NOZORDER | DesktopNative.SWP_NOOWNERZORDER;
+                    if (flags != wp.flags)
+                    {
+                        wp.flags = flags;
+                        changed = true;
+                    }
                 }
+                if (changed) Marshal.StructureToPtr(wp, lParam, false);
             }
-            else
+        }
+
+        // 宿主必须紧贴卡窗正下方：Avalonia 或系统重排后玻璃可能翻到内容上面
+        if (uMsg == DesktopNative.WM_WINDOWPOSCHANGED || uMsg == 0x0005 /* WM_SIZE */)
+        {
+            Dispatcher.UIThread.Post(() =>
             {
-                var flags = wp.flags | DesktopNative.SWP_NOZORDER | DesktopNative.SWP_NOOWNERZORDER;
-                if (flags != wp.flags)
-                {
-                    wp.flags = flags;
-                    changed = true;
-                }
-            }
-            if (changed) Marshal.StructureToPtr(wp, lParam, false);
+                if (_dragging || _resizing) return;
+                _frame.Sync();
+                _frame.RepinBehindOwner();
+            }, DispatcherPriority.Render);
         }
 
         return _originalWndProc != nint.Zero
@@ -473,6 +512,7 @@ public partial class DesktopGroupWindow : Window
         _settleTimer?.Stop();
         StopHeightAnimation();
         RestoreWndProc();
+        try { _frame.Dispose(); } catch { }
         if (_hwnd != nint.Zero) DesktopEmbed.ClearAcrylic(_hwnd);
     }
 
@@ -708,6 +748,13 @@ public partial class DesktopGroupWindow : Window
             DesktopEmbed.SetCloaked(h, false);
         }
 
+        if (_frame.UsesNativeGlass)
+        {
+            _frame.Sync();
+            _frame.PrimeForShow();
+            _frame.RepinBehindOwner();
+        }
+
         DesktopEmbed.ForcePresent(h);
         StartGuard();
     }
@@ -715,6 +762,7 @@ public partial class DesktopGroupWindow : Window
     protected override void OnSizeChanged(SizeChangedEventArgs e)
     {
         base.OnSizeChanged(e);
+        _frame.Sync();
         ScheduleChrome();
     }
 
@@ -742,6 +790,8 @@ public partial class DesktopGroupWindow : Window
         _dragging = true;
         _dragCursor = (p.X, p.Y);
         _dragOrigin = Position;
+        // Win10 上先摘掉磨砂/投影，拖动期间只有分区窗跟手（松手在 EndDrag 补回来）
+        _frame.BeginDragLite();
     }
 
     public void UpdateDrag()
@@ -755,6 +805,7 @@ public partial class DesktopGroupWindow : Window
     {
         if (!_dragging) return;
         _dragging = false;
+        _frame.EndDragLite();
         SavePosition();
     }
 
@@ -766,6 +817,7 @@ public partial class DesktopGroupWindow : Window
         _dragCursor = (p.X, p.Y);
         _resizeStartWidth = Width;
         _resizeStartX = Position.X;
+        _frame.BeginDragLite();
     }
 
     public void UpdateResize()
@@ -801,6 +853,8 @@ public partial class DesktopGroupWindow : Window
         if (!_resizing) return;
         _resizing = false;
         _vm.Width = Math.Round(Width);
+        _frame.EndDragLite();
+        ApplyChrome();
         SavePosition();
     }
 

@@ -19,6 +19,7 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using MiHomeHub.Models;
 using MiHomeHub.Services;
+using MiHomeHub.Services.CameraMedia;
 using QRCoder;
 
 namespace MiHomeHub.ViewModels;
@@ -34,6 +35,17 @@ public partial class MainViewModel : ObservableObject
     public ObservableCollection<OptionItem> DesktopAcOptions { get; } = new();
     [ObservableProperty] private object? _selectedDesktopAcValue;
     [ObservableProperty] private bool _hasDesktopAc;
+
+    /// <summary>桌面监控分区看的摄像头候选（did 作为 Value），与空调下拉同构。</summary>
+    public ObservableCollection<OptionItem> CameraOptions { get; } = new();
+    [ObservableProperty] private object? _selectedCameraValue;
+    [ObservableProperty] private bool _hasDesktopCamera;
+
+    /// <summary>
+    /// 摄像头多于一台时才给下拉：只有一台就没什么好选的，设置页那一行直接藏起来。
+    /// （三台以上也包括在内，多的那几台都靠这个下拉切换。）
+    /// </summary>
+    public bool ShowCameraPicker => CameraOptions.Count > 1;
 
     /// <summary>
     /// 托盘菜单是否需要媒体区（含加载占位）：设备表还没到、音箱未知时也要留出高度，
@@ -52,6 +64,15 @@ public partial class MainViewModel : ObservableObject
 
     /// <summary>桌面空调组件是否有可控制的设备（加载期由 SyncPending 兜底显示骨架）。</summary>
     public bool DesktopAcReady => DesktopAc != null;
+
+    /// <summary>桌面监控分区绑定的那台摄像头；did 失效或家里没摄像头时为 null。</summary>
+    public MijiaDevice? DesktopCamera =>
+        SelectedCameraValue is string did
+            ? _allDevices.FirstOrDefault(d => d.IsCamera && d.Did == did)
+            : null;
+
+    /// <summary>桌面监控分区是否有可看的摄像头（加载期由 SyncPending 兜底显示骨架）。</summary>
+    public bool DesktopCameraReady => DesktopCamera != null;
 
     partial void OnHasSpeakerChanged(bool value)
     {
@@ -127,7 +148,15 @@ public partial class MainViewModel : ObservableObject
         UpdateDesktopAcBinding();
     }
 
+    partial void OnSelectedCameraValueChanged(object? value)
+    {
+        if (_suppressCamSelect) return;
+        AppSettingsStore.SetCameraDid(value as string ?? "");
+        UpdateDesktopCameraBinding();
+    }
+
     private bool _suppressAcSelect;
+    private bool _suppressCamSelect;
 
     private MijiaDevice? DefaultSpeaker =>
         SelectedSpeakerValue is string did
@@ -162,6 +191,7 @@ public partial class MainViewModel : ObservableObject
 
         UpdateDefaultSpeakerName();
         RefreshDesktopAcs();
+        RefreshDesktopCameras();
         if (!HasSpeaker)
         {
             IsVoiceOpen = false;
@@ -203,6 +233,48 @@ public partial class MainViewModel : ObservableObject
     {
         OnPropertyChanged(nameof(DesktopAc));
         OnPropertyChanged(nameof(DesktopAcReady));
+    }
+
+    /// <summary>
+    /// 重建监控分区候选：优先保留上次选中的 did，没有则取第一台摄像头并落盘。
+    /// 顺手把这批摄像头先登记进内置画面源：一次就把所有流写进配置，
+    /// 之后无论桌面卡先播还是详情页先播，都不用为了补一条流重启画面源。
+    /// </summary>
+    private void RefreshDesktopCameras()
+    {
+        var cameras = OrderDevices(_allDevices.Where(d => d.IsCamera)).ToList();
+        HasDesktopCamera = cameras.Count > 0;
+        var wanted = AppSettingsStore.CameraDid;
+
+        _suppressCamSelect = true;
+        try
+        {
+            CameraOptions.Clear();
+            foreach (var c in cameras)
+                CameraOptions.Add(new OptionItem { Label = c.Name, Value = c.Did, Meta = SpeakerRoom(c) });
+
+            var pick = CameraOptions.FirstOrDefault(o => Equals(o.Value, wanted))
+                       ?? CameraOptions.FirstOrDefault();
+            SelectedCameraValue = pick?.Value;
+            foreach (var o in CameraOptions) o.IsSelected = o == pick;
+            if (pick != null && !Equals(pick.Value, wanted))
+                AppSettingsStore.SetCameraDid(pick.Value as string ?? "");
+        }
+        finally
+        {
+            _suppressCamSelect = false;
+        }
+
+        CameraGo2Rtc.Prime(cameras);
+        UpdateDesktopCameraBinding();
+        OnPropertyChanged(nameof(ShowCameraPicker));
+    }
+
+    /// <summary>候选/选中项变化后重推监控分区绑定面，让桌面卡换到新的那台摄像头。</summary>
+    private void UpdateDesktopCameraBinding()
+    {
+        OnPropertyChanged(nameof(DesktopCamera));
+        OnPropertyChanged(nameof(DesktopCameraReady));
     }
 
     /// <summary>音箱下拉里的房间标注：没归到房间就不显示，别占一列写「未分配房间」。</summary>

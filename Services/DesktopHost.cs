@@ -20,7 +20,7 @@ namespace MiHomeHub.Services;
 /// </summary>
 public static class DesktopHost
 {
-    private static readonly Dictionary<string, DesktopGroupWindow> Windows = new(StringComparer.Ordinal);
+    private static readonly Dictionary<string, IDesktopWindow> Windows = new(StringComparer.Ordinal);
     private static readonly List<DesktopZoneVm> Groups = new();
 
     private static DesktopLayout _layout = new();
@@ -43,6 +43,7 @@ public static class DesktopHost
     private static DesktopSpeakerPickWindow? _speakerPicker;
     private static DesktopRenameWindow? _rename;
     private static DesktopAcPickWindow? _acPicker;
+    private static CardMenuWindow? _cardMenu;
 
     public static DesktopLayout Layout => _layout;
 
@@ -59,6 +60,12 @@ public static class DesktopHost
     public static int GroupCount => Groups.Count;
 
     public static IReadOnlyList<DesktopZoneVm> GroupList => Groups;
+
+    /// <summary>
+    /// 桌面数据卡增删 / 显隐变化：设置页摘要和「数据看板」编辑弹窗据此把开关回写成当前状态。
+    /// 只在这些真正改变数据卡在不在桌面的入口触发，尺寸、位置、外观变化不发。
+    /// </summary>
+    public static event Action? DataCardStateChanged;
 
     /// <summary>设备列表变化（切家庭 / 刷新 / 缓存上屏）时通知分区重绑设备实例。</summary>
     public static void Initialize(MainViewModel main)
@@ -96,8 +103,10 @@ public static class DesktopHost
 
     /// <summary>按模型里的 Kind 造对应类型的分区视图模型。</summary>
     private static DesktopZoneVm CreateVm(MainViewModel main, DesktopGroupModel model)
-        => model.IsMedia ? new DesktopMediaVm(main, model)
+        => model.IsData ? new DataCardVm(main, model)
+        : model.IsMedia ? new DesktopMediaVm(main, model)
         : model.IsAc ? new DesktopAcVm(main, model)
+        : model.IsCamera ? new DesktopCameraVm(main, model)
         : new DesktopGroupVm(main, model);
 
     /// <summary>
@@ -143,9 +152,9 @@ public static class DesktopHost
         var model = _layout.Groups.FirstOrDefault(g => g.Id == groupId);
         if (model == null) return null;
 
-        // 媒体 / 空调分区是专用卡面（音响播放 / 空调控制），压根没有设备清单：
-        // 既不能往里塞设备，也不能按 id 给它们套一层设备分区视图模型
-        if (model.IsMedia || model.IsAc) return null;
+        // 媒体 / 空调 / 监控 / 数据卡都是专用卡面（音响播放 / 空调控制 / 实时画面 / 指标卡），
+        // 压根没有设备清单：既不能往里塞设备，也不能按 id 给它们套一层设备分区视图模型
+        if (model.IsMedia || model.IsAc || model.IsData || model.IsCamera) return null;
 
         // 分区窗可能还没建（总开关关着、或刚启动），补一个，保证用户点完立刻能看到结果
         var vm = Groups.OfType<DesktopGroupVm>().FirstOrDefault(g => g.Model.Id == groupId);
@@ -216,7 +225,7 @@ public static class DesktopHost
     {
         var scale = GroupScale(g.Id);
         var wDip = g.Width > 0 ? g.Width : BlankZoneGuessW;
-        var hDip = BlankZoneGuessH;
+        var hDip = g.Height > 1 ? g.Height : BlankZoneGuessH;
 
         if (Windows.TryGetValue(g.Id, out var win))
         {
@@ -287,14 +296,45 @@ public static class DesktopHost
     private static void OpenWindow(DesktopZoneVm vm)
     {
         if (Windows.ContainsKey(vm.Model.Id)) return;
-        var win = new DesktopGroupWindow(vm);
+
+        DesktopLog.Write($"[data-card] open begin id={vm.Model.Id} type={vm.GetType().Name} " +
+                         $"shown={vm.Model.Shown} x={vm.Model.X:0} y={vm.Model.Y:0} " +
+                         $"w={vm.Model.Width:0} h={vm.Model.Height:0}");
+
+        IDesktopWindow win;
+        try
+        {
+            win = vm is DataCardVm card
+                ? new DataCardWindow(card)
+                : new DesktopGroupWindow(vm);
+        }
+        catch (Exception ex)
+        {
+            DesktopLog.Write($"[data-card] 创建卡窗失败 id={vm.Model.Id}：{ex}");
+            _main?.AppendLog($"桌面数据卡创建失败：{ex.Message}");
+            return;
+        }
+
         Windows[vm.Model.Id] = win;
-        win.Closed += (_, _) =>
+        win.Window.Closed += (_, _) =>
         {
             if (Windows.TryGetValue(vm.Model.Id, out var cur) && ReferenceEquals(cur, win))
                 Windows.Remove(vm.Model.Id);
         };
-        win.Show();
+
+        try
+        {
+            win.Window.Show();
+            DesktopLog.Write($"[data-card] open ok id={vm.Model.Id} hwnd=0x{win.Handle:X}");
+        }
+        catch (Exception ex)
+        {
+            DesktopLog.Write($"[data-card] 显示卡窗失败 id={vm.Model.Id}：{ex}");
+            _main?.AppendLog($"桌面数据卡显示失败：{ex.Message}");
+            Windows.Remove(vm.Model.Id);
+            try { win.Close(); } catch { }
+            return;
+        }
 
         // 新建的分区、以及没有签名记录的老数据：把眼下这块屏记成它的家。
         // 借用别的屏期间（IsExiled）不记，否则临时落点会被当成家，屏回来也就不回去了。
@@ -318,6 +358,10 @@ public static class DesktopHost
         {
             if (model.IsMedia && _layout.MediaHidden) continue;
             if (model.IsAc && _layout.AcHidden) continue;
+            // 监控分区默认关着，只有用户在设置里打开过才上桌面
+            if (model.IsCamera && _layout.CameraHidden) continue;
+            // 数据卡关闭只收起窗口、保留配置；下次启动也不该自己冒出来
+            if (model.IsData && !model.Shown) continue;
             if (Groups.Any(g => g.Model.Id == model.Id)) continue;
             var vm = CreateVm(_main, model);
             Groups.Add(vm);
@@ -336,7 +380,9 @@ public static class DesktopHost
         {
             if (vm is DesktopMediaVm media) media.Detach();
             if (vm is DesktopAcVm ac) ac.Detach();
+            if (vm is DesktopCameraVm camera) camera.Detach();
             if (vm is DesktopGroupVm group) group.Detach();
+            if (vm is DataCardVm card) card.Detach();
             CloseGroupDialogs(vm);
         }
         Groups.Clear();
@@ -410,6 +456,9 @@ public static class DesktopHost
     /// <summary>桌面上分区增减后回调主视图模型：后台降频轮询要不要继续由它重新判定。</summary>
     private static void NotifyGroupsChanged() => _main?.RecheckBackgroundPolling();
 
+    /// <summary>桌面数据卡状态变化：设置页摘要与编辑弹窗据此刷新自己的开关。</summary>
+    private static void NotifyDataCardStateChanged() => DataCardStateChanged?.Invoke();
+
     public static void RemoveGroup(DesktopZoneVm vm)
     {
         _layout.Groups.RemoveAll(g => g.Id == vm.Model.Id);
@@ -420,7 +469,9 @@ public static class DesktopHost
         }
         if (vm is DesktopMediaVm media) media.Detach();
         if (vm is DesktopAcVm ac) ac.Detach();
+        if (vm is DesktopCameraVm camera) camera.Detach();
         if (vm is DesktopGroupVm group) group.Detach();
+        if (vm is DataCardVm card) card.Detach();
         // 这个分区开着的弹窗一起收掉，避免对着已解散的分区操作
         CloseGroupDialogs(vm);
         NotifyGroupsChanged();
@@ -627,6 +678,369 @@ public static class DesktopHost
         return vm;
     }
 
+    // ================= 监控分区 =================
+
+    /// <summary>监控分区重新出现时的模型：规则同媒体分区，上次在哪儿就在哪儿。</summary>
+    private static DesktopGroupModel RestoredCameraModel()
+    {
+        var spot = _layout.CameraSpot;
+        if (spot == null) return NewCameraModel();
+        return new DesktopGroupModel
+        {
+            Kind = DesktopGroupModel.ZoneCamera,
+            Name = "监控",
+            X = spot.X,
+            Y = spot.Y,
+            Width = SpotWidth(spot.Width),
+            ScreenSig = spot.ScreenSig ?? "",
+        };
+    }
+
+    /// <summary>监控分区第一次出现：跟媒体分区同列，从这列顶端往下找第一块没被占的位置。</summary>
+    private static DesktopGroupModel NewCameraModel()
+    {
+        const double width = 320;
+        const double height = 250;
+        const double margin = 24;
+        var media = _layout.Groups.FirstOrDefault(g => g.IsMedia);
+        var (vx, vy, vw, vh) = DesktopEmbed.VirtualScreen();
+        var x = media?.X ?? (vx + vw - width - margin);
+        var y = vy + margin;
+        for (var i = 0; i < 8 && y + height < vy + vh; i++)
+        {
+            if (IsFreeSpot(x, y, width, height)) break;
+            y += height + 12;
+        }
+        return new DesktopGroupModel
+        {
+            Kind = DesktopGroupModel.ZoneCamera,
+            Name = "监控",
+            Width = width,
+            X = Math.Round(x),
+            Y = Math.Round(y),
+        };
+    }
+
+    /// <summary>
+    /// 这块矩形有没有压到已经摆出来的分区。窗口已开就按真实窗口尺寸算
+    /// （设备分区高度是内容撑出来的，模型里的 Height 对它们是 0），没开就用模型兜底。
+    /// </summary>
+    private static bool IsFreeSpot(double x, double y, double width, double height)
+    {
+        foreach (var g in Groups)
+        {
+            var w = g.Model.Width;
+            var h = g.Model.Height;
+            if (Windows.TryGetValue(g.Model.Id, out var win))
+            {
+                if (win.Width > 0) w = win.Width;
+                if (win.Height > 0) h = win.Height;
+            }
+            if (h <= 0) h = 200;
+            if (x < g.Model.X + w && x + width > g.Model.X &&
+                y < g.Model.Y + h && y + height > g.Model.Y)
+                return false;
+        }
+        // 模型里还留着但窗口没开的（例如总开关忙着重建），按模型位置也算占用，免得叠上去
+        foreach (var m in _layout.Groups)
+        {
+            if (Groups.Any(g => g.Model.Id == m.Id)) continue;
+            var h = m.Height > 0 ? m.Height : 200;
+            if (x < m.X + m.Width && x + width > m.X && y < m.Y + h && y + height > m.Y)
+                return false;
+        }
+        return true;
+    }
+
+    /// <summary>桌面菜单里的「关闭监控分区」：收掉窗口并停流，记住不再自动放回。</summary>
+    public static void HideCamera()
+    {
+        // 模型随关闭被移出清单，眼下在哪儿得先单独记一份：重新打开时回原位
+        CaptureZoneSpots();
+        _layout.CameraHidden = true;
+        var vm = Groups.FirstOrDefault(g => g.IsCamera);
+        if (vm != null) RemoveGroup(vm);
+        else
+        {
+            // 总开关关着时 VM 已被清空，但模型还留在配置里：一并删掉，
+            // 否则下次启动 ShowAll 会把这块分区复活，设置开关却显示「关」
+            _layout.Groups.RemoveAll(g => g.IsCamera);
+            Save();
+        }
+    }
+
+    /// <summary>设置页重新打开监控分区。</summary>
+    public static DesktopCameraVm? ShowCamera()
+    {
+        if (_main == null) return null;
+        var existing = Groups.FirstOrDefault(g => g.IsCamera);
+        if (existing != null)
+        {
+            OpenWindow(existing);
+            return existing as DesktopCameraVm;
+        }
+        var model = _layout.Groups.FirstOrDefault(g => g.IsCamera) ?? RestoredCameraModel();
+        if (!_layout.Groups.Contains(model)) _layout.Groups.Add(model);
+        _layout.CameraHidden = false;
+        Save();
+        var vm = new DesktopCameraVm(_main, model);
+        Groups.Add(vm);
+        OpenWindow(vm);
+        return vm;
+    }
+
+    // ================= 数据卡 =================
+
+    /// <summary>数据卡指标清单（设置页按这个顺序铺「添加」按钮）。</summary>
+    public static IReadOnlyList<DataCardDef> DataCards => DataCardCatalog.All;
+
+    /// <summary>某个指标的数据卡当前在不在桌面上（配置存在且 Shown=true）。</summary>
+    public static bool IsDataCardShown(string key)
+    {
+        var model = _layout.Groups.FirstOrDefault(g => g.IsData && g.Metric == key);
+        return model is { Shown: true };
+    }
+
+    public static DataCardVm? FindDataCard(string key)
+        => Groups.OfType<DataCardVm>().FirstOrDefault(vm => vm.MetricKey == key);
+
+    /// <summary>
+    /// 添加 / 重新显示一张数据卡。同一个指标 v1 只保留一张：已有配置就把它重新亮出来，
+    /// 不另建一张叠在上面。第一次添加时按「右列自上而下、避开所有分区」挑一个空位。
+    /// </summary>
+    public static DataCardVm? AddDataCard(string key)
+    {
+        if (_main == null) return null;
+        var def = DataCardCatalog.Find(key);
+        if (def is null) return null;
+
+        var model = _layout.Groups.FirstOrDefault(g => g.IsData && g.Metric == key);
+        if (model is null)
+        {
+            var (x, y) = NextCardSpot(def);
+            model = new DesktopGroupModel
+            {
+                Kind = DesktopGroupModel.ZoneData,
+                Name = def.Title,
+                Metric = key,
+                Width = def.DefaultWidth,
+                Height = def.DefaultHeight,
+                X = Math.Round(x),
+                Y = Math.Round(y),
+            };
+            _layout.Groups.Add(model);
+            Save();
+        }
+        else
+        {
+            model.Shown = true;
+            model.Width = model.Width > 1 ? model.Width : def.DefaultWidth;
+            model.Height = model.Height > 1 ? model.Height : def.DefaultHeight;
+            Save();
+        }
+
+        var vm = Groups.OfType<DataCardVm>().FirstOrDefault(v => v.Model.Id == model.Id);
+        if (vm is null)
+        {
+            try
+            {
+                vm = new DataCardVm(_main, model);
+            }
+            catch (Exception ex)
+            {
+                DesktopLog.Write($"[data-card] 创建 VM 失败 key={key}：{ex}");
+                _main.AppendLog($"桌面数据卡创建失败：{ex.Message}");
+                return null;
+            }
+            Groups.Add(vm);
+        }
+        else
+        {
+            vm.Refresh();
+        }
+
+        EnsureEnabled();
+        OpenWindow(vm);
+        _main.AppendLog($"桌面数据卡「{def.Title}」已显示");
+        NotifyDataCardStateChanged();
+        return vm;
+    }
+
+    /// <summary>设置页开关 / 右键「关闭卡片」：只收起窗口，位置尺寸都保留，下次原样回来。</summary>
+    public static void CloseDataCard(DataCardVm vm)
+    {
+        vm.Model.Shown = false;
+        if (Windows.Remove(vm.Model.Id, out var win))
+        {
+            try { win.Close(); } catch { }
+        }
+        Groups.Remove(vm);
+        vm.Detach();
+        CloseGroupDialogs(vm);
+        NotifyGroupsChanged();
+        Save();
+        _main?.AppendLog($"桌面数据卡「{vm.Definition.Title}」已收起");
+        NotifyDataCardStateChanged();
+    }
+
+    /// <summary>设置页开关：true = 重新显示（没有就新建），false = 收起。</summary>
+    public static void SetDataCardShown(string key, bool on)
+    {
+        if (on)
+        {
+            AddDataCard(key);
+            return;
+        }
+
+        var vm = Groups.OfType<DataCardVm>().FirstOrDefault(v => v.MetricKey == key);
+        if (vm != null)
+        {
+            CloseDataCard(vm);
+            return;
+        }
+
+        // 总开关关着时 VM 已被清空，但配置还留着：把 Shown 改掉，下次启动不再复活
+        var model = _layout.Groups.FirstOrDefault(g => g.IsData && g.Metric == key);
+        if (model is { Shown: true })
+        {
+            model.Shown = false;
+            Save();
+            NotifyDataCardStateChanged();
+        }
+    }
+
+    /// <summary>「移除数据卡」：删掉配置，下次不会再出现；与关闭（保留配置）区分。</summary>
+    public static void RemoveDataCard(DataCardVm vm)
+    {
+        RemoveGroup(vm);
+        NotifyDataCardStateChanged();
+    }
+
+    /// <summary>卡窗右键菜单里的「重置大小」：回到该指标的默认档（大卡 400×200，小卡 200×100）。</summary>
+    public static void ResetDataCardSize(DataCardVm vm)
+    {
+        vm.Width = vm.Definition.DefaultWidth;
+        vm.Height = vm.Definition.DefaultHeight;
+        Save();
+    }
+
+    /// <summary>右键菜单直接把卡片切到大 / 小档；尺寸变化由卡窗自己同步到窗口。</summary>
+    public static void SetDataCardSize(DataCardVm vm, bool compact)
+    {
+        vm.Width = compact ? 200 : 400;
+        vm.Height = compact ? 100 : 200;
+        Save();
+    }
+
+    /// <summary>数据卡右键菜单：贴右下角弹出，再点一次同一个卡片就收起。</summary>
+    public static void OpenCardMenu(DataCardVm vm, PixelRect anchor)
+    {
+        if (_cardMenu is { IsVisible: true } open && ReferenceEquals(open.Target, vm))
+        {
+            open.Close();
+            return;
+        }
+
+        _cardMenu?.Close();
+
+        var menu = new CardMenuWindow();
+        _cardMenu = menu;
+        menu.Closed += (_, _) =>
+        {
+            if (ReferenceEquals(_cardMenu, menu)) _cardMenu = null;
+        };
+        menu.Bind(vm, anchor);
+        menu.Show();
+    }
+
+    /// <summary>
+    /// 新数据卡的默认落点：优先落在本程序桌面窗口最多的那块屏上——用户把组件都摆在哪块屏，
+    /// 新卡就跟着放哪块，而不是永远回主屏；在那块屏右侧一列自上而下找空位。
+    /// </summary>
+    private static (double X, double Y) NextCardSpot(DataCardDef def)
+    {
+        const double margin = 24;
+        var monitor = BusiestMonitor();
+        var area = monitor?.WorkArea ?? new PixelRect(0, 0, 1920, 1080);
+        var scale = monitor?.Scaling ?? 1;
+        var w = def.DefaultWidth * scale;
+        var h = def.DefaultHeight * scale;
+        var gap = GroupGapDip * scale;
+        var x = area.Right - w - margin;
+
+        for (var y = area.Y + margin; y + h <= area.Bottom - margin; y += h + gap)
+        {
+            if (IsSpotFree(x, y, w, h, gap)) return (x / scale, y / scale);
+        }
+
+        return NearestFreeSpotOfSize(w, h, (area.Right - w, area.Y + margin), scale, area);
+    }
+
+    /// <summary>
+    /// 本程序桌面窗口最多的那块屏：按每个窗口的中心落在哪块屏统计。分区、数据卡、媒体、空调、
+    /// 监控都算——用户把组件堆在哪块屏，新卡就跟着去哪儿。一块都数不到时回主屏。
+    /// </summary>
+    private static MonitorInfo? BusiestMonitor()
+    {
+        var monitors = MonitorLayout.All();
+        if (monitors.Count == 0) return MonitorLayout.Fallback();
+
+        var counts = new int[monitors.Count];
+        foreach (var win in Windows.Values)
+        {
+            var h = win.Handle;
+            if (h == nint.Zero || !DesktopNative.GetWindowRect(h, out var rect)) continue;
+            var center = new PixelPoint((rect.Left + rect.Right) / 2, (rect.Top + rect.Bottom) / 2);
+            for (var i = 0; i < monitors.Count; i++)
+            {
+                if (!monitors[i].Bounds.Contains(center)) continue;
+                counts[i]++;
+                break;
+            }
+        }
+
+        var best = -1;
+        for (var i = 0; i < monitors.Count; i++)
+        {
+            if (counts[i] == 0) continue;
+            // 两块屏一样多时认主屏：更符合「默认落在常用的那块」
+            if (best < 0 || counts[i] > counts[best]
+                || (counts[i] == counts[best] && monitors[i].IsPrimary)) best = i;
+        }
+        return best >= 0 ? monitors[best] : MonitorLayout.Fallback();
+    }
+
+    /// <summary>在指定屏的工作区里找离参考点最近、且不与任何分区相交的落点（返回 DIP 坐标）。</summary>
+    private static (double X, double Y) NearestFreeSpotOfSize(
+        double wPx, double hPx, (double X, double Y) fromPx, double scale, PixelRect area)
+    {
+        const double margin = 24;
+        var gap = GroupGapDip * scale;
+
+        var found = false;
+        double bestD = double.MaxValue, bestX = area.X + margin, bestY = area.Y + margin;
+
+        for (var y = area.Y + margin; y + hPx <= area.Bottom - margin; y += SpotStepPx)
+        {
+            for (var x = area.X + margin; x + wPx <= area.Right - margin; x += SpotStepPx)
+            {
+                if (!IsSpotFree(x, y, wPx, hPx, gap)) continue;
+
+                var d = Math.Abs(x - fromPx.X) + Math.Abs(y - fromPx.Y);
+                if (d >= bestD) continue;
+
+                bestD = d;
+                bestX = x;
+                bestY = y;
+                found = true;
+            }
+        }
+
+        var px = found ? bestX : area.X + margin;
+        var py = found ? bestY : area.Y + margin;
+        return (px / scale, py / scale);
+    }
+
     public static void Save()
     {
         // 每次落盘顺手刷新媒体 / 空调分区的「上次落位」：等它们被关掉时模型已不在清单里，
@@ -642,6 +1056,7 @@ public static class DesktopHost
         {
             if (g.IsMedia) _layout.MediaSpot = ZoneSpot.From(g);
             else if (g.IsAc) _layout.AcSpot = ZoneSpot.From(g);
+            else if (g.IsCamera) _layout.CameraSpot = ZoneSpot.From(g);
         }
     }
 
@@ -686,7 +1101,8 @@ public static class DesktopHost
     /// </summary>
     private static (double X, double Y) NextGroupSpot()
     {
-        var anchor = _layout.Groups.LastOrDefault(g => !g.IsMedia)
+        var anchor = _layout.Groups.LastOrDefault(g => !g.IsMedia && !g.IsData)
+                     ?? _layout.Groups.LastOrDefault(g => !g.IsData)
                      ?? _layout.Groups.LastOrDefault();
         return anchor != null ? NextSpotNear(anchor) : PrimaryRightColumnSpot();
     }
@@ -803,7 +1219,7 @@ public static class DesktopHost
 
         Window? anchor = null;
         if (source != null && Windows.TryGetValue(source.Model.Id, out var groupWin))
-            anchor = groupWin;
+            anchor = groupWin.Window;
 
         _deviceWindow.ShowFor(anchor);
     }
@@ -956,6 +1372,7 @@ public static class DesktopHost
         if (_speakerPicker is { IsVisible: true } s && ReferenceEquals(s.Target, vm)) s.Close();
         if (_acPicker is { IsVisible: true } a && ReferenceEquals(a.Target, vm)) a.Close();
         if (_rename is { IsVisible: true } r && ReferenceEquals(r.Target, vm)) r.Close();
+        if (_cardMenu is { IsVisible: true } c && ReferenceEquals(c.Target, vm)) c.Close();
     }
 
     /// <summary>切换主题后，分区底色要跟着主题卡片色重算。</summary>

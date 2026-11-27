@@ -247,7 +247,7 @@
                                            HorizontalAlignment="Right" />
                             </StackPanel>
                         </Grid>
-                        <Panel Grid.Row="2" MinHeight="72" Margin="0,8,0,0">
+                        <Panel Grid.Row="2" MinHeight="48" Margin="0,8,0,0">
                             <ctl:TrendChart Values="{Binding TempTrendSeries}"
                                             Stroke="{DynamicResource TrendTempBrush}"
                                             Fill="{DynamicResource TrendTempFill}"
@@ -307,7 +307,7 @@
                                            HorizontalAlignment="Right" />
                             </StackPanel>
                         </Grid>
-                        <Panel Grid.Row="2" MinHeight="72" Margin="0,8,0,0">
+                        <Panel Grid.Row="2" MinHeight="48" Margin="0,8,0,0">
                             <ctl:TrendChart Values="{Binding HumTrendSeries}"
                                             Stroke="{DynamicResource TrendHumBrush}"
                                             Fill="{DynamicResource TrendHumFill}"
@@ -376,7 +376,7 @@
                                            IsVisible="{Binding ShowPowerChart}" />
                             </StackPanel>
                         </Grid>
-                        <Panel Grid.Row="2" MinHeight="72" Margin="0,8,0,0">
+                        <Panel Grid.Row="2" MinHeight="48" Margin="0,8,0,0">
                             <ctl:TrendChart Values="{Binding PowerTrendSeries}" IsBars="{Binding PowerIsBars}"
                                             IsDailyBars="{Binding PowerIsDailyBars}"
                                             HighlightIndex="{Binding PowerTrendFocus}"
@@ -446,7 +446,8 @@
                                            IsVisible="{Binding ShowWaterChart}" />
                             </StackPanel>
                         </Grid>
-                        <Panel Grid.Row="2" MinHeight="72" Margin="0,8,0,0">
+                        <!-- 用水常年是曲线（今日逐小时 / 多天逐日），72 的高度画平滑曲线又薄又矮，单独加高到 100 -->
+                        <Panel Grid.Row="2" MinHeight="48" Margin="0,8,0,0">
                             <ctl:TrendChart Values="{Binding WaterTrendSeries}" IsBars="{Binding WaterIsBars}"
                                             IsDailyBars="{Binding WaterIsDailyBars}"
                                             TimeStepMinutes="60"
@@ -517,7 +518,8 @@
                                            IsVisible="{Binding ShowGasChart}" />
                             </StackPanel>
                         </Grid>
-                        <Panel Grid.Row="2" MinHeight="72" Margin="0,8,0,0">
+                        <!-- 用气切到半年是曲线，和用水卡一样把曲线区加高，柱状时也跟着高一档，两张卡始终等高 -->
+                        <Panel Grid.Row="2" MinHeight="48" Margin="0,8,0,0">
                             <ctl:TrendChart Values="{Binding GasTrendSeries}" IsBars="{Binding GasIsBars}"
                                             IsDailyBars="{Binding GasIsDailyBars}"
                                             Baseline="{Binding GasTrendBaseline}"
@@ -583,7 +585,7 @@
                                            IsVisible="{Binding ShowWaterQualityChart}" />
                             </StackPanel>
                         </Grid>
-                        <Panel Grid.Row="2" MinHeight="72" Margin="0,8,0,0">
+                        <Panel Grid.Row="2" MinHeight="48" Margin="0,8,0,0">
                             <ctl:TrendChart Values="{Binding WaterQualitySeries}"
                                             Stroke="{DynamicResource TrendQualityBrush}"
                                             Fill="{DynamicResource TrendQualityFill}"
@@ -652,8 +654,10 @@
                                            IsVisible="{Binding ShowScaleChart}" />
                             </StackPanel>
                         </Grid>
-                        <Panel Grid.Row="2" MinHeight="72" Margin="0,8,0,0">
+                        <Panel Grid.Row="2" MinHeight="48" Margin="0,8,0,0">
                             <ctl:TrendChart Values="{Binding ScaleTrendSeries}"
+                                            Lows="{Binding ScaleTrendLows}"
+                                            Highs="{Binding ScaleTrendHighs}"
                                             XLabels="{Binding ScaleTrendLabels}"
                                             IsDots="True"
                                             ShowBand="True"
@@ -1113,7 +1117,7 @@
         </DockPanel>
         <!-- 空气小卡：PM2.5 / PM10 / 甲醛 / TVOC / 二氧化碳，一项一枚，紧挨在大趋势卡下面一行。
              卡的显隐与拖动顺序跟大卡共用一套 key（编辑弹窗里一起排），关掉的卡整枚让位 -->
-        <ctl:TrendCardPanel MinItemWidth="180" Spacing="0" MaxColumns="6"
+        <ctl:TrendCardPanel MinItemWidth="180" Spacing="0" MaxColumns="6" FillLastRowMinItems="4" MaxItemWidth="260"
                             Order="{Binding TrendCardOrder}" SkipInvisible="True"
                             IsVisible="{Binding ShowAirRow}">
             <ContentControl Content="{Binding AirPm25}" ContentTemplate="{StaticResource AirMiniCardTemplate}"

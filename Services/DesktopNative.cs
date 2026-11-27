@@ -268,6 +268,7 @@ internal static class DesktopNative
     public const int WM_LBUTTONDBLCLK = 0x0203;
     public const int SM_CXDOUBLECLK = 36;
     public const int SM_CYDOUBLECLK = 37;
+    public const uint GA_PARENT = 1;
     public const uint GA_ROOT = 2;
 
     public const uint LVM_HITTEST = 0x1000 + 18;
@@ -298,6 +299,9 @@ internal static class DesktopNative
         public POINT pt;
         public uint flags;
         public int iItem;
+        // Vista 起 comctl32 会一起回填这两项，结构必须给全，否则会写到缓冲区之外
+        public int iSubItem;
+        public int iGroup;
     }
 
     public delegate nint LowLevelMouseProc(int nCode, nint wParam, nint lParam);

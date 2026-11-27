@@ -8,15 +8,149 @@
     <UserControl.Styles>
         <!-- 拖动抓手：平时淡一点，鼠标移上去才亮，提示这块能按住拖动 -->
         <Style Selector="Border#Grip">
-            <Setter Property="Opacity" Value="0.5" />
+            <Setter Property="Opacity" Value="0.6" />
         </Style>
         <Style Selector="Border#Grip:pointerover">
             <Setter Property="Opacity" Value="1" />
         </Style>
+        <!-- 拖拽辅助：与场景「执行顺序」同一套语言——被拖的行淡出，悬停行的上 / 下沿亮一条落点线，
+             松手才换位。落点线两端渐隐收口，避免短短一条细线两头突然截断。其余仍然只画线，
+             不整卡描边、不加外发光（外发光会被列表裁掉两边）。 -->
+        <Style Selector="Border.OptionRow.dragging">
+            <Setter Property="Opacity" Value="0.4" />
+        </Style>
+        <Style Selector="Border.OptionRow Border.DropTip">
+            <Setter Property="IsVisible" Value="False" />
+            <Setter Property="Height" Value="2.5" />
+            <Setter Property="CornerRadius" Value="1.25" />
+            <Setter Property="Margin" Value="12,0" />
+            <Setter Property="HorizontalAlignment" Value="Stretch" />
+            <Setter Property="Background" Value="{DynamicResource Accent2FadeBrush}" />
+            <Setter Property="ZIndex" Value="20" />
+        </Style>
+        <Style Selector="Border.OptionRow Border.DropTip.top">
+            <Setter Property="VerticalAlignment" Value="Top" />
+        </Style>
+        <Style Selector="Border.OptionRow Border.DropTip.bottom">
+            <Setter Property="VerticalAlignment" Value="Bottom" />
+        </Style>
+        <Style Selector="Border.OptionRow.dropbefore Border.DropTip.top">
+            <Setter Property="IsVisible" Value="True" />
+        </Style>
+        <Style Selector="Border.OptionRow.dropafter Border.DropTip.bottom">
+            <Setter Property="IsVisible" Value="True" />
+        </Style>
+        <!-- 每行右侧的两枚去处开关：首页 / 桌面。文字自带标签，不用再在图例里解释谁是谁；
+             两枚各自独立，可以同时亮，和「首页关掉、桌面还留着」的真实状态对得上。 -->
+        <Style Selector="ToggleButton.Chip">
+            <Setter Property="Height" Value="22" />
+            <Setter Property="MinWidth" Value="42" />
+            <Setter Property="Padding" Value="8,0" />
+            <Setter Property="FontSize" Value="11" />
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="Foreground" Value="{DynamicResource Text3Brush}" />
+            <Setter Property="Template">
+                <ControlTemplate>
+                    <Border Name="Bd" CornerRadius="11" Background="Transparent"
+                            BorderBrush="{DynamicResource LineBrush}" BorderThickness="1"
+                            Padding="{TemplateBinding Padding}">
+                        <StackPanel Orientation="Horizontal" Spacing="3"
+                                    HorizontalAlignment="Center" VerticalAlignment="Center">
+                            <!-- 加号：两枚开关都是「往这边放一张卡」，和卡上的「＋」用同一个符号 -->
+                            <Path Width="9" Height="9" Stretch="Uniform"
+                                  Data="{StaticResource GeoPlus}"
+                                  Stroke="{TemplateBinding Foreground}" StrokeThickness="1.6"
+                                  VerticalAlignment="Center" />
+                            <ContentPresenter Content="{TemplateBinding Content}" VerticalAlignment="Center"
+                                              TextBlock.Foreground="{TemplateBinding Foreground}" />
+                        </StackPanel>
+                    </Border>
+                </ControlTemplate>
+            </Setter>
+        </Style>
+        <Style Selector="ToggleButton.Chip:pointerover /template/ Border#Bd">
+            <Setter Property="Background" Value="{DynamicResource AccentSoftBrush}" />
+            <Setter Property="BorderBrush" Value="{DynamicResource AccentBrush}" />
+        </Style>
+        <Style Selector="ToggleButton.Chip:checked /template/ Border#Bd">
+            <Setter Property="Background" Value="{DynamicResource AccentSoftBrush}" />
+            <Setter Property="BorderBrush" Value="{DynamicResource AccentBrush}" />
+        </Style>
+        <Style Selector="ToggleButton.Chip:checked">
+            <Setter Property="Foreground" Value="{DynamicResource Accent2Brush}" />
+        </Style>
+        <Style Selector="ToggleButton.Chip:disabled">
+            <Setter Property="Opacity" Value="0.4" />
+        </Style>
     </UserControl.Styles>
+    <UserControl.Resources>
+        <!-- 一行卡片选项：左边抓手拖动排序，中间一行说明，右边开关。大卡、小卡两列共用这一份。
+             卡片自身不带 Padding（内距挪到内部 Grid 上），Panel 的原点才是卡片左上角，
+             贴 Top / Bottom 的落点线才不会压进文字区。 -->
+        <DataTemplate x:Key="TrendCardOptionTemplate" x:DataType="m:TrendCardOptionItem">
+            <Border Name="OptionRow" Classes="Card OptionRow" Padding="0">
+                <Panel>
+                    <Border Classes="DropTip top" />
+                    <Border Classes="DropTip bottom" />
+                    <Grid ColumnDefinitions="Auto,*,Auto,Auto" Margin="12,10">
+                        <!-- 六点抓手：按住就能在所在的这一列里上下拖动，松手后顺序立即写回首页 -->
+                        <Border Name="Grip" Width="18" Margin="0,0,8,0"
+                                Background="Transparent" Cursor="SizeAll"
+                                ToolTip.Tip="按住拖动，调整这一列里卡片的顺序">
+                            <Grid Width="8" Height="12" HorizontalAlignment="Center" VerticalAlignment="Center"
+                                  ColumnDefinitions="*,*" RowDefinitions="*,*,*">
+                                <Ellipse Grid.Row="0" Grid.Column="0" Width="2.4" Height="2.4"
+                                         Fill="{DynamicResource Text3Brush}"
+                                         HorizontalAlignment="Center" VerticalAlignment="Center" />
+                                <Ellipse Grid.Row="0" Grid.Column="1" Width="2.4" Height="2.4"
+                                         Fill="{DynamicResource Text3Brush}"
+                                         HorizontalAlignment="Center" VerticalAlignment="Center" />
+                                <Ellipse Grid.Row="1" Grid.Column="0" Width="2.4" Height="2.4"
+                                         Fill="{DynamicResource Text3Brush}"
+                                         HorizontalAlignment="Center" VerticalAlignment="Center" />
+                                <Ellipse Grid.Row="1" Grid.Column="1" Width="2.4" Height="2.4"
+                                         Fill="{DynamicResource Text3Brush}"
+                                         HorizontalAlignment="Center" VerticalAlignment="Center" />
+                                <Ellipse Grid.Row="2" Grid.Column="0" Width="2.4" Height="2.4"
+                                         Fill="{DynamicResource Text3Brush}"
+                                         HorizontalAlignment="Center" VerticalAlignment="Center" />
+                                <Ellipse Grid.Row="2" Grid.Column="1" Width="2.4" Height="2.4"
+                                         Fill="{DynamicResource Text3Brush}"
+                                         HorizontalAlignment="Center" VerticalAlignment="Center" />
+                            </Grid>
+                        </Border>
+                        <StackPanel Grid.Column="1" Margin="0,0,8,0" VerticalAlignment="Center">
+                            <TextBlock Text="{Binding Title}" FontSize="13.5" FontWeight="Normal"
+                                       Foreground="{DynamicResource TextBrush}" />
+                            <TextBlock Text="{Binding Desc}" Classes="Hint Sub"
+                                       Margin="0,2,0,0" TextWrapping="Wrap" />
+                            <!-- 没有对应设备时只留一句：首页和桌面都铺示例数据，说清楚这张卡现在看到的是什么 -->
+                            <TextBlock Text="暂无设备 · 显示示例数据"
+                                       IsVisible="{Binding IsMissingDevice}"
+                                       Margin="0,4,0,0" FontSize="11"
+                                       Foreground="{DynamicResource AmberTextBrush}" Opacity="0.72"
+                                       TextWrapping="Wrap" />
+                        </StackPanel>
+                        <!-- 首页：看得见的开关；看板整块被隐藏时停用，由顶部提示说明原因 -->
+                        <ToggleButton Grid.Column="2" Classes="Chip" Content="首页" Margin="0,0,6,0"
+                                      VerticalAlignment="Center"
+                                      IsChecked="{Binding IsOn, Mode=TwoWay}"
+                                      IsEnabled="{Binding HomeEnabled}"
+                                      ToolTip.Tip="在首页「数据看板」里显示这张卡" />
+                        <!-- 桌面：数据卡一卡一窗，不用再选分区；关掉只收起，位置尺寸都保留 -->
+                        <ToggleButton Grid.Column="3" Classes="Chip" Content="桌面"
+                                      VerticalAlignment="Center"
+                                      IsChecked="{Binding IsOnDesktop, Mode=TwoWay}"
+                                      ToolTip.Tip="放到桌面组件；和首页开关互不影响，关掉只收起并保留原位" />
+                    </Grid>
+                </Panel>
+            </Border>
+        </DataTemplate>
+    </UserControl.Resources>
     <!-- 首页「数据看板」标题旁「编辑」打开的弹窗：逐张勾选要铺的卡，改完即时生效 -->
     <Panel>
-    <ctl:DialogPopup CardWidth="460" Title="数据看板" Subtitle="选择首页显示哪几张卡片，以及多久刷新一次"
+    <ctl:DialogPopup CardWidth="760" Title="数据看板"
+                     ContentMargin="28,18,6,0"
                      IsOpen="{Binding IsTrendCardEditOpen}"
                      CloseCommand="{Binding FinishTrendCardEditCommand}">
         <ctl:DialogPopup.Footer>
@@ -25,13 +159,21 @@
                 <Grid ColumnDefinitions="Auto,*,Auto">
                     <Button Classes="BtnGhost" Height="34" Content="恢复默认"
                             Command="{Binding ResetTrendCardChoicesCommand}"
-                            ToolTip.Tip="清掉手动选择和排序，全部卡片按默认顺序铺出来" />
+                            ToolTip.Tip="只清掉首页的显隐选择和排序，桌面组件上的卡不动" />
                     <Button Grid.Column="2" Classes="BtnPrimary" Height="34" Content="完成"
                             Command="{Binding FinishTrendCardEditCommand}" />
                 </Grid>
             </Border>
         </ctl:DialogPopup.Footer>
-        <StackPanel Spacing="10">
+        <!-- 列表底部留一段空隙：这层 padding 算在滚动内容里，滚到底能看到最后一排卡和这点留白，
+             不是把正文区截短（截短的话最后一张卡会卡在可视区下沿） -->
+        <StackPanel Spacing="12" Margin="0,0,0,16">
+            <!-- 首页整块隐藏时，桌面开关照常可用；「首页」先停用并在这里说清楚，避免点了没反应 -->
+            <Border Background="{DynamicResource AmberSoftBrush}" CornerRadius="10" Padding="12,10"
+                    IsVisible="{Binding IsDataBoardHidden}">
+                <TextBlock Text="首页「数据看板」当前整体隐藏：下面的「首页」开关先停用，它只决定重新打开后显示哪些卡；「桌面」照常可用。"
+                           FontSize="12.5" Foreground="{DynamicResource TextBrush}" TextWrapping="Wrap" />
+            </Border>
             <!-- 看板自己的刷新节奏：调慢后数字不会每拍都跳；设备卡与首页统计不受影响 -->
             <Border Classes="Card" Padding="14,11">
                 <Grid ColumnDefinitions="*,Auto">
@@ -47,60 +189,37 @@
                                       ToolTip.Tip="设备卡与首页统计仍按原来的节奏刷新" />
                 </Grid>
             </Border>
-            <!-- 每张卡各占一块：左边抓手拖动排序，中间一行说明，右边开关 -->
-            <ItemsControl x:Name="CardOptionsList" ItemsSource="{Binding TrendCardOptions}">
-                <ItemsControl.ItemsPanel>
-                    <ItemsPanelTemplate>
-                        <StackPanel Spacing="8" />
-                    </ItemsPanelTemplate>
-                </ItemsControl.ItemsPanel>
-                <ItemsControl.ItemTemplate>
-                    <DataTemplate x:DataType="m:TrendCardOptionItem">
-                        <Border Classes="Card" Padding="14,10">
-                            <Grid ColumnDefinitions="Auto,*,Auto">
-                                <!-- 六点抓手：按住就能上下拖动，松手后顺序立即写回首页 -->
-                                <Border Name="Grip" Width="18" Margin="0,0,10,0"
-                                        Background="Transparent" Cursor="SizeAll"
-                                        ToolTip.Tip="按住拖动调整首页卡片顺序">
-                                    <Grid Width="8" Height="12" HorizontalAlignment="Center" VerticalAlignment="Center"
-                                          ColumnDefinitions="*,*" RowDefinitions="*,*,*">
-                                        <Ellipse Grid.Row="0" Grid.Column="0" Width="2" Height="2"
-                                                 Fill="{DynamicResource Text3Brush}"
-                                                 HorizontalAlignment="Center" VerticalAlignment="Center" />
-                                        <Ellipse Grid.Row="0" Grid.Column="1" Width="2" Height="2"
-                                                 Fill="{DynamicResource Text3Brush}"
-                                                 HorizontalAlignment="Center" VerticalAlignment="Center" />
-                                        <Ellipse Grid.Row="1" Grid.Column="0" Width="2" Height="2"
-                                                 Fill="{DynamicResource Text3Brush}"
-                                                 HorizontalAlignment="Center" VerticalAlignment="Center" />
-                                        <Ellipse Grid.Row="1" Grid.Column="1" Width="2" Height="2"
-                                                 Fill="{DynamicResource Text3Brush}"
-                                                 HorizontalAlignment="Center" VerticalAlignment="Center" />
-                                        <Ellipse Grid.Row="2" Grid.Column="0" Width="2" Height="2"
-                                                 Fill="{DynamicResource Text3Brush}"
-                                                 HorizontalAlignment="Center" VerticalAlignment="Center" />
-                                        <Ellipse Grid.Row="2" Grid.Column="1" Width="2" Height="2"
-                                                 Fill="{DynamicResource Text3Brush}"
-                                                 HorizontalAlignment="Center" VerticalAlignment="Center" />
-                                    </Grid>
-                                </Border>
-                                <StackPanel Grid.Column="1" Margin="0,0,12,0" VerticalAlignment="Center">
-                                    <TextBlock Text="{Binding Title}" FontSize="13.5" FontWeight="Normal"
-                                               Foreground="{DynamicResource TextBrush}" />
-                                    <TextBlock Text="{Binding Desc}" Classes="Hint Sub"
-                                               Margin="0,2,0,0" TextWrapping="Wrap" />
-                                    <TextBlock Text="暂无可用设备 · 打开后显示预览数据" FontSize="11"
-                                               Margin="0,3,0,0"
-                                               Foreground="{DynamicResource AmberTextBrush}"
-                                               IsVisible="{Binding IsMissingDevice}" />
-                                </StackPanel>
-                                <ToggleButton Grid.Column="2" Classes="Switch" VerticalAlignment="Center"
-                                              IsChecked="{Binding IsOn, Mode=TwoWay}" />
-                            </Grid>
-                        </Border>
-                    </DataTemplate>
-                </ItemsControl.ItemTemplate>
-            </ItemsControl>
+            <!-- 桌面组件总开关关着时提前说一声：打开任意一张「桌面」会顺手把总开关也打开 -->
+            <TextBlock Text="桌面组件当前已收起，打开任一「桌面」会同时把桌面组件显示出来。"
+                       Classes="Hint Sub" Margin="2,0,0,0" TextWrapping="Wrap"
+                       IsVisible="{Binding IsDesktopWidgetsOff}" />
+            <!-- 左右两列：左列大卡、右列空气小卡。首页上它们本来就在两处，拖动排序也各管各的 -->
+            <Grid ColumnDefinitions="*,12,300">
+                <StackPanel Grid.Column="0" Spacing="8">
+                    <TextBlock Text="大卡" FontSize="12.5" FontWeight="Normal" Margin="2,0,0,0"
+                               Foreground="{DynamicResource TextBrush}" VerticalAlignment="Center" />
+                    <ItemsControl x:Name="BigCardOptionsList" ItemsSource="{Binding BigTrendCardOptions}"
+                                  ItemTemplate="{StaticResource TrendCardOptionTemplate}">
+                        <ItemsControl.ItemsPanel>
+                            <ItemsPanelTemplate>
+                                <StackPanel Spacing="8" />
+                            </ItemsPanelTemplate>
+                        </ItemsControl.ItemsPanel>
+                    </ItemsControl>
+                </StackPanel>
+                <StackPanel Grid.Column="2" Spacing="8">
+                    <TextBlock Text="小卡" FontSize="12.5" FontWeight="Normal" Margin="2,0,0,0"
+                               Foreground="{DynamicResource TextBrush}" VerticalAlignment="Center" />
+                    <ItemsControl x:Name="SmallCardOptionsList" ItemsSource="{Binding SmallTrendCardOptions}"
+                                  ItemTemplate="{StaticResource TrendCardOptionTemplate}">
+                        <ItemsControl.ItemsPanel>
+                            <ItemsPanelTemplate>
+                                <StackPanel Spacing="8" />
+                            </ItemsPanelTemplate>
+                        </ItemsControl.ItemsPanel>
+                    </ItemsControl>
+                </StackPanel>
+            </Grid>
         </StackPanel>
     </ctl:DialogPopup>
     <!-- 全部卡片被关掉时的重点提示：点「完成」或关闭编辑弹窗都要先过这一层 -->
@@ -129,5 +248,3 @@
     </ctl:DialogPopup>
     </Panel>
 </UserControl>
-
-

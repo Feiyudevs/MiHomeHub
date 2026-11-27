@@ -4,9 +4,12 @@
 using System.Windows.Input;
 using Avalonia;
 using Avalonia.Controls;
+using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Controls.Primitives;
 using Avalonia.Input;
 using Avalonia.Interactivity;
+using Avalonia.Media;
+using Avalonia.VisualTree;
 
 namespace MiHomeHub.Controls;
 
@@ -56,9 +59,14 @@ public class DialogPopup : ContentControl
     public static readonly StyledProperty<object?> FooterProperty =
         AvaloniaProperty.Register<DialogPopup, object?>(nameof(Footer));
 
-    /// <summary>标题栏是否可拖动宿主窗口（弹窗宿主是自绘无边框窗时用）。</summary>
+    /// <summary>
+    /// 标题栏按住可拖动，默认开启，不用每个弹窗再单独写一次。
+    /// 独立弹窗窗体（整窗就是这张卡片）拖的是窗口；嵌在主窗口里的弹窗拖的是卡片本身，
+    /// 主窗口不动。铺满父窗口、尺寸跟着宿主对齐的遮罩型窗体（触发条件 / 添加动作这类）
+    /// 仍要显式关掉，拖了会和遮罩错位。
+    /// </summary>
     public static readonly StyledProperty<bool> CanDragProperty =
-        AvaloniaProperty.Register<DialogPopup, bool>(nameof(CanDrag));
+        AvaloniaProperty.Register<DialogPopup, bool>(nameof(CanDrag), true);
 
     public bool IsOpen
     {
@@ -126,17 +134,59 @@ public class DialogPopup : ContentControl
         set => SetValue(CanDragProperty, value);
     }
 
+    static DialogPopup()
+    {
+        // 运行中改了 CanDrag 就顺手把标题栏的手型光标换过来
+        CanDragProperty.Changed.AddClassHandler<DialogPopup>((popup, _) => popup.UpdateHeaderCursor());
+    }
+
+    /// <summary>模板里的标题栏，拖动与手型光标都挂在它上面。</summary>
+    private Control? _header;
+
+    /// <summary>模板里的卡片本体：嵌在主窗口里时拖的是它，不是窗口。</summary>
+    private Border? _card;
+
+    /// <summary>拖卡片时记下按下位置和当时的位移，移动量按差值算，不会越拖越飘。</summary>
+    private Point _pressPoint;
+    private Vector _pressOffset;
+    private bool _draggingCard;
+
+    /// <summary>
+    /// 宿主是不是主窗口：主窗口里的弹窗（设置、数据看板编辑、场景编辑…）只拖卡片自己，
+    /// 卡片跟着遮罩一起居中摆着，拖它不该把整个软件挪走；
+    /// 其余都是独立弹窗窗体（整窗就是这张卡片），拖标题栏等于拖窗口。
+    /// </summary>
+    private static bool IsMainWindowHost(Window win) =>
+        Application.Current?.ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop
+        && ReferenceEquals(win, desktop.MainWindow);
+
     protected override void OnApplyTemplate(TemplateAppliedEventArgs e)
     {
         base.OnApplyTemplate(e);
 
+        if (e.NameScope.Find<Border>("DialogCard") is { } card)
+            _card = card;
+
         // 模板里的标题栏（Panel 名为 DialogHeader）负责拖动
         if (e.NameScope.Find<Control>("DialogHeader") is { } header)
         {
+            _header = header;
             header.PointerPressed -= OnHeaderPressed;
             header.PointerPressed += OnHeaderPressed;
-            header.Cursor = CanDrag ? new Cursor(StandardCursorType.SizeAll) : Cursor.Default;
+            header.PointerMoved -= OnHeaderMoved;
+            header.PointerMoved += OnHeaderMoved;
+            header.PointerReleased -= OnHeaderReleased;
+            header.PointerReleased += OnHeaderReleased;
+            header.PointerCaptureLost -= OnHeaderCaptureLost;
+            header.PointerCaptureLost += OnHeaderCaptureLost;
+            UpdateHeaderCursor();
         }
+    }
+
+    private void UpdateHeaderCursor()
+    {
+        if (_header is null) return;
+        _header.Cursor = CanDrag ? new Cursor(StandardCursorType.SizeAll) : Cursor.Default;
     }
 
     private void OnHeaderPressed(object? sender, PointerPressedEventArgs e)
@@ -145,8 +195,84 @@ public class DialogPopup : ContentControl
         if (!e.GetCurrentPoint(this).Properties.IsLeftButtonPressed) return;
         if (TopLevel.GetTopLevel(this) is not Window win) return;
 
-        win.BeginMoveDrag(e);
+        // 标题栏上压着按钮（关闭 / 动作钮）时让按钮自己吃这次点击，不要变成拖动
+        if (e.Source is Visual source &&
+            (source is Button || source.GetVisualAncestors().OfType<Button>().Any())) return;
+
+        if (IsMainWindowHost(win))
+        {
+            if (_card is null) return;
+            _draggingCard = true;
+            _pressPoint = e.GetPosition(this);
+            _pressOffset = CurrentCardOffset();
+            e.Pointer.Capture(_header);
+        }
+        else
+        {
+            win.BeginMoveDrag(e);
+        }
+
         e.Handled = true;
+    }
+
+    private void OnHeaderMoved(object? sender, PointerEventArgs e)
+    {
+        if (!_draggingCard || _card is null) return;
+
+        var offset = ClampCardOffset(_pressOffset + (e.GetPosition(this) - _pressPoint));
+        _card.RenderTransform = new TranslateTransform(offset.X, offset.Y);
+        e.Handled = true;
+    }
+
+    private void OnHeaderReleased(object? sender, PointerReleasedEventArgs e)
+    {
+        if (!_draggingCard) return;
+        _draggingCard = false;
+        e.Pointer.Capture(null);
+        e.Handled = true;
+    }
+
+    private void OnHeaderCaptureLost(object? sender, PointerCaptureLostEventArgs e) => _draggingCard = false;
+
+    private Vector CurrentCardOffset() =>
+        _card?.RenderTransform is TranslateTransform t ? new Vector(t.X, t.Y) : default;
+
+    /// <summary>卡片拖出去也不能离开弹窗外壳：左沿不出左边、右沿不出右边，上下同理。</summary>
+    private Vector ClampCardOffset(Vector offset)
+    {
+        if (_card is null) return offset;
+
+        var card = _card.Bounds;
+        var area = Bounds;
+
+        var x = offset.X;
+        var y = offset.Y;
+        if (card.Width <= area.Width) x = Math.Clamp(x, -card.X, area.Width - card.Right);
+        if (card.Height <= area.Height) y = Math.Clamp(y, -card.Y, area.Height - card.Bottom);
+        return new Vector(x, y);
+    }
+
+    private void ResetCardOffset()
+    {
+        _draggingCard = false;
+        if (_card is not null) _card.RenderTransform = null;
+    }
+
+    protected override void OnPropertyChanged(AvaloniaPropertyChangedEventArgs change)
+    {
+        base.OnPropertyChanged(change);
+
+        if (change.Property == IsOpenProperty && change.GetNewValue<bool>() is false)
+        {
+            // 关掉就把位移清掉，下次打开仍是居中的位置
+            ResetCardOffset();
+        }
+        else if (change.Property == BoundsProperty && _card is not null && CurrentCardOffset() != default)
+        {
+            // 窗口被改尺寸时把卡片收回到弹窗范围内
+            var offset = ClampCardOffset(CurrentCardOffset());
+            _card.RenderTransform = new TranslateTransform(offset.X, offset.Y);
+        }
     }
 
     /// <summary>

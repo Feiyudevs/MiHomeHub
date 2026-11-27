@@ -1,4 +1,4 @@
-// Copyright (C) 2026 Feiyu
+﻿// Copyright (C) 2026 Feiyu
 // SPDX-License-Identifier: GPL-3.0-only
 
 using System;
@@ -30,6 +30,9 @@ public static class AppSettingsStore
     /// <summary>桌面空调组件绑定的空调 did；空串表示自动取第一台在线空调。</summary>
     public static string DesktopAcDid { get; private set; } = "";
 
+    /// <summary>桌面监控分区绑定的摄像头 did；空串表示自动取第一台摄像头。</summary>
+    public static string CameraDid { get; private set; } = "";
+
     /// <summary>true = 卡片带投影；false = 扁平无投影。</summary>
     public static bool CardShadow { get; private set; } = true;
 
@@ -59,6 +62,8 @@ public static class AppSettingsStore
     /// <summary>用户单独隐藏的设备 did：主列表里折到末尾的「已隐藏」区，控制与场景不受影响。</summary>
     public static string[] HiddenDids { get; private set; } = Array.Empty<string>();
 
+    /// <summary>打开摄像头实时画面时默认静音；关掉则接上就出声。</summary>
+    public static bool CameraMuteOnOpen { get; private set; } = true;
     /// <summary>摄像头画面用的本地 go2rtc 地址（空 = 默认 http://127.0.0.1:1984）。</summary>
     public static string Go2rtcBase { get; private set; } = "";
 
@@ -116,6 +121,8 @@ public static class AppSettingsStore
                 DefaultSpeakerDid = s.GetString() ?? "";
             if (root.TryGetProperty("desktopAcDid", out var ad) && ad.ValueKind == JsonValueKind.String)
                 DesktopAcDid = ad.GetString() ?? "";
+            if (root.TryGetProperty("cameraDid", out var cd) && cd.ValueKind == JsonValueKind.String)
+                CameraDid = cd.GetString() ?? "";
             if (root.TryGetProperty("cardShadow", out var d))
                 CardShadow = d.ValueKind != JsonValueKind.False;
             if (root.TryGetProperty("useGpu", out var ug))
@@ -124,6 +131,8 @@ public static class AppSettingsStore
                 DoubleClickDesktopToggles = dc.ValueKind != JsonValueKind.False;
             if (root.TryGetProperty("hoverExpand", out var he))
                 HoverExpandEnabled = he.ValueKind != JsonValueKind.False;
+            if (root.TryGetProperty("cameraMuteOnOpen", out var muteOnOpen)) 
+                CameraMuteOnOpen = muteOnOpen.ValueKind != JsonValueKind.False;
             if (root.TryGetProperty("go2rtcBase", out var gb) && gb.ValueKind == JsonValueKind.String)
                 Go2rtcBase = gb.GetString() ?? "";
             if (root.TryGetProperty("hubIps", out var hi) && hi.ValueKind == JsonValueKind.Object)
@@ -245,6 +254,18 @@ public static class AppSettingsStore
         Save();
     }
 
+    /// <summary>桌面监控分区看哪台摄像头；写空 = 自动取设备表里的第一台。</summary>
+    public static void SetCameraDid(string did)
+    {
+        CameraDid = did;
+        Save();
+    }
+
+    public static void SetCameraMuteOnOpen(bool on)
+    {
+        CameraMuteOnOpen = on;
+        Save();
+    }
     public static void SetCardShadow(bool on)
     {
         CardShadow = on;
@@ -509,6 +530,7 @@ public static class AppSettingsStore
             showMainWindowOnStartup = ShowMainWindowOnStartup,
             defaultSpeakerDid = DefaultSpeakerDid,
             desktopAcDid = DesktopAcDid,
+            cameraDid = CameraDid,
             cardShadow = CardShadow,
             useGpu = UseGpu,
             doubleClickDesktopToggles = DoubleClickDesktopToggles,
@@ -518,6 +540,7 @@ public static class AppSettingsStore
             hiddenDids = HiddenDids,
             roomOrder = RoomOrder,
             go2rtcBase = Go2rtcBase,
+            cameraMuteOnOpen = CameraMuteOnOpen,
             hubIps = _hubIps,
             cardMetrics = _cardMetrics,
             trendSources = _trendSources,

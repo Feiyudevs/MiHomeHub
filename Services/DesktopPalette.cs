@@ -56,13 +56,17 @@ internal static class DesktopPalette
     public const double DefaultDensity = 0.34;
 
     /// <summary>
-    /// 关掉毛玻璃时的浓度下限：没有模糊兜底，底色得更实一点才能压住文字。
-    /// 这里是**下限**而不是固定值 —— 以前写死 0.92，于是「关掉毛玻璃之后浓度滑杆怎么拖都没反应」。
+    /// 关掉毛玻璃后的浓度：**不透明**，不是「近实心」。
+    /// <para>
+    /// 之前按滑杆映射到 0.80~1.0，浓度拉在七八十的人点「关毛玻璃」只从 0.81 变成 0.96，
+    /// 深色壁纸底下几乎看不出差别，主观上就是「关了跟没关一样」。玻璃关掉本就该是
+    /// 一张实心卡片：alpha 直接给满，墙纸一点不透，模糊也不再画 —— 开关一眼可见。
+    /// </para>
+    /// <para>
+    /// 代价是浓度滑杆只在毛玻璃开启时生效；界面上同步把滑杆置灰并写明，不做「拖了没反应」的假控件。
+    /// </para>
     /// </summary>
-    private const double OpaqueBase = 0.50;
-
-    /// <summary>关掉毛玻璃时、滑杆拉满对应的浓度（与旧固定值同档）。</summary>
-    private const double OpaqueMax = 0.92;
+    private const double OpaqueDensity = 1.0;
 
     /// <summary>
     /// 纸白档的浓度下限。白色的坑在「半透」：34% 的白叠在深色壁纸上出来是一块脏灰，
@@ -87,16 +91,17 @@ internal static class DesktopPalette
 
     /// <summary>
     /// 底色不透明度：毛玻璃开 = 滑杆原值（夹在 [MinDensity, MaxDensity] 内保通透）；
-    /// 毛玻璃关 = 同一根滑杆映射到更实的一档；纸白档 = 抬到 [PaperBase, PaperMax]（白不能半透）。
+    /// 毛玻璃关 = 实心底色（<see cref="OpaqueDensity"/>），纸白档同理，开关之间差别必须一眼看到。
     /// </summary>
     public static double CardDensity(DesktopAppearance look)
     {
+        if (!look.Glass) return OpaqueDensity;
+
         var density = Math.Clamp(look.ClampedOpacity, MinDensity, MaxDensity);
         var t = density / MaxDensity;
 
         if (IsLight(look)) return PaperBase + (PaperMax - PaperBase) * t;
-        if (look.Glass) return density;
-        return OpaqueBase + (OpaqueMax - OpaqueBase) * t;
+        return density;
     }
 
     /// <summary>悬停抬亮一档的底色（图标格、标题栏按钮用）；低浓度下也要看得见。</summary>
@@ -201,6 +206,12 @@ internal static class DesktopPalette
 
     /// <summary>描边颜色：分区固定深色底，所以恒用淡白描边。</summary>
     public static Color BorderColor() => Color.FromArgb(26, 255, 255, 255);
+
+    /// <summary>卡片描边：深色底用淡白线，纸白底用淡黑线，1px 只负责把卡片从壁纸上勾出来。</summary>
+    public static Color CardBorderColor(DesktopAppearance look)
+        => IsLight(look)
+            ? Color.FromArgb(30, 0, 0, 0)
+            : Color.FromArgb(42, 255, 255, 255);
 
     private static bool TryParse(string text, out Color color)
     {

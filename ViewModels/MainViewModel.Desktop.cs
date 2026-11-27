@@ -94,9 +94,13 @@ public partial class MainViewModel : IDeviceCardHost
     /// <summary>桌面组件总开关：关掉只收起窗口，分区与外观配置都保留。</summary>
     [ObservableProperty] private bool _desktopWidgetsEnabled = true;
 
+    /// <summary>总开关是否关着：数据看板编辑弹窗据此提示「打开任意一张会同时开启桌面组件」。</summary>
+    public bool IsDesktopWidgetsOff => !DesktopWidgetsEnabled;
+
     partial void OnDesktopWidgetsEnabledChanged(bool value)
     {
         DesktopHost.SetEnabled(value);
+        OnPropertyChanged(nameof(IsDesktopWidgetsOff));
         Log(value ? "桌面组件已显示" : "桌面组件已收起");
     }
 
@@ -134,8 +138,28 @@ public partial class MainViewModel : IDeviceCardHost
         }
     }
 
+    /// <summary>
+    /// 桌面监控分区开关：与总开关彼此独立，默认关着（解一路画面是有开销的，用户自己开）。
+    /// 关掉 = 收起这块分区、停流，并记住「不再自动放回」；打开 = 重新放一块回桌面。
+    /// </summary>
+    public bool DesktopCameraZone
+    {
+        get => !DesktopHost.Layout.CameraHidden;
+        set
+        {
+            if (DesktopHost.Layout.CameraHidden == !value) return;
+            if (value) DesktopHost.ShowCamera();
+            else DesktopHost.HideCamera();
+            OnPropertyChanged(nameof(DesktopCameraZone));
+            Log(value ? "桌面监控分区已显示" : "桌面监控分区已关闭");
+        }
+    }
+
     /// <summary>分区外观编辑器（背景色 / 浓度 / 毛玻璃），设置页内联复用同一份 VM。</summary>
     public DesktopAppearanceVm DesktopAppearance { get; } = new();
+
+    /// <summary>设置页「桌面数据卡」摘要：只报已投几张，逐张开关统一在首页看板编辑弹窗里。</summary>
+    public DesktopDataCardsVm DesktopDataCards { get; } = new();
 
     /// <summary>设置弹窗每次打开都按当前配置刷一次媒体分区开关的显示状态，并回到第一个 Tab。</summary>
     partial void OnIsSettingsOpenChanged(bool value)
@@ -145,7 +169,10 @@ public partial class MainViewModel : IDeviceCardHost
             SettingsTab = 0;
             OnPropertyChanged(nameof(DesktopMediaZone));
             OnPropertyChanged(nameof(DesktopAcZone));
+            OnPropertyChanged(nameof(DesktopCameraZone));
+            OnPropertyChanged(nameof(ShowCameraPicker));
             DesktopAppearance.Reload();
+            DesktopDataCards.Reload();
         }
     }
 

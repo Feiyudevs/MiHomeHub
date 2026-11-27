@@ -1,0 +1,212 @@
+﻿<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="clr-namespace:MiHomeHub.ViewModels"
+             xmlns:ctl="clr-namespace:MiHomeHub.Controls"
+             x:Class="MiHomeHub.Views.DataCardView"
+             x:DataType="vm:DataCardVm">
+
+    <UserControl.Styles>
+        <!-- 下拉的露面/退场由 DataCardWindow 的 Card 统一管：桌面卡与首页一样，
+             鼠标压到整张卡（含空白区）就浮出，而不是只在指针落到下拉本体上才出现。
+             触发器与浮层的文字、悬停底统一交给 OptionPicker 的「玻璃档」（Glass=True），
+             彩色卡面上不会出现灰底或紫块。 -->
+
+        <!-- 右上角「⋯」：卡片菜单的显式入口（与右键同一份菜单）。
+             平时半透明压着卡面，指针移上去才提亮；不铺悬停底色 —— 纸白卡面上
+             白底加亮看不见，深浅两套卡面都只靠透明度与文字色给反馈。 -->
+        <Style Selector="Button.CardMore">
+            <Setter Property="Width" Value="24" />
+            <Setter Property="Height" Value="24" />
+            <Setter Property="Padding" Value="0" />
+            <Setter Property="CornerRadius" Value="7" />
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="BorderThickness" Value="0" />
+            <Setter Property="Focusable" Value="False" />
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="Opacity" Value="0.55" />
+            <Setter Property="Foreground" Value="{DynamicResource DskText2Brush}" />
+            <Setter Property="HorizontalContentAlignment" Value="Center" />
+            <Setter Property="VerticalContentAlignment" Value="Center" />
+            <Setter Property="Transitions">
+                <Transitions>
+                    <DoubleTransition Property="Opacity" Duration="0:0:0.12" Easing="CubicEaseOut" />
+                </Transitions>
+            </Setter>
+        </Style>
+        <Style Selector="Button.CardMore:pointerover">
+            <Setter Property="Opacity" Value="1" />
+            <Setter Property="Foreground" Value="{DynamicResource DskTextBrush}" />
+        </Style>
+        <Style Selector="Button.CardMore:pressed">
+            <Setter Property="Opacity" Value="0.75" />
+        </Style>
+        <!-- 小卡是 200×100：菜单键跟着收一档，别把标题行顶高 -->
+        <Style Selector="Button.CardMore.sm">
+            <Setter Property="Width" Value="20" />
+            <Setter Property="Height" Value="20" />
+            <Setter Property="CornerRadius" Value="6" />
+        </Style>
+    </UserControl.Styles>
+
+    <Panel>
+    <!-- 大卡：400×200 的设计态。版式完全照首页 TrendCard：标题行（色点 / 标题 / 较昨日 / 时间与来源下拉）、
+         数值行（大数字 + 单位，右侧两行小字）、曲线吃掉剩余高度。 -->
+    <Grid RowDefinitions="Auto,Auto,*" Margin="16,12,16,0" IsVisible="{Binding IsFull}">
+        <Grid ColumnDefinitions="Auto,*,Auto,Auto,Auto" VerticalAlignment="Top">
+            <Viewbox Width="13" Height="13" VerticalAlignment="Center">
+                <Panel Width="24" Height="24">
+                    <Path Data="{Binding IconGeometry}" Stroke="{Binding AccentBrush}"
+                          StrokeThickness="2.1" StrokeLineCap="Round" StrokeJoin="Round" />
+                </Panel>
+            </Viewbox>
+            <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="6"
+                        Margin="6,0,6,0" VerticalAlignment="Center">
+                <TextBlock Text="{Binding TitleText}" FontSize="11.5" FontWeight="SemiBold"
+                           Foreground="{DynamicResource DskTextBrush}" TextTrimming="CharacterEllipsis" />
+                <Border IsVisible="{Binding HasDelta}" Background="{DynamicResource SurfaceBrush}"
+                        CornerRadius="9" Padding="7,2" VerticalAlignment="Center">
+                    <TextBlock Text="{Binding DeltaText}" FontSize="10"
+                               Foreground="{DynamicResource DskText2Brush}" />
+                </Border>
+            </StackPanel>
+            <!-- 和首页同一个 OptionPicker：选项 / 选中值都直接借看板字段，两边改的是同一份设置 -->
+            <ctl:OptionPicker Grid.Column="2" Classes="TrendPick" Compact="True" Pill="True" Glass="True"
+                              ShowMeta="False"
+                              MaxWidth="78" Margin="0,0,6,0" VerticalAlignment="Center"
+                              TopmostPopup="True"
+                              IsVisible="{Binding CanPickRange}"
+                              Options="{Binding RangeOptions}"
+                              SelectedValue="{Binding RangeValue, Mode=TwoWay}"
+                              ToolTip.Tip="切换时间范围，和首页「数据看板」同步" />
+            <ctl:OptionPicker Grid.Column="3" Classes="TrendPick" Compact="True" Pill="True" Glass="True"
+                              ShowMeta="{Binding SourceShowMeta}"
+                              MaxWidth="116" VerticalAlignment="Center"
+                              TopmostPopup="True"
+                              IsVisible="{Binding CanPickSource}"
+                              Options="{Binding SourceOptions}"
+                              SelectedValue="{Binding SourceValue, Mode=TwoWay}"
+                              ToolTip.Tip="切换数据来源，和首页「数据看板」同步" />
+            <!-- 卡片菜单的显式入口：和右键同一份菜单（切大小 / 外观设置 / 关闭 / 移除）。
+                 挂在标题行最右，不压曲线也不挡右侧注释。 -->
+            <Button Grid.Column="4" Classes="CardMore" Margin="4,0,0,0"
+                    VerticalAlignment="Center" Click="OnMoreClick" ToolTip.Tip="卡片菜单">
+                <StackPanel Orientation="Horizontal" Spacing="2.2"
+                            HorizontalAlignment="Center" VerticalAlignment="Center">
+                    <Ellipse Width="2.2" Height="2.2"
+                             Fill="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" />
+                    <Ellipse Width="2.2" Height="2.2"
+                             Fill="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" />
+                    <Ellipse Width="2.2" Height="2.2"
+                             Fill="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" />
+                </StackPanel>
+            </Button>
+        </Grid>
+
+        <Grid Grid.Row="1" ColumnDefinitions="Auto,Auto,*" Margin="0,6,0,0">
+            <TextBlock Text="{Binding ValueText}" FontSize="26" FontWeight="SemiBold"
+                       Foreground="{Binding AccentBrush}"
+                       IsVisible="{Binding HasValue}" />
+            <TextBlock Grid.Column="1" Text="{Binding UnitText}" FontSize="11" Margin="2,0,0,3"
+                       VerticalAlignment="Bottom" Foreground="{DynamicResource DskText2Brush}"
+                       IsVisible="{Binding HasValue}" />
+            <!-- 右侧两行小字平时藏着（Opacity 0），鼠标压到整张卡或展开下拉时才淡入；
+                 显隐不参与布局，读数行不会因为小字进出而跳动 -->
+            <StackPanel Grid.Column="2" Classes="TrendAside"
+                        HorizontalAlignment="Right" VerticalAlignment="Bottom"
+                        Spacing="2" Margin="0,0,0,5" IsVisible="{Binding HasValue}">
+                <TextBlock Text="{Binding NoteText}" FontSize="10.5"
+                           Foreground="{DynamicResource DskText2Brush}"
+                           HorizontalAlignment="Right" TextTrimming="CharacterEllipsis" />
+                <TextBlock Text="{Binding FootText}" FontSize="10"
+                           Foreground="{DynamicResource DskText3Brush}"
+                           HorizontalAlignment="Right" TextTrimming="CharacterEllipsis" />
+            </StackPanel>
+            <TextBlock Grid.Column="2" Text="{Binding EmptyText}" FontSize="13"
+                       Foreground="{DynamicResource DskText2Brush}" TextWrapping="Wrap" MaxLines="2"
+                       VerticalAlignment="Center" Margin="6,0,0,0" IsVisible="{Binding ShowEmptyState}" />
+        </Grid>
+
+        <Panel Grid.Row="2" Margin="0,8,0,0" MinHeight="72" IsVisible="{Binding ShowChartPanel}">
+            <ctl:TrendChart Values="{Binding Series}"
+                            Animate="False"
+                            Stroke="{Binding AccentBrush}"
+                            Fill="{Binding ChartFill}"
+                            GridBrush="{DynamicResource LineBrush}"
+                            IsBars="{Binding IsBars}"
+                            IsDailyBars="{Binding IsDailyBars}"
+                            IsDots="{Binding IsDots}"
+                            ShowBand="{Binding ShowBand}"
+                            ShowMeanLine="{Binding ShowMeanLine}"
+                            Lows="{Binding Lows}"
+                            Highs="{Binding Highs}"
+                            XLabels="{Binding XLabels}"
+                            Baseline="{Binding Baseline}"
+                            HighlightIndex="{Binding HighlightIndex}"
+                            UnitText="{Binding ChartUnit}"
+                            TimeStepMinutes="{Binding ChartTimeStep}"
+                            ShowEndDot="{Binding !IsBars}"
+                            TipBackground="{DynamicResource CardBrush}"
+                            TipForeground="{DynamicResource DskTextBrush}"
+                            IsVisible="{Binding ShowChart}" />
+            <TextBlock Text="{Binding ChartPlaceholderText}" FontSize="11"
+                       Foreground="{DynamicResource DskText3Brush}" HorizontalAlignment="Center"
+                       VerticalAlignment="Center" TextWrapping="Wrap" TextAlignment="Center"
+                       IsVisible="{Binding !ChartReady}" />
+        </Panel>
+    </Grid>
+
+    <!-- 小卡：200×100（也用于空气卡）。标题 / 主数值 / 一行脚注，没有曲线。 -->
+    <Grid RowDefinitions="Auto,Auto,Auto" Margin="12,10,12,9" IsVisible="{Binding !IsFull}">
+        <Grid ColumnDefinitions="Auto,*,Auto">
+            <Border Width="6" Height="6" CornerRadius="3" Background="{Binding AccentBrush}"
+                    VerticalAlignment="Center" />
+            <Grid Grid.Column="1" ColumnDefinitions="Auto,*" Margin="7,0,0,0" VerticalAlignment="Center">
+                <TextBlock Text="{Binding TitleText}" FontSize="12.5" FontWeight="SemiBold"
+                           Foreground="{DynamicResource DskTextBrush}" VerticalAlignment="Center"
+                           TextTrimming="CharacterEllipsis" />
+                <TextBlock Grid.Column="1" Text="{Binding CaptionText}" FontSize="9.5" Margin="5,0,0,0"
+                           VerticalAlignment="Center" Foreground="{DynamicResource DskText3Brush}"
+                           TextTrimming="CharacterEllipsis" />
+            </Grid>
+            <!-- 小卡同样给一枚「⋯」，位置贴右上角，读数和脚注都在它下面 -->
+            <Button Grid.Column="2" Classes="CardMore sm" Margin="4,0,0,0"
+                    VerticalAlignment="Top" Click="OnMoreClick" ToolTip.Tip="卡片菜单">
+                <StackPanel Orientation="Horizontal" Spacing="2"
+                            HorizontalAlignment="Center" VerticalAlignment="Center">
+                    <Ellipse Width="2" Height="2"
+                             Fill="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" />
+                    <Ellipse Width="2" Height="2"
+                             Fill="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" />
+                    <Ellipse Width="2" Height="2"
+                             Fill="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" />
+                </StackPanel>
+            </Button>
+        </Grid>
+
+        <Grid Grid.Row="1" ColumnDefinitions="Auto,Auto,*,Auto" Margin="0,4,0,0">
+            <TextBlock Text="{Binding ValueText}" FontSize="30" FontWeight="SemiBold"
+                       Foreground="{Binding AccentBrush}"
+                       IsVisible="{Binding HasValue}" />
+            <TextBlock Grid.Column="1" Text="{Binding UnitText}" FontSize="10.5" Margin="4,0,0,4"
+                       VerticalAlignment="Bottom" Foreground="{DynamicResource DskText3Brush}"
+                       IsVisible="{Binding HasValue}" />
+            <TextBlock Grid.Column="2" Text="{Binding EmptyText}" FontSize="12"
+                       Foreground="{DynamicResource DskText2Brush}" TextWrapping="Wrap" MaxLines="2"
+                       VerticalAlignment="Center" Margin="4,0,0,0" IsVisible="{Binding ShowEmptyState}" />
+            <Border Grid.Column="3" IsVisible="{Binding ShowGrade}" Background="{Binding HoverBrush}"
+                    CornerRadius="5" Padding="5,1.5" VerticalAlignment="Center">
+                <TextBlock Text="{Binding GradeText}" FontSize="9.5" Foreground="{Binding GradeBrush}" />
+            </Border>
+        </Grid>
+
+        <Grid Grid.Row="2" ColumnDefinitions="*,Auto" Margin="0,3,0,0">
+            <TextBlock Text="{Binding FootText}" FontSize="9.5" Foreground="{DynamicResource DskText3Brush}"
+                       TextTrimming="CharacterEllipsis" />
+            <TextBlock Grid.Column="1" Text="{Binding DeltaText}" FontSize="9.5" Margin="6,0,0,0"
+                       Foreground="{DynamicResource DskText3Brush}" TextTrimming="CharacterEllipsis"
+                       IsVisible="{Binding HasDelta}" />
+        </Grid>
+    </Grid>
+
+    </Panel>
+</UserControl>

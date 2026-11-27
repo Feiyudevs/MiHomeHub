@@ -2,6 +2,8 @@
 // SPDX-License-Identifier: GPL-3.0-only
 
 using Avalonia.Controls;
+using Avalonia.Input;
+using MiHomeHub.ViewModels;
 
 namespace MiHomeHub.Views;
 
@@ -16,5 +18,12 @@ public partial class DeviceDetailView : UserControl
     public DeviceDetailView()
     {
         InitializeComponent();
+    }
+
+    /// <summary>双击画面直接放大：正在播才响应，没播时双击不替用户开流。</summary>
+    private void OnCameraStageDoubleTapped(object? sender, TappedEventArgs e)
+    {
+        if (DataContext is not MainViewModel vm || !vm.IsCameraLive) return;
+        vm.OpenCameraPlayerWindowCommand.Execute(null);
     }
 }

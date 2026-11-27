@@ -1,4 +1,4 @@
-// Copyright (C) 2026 Feiyu
+﻿// Copyright (C) 2026 Feiyu
 // SPDX-License-Identifier: GPL-3.0-only
 
 using System;
@@ -97,6 +97,8 @@ public partial class MainViewModel : ObservableObject
     private void OpenDrawer(MijiaDevice? device)
     {
         if (device == null) return;
+        // 换设备时先把上一台的画面停掉：解码线程和画面源都只服务一台摄像机
+        if (IsCameraLive) StopCameraLiveCore("已停止内置画面");
         DrawerDevice = device;
         IsDrawerOpen = true;
         // 每次打开都回到默认折叠，不继承上一台设备的展开态
@@ -348,7 +350,6 @@ public partial class MainViewModel : ObservableObject
             {
                 await LoadFanStateAsync(client, device);
             }
-            if (device.IsCamera) _ = RefreshCameraBridgeAsync(device);
         }
         catch (Exception ex)
         {
