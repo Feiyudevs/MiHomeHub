@@ -12,6 +12,7 @@
 [![Avalonia](https://img.shields.io/badge/Avalonia-11.3-8B44D0.svg)](https://avaloniaui.net)
 [![Platform](https://img.shields.io/badge/platform-Windows%20x64-0078D4.svg)](#快速开始)
 [![Build](https://github.com/Feiyudevs/MiHomeHub/actions/workflows/build.yml/badge.svg)](https://github.com/Feiyudevs/MiHomeHub/actions/workflows/build.yml)
+[![Sponsor](https://img.shields.io/badge/Sponsor-%E2%9D%A4-ff5e8a)](SPONSOR.md)
 
 基于 **Avalonia 11 + .NET 10** 原生构建，不是套壳、不是 Web 页面包装——代码一套到底，架构跨平台，当前发布 Windows x64。
 扫码登录即可接管你的全部米家设备——灯、空调、窗帘、开关、传感器、音箱、场景与自动化。
@@ -157,7 +158,7 @@ MiHomeHub/
 ├── docs/            # 构建与技术文档、界面截图
 ├── installer/       # Inno Setup 脚本
 ├── scripts/         # 编译、发布、打包与 GitHub Release 脚本
-└── .github/         # CI 与 issue 模板
+└── .github/         # CI、issue 模板与赞助入口（FUNDING.yml / sponsor）
 ```
 
 ## 快速开始
@@ -213,6 +214,29 @@ package.cmd -SkipInstaller :: 只出单文件 exe
 - [贡献指南](CONTRIBUTING.md)
 - [贡献者行为准则](CODE_OF_CONDUCT.md)
 - [安全说明](SECURITY.md)
+
+## 支持这个项目
+
+MiHomeHub 是业余时间一台设备一台设备调出来的：没有团队、没有广告，也没有内购和付费墙，所有功能免费、源码按 GPL-3.0 全开。
+如果它确实帮你把家里那堆灯、空调和场景管顺了，可以扫码请作者喝杯咖啡——金额随意，不打赏也照样用，不会少任何功能。
+
+<table>
+  <tr>
+    <td width="50%" align="center">
+      <img src=".github/sponsor/alipay.jpg" alt="支付宝赞赏码" width="300"><br>
+      <b>支付宝</b><br>
+      <sub>扫码转账，金额随意</sub>
+    </td>
+    <td width="50%" align="center">
+      <img src=".github/sponsor/wechat.png" alt="微信赞赏码" width="300"><br>
+      <b>微信</b><br>
+      <sub>扫码赞赏，可附一句留言</sub>
+    </td>
+  </tr>
+</table>
+
+一分钱不花也能帮上忙：给仓库点一颗 Star、在 [Issues](https://github.com/Feiyudevs/MiHomeHub/issues) 里报一个能复现的问题、或者推荐给同样在折腾米家的朋友。
+完整说明与其它支持方式见 [赞助页](SPONSOR.md)。
 
 ## 致谢
 
