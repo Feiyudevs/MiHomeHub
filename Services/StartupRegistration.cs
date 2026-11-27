@@ -4,12 +4,14 @@
 using System;
 using System.Runtime.InteropServices;
 using System.Text;
+using MiHomeHub.Services.MacOS;
 
 namespace MiHomeHub.Services;
 
 /// <summary>
-/// 开机启动 = 当前用户 Run 键（HKCU\Software\Microsoft\Windows\CurrentVersion\Run）。
-/// 直接调 advapi32，避免为注册表再引一个 NuGet 包（net10.0 非 windows TFM 不带 Registry）。
+/// 开机启动 = 当前用户 Run 键（HKCU\Software\Microsoft\Windows\CurrentVersion\Run）；
+/// macOS 上对应当前用户的 LaunchAgent（~/Library/LaunchAgents/com.mihomehub.app.plist）。
+/// Windows 侧直接调 advapi32，避免为注册表再引一个 NuGet 包（net10.0 非 windows TFM 不带 Registry）。
 /// </summary>
 public static class StartupRegistration
 {
@@ -25,25 +27,66 @@ public static class StartupRegistration
 
     private static string? Command => Environment.ProcessPath is { } exe ? $"\"{exe}\"" : null;
 
-    public static bool IsEnabled() =>
-        Command is { } cmd && string.Equals(Read(), cmd, StringComparison.OrdinalIgnoreCase);
+    /// <summary>macOS 用的可执行文件路径：LaunchAgent 的 plist 里是参数数组，不能带引号。</summary>
+    private static string? ExecutablePath => Environment.ProcessPath;
+
+    public static bool IsEnabled()
+    {
+        // macOS：开机启动 = LaunchAgent（~/Library/LaunchAgents/com.mihomehub.app.plist）
+        if (OperatingSystem.IsMacOS())
+            return ExecutablePath is { } exe && MacOsLaunchAgent.IsEnabled(exe);
+        return Command is { } cmd && string.Equals(Read(), cmd, StringComparison.OrdinalIgnoreCase);
+    }
 
     /// <summary>写入 / 删除启动项，返回是否成功。</summary>
     public static bool Apply(bool enabled)
     {
+        if (OperatingSystem.IsMacOS())
+        {
+            if (ExecutablePath is not { } exe) return false;
+            var ok = MacOsLaunchAgent.Apply(exe, enabled);
+            _lastError = MacOsLaunchAgent.LastError;
+            return ok;
+        }
         var cmd = Command;
         if (cmd is null) return false;
         return enabled ? Write(cmd) : Delete();
     }
 
     /// <summary>启动时对齐一次：升级或换目录后旧的 exe 路径会失效。</summary>
+    /// <remarks>
+    /// 这一步是启动期做的事，**任何异常都不能带崩应用**：
+    /// 以前 macOS 上写不进 plist 时 UnauthorizedAccessException 会一路抛到
+    /// App.OnFrameworkInitializationCompleted，进程 SIGABRT，用户连窗口都看不到。
+    /// 现在这里兜住异常并记进 <see cref="LastError"/>，界面如实显示原因。
+    /// </remarks>
     public static void Sync()
     {
-        if (!AppSettingsStore.AutoStart) return;
-        var cmd = Command;
-        if (cmd is null || string.Equals(Read(), cmd, StringComparison.OrdinalIgnoreCase)) return;
-        Write(cmd);
+        try
+        {
+            if (OperatingSystem.IsMacOS())
+            {
+                if (ExecutablePath is not { } exe) return;
+                MacOsLaunchAgent.Sync(exe, AppSettingsStore.AutoStart);
+                _lastError = MacOsLaunchAgent.LastError;
+                return;
+            }
+            if (!AppSettingsStore.AutoStart) return;
+            var cmd = Command;
+            if (cmd is null || string.Equals(Read(), cmd, StringComparison.OrdinalIgnoreCase)) return;
+            Write(cmd);
+        }
+        catch (Exception ex)
+        {
+            _lastError = $"开机启动项对齐失败（{ex.Message}）";
+            DesktopLog.Write($"[startup] 启动项对齐失败（不影响应用启动）：{_lastError}");
+        }
     }
+
+    /// <summary>最近一次开机启动注册失败的原因（成功时为空）。</summary>
+    public static string? LastError => _lastError;
+
+    private static string? _lastError;
 
     private static string? Read()
     {

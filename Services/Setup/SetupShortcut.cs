@@ -11,11 +11,13 @@ namespace MiHomeHub.Services.Setup;
 /// <summary>
 /// 创建 .lnk 快捷方式（IShellLinkW + IPersistFile）。安装器需要按真实快捷方式写开始菜单/桌面，
 /// 不能用文本占位；必须在 STA 线程调用（SetupService 已用 RunSta 包住）。
+/// 非 Windows（macOS）没有 COM 也没有 .lnk 概念，直接返回 false。
 /// </summary>
 internal static class SetupShortcut
 {
     public static bool Create(string targetExe, string lnkPath, string description = "MiHomeHub")
     {
+        if (!OperatingSystem.IsWindows()) return false;
         IShellLinkW? link = null;
         IPersistFile? file = null;
         try

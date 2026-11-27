@@ -498,6 +498,13 @@ internal sealed class SetupService
 
     private static void RunSta(Action action)
     {
+        // STA 只在 Windows 上可用（COM 快捷方式需要）；其它平台直接同线程执行
+        if (!OperatingSystem.IsWindows())
+        {
+            action();
+            return;
+        }
+
         Exception? error = null;
         var thread = new Thread(() =>
         {

@@ -1,6 +1,7 @@
 // Copyright (C) 2026 Feiyu
 // SPDX-License-Identifier: GPL-3.0-only
 
+using System;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Platform;
@@ -18,7 +19,12 @@ public static class WindowIconHelper
 
     private static WindowIcon Load()
     {
-        using var stream = AssetLoader.Open(new Uri("avares://MiHomeHub/Assets/logo.ico"));
+        // macOS 的 Skia 解 .ico 不稳（多尺寸 ico 里容易挑错帧），改用同源的 PNG；
+        // Windows 侧维持多尺寸 ico，任务栏缩放效果更好。
+        var uri = OperatingSystem.IsMacOS()
+            ? new Uri("avares://MiHomeHub/Assets/logo-256.png")
+            : new Uri("avares://MiHomeHub/Assets/logo.ico");
+        using var stream = AssetLoader.Open(uri);
         return new WindowIcon(stream);
     }
 
@@ -32,14 +38,12 @@ public static class WindowIconHelper
     /// </summary>
     public static void Apply(Window window)
     {
-        if (!window.ShowInTaskbar)
-        {
-            window.Icon = AppIcon;
-            return;
-        }
+        window.Icon = AppIcon;
+
+        // macOS 没有任务栏，也不需要「延后放行」这套时序（那是 Windows 任务栏按钮的坑）。
+        if (OperatingSystem.IsMacOS() || !window.ShowInTaskbar) return;
 
         window.ShowInTaskbar = false;
-        window.Icon = AppIcon;
 
         var revealTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(150) };
         window.Opened += (_, _) =>

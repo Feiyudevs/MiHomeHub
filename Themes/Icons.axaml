@@ -42,6 +42,16 @@
             <PathGeometry x:Key="GeoMoon">M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z</PathGeometry>
             <PathGeometry x:Key="GeoSun">M12 2v2 M12 20v2 M4.93 4.93l1.41 1.41 M17.66 17.66l1.41 1.41 M2 12h2 M20 12h2 M6.34 17.66l-1.41 1.41 M19.07 4.93l-1.41 1.41 M12 8a4 4 0 1 0 0 8 4 4 0 0 0 0-8z</PathGeometry>
             <PathGeometry x:Key="GeoMin">M4,12 L20,12</PathGeometry>
+            <!-- macOS 绿键悬停符号：两支朝对角外扩的箭头（系统绿键就是这个形状） -->
+            <PathGeometry x:Key="GeoZoom">M6,18 L18,6 M18,6 V12 M18,6 H12 M6,18 V12 M6,18 H12</PathGeometry>
+            <!--
+              红绿灯悬停符号（12 单位画布，和 12×12 的圆点一一对应）：
+              直接复用 24 网格的 GeoClose/GeoMin/GeoZoom 会被 Stretch 缩放，
+              笔画跟着一起变细，符号却撑满整个圆点。这里单独画一套小尺寸的。
+            -->
+            <PathGeometry x:Key="MacGlyphClose">M3.4,3.4 L8.6,8.6 M8.6,3.4 L3.4,8.6</PathGeometry>
+            <PathGeometry x:Key="MacGlyphMin">M3,6 L9,6</PathGeometry>
+            <PathGeometry x:Key="MacGlyphZoom">M4,8.2 L8.2,4 M6,4 L8.2,4 L8.2,6.2</PathGeometry>
             <PathGeometry x:Key="GeoMax">M6,3 H18 Q21,3 21,6 V18 Q21,21 18,21 H6 Q3,21 3,18 V6 Q3,3 6,3 Z</PathGeometry>
             <PathGeometry x:Key="GeoClose">M3,3 L21,21 M21,3 L3,21</PathGeometry>
             <PathGeometry x:Key="GeoPower">M12,3 L12,11 M6.7,6.7 A7.5,7.5 0 1 0 17.3,6.7</PathGeometry>

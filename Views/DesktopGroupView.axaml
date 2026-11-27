@@ -80,7 +80,16 @@
                         <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="2"
                                     VerticalAlignment="Center" HorizontalAlignment="Right">
                             <!-- 置顶图钉：摘掉 Progman 从属、浮到所有窗口之上；再点一次放回桌面层。
-                                 选中态只换图标颜色（同一族状态控件的做法），不加底色、不加勾 -->
+                                 选中态除了换图标颜色，再挂一个「置顶」标记：
+                                 macOS 上层级变化肉眼看不出来（没别的窗口叠着时），
+                                 用户反馈「点了没有任何作用和反应」 -->
+                            <Border CornerRadius="999" Height="16" Padding="6,0" VerticalAlignment="Center"
+                                    Background="#338B7CFF" IsVisible="{Binding IsTopmost}"
+                                    Opacity="{Binding TitleOpacity}">
+                                <TextBlock Text="置顶" FontSize="10" FontWeight="SemiBold"
+                                           VerticalAlignment="Center"
+                                           Foreground="{DynamicResource DskText2Brush}" />
+                            </Border>
                             <Button Classes="DskIcon" Classes.pin="{Binding IsTopmost}"
                                     Click="OnPinClick" ToolTip.Tip="置顶 / 放回桌面">
                                 <Viewbox Width="15" Height="15" Stretch="Uniform"

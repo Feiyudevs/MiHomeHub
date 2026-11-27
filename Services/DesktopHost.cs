@@ -9,6 +9,7 @@ using Avalonia.Controls;
 using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Threading;
 using MiHomeHub.Models;
+using MiHomeHub.Services.MacOS;
 using MiHomeHub.ViewModels;
 using MiHomeHub.Views;
 
@@ -213,6 +214,10 @@ public static class DesktopHost
     /// <summary>分区所在屏幕的缩放；没开窗时按主屏缩放近似。</summary>
     private static double GroupScale(string id)
     {
+        // macOS 的落位坐标单位是逻辑点（Avalonia 的 Screen.Scaling 恒为 1，Window.Position 也是点），
+        // 1 DIP 就等于 1 点；这里的缩放只用来把 DIP 尺寸换算成落位坐标，
+        // 不能拿窗口的 RenderScaling（Retina 上是 2），否则间距和卡片尺寸会整体放大一倍。
+        if (OperatingSystem.IsMacOS()) return 1;
         if (Windows.TryGetValue(id, out var win) && win.RenderScaling > 0) return win.RenderScaling;
         return MonitorLayout.Fallback()?.Scaling ?? 1;
     }
@@ -300,6 +305,14 @@ public static class DesktopHost
         DesktopLog.Write($"[data-card] open begin id={vm.Model.Id} type={vm.GetType().Name} " +
                          $"shown={vm.Model.Shown} x={vm.Model.X:0} y={vm.Model.Y:0} " +
                          $"w={vm.Model.Width:0} h={vm.Model.Height:0}");
+
+        // macOS：桌面数据卡是 Windows 专属实现（玻璃宿主 + Win32 圆角/置顶），
+        // 这一版 PR 还没给 macOS 做等价物 —— 这里直接不建窗，避免开了个空壳或崩在原生调用上。
+        if (OperatingSystem.IsMacOS() && vm is DataCardVm)
+        {
+            DesktopLog.Write("[data-card] macOS 暂不支持桌面数据卡，已跳过");
+            return;
+        }
 
         IDesktopWindow win;
         try
@@ -443,11 +456,17 @@ public static class DesktopHost
     {
         foreach (var win in Windows.Values)
         {
-            var h = win.Handle;
-            if (h == nint.Zero) continue;
-            if (DesktopNative.GetWindowRect(h, out var rect)
-                && x >= rect.Left && x < rect.Right
-                && y >= rect.Top && y < rect.Bottom)
+            // 用 Avalonia 自己的几何算，不走 Win32：macOS 上没有 HWND，GetWindowRect 不可用。
+            // 坐标一律按逻辑点：Windows 上 Win32 给的是物理像素、要乘 RenderScaling；
+            // macOS 上 Position/Bounds 与光标坐标本来就是逻辑点（Screen.Scaling 恒 1），
+            // 再乘一次 RenderScaling（=2）会把判定范围整整放大一倍。
+            var scale = OperatingSystem.IsMacOS() ? 1d : (win.RenderScaling <= 0 ? 1d : win.RenderScaling);
+            var origin = win.Window.Position;
+            var width = (int)Math.Round(win.Window.Bounds.Width * scale);
+            var height = (int)Math.Round(win.Window.Bounds.Height * scale);
+            if (width <= 0 || height <= 0) continue;
+            if (x >= origin.X && x < origin.X + width
+                && y >= origin.Y && y < origin.Y + height)
                 return true;
         }
         return false;
@@ -551,7 +570,6 @@ public static class DesktopHost
         const double height = 260;
         const double margin = 24;
         var media = _layout.Groups.FirstOrDefault(g => g.IsMedia);
-        var (vx, vy, vw, _) = DesktopEmbed.VirtualScreen();
         double x, y;
         if (media != null)
         {
@@ -560,8 +578,9 @@ public static class DesktopHost
         }
         else
         {
-            x = vx + vw - width - margin;
-            y = vy + margin;
+            var spot = PrimaryTopRightSpot(width, height);
+            x = spot.X;
+            y = spot.Y;
         }
         for (var i = 0; i < 6; i++)
         {
@@ -578,6 +597,21 @@ public static class DesktopHost
             X = Math.Round(x),
             Y = Math.Round(y),
         };
+    }
+
+    /// <summary>
+    /// 分区默认落点：<b>主屏</b>工作区的右上角。
+    /// <para>
+    /// 原来取的是「虚拟桌面并集」的右上角 —— 多屏时那是第二屏的边角，
+    /// 一半卡片露在屏幕外（用户反馈：分区跑到第二屏、贴边还超出屏幕）。
+    /// </para>
+    /// </summary>
+    private static (double X, double Y) PrimaryTopRightSpot(double width, double height)
+    {
+        const double margin = 24;
+        var monitor = MonitorLayout.Fallback();
+        var area = monitor?.WorkArea ?? new PixelRect(0, 0, 1920, 1080);
+        return (area.Right - width - margin, area.Y + margin);
     }
 
     /// <summary>桌面菜单里的「关闭空调分区」：收掉窗口并记住不再自动放回。</summary>
@@ -617,17 +651,17 @@ public static class DesktopHost
         return vm;
     }
 
-    /// <summary>媒体分区默认落右上角，被占了就往左挪一列。</summary>
+    /// <summary>媒体分区默认落主屏右上角，被占了就往左挪一列。</summary>
     private static DesktopGroupModel NewMediaModel()
     {
         const double width = 300;
-        const double margin = 24;
-        var (vx, vy, vw, _) = DesktopEmbed.VirtualScreen();
-        var x = vx + vw - width - margin;
+        var spot = PrimaryTopRightSpot(width, 132);
+        var x = spot.X;
+        var y = spot.Y;
         for (var i = 0; i < 6; i++)
         {
             var taken = _layout.Groups.Any(g =>
-                Math.Abs(g.Y - (vy + margin)) < 80 && Math.Abs(g.X - x) < width);
+                Math.Abs(g.Y - y) < 80 && Math.Abs(g.X - x) < width);
             if (!taken) break;
             x -= width + 12;
         }
@@ -637,7 +671,7 @@ public static class DesktopHost
             Name = "媒体",
             Width = width,
             X = Math.Round(x),
-            Y = Math.Round(vy + margin),
+            Y = Math.Round(y),
         };
     }
 
@@ -772,6 +806,14 @@ public static class DesktopHost
     /// <summary>设置页重新打开监控分区。</summary>
     public static DesktopCameraVm? ShowCamera()
     {
+        // macOS：监控分区（摄像头实时预览）依赖 Media Foundation / D3D11 解码链与 Win32 玻璃宿主，
+        // 这一版 PR 未适配 macOS —— 直接不建，避免拉起一条注定失败的采集链。
+        if (OperatingSystem.IsMacOS())
+        {
+            DesktopLog.Write("[camera] macOS 暂不支持监控分区，已跳过");
+            return null;
+        }
+
         if (_main == null) return null;
         var existing = Groups.FirstOrDefault(g => g.IsCamera);
         if (existing != null)
@@ -886,6 +928,13 @@ public static class DesktopHost
     /// <summary>设置页开关：true = 重新显示（没有就新建），false = 收起。</summary>
     public static void SetDataCardShown(string key, bool on)
     {
+        // macOS：桌面数据卡这一版没适配（见 OpenWindow 的说明），开关一律不生效
+        if (OperatingSystem.IsMacOS())
+        {
+            DesktopLog.Write($"[data-card] macOS 暂不支持桌面数据卡，忽略显隐 key={key} on={on}");
+            return;
+        }
+
         if (on)
         {
             AddDataCard(key);
@@ -1233,6 +1282,17 @@ public static class DesktopHost
         => _groupMenu is { IsVisible: true } m && ReferenceEquals(m.Target, vm);
 
     /// <summary>分区「⋯」菜单：贴在按钮下方弹出（下方放不下才翻到上方），再点一次（或失焦）收起。</summary>
+    /// <summary>
+    /// 桌面浮层要压在「钉住的分区卡片」之上（Windows 的 Topmost 语义）：
+    /// macOS 上浮层与钉住卡片都是浮层级（3），同层看激活顺序 → 浮层可能被卡片盖住。
+    /// 这里把浮层抬到 statusPanel 层（20），只影响这几个桌面浮层，不动主窗口。
+    /// </summary>
+    private static void RaisePopup(Window win)
+    {
+        if (!OperatingSystem.IsMacOS()) return;
+        MacOsWindowInterop.SetLevel(win, MacOsWindowInterop.PopupWindowLevel);
+    }
+
     public static void OpenGroupMenu(DesktopZoneVm vm, PixelRect anchor)
     {
         if (_groupMenu is { IsVisible: true } open && ReferenceEquals(open.Target, vm))
@@ -1251,6 +1311,7 @@ public static class DesktopHost
         };
         menu.Bind(vm, anchor);
         menu.Show();
+        RaisePopup(menu);
         DesktopLog.Write($"[menu] Show anchor={anchor} visible={menu.IsVisible}");
     }
 
@@ -1264,6 +1325,7 @@ public static class DesktopHost
         _appearance.Reload();
         PopupPlacement.CenterOnScreen(_appearance, _appearance.Width, _appearance.Height);
         if (!_appearance.IsVisible) _appearance.Show();
+        RaisePopup(_appearance);
         _appearance.Activate();
     }
 
@@ -1302,6 +1364,7 @@ public static class DesktopHost
         };
         win.Bind(vm, anchor);
         win.Show();
+        RaisePopup(win);
     }
 
     /// <summary>音量按钮：贴着按钮弹一枚滑条窗（桌面窗是 NOACTIVATE，Avalonia 的 Popup 会被埋，只能独立窗口）。</summary>
@@ -1342,6 +1405,7 @@ public static class DesktopHost
         };
         win.Bind(vm, anchor);
         win.Show();
+        RaisePopup(win);
     }
 
     /// <summary>空调名：弹一个贴着的空调选择窗，选完即写回全局默认空调。</summary>
@@ -1362,6 +1426,7 @@ public static class DesktopHost
         };
         win.Bind(vm, anchor);
         win.Show();
+        RaisePopup(win);
     }
 
     private static void CloseGroupDialogs(DesktopZoneVm vm)

@@ -16,7 +16,9 @@
     <AssemblyTitle>MiHomeHub</AssemblyTitle>
     <Company>Feiyu</Company>
     <Description>MiHomeHub — 米家桌面控制台</Description>
-    <ApplicationIcon>Assets\logo.ico</ApplicationIcon>
+    <!-- 图标：Windows 用 .ico（写进 exe 资源）；macOS 的 .icns 由 build/macos/make-icon.sh
+         从 Assets/logo-256.png 生成后注入 .app bundle 的 Resources，非 Windows 构建不设本项。 -->
+    <ApplicationIcon Condition="'$(OS)' == 'Windows_NT'">Assets\logo.ico</ApplicationIcon>
     <!-- 编译绑定：XAML 绑定错误编译期暴露，运行时零反射查找（Zonex 经验 P0）。
          View 需有 x:DataType；个别无法类型化的路径可显式 {ReflectionBinding}。 -->
     <AvaloniaUseCompiledBindingsByDefault>true</AvaloniaUseCompiledBindingsByDefault>
@@ -41,14 +43,20 @@
        link 裁剪会破坏登录（auth.json）、二维码、面板关闭等运行时行为（见 TrimmerRoots.xml 注释）。
        若要重开裁剪：先清完 ReflectionBinding，JSON 改源生成，再补 root 并做完整回归。 -->
   <PropertyGroup Condition="'$(Configuration)' == 'Release'">
-    <RuntimeIdentifier>win-x64</RuntimeIdentifier>
+    <!-- RID 可由命令行覆盖（-r osx-arm64 / osx-x64 / win-x64）；未指定时默认 Windows x64。
+         命令行传入的 RID 是全局属性，不会被这里的默认值覆盖。 -->
+    <RuntimeIdentifier Condition="'$(RuntimeIdentifier)' == ''">win-x64</RuntimeIdentifier>
     <SelfContained>true</SelfContained>
-    <PublishSingleFile>true</PublishSingleFile>
-    <EnableCompressionInSingleFile>true</EnableCompressionInSingleFile>
-    <IncludeNativeLibrariesForSelfExtract>true</IncludeNativeLibrariesForSelfExtract>
+    <!-- 单文件 + 内嵌原生库自解包：只保留 Windows 的原有分发形态。
+         macOS 走 .app bundle（可执行文件与依赖 dll 放 Contents/MacOS，原生 dylib 放 Contents/MacOS），
+         单文件自解包会把原生库解到临时目录，落在签名覆盖之外，深度签名校验会因此失败。 -->
+    <PublishSingleFile Condition="!$(RuntimeIdentifier.StartsWith('osx'))">true</PublishSingleFile>
+    <EnableCompressionInSingleFile Condition="!$(RuntimeIdentifier.StartsWith('osx'))">true</EnableCompressionInSingleFile>
+    <IncludeNativeLibrariesForSelfExtract Condition="!$(RuntimeIdentifier.StartsWith('osx'))">true</IncludeNativeLibrariesForSelfExtract>
     <DebugType>none</DebugType>
     <DebugSymbols>false</DebugSymbols>
-    <Prefer32bit>true</Prefer32bit>
+    <!-- Prefer32bit 是 Win32 概念，macOS/Linux 上无意义 -->
+    <Prefer32bit Condition="'$(OS)' == 'Windows_NT'">true</Prefer32bit>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)' == 'Debug' ">
     <DebugSymbols>false</DebugSymbols>
@@ -75,6 +83,9 @@
   <ItemGroup>
     <Compile Remove="obj\**" />
     <Compile Remove="bin\**" />
+    <!-- macOS 打包脚本把 publish 当作独立中间目录（publish/obj-macos-<rid>/），
+         里面同样有 SDK 生成的 AssemblyInfo.cs，必须一起排除，否则重复编入报 CS0579。 -->
+    <Compile Remove="publish\**" />
     <!-- installer\MiHomeHub.Setup 是独立小工程（自带 Main），其源码与 obj/bin 不能混进主程序编译 -->
     <Compile Remove="installer\**\*.cs" />
     <Compile Remove="installer\**\obj\**" />
@@ -101,6 +112,9 @@
          首用时释放到数据目录，按设备生成配置后以隐藏进程运行。 -->
     <EmbeddedResource Include="Assets\camera\go2rtc.exe" LogicalName="MiHomeHub.camera.go2rtc.exe" />
     <EmbeddedResource Include="Assets\camera\native\*.dll" LogicalName="MiHomeHub.camera.native.%(Filename)%(Extension)" />
+    <!-- 传递依赖 Avalonia.Desktop → Tmds.DBus.Protocol 0.21.2 带高危公告
+         GHSA-xrw6-gwf8-vvr9（只在 Linux 的 DBus 通路上用得上，这里只把版本抬到已修复的 0.21.3）。 -->
+    <PackageReference Include="Tmds.DBus.Protocol" Version="0.21.3" />
   </ItemGroup>
 
 </Project>

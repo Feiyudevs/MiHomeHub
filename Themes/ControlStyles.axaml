@@ -303,6 +303,43 @@
         <Style Selector="Button.WinBtn.close:pointerover">
             <Setter Property="Foreground" Value="White"/>
         </Style>
+        <!-- macOS 红绿灯 12×12 圆点：悬停才显示 ×/−/对角箭头，颜色照搬系统 -->
+        <Style Selector="Button.MacLight">
+            <Setter Property="Width" Value="12"/>
+            <Setter Property="Height" Value="12"/>
+            <Setter Property="Padding" Value="0"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="Template">
+                <ControlTemplate>
+                    <Grid>
+                        <Ellipse Name="Dot" Width="12" Height="12" Fill="#FF5F57"/>
+                        <Path Name="Glyph" Width="8" Height="8" Stretch="Uniform"
+                              StrokeThickness="1.1" StrokeLineCap="Round" IsVisible="False"/>
+                    </Grid>
+                </ControlTemplate>
+            </Setter>
+        </Style>
+        <Style Selector="Button.MacLight.min /template/ Ellipse#Dot">
+            <Setter Property="Fill" Value="#FEBC2E"/>
+        </Style>
+        <Style Selector="Button.MacLight.zoom /template/ Ellipse#Dot">
+            <Setter Property="Fill" Value="#28C840"/>
+        </Style>
+        <Style Selector="Button.MacLight.close /template/ Path#Glyph">
+            <Setter Property="Data" Value="{StaticResource MacGlyphClose}"/>
+            <Setter Property="Stroke" Value="#7A0B00"/>
+        </Style>
+        <Style Selector="Button.MacLight.min /template/ Path#Glyph">
+            <Setter Property="Data" Value="{StaticResource MacGlyphMin}"/>
+            <Setter Property="Stroke" Value="#7A5200"/>
+        </Style>
+        <Style Selector="Button.MacLight.zoom /template/ Path#Glyph">
+            <Setter Property="Data" Value="{StaticResource MacGlyphZoom}"/>
+            <Setter Property="Stroke" Value="#0B5A1E"/>
+        </Style>
+        <Style Selector="Button.MacLight:pointerover /template/ Path#Glyph">
+            <Setter Property="IsVisible" Value="True"/>
+        </Style>
         <!-- 标题栏主题钮 36×36（抽屉关闭钮可覆写 Width/Height/Padding） -->
         <Style Selector="Button.ThemeBtn">
             <Setter Property="Width" Value="36"/>
@@ -1326,7 +1363,7 @@
             <Setter Property="Padding" Value="0"/>
             <Setter Property="IsReadOnly" Value="True"/>
             <Setter Property="Foreground" Value="{DynamicResource Text3Brush}"/>
-            <Setter Property="FontFamily" Value="Consolas"/>
+            <Setter Property="FontFamily" Value="Consolas, Menlo, Monaco, Courier New"/>
             <Setter Property="FontSize" Value="12"/>
             <Setter Property="TextWrapping" Value="Wrap"/>
             <!-- 只读日志区不摆出「可输入」的样子：没有闪烁光标，鼠标也不变 I 形 -->

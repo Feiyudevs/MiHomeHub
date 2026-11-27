@@ -258,6 +258,16 @@
                     </Grid>
                 </Button>
 
+                <Button Classes="TrayItem" Click="OnOpenSettingsClick">
+                    <Grid ColumnDefinitions="20,*">
+                        <Border Width="20" Height="40" Grid.Column="0">
+                            <Path Width="14" Height="14" Stretch="Uniform" HorizontalAlignment="Center" VerticalAlignment="Center"
+                                  Data="{StaticResource GeoCog}" />
+                        </Border>
+                        <TextBlock Grid.Column="1" Text="设置" Margin="6,0,0,0" />
+                    </Grid>
+                </Button>
+
                 <Button Classes="TrayItem" Click="OnToggleDesktopClick">
                     <Grid ColumnDefinitions="20,*">
                         <Border Width="20" Height="40" Grid.Column="0">

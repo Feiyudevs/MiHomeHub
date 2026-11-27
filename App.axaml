@@ -10,8 +10,10 @@
              RequestedThemeVariant="Dark">
     <Application.Resources>
         <ResourceDictionary>
-            <!-- 全局统一字体：避免每个控件重复解析默认字体，防止 GlyphTypeface 只增不减累积到 gen2 -->
-            <FontFamily x:Key="DefaultFontFamily">Microsoft YaHei UI</FontFamily>
+            <!-- 全局统一字体：避免每个控件重复解析默认字体，防止 GlyphTypeface 只增不减累积到 gen2
+                 用逗号分隔的回退列表：Windows 命中微软雅黑 UI，macOS 命中苹方，Linux 命中思源黑体。
+                 Avalonia 的 FontFamily 支持多字体回退，取第一个系统里真实存在的字族。 -->
+            <FontFamily x:Key="DefaultFontFamily">Microsoft YaHei UI, PingFang SC, Noto Sans CJK SC, Helvetica Neue, Arial, Segoe UI</FontFamily>
             <ResourceDictionary.MergedDictionaries>
                 <ResourceInclude Source="avares://MiHomeHub/Themes/Converters.axaml" />
                 <ResourceInclude Source="avares://MiHomeHub/Themes/Icons.axaml" />

@@ -6,6 +6,8 @@ using System.Collections.Generic;
 using System.Runtime.InteropServices;
 using Avalonia;
 using Avalonia.Controls;
+using Avalonia.Input;
+using Avalonia.Interactivity;
 using Avalonia.Media;
 using Avalonia.Threading;
 using MiHomeHub.Services;
@@ -59,11 +61,19 @@ public class CustomWindow : Window
     /// <summary>是否处于最大化（系统 WindowState.Maximized 或派生窗自己实现的铺满工作区）。</summary>
     public bool IsSurfaceMaximized => _surfaceMaximized || WindowState == WindowState.Maximized;
 
-    /// <summary>当前生效的圆角：最大化归零。</summary>
-    public double EffectiveCornerRadius => IsSurfaceMaximized ? 0d : SurfaceCornerRadius;
+    /// <summary>
+    /// 当前生效的圆角：最大化归零。
+    /// macOS 例外 —— 用户反馈「全屏后圆角没了变成直角」，mac 上铺满工作区时仍然保留圆角。
+    /// </summary>
+    public double EffectiveCornerRadius =>
+        IsSurfaceMaximized && !OperatingSystem.IsMacOS() ? 0d : SurfaceCornerRadius;
 
-    /// <summary>当前生效的留白：最大化归零。</summary>
-    public double EffectiveShadowMargin => IsSurfaceMaximized ? 0d : ShadowMargin;
+    /// <summary>
+    /// 当前生效的留白：最大化归零。
+    /// macOS 上也没有 DWM 那种自带阴影，留白只剩下一圈透明空隙（用户反馈「整个界面外圈有一圈看不见的外框」），
+    /// 所以 macOS 直接不留白：卡片贴窗口边，缩放带也跟着贴到窗口边缘。
+    /// </summary>
+    public double EffectiveShadowMargin => IsSurfaceMaximized || OperatingSystem.IsMacOS() ? 0d : ShadowMargin;
 
     public CustomWindow()
     {
@@ -73,6 +83,18 @@ public class CustomWindow : Window
         TransparencyLevelHint = new[] { WindowTransparencyLevel.Transparent };
         // 透明背景下 ClearType 的子像素会算错（文字出现红蓝彩边），统一走灰度抗锯齿。
         RenderOptions.SetTextRenderingMode(this, TextRenderingMode.Antialias);
+
+        // macOS 没有 Win32 命中测试，边缘缩放改走 Avalonia 指针事件（只在 macOS 上挂，
+        // Windows 的 WM_NCHITTEST 路径保持原样，互不干扰）。
+        if (OperatingSystem.IsMacOS())
+        {
+            // 指针按下走「隧道」阶段：边缘缩放必须先于子控件拿到事件。
+            // 窗口顶边压在自绘标题栏上，标题栏的 PointerPressed 会 BeginMoveDrag（原生拖窗）；
+            // 缩放和拖窗同时进行 → 顶边在两个位置之间狂跳（左/右/下边没有标题栏，所以没事）。
+            AddHandler(PointerPressedEvent, MacOnPointerPressedTunnel, RoutingStrategies.Tunnel);
+            PointerMoved += MacOnPointerMoved;
+            PointerReleased += MacOnPointerReleased;
+        }
 
         // shell 激活路径也可能让系统把样式算回来，补一次。
         Activated += (_, _) => Dispatcher.UIThread.Post(RepairNow);
@@ -102,6 +124,18 @@ public class CustomWindow : Window
     /// </summary>
     protected void SetSurfaceBounds(PixelRect bounds)
     {
+        // macOS 没有 Win32 外层矩形概念，用 Avalonia 的位置 + 客户区尺寸等价表达
+        if (!OperatingSystem.IsWindows())
+        {
+            // 空矩形会把窗口塌成 0×0，之后平台按最小尺寸回弹会一路把尺寸放大
+            if (bounds.Width <= 0 || bounds.Height <= 0) return;
+            Position = new PixelPoint(bounds.X, bounds.Y);
+            // 同样过上限闸门：外层矩形一旦离谱，平台裁帧后会被当成逻辑点读回来
+            Width = Services.WindowSizeLimits.ClampWidth(bounds.Width, 1);
+            Height = Services.WindowSizeLimits.ClampHeight(bounds.Height, 1);
+            return;
+        }
+
         if (_hwnd == nint.Zero) return;
         DesktopNative.SetWindowPos(_hwnd, nint.Zero, bounds.X, bounds.Y, bounds.Width, bounds.Height,
             DesktopNative.SWP_NOZORDER | DesktopNative.SWP_NOOWNERZORDER | DesktopNative.SWP_NOACTIVATE);
@@ -123,6 +157,202 @@ public class CustomWindow : Window
     {
         base.OnOpened(e);
         AttachChrome();
+    }
+
+    /// <summary>
+    /// macOS 上的边缘缩放：没有 Win32 命中测试可用，改用 Avalonia 自己的指针事件算。
+    /// 与 Windows 版 HitTest 的几何一致（留白 + 带宽），只是坐标系从屏幕换成客户区。
+    /// </summary>
+    private enum MacResizeEdge { None, Left, Right, Top, Bottom, TopLeft, TopRight, BottomLeft, BottomRight }
+
+    private bool _macResizing;
+    private MacResizeEdge _macEdge = MacResizeEdge.None;
+    private Point _macPressPoint;          // 按下时的客户区坐标（DIP）
+    private PixelPoint _macPressCursor;    // 按下时的系统光标位置（屏幕逻辑点）
+    private bool _macHasPressCursor;       // 是否拿到了系统光标位置
+    private PixelPoint _macResizeOrigin;   // 按下时的窗口原点（macOS 上是逻辑点）
+    private PixelPoint _macAppliedOrigin;  // 上一次拖拽真正写进去的窗口原点
+    private double _macResizeStartWidth;
+    private double _macResizeStartHeight;
+
+    private void MacOnPointerPressed(object? sender, PointerPressedEventArgs e)
+    {
+        if (!OperatingSystem.IsMacOS()) return;
+        var point = e.GetCurrentPoint(this);
+        if (!point.Properties.IsLeftButtonPressed) return;
+        var edge = MacResolveEdge(e.GetPosition(this));
+        if (edge == MacResizeEdge.None) return;
+
+        _macEdge = edge;
+        _macResizing = true;
+        // 基准是「按下的那一点」，不是窗口原点：增量必须是这一次的位移，
+        // 否则第一次动鼠标就会把尺寸改成「起点尺寸 + 指针在窗口里的偏移」，窗口当场跳一下。
+        _macPressPoint = e.GetPosition(this);
+        _macResizeOrigin = Position;
+        _macAppliedOrigin = Position;
+        _macResizeStartWidth = Width;
+        _macResizeStartHeight = Height;
+        // 系统光标位置：拖拽过程中窗口自己会移动，只有屏幕坐标的差值是稳的。
+        _macHasPressCursor = Services.MacOS.MacOsCursor.TryGet(out _macPressCursor);
+        e.Pointer.Capture(this);
+        e.Handled = true;
+    }
+
+    /// <summary>
+    /// 隧道阶段的按下处理：只在指针落在窗口边缘的缩放带里才接管，
+    /// 其它位置一律放行给子控件（标题栏拖动、按钮点击都靠它）。
+    /// </summary>
+    private void MacOnPointerPressedTunnel(object? sender, PointerPressedEventArgs e)
+    {
+        if (!OperatingSystem.IsMacOS()) return;
+        if (e.Handled) return;
+        if (!e.GetCurrentPoint(this).Properties.IsLeftButtonPressed) return;
+        if (MacResolveEdge(e.GetPosition(this)) == MacResizeEdge.None) return;
+        MacOnPointerPressed(sender, e);
+    }
+
+    private void MacOnPointerMoved(object? sender, PointerEventArgs e)
+    {
+        if (!_macResizing || _macEdge == MacResizeEdge.None)
+        {
+            // 不在拖拽时也要跟手：指针压到窗口四边就该换成可拖动的光标
+            // （用户反馈「四边拖动的时候鼠标并没有变成可拖动样式」）。
+            UpdateMacEdgeCursor(e.GetPosition(this));
+            return;
+        }
+
+        // 位移量不能直接取客户区坐标之差：拖左边 / 上边时窗口自己也在移动，
+        // 客户区原点跟着走，指针的相对坐标会跟着反向漂移 —— 越拖越离谱（用户反馈「疯狂抖动」）。
+        // 指针在屏幕上的位置才是稳的：系统光标之差就是这一次的真实位移。
+        double dx, dy;
+        if (_macHasPressCursor && Services.MacOS.MacOsCursor.TryGet(out var cursor))
+        {
+            dx = cursor.X - _macPressCursor.X;
+            dy = cursor.Y - _macPressCursor.Y;
+        }
+        else
+        {
+            // 拿不到系统光标（理论上不会发生）时的兜底：客户区差 + 窗口原点变化量。
+            var current = e.GetPosition(this);
+            dx = (current.X - _macPressPoint.X) + (_macAppliedOrigin.X - _macResizeOrigin.X);
+            dy = (current.Y - _macPressPoint.Y) + (_macAppliedOrigin.Y - _macResizeOrigin.Y);
+        }
+
+        var minWidth = MinWidth > 0 ? MinWidth : 1;
+        var minHeight = MinHeight > 0 ? MinHeight : 1;
+        var width = _macResizeStartWidth;
+        var height = _macResizeStartHeight;
+        var x = (double)_macResizeOrigin.X;
+        var y = (double)_macResizeOrigin.Y;
+
+        // 左 / 上边缘：边缘跟手移动，窗口向那一侧让位 —— 宽度变小、起点右移。
+        if (_macEdge is MacResizeEdge.Left or MacResizeEdge.TopLeft or MacResizeEdge.BottomLeft)
+        {
+            width = Math.Max(minWidth, _macResizeStartWidth - dx);
+            x = _macResizeOrigin.X + (_macResizeStartWidth - width);
+        }
+        // 右 / 下边缘：宽度随指针方向变大。
+        if (_macEdge is MacResizeEdge.Right or MacResizeEdge.TopRight or MacResizeEdge.BottomRight)
+            width = Math.Max(minWidth, _macResizeStartWidth + dx);
+        if (_macEdge is MacResizeEdge.Top or MacResizeEdge.TopLeft or MacResizeEdge.TopRight)
+        {
+            height = Math.Max(minHeight, _macResizeStartHeight - dy);
+            y = _macResizeOrigin.Y + (_macResizeStartHeight - height);
+        }
+        if (_macEdge is MacResizeEdge.Bottom or MacResizeEdge.BottomLeft or MacResizeEdge.BottomRight)
+            height = Math.Max(minHeight, _macResizeStartHeight + dy);
+
+        // 上限闸门：窗口一旦被撑到远超屏幕的大小，平台会裁帧、Avalonia 再把物理像素
+        // 当逻辑点读回来，尺寸一轮轮放大，最后分配 backing store 失败把进程带走。
+        width = Services.WindowSizeLimits.ClampWidth(width, minWidth);
+        height = Services.WindowSizeLimits.ClampHeight(height, minHeight);
+
+        Width = width;
+        Height = height;
+        var appliedX = (int)Math.Round(x);
+        var appliedY = (int)Math.Round(y);
+        Position = new PixelPoint(appliedX, appliedY);
+        _macAppliedOrigin = new PixelPoint(appliedX, appliedY);
+        e.Handled = true;
+    }
+
+    private void MacOnPointerReleased(object? sender, PointerReleasedEventArgs e)
+    {
+        if (!_macResizing) return;
+        _macResizing = false;
+        _macEdge = MacResizeEdge.None;
+        e.Pointer.Capture(null);
+        OnResizeInteractionChanged(false);
+    }
+
+    private StandardCursorType? _macEdgeCursorType;
+
+    /// <summary>
+    /// 按命中的边给出对应的缩放光标。macOS 没有 Win32 的 WM_SETCURSOR，
+    /// 指针形状得自己换，否则用户完全看不出「这里可以拖」。
+    /// </summary>
+    private void UpdateMacEdgeCursor(Point point)
+    {
+        var edge = MacResolveEdge(point);
+        StandardCursorType? wanted = edge switch
+        {
+            MacResizeEdge.Left or MacResizeEdge.Right => StandardCursorType.SizeWestEast,
+            MacResizeEdge.Top or MacResizeEdge.Bottom => StandardCursorType.SizeNorthSouth,
+            MacResizeEdge.TopLeft or MacResizeEdge.TopRight
+                or MacResizeEdge.BottomLeft or MacResizeEdge.BottomRight => StandardCursorType.SizeAll,
+            _ => null,
+        };
+
+        if (wanted is null)
+        {
+            if (_macEdgeCursorType is not null)
+            {
+                _macEdgeCursorType = null;
+                Cursor = null;
+            }
+            return;
+        }
+
+        if (_macEdgeCursorType == wanted.Value) return;
+        _macEdgeCursorType = wanted.Value;
+        Cursor = new Cursor(wanted.Value);
+    }
+
+    /// <summary>按留白 + 带宽判定指针落在哪条边；与 Windows 版 HitTest 的几何一致。</summary>
+    private MacResizeEdge MacResolveEdge(Point point)
+    {
+        var margin = EffectiveShadowMargin;
+        var band = Math.Max(ResizeBand, 1d);
+        var client = ClientSize;
+        if (client.Width <= 0 || client.Height <= 0) return MacResizeEdge.None;
+        // 最大化时没有边缘可拖（卡片铺满工作区）。
+        if (IsSurfaceMaximized) return MacResizeEdge.None;
+
+        // 卡片是放在客户区里的（RootSurface 的 Margin = margin），
+        // 缩放带要贴着卡片边缘，和 Windows 版 HitTest 的几何完全一致：
+        //   左边缘在 margin 处，右边缘在 client.Width - margin 处，
+        //   带宽 band 骑在边缘上（边缘 -band ~ 边缘 +band）。
+        // 之前写成「0 ~ margin+band」整条留白都算边，位置和 Windows 版对不上。
+        // macOS 上去掉留白后 margin = 0，缩放带自然落到窗口四边（客户区 0 ~ band）。
+        var left = margin;
+        var right = client.Width - margin;
+        var top = margin;
+        var bottom = client.Height - margin;
+
+        var nearLeft = point.X >= left - band && point.X <= left + band;
+        var nearRight = point.X >= right - band && point.X <= right + band;
+        var nearTop = point.Y >= top - band && point.Y <= top + band;
+        var nearBottom = point.Y >= bottom - band && point.Y <= bottom + band;
+
+        if (nearLeft && nearTop) return MacResizeEdge.TopLeft;
+        if (nearRight && nearTop) return MacResizeEdge.TopRight;
+        if (nearLeft && nearBottom) return MacResizeEdge.BottomLeft;
+        if (nearRight && nearBottom) return MacResizeEdge.BottomRight;
+        if (nearLeft) return MacResizeEdge.Left;
+        if (nearRight) return MacResizeEdge.Right;
+        if (nearTop) return MacResizeEdge.Top;
+        if (nearBottom) return MacResizeEdge.Bottom;
+        return MacResizeEdge.None;
     }
 
     protected override void OnPropertyChanged(AvaloniaPropertyChangedEventArgs change)
@@ -152,6 +382,14 @@ public class CustomWindow : Window
 
     private void AttachChrome()
     {
+        // macOS 不走 Win32 窗口子类化：系统外框在 macOS 上本来就是隐藏的（SystemDecorations=None），
+        // 圆角与描边由派生窗的 Border 自绘，边缘缩放走指针事件。
+        if (!OperatingSystem.IsWindows())
+        {
+            RefreshSurfaceGeometry();
+            return;
+        }
+
         if (_hwnd == nint.Zero)
             _hwnd = TryGetPlatformHandle()?.Handle ?? nint.Zero;
         if (_hwnd == nint.Zero) return;

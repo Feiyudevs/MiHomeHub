@@ -1,4 +1,4 @@
-﻿// Copyright (C) 2026 Feiyu
+// Copyright (C) 2026 Feiyu
 // SPDX-License-Identifier: GPL-3.0-only
 
 using System;
@@ -106,6 +106,9 @@ public partial class MainViewModel : ObservableObject
     [ObservableProperty] private bool _isDark = !ThemeStore.IsLight;
     [ObservableProperty] private bool _iconGlass = IconStyleStore.Glass;
     [ObservableProperty] private bool _autoStart = StartupRegistration.IsEnabled();
+
+    /// <summary>开机启动没开上的原因（成功时为空），显示在设置页的「开机启动」下面。</summary>
+    [ObservableProperty] private string _autoStartErrorText = StartupRegistration.LastError ?? "";
     [ObservableProperty] private bool _showMainWindowOnStartup = AppSettingsStore.ShowMainWindowOnStartup;
     [ObservableProperty] private bool _closeToTray = AppSettingsStore.CloseToTray;
     /// <summary>true = 卡片带投影；false = 扁平无投影。</summary>
@@ -231,6 +234,27 @@ public partial class MainViewModel : ObservableObject
 
     /// <summary>双击桌面空白处显示 / 隐藏所有桌面分区卡片。</summary>
     [ObservableProperty] private bool _doubleClickDesktopToggles = AppSettingsStore.DoubleClickDesktopToggles;
+
+    /// <summary>
+    /// 桌面分区卡片「显示 / 隐藏」的全局快捷键组合。
+    /// macOS 上用 Carbon 注册（免辅助功能权限）；Windows 上保留双击桌面的方式。
+    /// </summary>
+    [ObservableProperty] private string _desktopToggleHotkey = AppSettingsStore.DesktopToggleHotkey;
+
+    /// <summary>设置页里可选的快捷键组合（macOS 用 Carbon 注册，只需要系统级全局热键，不需要辅助功能权限）。</summary>
+    public IReadOnlyList<string> DesktopToggleHotkeyOptions { get; } = new[]
+    {
+        "Alt+Cmd+D",
+        "Alt+Cmd+H",
+        "Ctrl+Alt+D",
+        "Ctrl+Alt+H",
+        "Alt+Cmd+1",
+        "Alt+Cmd+2",
+        "Ctrl+Shift+F12"
+    };
+
+    /// <summary>是否 macOS（桌面双击要辅助功能权限，macOS 上换成全局快捷键）。</summary>
+    public bool IsMacOsPlatform => OperatingSystem.IsMacOS();
 
     /// <summary>鼠标移入折叠的桌面分区时自动展开。</summary>
     [ObservableProperty] private bool _hoverExpand = AppSettingsStore.HoverExpandEnabled;
@@ -873,6 +897,26 @@ public partial class MainViewModel : ObservableObject
         Log(value ? "已开启双击桌面隐藏组件" : "已关闭双击桌面隐藏组件");
     }
 
+    partial void OnDesktopToggleHotkeyChanged(string value)
+    {
+        // 下拉框在当前值不在候选里时会回写空串：这时候保持原样，别把用户的组合抹掉
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            var current = AppSettingsStore.DesktopToggleHotkey;
+            if (!string.IsNullOrEmpty(current)) DesktopToggleHotkey = current;
+            return;
+        }
+
+        AppSettingsStore.SetDesktopToggleHotkey(value);
+        if (OperatingSystem.IsMacOS())
+        {
+            var ok = Services.MacOS.MacOsCarbonHotkey.TryRegister(value);
+            Log(ok
+                ? $"桌面组件快捷键已设为 {value}"
+                : $"快捷键 {value} 注册失败（可能已被其它程序占用）");
+        }
+    }
+
     partial void OnHoverExpandChanged(bool value)
     {
         AppSettingsStore.SetHoverExpandEnabled(value);
@@ -885,6 +929,7 @@ public partial class MainViewModel : ObservableObject
         if (StartupRegistration.Apply(value))
         {
             AppSettingsStore.SetAutoStart(value);
+            AutoStartErrorText = "";
             Log(value ? "已开启开机启动" : "已关闭开机启动");
             return;
         }
@@ -892,7 +937,13 @@ public partial class MainViewModel : ObservableObject
         _revertingAutoStart = true;
         AutoStart = !value;
         _revertingAutoStart = false;
-        Log("开机启动设置失败：当前用户注册表不可写");
+        // 失败原因如实显示出来：以前只有一句「注册表不可写」，macOS 上写不进
+        // ~/Library/LaunchAgents 时这句话既不准确，也没告诉用户到底哪儿不对。
+        AutoStartErrorText = StartupRegistration.LastError
+            ?? (OperatingSystem.IsMacOS()
+                ? "开机启动项注册失败"
+                : "开机启动设置失败：当前用户注册表不可写");
+        Log($"开机启动设置失败：{AutoStartErrorText}");
     }
 
     partial void OnShowMainWindowOnStartupChanged(bool value)
@@ -5100,8 +5151,11 @@ public partial class MainViewModel : ObservableObject
     public string AppVersionText { get; } =
         $"版本 {typeof(MainViewModel).Assembly.GetName().Version?.ToString(3) ?? "1.0.0"} · by Feiyu";
 
-    /// <summary>关于页「开源仓库」链接。</summary>
-    public string RepoUrl { get; } = "https://github.com/Feiyudevs/MiHomeHub";
+    /// <summary>关于页「开源仓库」链接：Windows 版指向上游仓库；macOS 版指到承载该二进制的 fork
+    /// （GPL-3.0 第 6 节要求能拿到与二进制对应的完整源码，macOS 代码只存在于 fork 的移植分支上）。</summary>
+    public string RepoUrl { get; } = OperatingSystem.IsMacOS()
+        ? "https://github.com/woaiCarlos/MiHomeHub"
+        : "https://github.com/Feiyudevs/MiHomeHub";
 
     /// <summary>关于页「作者网站」链接。</summary>
     public string AuthorUrl { get; } = "https://feiyux.cn/";
@@ -5284,7 +5338,9 @@ public partial class MainViewModel : ObservableObject
         // 便携运行（直接跑 publish\sc-win-x64\MiHomeHub.exe）不自动更新：安装器会装到默认目录并另起一份
         if (!UpdateService.IsRunningFromInstall(out var installRoot))
         {
-            UpdateStatusText = "便携运行请到 Release 页下载安装包；自动更新只对已安装版本生效";
+            UpdateStatusText = OperatingSystem.IsMacOS()
+                ? "请从 .app 里启动后再更新；直接跑可执行文件无法自动替换应用"
+                : "便携运行请到 Release 页下载安装包；自动更新只对已安装版本生效";
             Log("自动更新已跳过：当前不是安装目录里的实例");
             return;
         }
@@ -5309,7 +5365,7 @@ public partial class MainViewModel : ObservableObject
                 ["ok"] = true,
                 ["version"] = manifest.Version,
             });
-            UpdateStatusText = "正在启动安装程序…";
+            UpdateStatusText = OperatingSystem.IsMacOS() ? "正在替换应用并重启…" : "正在启动安装程序…";
             Log($"更新包已就绪：{setup}（目标 {installRoot}）");
             TelemetryService.Track("update_install", "安装更新", new Dictionary<string, object?>
             {

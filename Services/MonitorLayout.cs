@@ -5,6 +5,7 @@ using System;
 using System.Collections.Generic;
 using System.Runtime.InteropServices;
 using Avalonia;
+using MiHomeHub.Services.MacOS;
 
 namespace MiHomeHub.Services;
 
@@ -13,8 +14,14 @@ namespace MiHomeHub.Services;
 /// 家屏（保存时所处的屏）在 → 回到原坐标；家屏被关掉 → 按它在家屏里的相对位置等比搬到还在用的屏，
 /// 存着的坐标不动，等这块屏重新插上或下次开机回来时原样落回。
 /// <para>
-/// 走 Win32 枚举而不是 Avalonia 的 Screen：分区窗在 Show 之前、主窗收进托盘之后都要能查屏，
-/// 那两种时序下窗口还没有可用的 Screens 上下文。
+/// 走系统枚举而不是 Avalonia 的 Screen：分区窗在 Show 之前、主窗收进托盘之后都要能查屏，
+/// 那两种时序下窗口还没有可用的 Screens 上下文（Windows 走 Win32 枚举，macOS 走 CoreGraphics）。
+/// </para>
+/// <para>
+/// <b>坐标单位随平台</b>：Windows 是物理像素，macOS 是逻辑点（Avalonia 的 macOS 后端
+/// Window.Position / Screen.Bounds / Screen.Scaling 全按点，Screen.Scaling 恒为 1）。
+/// 两种单位各自内部自洽：落位算式、存下来的坐标、窗口位置用的是同一个单位，
+/// 所以 macOS 上换 Retina 屏不会让卡片偏移。
 /// </para>
 /// </summary>
 internal static class MonitorLayout
@@ -31,6 +38,9 @@ internal static class MonitorLayout
     /// <summary>当前接在系统上的显示器；枚举不到时返回空表，调用方按「没有屏信息」处理。</summary>
     public static List<MonitorInfo> All()
     {
+        // macOS 走 CoreGraphics 枚举：Win32 的 EnumDisplayMonitors 在 macOS 上根本不存在
+        if (OperatingSystem.IsMacOS()) return MacOsDisplay.All();
+
         var list = new List<MonitorInfo>();
         var gate = GCHandle.Alloc(list);
         try
@@ -197,7 +207,7 @@ internal static class MonitorLayout
         => Math.Min(rect.Right, work.Right) - Math.Max(rect.X, work.X) >= MinVisibleWidth
         && Math.Min(rect.Bottom, work.Bottom) - Math.Max(rect.Y, work.Y) >= MinVisibleHeight;
 
-    /// <summary>DIP 尺寸按该屏缩放换算成物理像素（Position 是物理像素，Width/Height 是 DIP）。</summary>
+    /// <summary>DIP 尺寸按该屏缩放换算成落位坐标（Windows 是物理像素，macOS 是逻辑点、缩放恒为 1）。</summary>
     public static PixelSize Pixels(double widthDip, double heightDip, MonitorInfo m)
     {
         var scale = m.Scaling > 0 ? m.Scaling : 1;
@@ -239,7 +249,7 @@ internal static class MonitorLayout
     }
 }
 
-/// <summary>一块物理显示器：边界、工作区、是否主屏、有效缩放。</summary>
+/// <summary>一块显示器：边界、工作区、是否主屏、有效缩放（坐标单位随平台：Windows 物理像素，macOS 逻辑点）。</summary>
 internal readonly struct MonitorInfo
 {
     public MonitorInfo(string deviceName, PixelRect bounds, PixelRect workArea, bool isPrimary, double scaling)

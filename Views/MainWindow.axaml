@@ -90,6 +90,17 @@
               Background="{DynamicResource BgBrush}" Margin="16,0,12,0"
               PointerPressed="OnTitleBarPressed">
             <StackPanel Orientation="Horizontal" Spacing="10" VerticalAlignment="Center">
+                <!-- macOS 红绿灯：原生 mac 应用把关闭/最小化/缩放放在窗口左上角，
+                     颜色与悬停符号也照搬系统样式；Windows 隐藏这一组（用右上角 WinBtn）。 -->
+                <StackPanel x:Name="MacLights" Orientation="Horizontal" Spacing="8"
+                            VerticalAlignment="Center" IsVisible="False">
+                    <Button x:Name="MacCloseLight" Classes="MacLight close" ToolTip.Tip="关闭"
+                            Click="OnMacCloseClick" />
+                    <Button x:Name="MacMinLight" Classes="MacLight min" ToolTip.Tip="最小化"
+                            Click="OnMacMinClick" />
+                    <Button x:Name="MacZoomLight" Classes="MacLight zoom" ToolTip.Tip="缩放"
+                            Click="OnMacZoomClick" />
+                </StackPanel>
                 <Image Width="22" Height="22" Source="{StaticResource LogoImage}"
                        VerticalAlignment="Center" />
                 <TextBlock Text="MiHomeHub · 控制中心" FontSize="13" FontWeight="SemiBold"
@@ -282,6 +293,8 @@
                     <Path Width="15" Height="15" Stretch="Uniform" Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" StrokeThickness="1.2"
                           StrokeLineCap="Round" StrokeJoin="Round" Data="{StaticResource GeoCog}" />
                 </Button>
+                <!-- Windows 标题栏按钮：macOS 上隐藏（改用左上角红绿灯） -->
+                <StackPanel x:Name="WinCaptionButtons" Orientation="Horizontal" VerticalAlignment="Center">
                 <Button Classes="WinBtn" Click="OnMinClick" ToolTip.Tip="最小化">
                     <Viewbox Width="14" Height="14" HorizontalAlignment="Center" VerticalAlignment="Center">
                         <Panel Width="24" Height="24">
@@ -306,6 +319,7 @@
                         </Panel>
                     </Viewbox>
                 </Button>
+                </StackPanel>
             </StackPanel>
         </Grid>
         <!-- ================= 主体：侧栏 + 内容面板 ================= -->

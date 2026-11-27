@@ -509,7 +509,7 @@
                                     <TextBlock Classes="SectionTitle" Text="组合键"/>
                                     <TextBlock Text="点录制后按下组合键，Esc 取消"
                                                Classes="Muted"/>
-                                    <TextBlock Text="支持 Ctrl / Alt / Shift / Win + 任意键，或 F1–F24"
+                                    <TextBlock Text="{Binding HotkeyModifierHintText}"
                                                Classes="Muted"/>
                                     <TextBlock Text="当前没有可绑定的目标：先确认当前家庭有可控设备，或在「智能」页新建场景"
                                                IsVisible="{Binding HasNoHotkeyTarget}"

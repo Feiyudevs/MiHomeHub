@@ -2,195 +2,151 @@
 // SPDX-License-Identifier: GPL-3.0-only
 
 using System;
-using System.Runtime.InteropServices;
 using Avalonia;
 using Avalonia.Controls;
-using Avalonia.Threading;
+using MiHomeHub.Services.MacOS;
 
 namespace MiHomeHub.Services;
 
+/// <summary>托盘后端抽象：Windows 走 Shell_NotifyIcon，macOS 走 NSStatusItem。</summary>
+internal interface ITrayIconBackend : IDisposable
+{
+    event Action? LeftClicked;
+    event Action? RightClicked;
+    event Action? BalloonClicked;
+    void Notify(string title, string text);
+    PixelRect? IconRect();
+}
+
 /// <summary>
-/// 自己托管 Shell_NotifyIcon：Avalonia 11.3 的 TrayIcon 只暴露左键 Clicked，
-/// 而托盘需要「左键开主窗口、右键弹菜单」，所以挂窗口 WndProc 直接收托盘消息。
-/// 托盘回调挂在主窗口句柄上，窗口隐藏时句柄仍在，隐藏到托盘后依旧可点。
+/// 托盘菜单命令（目前只有 macOS 的原生菜单实现）。
+/// Windows 侧继续用自绘的 TrayMenuWindow 弹层菜单，不走这里。
+/// </summary>
+internal interface ITrayMenuCommands
+{
+    event Action? ShowMainRequested;
+    event Action? ToggleDesktopWidgetsRequested;
+    event Action? ToggleThemeRequested;
+    event Action? OpenSettingsRequested;
+    event Action? RestartRequested;
+    event Action? ExitRequested;
+}
+
+/// <summary>
+/// 托盘图标门面：构造时**先按平台分派**，再碰任何平台 API。
+///
+/// Windows：自己托管 Shell_NotifyIcon（实现见 TrayIconHost.Windows.cs），
+///           左键开主窗口、右键弹菜单、气泡提示。
+/// macOS：  Avalonia 的 TrayIcon 在 macOS 上不抛 Clicked（原生层从不设置 OnClicked），
+///           交互统一走状态栏图标自带的原生菜单（实现见 Services/MacOS/MacOsTrayIcon.cs）。
+///
+/// 重要：macOS 分支一行 user32/shell32 的 P/Invoke 都不会碰到——这两个库在 macOS 上根本不存在，
+/// 早先版本的构造函数直接调 RegisterWindowMessage，macOS 真机启动就是在这里崩的。
+///
+/// 托盘建不起来时（缺权限、平台不支持、窗口句柄缺失）一律静默降级：不抛异常，
+/// <see cref="IsAvailable"/> 置 false，调用方据此改成「直接退出」，
+/// 避免窗口收进托盘后用户再也找不回应用。
 /// </summary>
 public sealed class TrayIconHost : IDisposable
 {
-    private const int WM_TRAYICON = 0x8000 + 2;
+    /// <summary>
+    /// 托盘图标是否真的建起来了。macOS 上如果状态栏图标创建失败，窗口「关闭时收进托盘」
+    /// 就会把应用藏起来且无处找回，所以调用方要据此改成直接退出。
+    /// </summary>
+    public static bool IsAvailable { get; private set; } = true;
 
-    private const uint WM_LBUTTONUP = 0x0202;
-    private const uint WM_RBUTTONUP = 0x0205;
+    private readonly ITrayIconBackend? _backend;
 
-    private const uint WM_BALLOONUSERCLICK = 0x0405;
-
-    private const uint NIM_ADD = 0x0;
-    private const uint NIM_MODIFY = 0x1;
-    private const uint NIM_DELETE = 0x2;
-    private const uint NIF_MESSAGE = 0x1;
-    private const uint NIF_ICON = 0x2;
-    private const uint NIF_TIP = 0x4;
-    private const uint NIF_INFO = 0x10;
-    private const uint NIIF_INFO = 0x1;
-
-    private readonly string _tooltip;
-    private readonly TopLevel _owner;
-    private readonly IntPtr _hwnd;
-    private readonly int _taskbarCreated;
-    private readonly Win32Properties.CustomWndProcHookCallback _hook;
-    private readonly IntPtr _icon;
-
+    /// <summary>左键点击托盘图标（仅 Windows；macOS 左键直接弹原生菜单，不回调）。</summary>
     public event Action? LeftClicked;
+
+    /// <summary>右键点击托盘图标（仅 Windows）。</summary>
     public event Action? RightClicked;
-    /// <summary>用户点了气泡本体（不是托盘图标）。</summary>
+
+    /// <summary>用户点了气泡本体（仅 Windows）。</summary>
     public event Action? BalloonClicked;
 
+    /// <summary>原生菜单命令「显示主界面」（macOS）。</summary>
+    public event Action? ShowMainRequested;
+
+    /// <summary>原生菜单命令「显示-隐藏桌面组件」（macOS）。</summary>
+    public event Action? ToggleDesktopWidgetsRequested;
+
+    /// <summary>原生菜单命令「切换主题」（macOS）。</summary>
+    public event Action? ToggleThemeRequested;
+
+    /// <summary>原生菜单命令「设置」（macOS）。</summary>
+    public event Action? OpenSettingsRequested;
+
+    /// <summary>原生菜单命令「重新启动」（macOS）。</summary>
+    public event Action? RestartRequested;
+
+    /// <summary>原生菜单命令「退出」（macOS）。</summary>
+    public event Action? ExitRequested;
+
+    /// <summary>
+    /// 创建托盘图标。构造函数里先分派平台再干活：
+    /// Windows 走 Shell_NotifyIcon，macOS 走 Avalonia TrayIcon + 原生菜单。
+    /// 创建失败不抛异常，只把 <see cref="IsAvailable"/> 置 false（App 不能起不来）。
+    /// </summary>
     public TrayIconHost(TopLevel owner, string tooltip)
     {
-        _owner = owner;
-        _tooltip = tooltip;
-        _hwnd = owner.TryGetPlatformHandle()?.Handle
-                ?? throw new InvalidOperationException("窗口句柄不可用，托盘图标无法注册");
+        ITrayIconBackend? backend = null;
+        try
+        {
+            if (OperatingSystem.IsWindows())
+            {
+                backend = new WindowsTrayIconBackend(owner, tooltip);
+            }
+            else if (OperatingSystem.IsMacOS())
+            {
+                backend = new MacOsTrayIcon(tooltip);
+            }
+        }
+        catch (Exception ex)
+        {
+            // 建托盘失败不是致命错误：静默降级，留一行日志便于排查
+            DesktopLog.Write($"tray icon create failed: {ex.GetType().Name}: {ex.Message}");
+            backend = null;
+        }
 
-        _taskbarCreated = RegisterWindowMessage("TaskbarCreated");
-        _hook = OnWndProc;
-        Win32Properties.AddWndProcHookCallback(owner, _hook);
+        _backend = backend;
+        IsAvailable = backend is not null;
+        if (backend is null) return;
 
-        // 直接用 exe 里嵌的图标，避免为了托盘再解一份资源
-        ExtractIconEx(Environment.ProcessPath!, 0, out _icon, out var smallIcon, 1);
-        if (smallIcon != IntPtr.Zero) DestroyIcon(smallIcon);
-        AddIcon();
-    }
+        backend.LeftClicked += () => LeftClicked?.Invoke();
+        backend.RightClicked += () => RightClicked?.Invoke();
+        backend.BalloonClicked += () => BalloonClicked?.Invoke();
 
-    private void AddIcon()
-    {
-        var data = CreateData();
-        Shell_NotifyIcon(NIM_ADD, ref data);
+        if (backend is ITrayMenuCommands commands)
+        {
+            commands.ShowMainRequested += () => ShowMainRequested?.Invoke();
+            commands.ToggleDesktopWidgetsRequested += () => ToggleDesktopWidgetsRequested?.Invoke();
+            commands.ToggleThemeRequested += () => ToggleThemeRequested?.Invoke();
+            commands.OpenSettingsRequested += () => OpenSettingsRequested?.Invoke();
+            commands.RestartRequested += () => RestartRequested?.Invoke();
+            commands.ExitRequested += () => ExitRequested?.Invoke();
+        }
     }
 
     /// <summary>
-    /// 弹一条托盘气泡（非模态，不抢焦点）：Win10/11 上由系统通知中心接管，
-    /// 用户点气泡会收到 <see cref="BalloonClicked"/>。
+    /// 创建托盘图标的推荐入口：成功返回实例，失败返回 null 并把 <see cref="IsAvailable"/> 置 false。
+    /// 调用方据此决定「关窗口收进托盘」还是「直接退出」——图标没建起来时收进托盘就再也找不回来了。
     /// </summary>
-    public void Notify(string title, string text)
+    public static TrayIconHost? Create(TopLevel owner, string tooltip)
     {
-        var data = CreateData();
-        data.uFlags = NIF_MESSAGE | NIF_ICON | NIF_TIP | NIF_INFO;
-        data.szInfoTitle = Clip(title, 63);
-        data.szInfo = Clip(text, 255);
-        data.dwInfoFlags = NIIF_INFO;
-        data.uTimeoutOrVersion = 10000;
-        Shell_NotifyIcon(NIM_MODIFY, ref data);
+        var host = new TrayIconHost(owner, tooltip);
+        return IsAvailable ? host : null;
     }
 
-    private static string Clip(string? value, int max)
-    {
-        if (string.IsNullOrEmpty(value)) return "";
-        value = value.Replace('\r', ' ').Replace('\n', ' ');
-        return value.Length <= max ? value : value[..max];
-    }
+    /// <summary>
+    /// 弹一条托盘气泡（非模态，不抢焦点）。
+    /// Windows 走系统通知中心；macOS 没有等价物，退化成通知中心的横幅。
+    /// </summary>
+    public void Notify(string title, string text) => _backend?.Notify(title, text);
 
-    private NOTIFYICONDATA CreateData() => new()
-    {
-        cbSize = Marshal.SizeOf<NOTIFYICONDATA>(),
-        hWnd = _hwnd,
-        uID = 1,
-        uFlags = NIF_MESSAGE | NIF_ICON | NIF_TIP,
-        uCallbackMessage = WM_TRAYICON,
-        hIcon = _icon,
-        szTip = _tooltip,
-        szInfo = "",
-        szInfoTitle = ""
-    };
+    /// <summary>托盘图标在屏幕上的实际位置；取不到返回 null。</summary>
+    public PixelRect? IconRect() => _backend?.IconRect();
 
-    private IntPtr OnWndProc(IntPtr hWnd, uint msg, IntPtr wParam, IntPtr lParam, ref bool handled)
-    {
-        if (msg == WM_TRAYICON)
-        {
-            var mouse = (uint)(lParam.ToInt64() & 0xFFFF);
-            handled = true;
-            // 在 WndProc 里直接弹窗会重入消息循环，推迟到本轮消息处理完
-            if (mouse == WM_LBUTTONUP) Dispatcher.UIThread.Post(() => LeftClicked?.Invoke());
-            else if (mouse == WM_RBUTTONUP) Dispatcher.UIThread.Post(() => RightClicked?.Invoke());
-            else if (mouse == WM_BALLOONUSERCLICK) Dispatcher.UIThread.Post(() => BalloonClicked?.Invoke());
-            return IntPtr.Zero;
-        }
-
-        // 资源管理器重启后托盘区清空，需要重新注册
-        if (msg == _taskbarCreated) AddIcon();
-        return IntPtr.Zero;
-    }
-
-    /// <summary>托盘图标在屏幕上的实际位置；图标收在溢出区且未展开时取不到，返回 null。</summary>
-    public PixelRect? IconRect()
-    {
-        var id = new NOTIFYICONIDENTIFIER
-        {
-            cbSize = Marshal.SizeOf<NOTIFYICONIDENTIFIER>(),
-            hWnd = _hwnd,
-            uID = 1
-        };
-        if (Shell_NotifyIconGetRect(ref id, out var rect) != 0) return null;
-        return new PixelRect(rect.Left, rect.Top, rect.Right - rect.Left, rect.Bottom - rect.Top);
-    }
-
-    public void Dispose()
-    {
-        var data = CreateData();
-        Shell_NotifyIcon(NIM_DELETE, ref data);
-        Win32Properties.RemoveWndProcHookCallback(_owner, _hook);
-        if (_icon != IntPtr.Zero) DestroyIcon(_icon);
-    }
-
-    [StructLayout(LayoutKind.Sequential)]
-    private struct NOTIFYICONIDENTIFIER
-    {
-        public int cbSize;
-        public IntPtr hWnd;
-        public int uID;
-        public Guid guidItem;
-    }
-
-    [StructLayout(LayoutKind.Sequential)]
-    private struct RECT
-    {
-        public int Left;
-        public int Top;
-        public int Right;
-        public int Bottom;
-    }
-
-    [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Unicode)]
-    private struct NOTIFYICONDATA
-    {
-        public int cbSize;
-        public IntPtr hWnd;
-        public int uID;
-        public uint uFlags;
-        public int uCallbackMessage;
-        public IntPtr hIcon;
-        [MarshalAs(UnmanagedType.ByValTStr, SizeConst = 128)] public string szTip;
-        public uint dwState;
-        public uint dwStateMask;
-        [MarshalAs(UnmanagedType.ByValTStr, SizeConst = 256)] public string szInfo;
-        public uint uTimeoutOrVersion;
-        [MarshalAs(UnmanagedType.ByValTStr, SizeConst = 64)] public string szInfoTitle;
-        public uint dwInfoFlags;
-        public Guid guidItem;
-        public IntPtr hBalloonIcon;
-    }
-
-    [DllImport("shell32.dll", CharSet = CharSet.Unicode)]
-    private static extern bool Shell_NotifyIcon(uint message, ref NOTIFYICONDATA data);
-
-    [DllImport("shell32.dll")]
-    private static extern int Shell_NotifyIconGetRect(ref NOTIFYICONIDENTIFIER identifier, out RECT rect);
-
-    [DllImport("shell32.dll", CharSet = CharSet.Unicode)]
-    private static extern uint ExtractIconEx(string file, int index, out IntPtr large, out IntPtr small, uint count);
-
-    [DllImport("user32.dll", CharSet = CharSet.Unicode)]
-    private static extern int RegisterWindowMessage(string name);
-
-    [DllImport("user32.dll")]
-    private static extern bool DestroyIcon(IntPtr icon);
+    public void Dispose() => _backend?.Dispose();
 }

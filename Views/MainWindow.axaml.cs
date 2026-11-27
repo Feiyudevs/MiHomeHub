@@ -62,8 +62,12 @@ public partial class MainWindow : CustomWindow
         _deferInitialContent = deferInitialContent;
         InitializeComponent();
         // 窗口矩形包含投影留白，最小尺寸同步加上，保证正文最小可用宽度不缩水
-        MinWidth += ShadowMargin * 2;
-        MinHeight += ShadowMargin * 2;
+        // macOS 上不留白（EffectiveShadowMargin = 0），也就不需要补这段。
+        if (!OperatingSystem.IsMacOS())
+        {
+            MinWidth += ShadowMargin * 2;
+            MinHeight += ShadowMargin * 2;
+        }
         RefreshSurfaceGeometry();
         // 任务栏图标要在建任务栏按钮之前就位，否则会永久空白
         WindowIconHelper.Apply(this);
@@ -80,7 +84,11 @@ public partial class MainWindow : CustomWindow
         DataContextChanged += OnDataContextChanged;
 
         PositionChanged += (_, _) => QueueCaptureNormalBounds();
-        SizeChanged += (_, _) => QueueCaptureNormalBounds();
+        SizeChanged += (_, _) =>
+        {
+            EnforceSizeLimits();
+            QueueCaptureNormalBounds();
+        };
         Opened += (_, _) => ApplySavedPlacement();
         // 拖动结束的写盘挂在定时器上，关闭时补一次，避免最后一次变化随静默期丢掉
         Closing += OnClosing;
@@ -107,11 +115,30 @@ public partial class MainWindow : CustomWindow
     {
         _allowExit = true;
         if (Application.Current?.ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
+        {
             desktop.Shutdown();
+            // 兜底：万一某个窗口的关闭处理又把退出拦住了，进程也得真的结束，
+            // 否则用户在 Dock 里点「退出」看着像没反应，只能强杀。
+            DispatcherTimer.RunOnce(() => Environment.Exit(0), TimeSpan.FromMilliseconds(2500));
+        }
+    }
+
+    /// <summary>
+    /// 允许系统级退出（macOS Dock 退出 / ⌘Q / lifetime 关闭）把窗口真正关掉。
+    /// 不放行的话，「关窗收进托盘」会把这次程序化关闭 cancel 掉，
+    /// 系统收到「用户取消」(-128)，用户看着像点退出没反应。
+    /// </summary>
+    internal void AllowSystemShutdown()
+    {
+        _allowExit = true;
+        _memoryTrimmersClosed = true;
+        StopAutomaticMemoryTrimmers();
+        _gpuReleaseTimer?.Stop();
     }
 
     private void OnClosing(object? sender, WindowClosingEventArgs e)
     {
+        DesktopLog.Write($"[closing] programmatic={e.IsProgrammatic} allowExit={_allowExit}");
         // 去抖中的采集先落地，否则最后 120ms 内的挪动会丢
         _boundsCaptureTimer?.Dispose();
         _boundsCaptureTimer = null;
@@ -124,8 +151,19 @@ public partial class MainWindow : CustomWindow
             _gpuReleaseTimer?.Stop();
             return;
         }
+        // 系统级的「退出」（macOS：Dock 图标右键 → 退出；也包括程序自己 Shutdown）走的是
+        // 程序化关闭，不该被「关窗收进托盘」这条用户交互规则拦下来：
+        // 拦下来等于应用拒绝退出，用户只能强杀进程。
+        if (e.IsProgrammatic)
+        {
+            _allowExit = true;
+            _memoryTrimmersClosed = true;
+            StopAutomaticMemoryTrimmers();
+            _gpuReleaseTimer?.Stop();
+            return;
+        }
         // 关闭即退出：托盘菜单窗口还挂在 lifetime 上，只关主窗不会结束进程，统一走退出
-        if (!AppSettingsStore.CloseToTray)
+        if (!AppSettingsStore.CloseToTray || MiHomeHub.App.TrayUnavailable)
         {
             e.Cancel = true;
             Dispatcher.UIThread.Post(ExitApplication);
@@ -191,8 +229,10 @@ public partial class MainWindow : CustomWindow
         _savedPlacement = WindowPlacementStore.Load();
         if (_savedPlacement is not { } saved) return;
 
-        Width = Math.Max(saved.Width, MinWidth);
-        Height = Math.Max(saved.Height, MinHeight);
+        // 读回来的尺寸也要过一遍上限：历史布局里可能存着当年跑飞的值，
+        // 直接喂给平台会被 AppKit 裁一轮再被 Avalonia 放大回去。
+        Width = WindowSizeLimits.ClampWidth(saved.Width, MinWidth);
+        Height = WindowSizeLimits.ClampHeight(saved.Height, MinHeight);
         _normalSize = new Size(Width, Height);
     }
 
@@ -272,6 +312,16 @@ public partial class MainWindow : CustomWindow
         if (screen is null) return;
 
         var work = screen.WorkingArea;
+        // 工作区为空（屏幕对象刚失效 / 显示器热插拔的瞬态）时不能往下走：
+        // 一旦把尺寸设成 0，窗口会塌成 0×0，随后平台按最小尺寸回弹，
+        // 每弹一次就把最小尺寸加到窗口上（实测 1668 → 2648 → 3628 … 一路涨到几万），
+        // 最后 backing store 分配失败把进程带走 —— 也就是「点绿键进全屏就闪退」。
+        if (work.Width <= 0 || work.Height <= 0)
+        {
+            CrashLog.Write("window-maximize", new InvalidOperationException(
+                $"工作区无效，已放弃放大：{work}"));
+            return;
+        }
         var scaling = screen.Scaling <= 0 ? 1 : screen.Scaling;
 
         // 还有没落盘的普通边界就补上，最大化本身不记录；此后到退出最大化前不再写
@@ -282,12 +332,30 @@ public partial class MainWindow : CustomWindow
         // 先撤掉投影留白与圆角，再铺满工作区；否则窗口矩形里会留一圈透明边、四角露出桌面
         SetSurfaceMaximized(true);
         _maximizedPosition = work.Position;
-        _maximizedSize = new Size(work.Width / scaling, work.Height / scaling);
+        var maxW = WindowSizeLimits.ClampWidth(work.Width / scaling, MinWidth);
+        var maxH = WindowSizeLimits.ClampHeight(work.Height / scaling, MinHeight);
+        _maximizedSize = new Size(maxW, maxH);
         Position = _maximizedPosition;
         Width = _maximizedSize.Width;
         Height = _maximizedSize.Height;
         // 外层矩形再按物理像素钉死一次：正好铺满工作区，不多不少
         SetSurfaceBounds(work);
+        // 平台把窗口帧读回来时偶尔会把物理像素当逻辑点（尺寸凭空放大）。
+        // 下一拍核对一次，尺寸不对就钉回工作区，避免用户看到「窗口突然撑爆」。
+        Dispatcher.UIThread.Post(ReassertMaximizedBounds, DispatcherPriority.Background);
+    }
+
+    /// <summary>放大后复核尺寸：被平台读歪了就钉回工作区尺寸。</summary>
+    private void ReassertMaximizedBounds()
+    {
+        if (!_isMaximized || _maximizedSize.Width <= 0) return;
+        if (Math.Abs(Width - _maximizedSize.Width) <= 2 && Math.Abs(Height - _maximizedSize.Height) <= 2) return;
+        var w = WindowSizeLimits.ClampWidth(_maximizedSize.Width, MinWidth);
+        var h = WindowSizeLimits.ClampHeight(_maximizedSize.Height, MinHeight);
+        CrashLog.Write("window-maximize", new InvalidOperationException(
+            $"放大后尺寸被读歪，已钉回：{Width}x{Height} → {w}x{h}"));
+        Width = w;
+        Height = h;
     }
 
     /// <summary>
@@ -307,10 +375,16 @@ public partial class MainWindow : CustomWindow
         _isMaximized = false;
         if (_hasNormalBounds)
         {
+            // 还原用的普通边界同样要夹上限：它可能来自当年跑飞的那次拖拽
+            var restoreW = WindowSizeLimits.ClampWidth(_normalSize.Width, MinWidth);
+            var restoreH = WindowSizeLimits.ClampHeight(_normalSize.Height, MinHeight);
             Position = _normalPosition;
-            Width = _normalSize.Width;
-            Height = _normalSize.Height;
-            var scale = Screens.ScreenFromPoint(_normalPosition)?.Scaling ?? RenderScaling;
+            Width = restoreW;
+            Height = restoreH;
+            // macOS 的落位单位是逻辑点（Screen.Scaling 恒为 1），拿不到屏时也不能退回
+            // 窗口的 RenderScaling（Retina 上是 2），否则尺寸会被放大一倍。
+            var scale = Screens.ScreenFromPoint(_normalPosition)?.Scaling
+                        ?? (OperatingSystem.IsMacOS() ? 1 : RenderScaling);
             if (scale <= 0) scale = 1;
             SetSurfaceBounds(new PixelRect(_normalPosition, new PixelSize(
                 (int)Math.Round(_normalSize.Width * scale),
@@ -318,6 +392,17 @@ public partial class MainWindow : CustomWindow
         }
         // 尺寸先回到普通边界再放回留白，避免还原瞬间卡片被工作区裁一圈
         SetSurfaceMaximized(false);
+        // 同样复核一次：还原后尺寸被平台读歪的话钉回普通边界
+        if (_hasNormalBounds)
+            Dispatcher.UIThread.Post(() =>
+            {
+                if (_isMaximized) return;
+                        var w = WindowSizeLimits.ClampWidth(_normalSize.Width, MinWidth);
+                var h = WindowSizeLimits.ClampHeight(_normalSize.Height, MinHeight);
+                if (Math.Abs(Width - w) <= 2 && Math.Abs(Height - h) <= 2) return;
+                Width = w;
+                Height = h;
+            }, DispatcherPriority.Background);
     }
 
     /// <summary>
@@ -406,6 +491,44 @@ public partial class MainWindow : CustomWindow
             Vm?.ResumePolling();
             if (WindowState != WindowState.Maximized) return;
 
+            if (OperatingSystem.IsMacOS())
+            {
+                // macOS：自己把窗口帧铺到工作区后，系统会认为窗口已经「zoom」，
+                // Avalonia 随即把 WindowState 报成 Maximized。
+                // 这时绝不能反手设回 Normal —— 原生窗口会被 unzoom 成 0×0，
+                // 接着平台按最小尺寸回弹，每回弹一次就把最小尺寸加到窗口上
+                // （实测 1668 → 2648 → 3628 … 一路涨到上万），
+                // 最后 backing store 分配失败，进程直接闪退（用户报「点绿键进全屏就闪退」）。
+                // 这里只认下这个状态：铺满工作区本来就是我们想要的效果。
+                Dispatcher.UIThread.Post(() =>
+                {
+                    if (WindowState != WindowState.Maximized) return;
+                    if (!_isMaximized)
+                    {
+                        // 只有当窗口确实铺满了某块屏的工作区时才认下这个「最大化」状态；
+                        // 否则是还原之后平台残留的旧状态，认下会把窗口又拽回去铺满。
+                        var zoomed = false;
+                        foreach (var s in Screens.All)
+                        {
+                            var work = s.WorkingArea;
+                            if (work.Width <= 0 || work.Height <= 0) continue;
+                            if (Math.Abs(Width - work.Width) <= 2 && Math.Abs(Height - work.Height) <= 2)
+                            {
+                                zoomed = true;
+                                break;
+                            }
+                        }
+                        if (!zoomed) return;
+                        CaptureNormalBounds();
+                        _isMaximized = true;
+                        _maximizedPosition = Position;
+                        _maximizedSize = new Size(Width, Height);
+                    }
+                    ReassertMaximizedBounds();
+                }, DispatcherPriority.Background);
+                return;
+            }
+
             Dispatcher.UIThread.Post(() =>
             {
                 if (WindowState != WindowState.Maximized) return;
@@ -413,6 +536,24 @@ public partial class MainWindow : CustomWindow
                 MaximizeToWorkArea();
             }, DispatcherPriority.Background);
         }
+    }
+
+    /// <summary>
+    /// 尺寸的兜底闸门：任何路径（拖边、平台回读、还原）把窗口撑得超过上限时，
+    /// 立刻拉回上限。macOS 上超大的窗口帧会被 AppKit 裁一轮、再被 Avalonia 当成逻辑点读回来，
+    /// 一来一回就放大一轮，最后 backing store 分配失败把进程带走（用户报「点绿键进全屏就闪退」）。
+    /// </summary>
+    private void EnforceSizeLimits()
+    {
+        if (double.IsNaN(Width) || double.IsNaN(Height)) return;
+        if (Width <= WindowSizeLimits.MaxExtent && Height <= WindowSizeLimits.MaxExtent) return;
+
+        var w = WindowSizeLimits.ClampWidth(Width, MinWidth);
+        var h = WindowSizeLimits.ClampHeight(Height, MinHeight);
+        CrashLog.Write("window-size", new InvalidOperationException(
+            $"窗口尺寸超出上限，已拉回：{Width}x{Height} → {w}x{h}"));
+        Width = w;
+        Height = h;
     }
 
     /// <summary>
@@ -437,6 +578,8 @@ public partial class MainWindow : CustomWindow
         if (_isMaximized && IsOnMaximizedBounds()) return;
         _isMaximized = false;
         if (double.IsNaN(Width) || Width <= 0 || double.IsNaN(Height) || Height <= 0) return;
+        // 离谱的尺寸不进「普通边界」：否则它会被还原时原样写回平台，继续滚雪球
+        if (!WindowSizeLimits.IsSane(Width, Height)) return;
         // 借用别的屏期间用户自己挪了窗口 = 重新安家，此后这个位置就是它的家，照旧写盘
         if (_isExiled && Position != _exiledPosition) _isExiled = false;
         _normalPosition = Position;
@@ -492,7 +635,29 @@ public partial class MainWindow : CustomWindow
 
     private void OnCloseClick(object? sender, RoutedEventArgs e) => Close();
 
-    private void ToggleMaximize()
+    // ---------- macOS 红绿灯 ----------
+    // 红：把窗口收起来但应用继续活着（原生 mac 的语义：点红点只是关掉这一扇窗，
+    // 菜单栏图标还在，程序不退出）。这里直接 Hide + 停轮询，不走 Close：
+    // Close 会触发 OnClosing 的「关闭时收进托盘」分支，行为取决于那个设置；
+    // 而原生红点就是「隐藏这一扇窗」，与设置无关。
+    private void OnMacCloseClick(object? sender, RoutedEventArgs e)
+    {
+        Hide();
+        Vm?.PausePolling();
+        RequestReleasedContentTrim();
+        ScheduleGpuResourceRelease();
+    }
+
+    // 黄：最小化到 Dock。macOS 上 WindowState=Minimized 会真的把 NSWindow
+    // 收进 Dock（原生 miniaturize），点 Dock 图标能还原。
+    private void OnMacMinClick(object? sender, RoutedEventArgs e) => WindowState = WindowState.Minimized;
+
+    // 绿：铺满工作区。Avalonia 的 macOS 后端把 WindowState.FullScreen 只当状态位，
+    // 不改窗口尺寸（实测 bounds 不变），所以这里用「铺满工作区」这一档，
+    // 行为上等同原生 mac 里「不支持全屏的窗口按绿键放大」。
+    private void OnMacZoomClick(object? sender, RoutedEventArgs e) => ToggleMaximize();
+
+    internal void ToggleMaximize()
     {
         if (_isMaximized)
         {

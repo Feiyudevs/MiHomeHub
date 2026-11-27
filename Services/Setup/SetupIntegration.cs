@@ -27,6 +27,7 @@ internal sealed record SetupApplyInfo(
 /// <summary>
 /// 集成层：卸载注册（ARP）、开始菜单/桌面快捷方式、开机自启的清理。
 /// 隔离自测时全部换成 <c>--self-test-root</c> 下的文件替身，绝不碰真实注册表。
+/// 非 Windows（macOS）上这些「登记」动作整体是空操作：安装由 .app/.dmg 打包流程负责。
 /// </summary>
 internal sealed class SetupIntegration
 {
@@ -66,6 +67,9 @@ internal sealed class SetupIntegration
             return snapshot;
         }
 
+        // macOS 不做程序内安装登记（安装由 .app/.dmg 打包流程负责），没有要快照的东西
+        if (!OperatingSystem.IsWindows()) return snapshot;
+
         try
         {
             snapshot.ArpExisted = SetupRegistry.KeyExists(SetupProtocol.UninstallKeyPath);
@@ -91,6 +95,9 @@ internal sealed class SetupIntegration
             RestoreFile(DesktopLnkPath, snapshot.DesktopLnk);
             return;
         }
+
+        // macOS 没有登记现场可恢复
+        if (!OperatingSystem.IsWindows()) return;
 
         try
         {
@@ -121,6 +128,9 @@ internal sealed class SetupIntegration
             return;
         }
 
+        // macOS 不写卸载登记、不建 .lnk：整体跳过，不能因为 COM/注册表不可用就报错
+        if (!OperatingSystem.IsWindows()) return;
+
         WriteArp(info);
         ApplyShortcuts(info);
     }
@@ -134,6 +144,9 @@ internal sealed class SetupIntegration
             TryDelete(DesktopLnkPath);
             return;
         }
+
+        // macOS 没有注册表登记要清
+        if (!OperatingSystem.IsWindows()) return;
 
         try { SetupRegistry.DeleteKey(SetupProtocol.UninstallKeyPath); }
         catch (Exception ex) { SetupLog.Fail("remove-arp", ex); }

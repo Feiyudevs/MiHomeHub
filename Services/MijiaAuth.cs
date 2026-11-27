@@ -73,10 +73,10 @@ public class MijiaAuth
             var text = File.ReadAllText(AuthPath);
             var legacyPlaintext = false;
 
-            if (DpapiStore.IsProtected(text))
+            if (SecretStore.IsProtected(text))
             {
-                // DPAPI 加密文件：解密失败（换 Windows 账户 / 换机）按未登录处理
-                var json = DpapiStore.Unprotect(text);
+                // 系统钥匙串 / DPAPI 加密文件：解密失败（换系统账户 / 换机）按未登录处理
+                var json = SecretStore.Unprotect(text);
                 if (json is null) return a;
                 a.Auth = JsonSerializer.Deserialize<AuthData>(json) ?? new AuthData();
             }
@@ -86,7 +86,7 @@ public class MijiaAuth
                 legacyPlaintext = true;
             }
 
-            // 旧版本明文 auth.json：读入后立即改写为 DPAPI 加密，完成一次性迁移
+            // 旧版本明文 auth.json：读入后立即改写为系统钥匙串 / DPAPI 加密，完成一次性迁移
             if (legacyPlaintext
                 && (!string.IsNullOrEmpty(a.Auth.ServiceToken) || !string.IsNullOrEmpty(a.Auth.PassToken)))
                 a.Save();
@@ -123,8 +123,8 @@ public class MijiaAuth
         var dir = Path.GetDirectoryName(AuthPath)!;
         Directory.CreateDirectory(dir);
         var json = JsonSerializer.Serialize(Auth, new JsonSerializerOptions { WriteIndented = true });
-        // DPAPI 加密落盘（仅当前 Windows 用户可解密）；加密不可用时回退明文，保证登录不中断
-        File.WriteAllText(AuthPath, DpapiStore.Protect(json) ?? json);
+        // 系统钥匙串 / DPAPI 加密落盘（仅当前系统用户可解密）；加密不可用时回退明文，保证登录不中断
+        File.WriteAllText(AuthPath, SecretStore.Protect(json) ?? json);
     }
 
     private string Ua => string.IsNullOrEmpty(Auth.UA)

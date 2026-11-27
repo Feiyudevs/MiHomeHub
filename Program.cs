@@ -1,26 +1,26 @@
-﻿// Copyright (C) 2026 Feiyu
+// Copyright (C) 2026 Feiyu
 // SPDX-License-Identifier: GPL-3.0-only
 
 using Avalonia;
 using Avalonia.Media;
 using MiHomeHub.Services;
+using MiHomeHub.Services.MacOS;
 using MiHomeHub.Services.Setup;
 using System;
-using System.Runtime.Versioning;
 
 namespace MiHomeHub;
 
-[SupportedOSPlatform("windows")]
 internal sealed class Program
 {
     [STAThread]
     public static void Main(string[] args)
     {
-        // 安装/卸载入口必须早于单实例、托盘与所有探针：--setup / --uninstall 参数由这里接管
-        if (SetupEntry.TryRun(args)) return;
+        // 安装/卸载入口必须早于单实例、托盘与所有探针：--setup / --uninstall 参数由这里接管。
+        // macOS 不做程序内安装（走 .app/.dmg 打包分发），整个 Setup 分支在非 Windows 上跳过。
+        if (OperatingSystem.IsWindows() && SetupEntry.TryRun(args)) return;
 
         // 更新的无界面安装：不启 Avalonia、不建窗口，跑完事务后拉起新版本再结束本进程
-        if (SetupEntry.Active && SetupEntry.Options is { Silent: true } silentOptions)
+        if (OperatingSystem.IsWindows() && SetupEntry.Active && SetupEntry.Options is { Silent: true } silentOptions)
             Environment.Exit(SilentSetup.Run(silentOptions));
 
         // 品牌改名后首次启动：把旧 MiHome 目录的登录态/缓存/偏好搬到 MiHomeHub（仅迁移一次）
@@ -219,15 +219,71 @@ internal sealed class Program
             return;
         }
 
+        // 窗口尺寸自检（--self-test）：要开真窗口做回归，但不碰单实例互斥体，
+        // 否则用户正开着应用时自检会被顶掉、只留下一个唤起信号。
+        var isSelfTest = args.Any(a => string.Equals(a, "--self-test", StringComparison.OrdinalIgnoreCase));
+
         // 单实例：已有常驻进程时唤起它的主界面，自己直接退出
         // 安装界面是独立任务，不抢主程序互斥体（否则托盘实例会把它顶回去）
-        if (!SetupEntry.Active && !SingleInstance.TryAcquire())
+        if (!isSelfTest && !SetupEntry.Active && !SingleInstance.TryAcquire())
         {
+            // launchd（开机自启）拉起来的副本：安静退出。
+            // 它不是用户点的，不该把已有实例的主窗口顶出来
+            //（launchd 每次 bootstrap 都会拉一个副本，用户看到的就是「刚启动就自己弹窗」）。
+            if (MacOsLaunchAgent.LaunchedByLaunchd)
+            {
+                DesktopLog.Write("single-instance: launchd 副本，安静退出");
+                return;
+            }
             SingleInstance.SignalShowMain();
             return;
         }
-        BuildAvaloniaApp().StartWithClassicDesktopLifetime(args);
+        // macOS：先把显示器唤醒再初始化渲染管线。显示器处在睡眠/待机时，
+        // Avalonia.Native 的渲染计时器（CVDisplayLink）建不起来，平台初始化会直接抛
+        // “Avalonia.Native was not able to start the RenderTimer”（-6661），
+        // 应用在窗口创建之前就退出——用户看到的就是「双击 app 什么都没有」。
+        var displayWake = MacOsDisplayWake.BeginStartupWake();
+        try
+        {
+            StartAvaloniaWithRenderTimerRetry(args);
+        }
+        finally
+        {
+            if (displayWake)
+            {
+                // 唤醒断言留到首帧之后再放：唤醒生效有延迟，立刻释放可能赶不上。
+                _ = Task.Delay(TimeSpan.FromSeconds(12))
+                    .ContinueWith(_ => MacOsDisplayWake.EndStartupWake(), TaskScheduler.Default);
+            }
+        }
     }
+
+    /// <summary>
+    /// 启动 Avalonia。显示器还在睡眠时渲染计时器会起不来（CVDisplayLink 返回 -6661），
+    /// 这时唤醒显示器再重试，而不是带着未处理异常直接退出。
+    /// </summary>
+    private static void StartAvaloniaWithRenderTimerRetry(string[] args)
+    {
+        const int maxAttempts = 10;
+        for (var attempt = 1; ; attempt++)
+        {
+            try
+            {
+                BuildAvaloniaApp().StartWithClassicDesktopLifetime(args);
+                return;
+            }
+            catch (InvalidOperationException ex) when (attempt < maxAttempts && IsRenderTimerFailure(ex))
+            {
+                MacOsDisplayWake.BeginStartupWake();
+                Console.Error.WriteLine(
+                    $"[startup] 渲染计时器启动失败（显示器可能处于睡眠），第 {attempt}/{maxAttempts} 次重试：{ex.Message}");
+                Thread.Sleep(800);
+            }
+        }
+    }
+
+    private static bool IsRenderTimerFailure(Exception ex) =>
+        ex.Message.Contains("RenderTimer", StringComparison.OrdinalIgnoreCase);
 
     // 渲染管线默认走显卡（AngleEgl + WinUIComposition），拖窗口和滚动不会再靠 CPU 逐帧重绘。
     // 代价是常驻 ANGLE/D3D 资源（同界面约多 119 MiB 私有提交）；要省内存可在设置里关掉硬件加速，
@@ -257,9 +313,14 @@ internal sealed class Program
             string.Equals(argument, "--directcomp", StringComparison.OrdinalIgnoreCase));
 
     public static AppBuilder BuildAvaloniaApp()
-        => AppBuilder.Configure<App>()
-            .UsePlatformDetect()
-            .With(new Win32PlatformOptions
+    {
+        var builder = AppBuilder.Configure<App>().UsePlatformDetect();
+
+        // Win32 合成/渲染选项只对 Windows 有意义（AngleEgl + WinUIComposition 依赖 D3D）。
+        // macOS / Linux 走各自的原生后端，套 Win32 选项会直接抛平台不支持异常。
+        if (OperatingSystem.IsWindows())
+        {
+            builder = builder.With(new Win32PlatformOptions
             {
                 RenderingMode = UseGpuRendering
                     ? new[] { Win32RenderingMode.AngleEgl, Win32RenderingMode.Software }
@@ -271,22 +332,38 @@ internal sealed class Program
                         ? new[] { Win32CompositionMode.DirectComposition, Win32CompositionMode.RedirectionSurface }
                         : new[] { Win32CompositionMode.WinUIComposition, Win32CompositionMode.RedirectionSurface })
                     : new[] { Win32CompositionMode.RedirectionSurface }
-            })
-            // 默认字族必须显式指定为系统里「名字能自解析、字形自足」的字体。
-            // 用平台默认（Segoe UI）时，Avalonia 的字型缓存对不上名（请求名 ≠ 实际返回名），
-            // 每排版一次都新建一份 GlyphTypeface + 整张 Name 表且释放不掉：
-            // 实测空列表、无设备、只点下拉/开关的进程里也能堆出 3906 个 GlyphTypeface、
-            // 20 万个字体名表对象（约 17MB 垃圾），滚动/交互越频繁涨得越快。
-            // 这条同时覆盖 PopupRoot / ToolTip 等不继承 Window 字体的独立顶层。
-            .With(new FontManagerOptions
+            });
+        }
+
+        // 默认字族必须显式指定为系统里「名字能自解析、字形自足」的字体。
+        // 用平台默认（Segoe UI）时，Avalonia 的字型缓存对不上名（请求名 ≠ 实际返回名），
+        // 每排版一次都新建一份 GlyphTypeface + 整张 Name 表且释放不掉：
+        // 实测空列表、无设备、只点下拉/开关的进程里也能堆出 3906 个 GlyphTypeface、
+        // 20 万个字体名表对象（约 17MB 垃圾），滚动/交互越频繁涨得越快。
+        // 这条同时覆盖 PopupRoot / ToolTip 等不继承 Window 字体的独立顶层。
+        // 11.3.9 平台缺字匹配会重复创建 GlyphTypeface，HarfBuzz 回调使其无法回收，
+        // 显式回退优先走字体缓存，也覆盖控件自行设置其他字体时的中文缺字。
+        var defaultFamily = DefaultFontFamily();
+        builder = builder.With(new FontManagerOptions
+        {
+            DefaultFamilyName = defaultFamily,
+            FontFallbacks = new[]
             {
-                DefaultFamilyName = "Microsoft YaHei UI",
-                // 11.3.9 平台缺字匹配会重复创建 GlyphTypeface，HarfBuzz 回调使其无法回收。
-                // 显式回退优先走字体缓存，也覆盖控件自行设置其他字体时的中文缺字。
-                FontFallbacks = new[]
-                {
-                    new FontFallback { FontFamily = new FontFamily("Microsoft YaHei UI") }
-                }
-            })
-            .LogToTrace();
+                new FontFallback { FontFamily = new FontFamily(defaultFamily) }
+            }
+        });
+
+        return builder.LogToTrace();
+    }
+
+    /// <summary>
+    /// 各平台的中文默认字族：Windows 用微软雅黑 UI，macOS 用苹方，Linux 用思源黑体。
+    /// 名字必须能被字体系统自解析（否则 Avalonia 会反复重建 GlyphTypeface，见上方注释）。
+    /// </summary>
+    private static string DefaultFontFamily()
+    {
+        if (OperatingSystem.IsWindows()) return "Microsoft YaHei UI";
+        if (OperatingSystem.IsMacOS()) return "PingFang SC";
+        return "Noto Sans CJK SC";
+    }
 }

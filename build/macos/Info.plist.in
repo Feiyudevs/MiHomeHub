@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!--
+	MiHomeHub macOS bundle 元信息模板。
+	package-macos.sh 用 sed 把 @@TOKEN@@ 替换成实际值，生成 Contents/Info.plist。
+	改这个文件前先看 build/macos/README.md。
+-->
+<plist version="1.0">
+<dict>
+	<key>CFBundleDevelopmentRegion</key>
+	<string>zh_CN</string>
+	<key>CFBundleDisplayName</key>
+	<string>@@CFBundleDisplayName@@</string>
+	<key>CFBundleExecutable</key>
+	<string>@@CFBundleExecutable@@</string>
+	<key>CFBundleIconFile</key>
+	<string>@@CFBundleIconFile@@</string>
+	<key>CFBundleIdentifier</key>
+	<string>@@CFBundleIdentifier@@</string>
+	<key>CFBundleInfoDictionaryVersion</key>
+	<string>6.0</string>
+	<key>CFBundleName</key>
+	<string>@@CFBundleName@@</string>
+	<key>CFBundlePackageType</key>
+	<string>APPL</string>
+	<key>CFBundleShortVersionString</key>
+	<string>@@CFBundleShortVersionString@@</string>
+	<key>CFBundleVersion</key>
+	<string>@@CFBundleVersion@@</string>
+	<key>LSApplicationCategoryType</key>
+	<string>public.app-category.utilities</string>
+	<key>LSMinimumSystemVersion</key>
+	<string>@@LSMinimumSystemVersion@@</string>
+	<key>NSHighResolutionCapable</key>
+	<true/>
+	<key>NSHumanReadableCopyright</key>
+	<string>@@NSHumanReadableCopyright@@</string>
+	<key>NSPrincipalClass</key>
+	<string>NSApplication</string>
+	<key>NSRequiresAquaSystemAppearance</key>
+	<false/>
+	<key>NSSupportsAutomaticGraphicsSwitching</key>
+	<true/>
+</dict>
+</plist>
