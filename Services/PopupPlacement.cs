@@ -208,8 +208,9 @@ internal static class PopupPlacement
         return true;
     }
 
+    /// <summary>光标位置：Windows 走 user32，macOS 走 CoreGraphics。</summary>
     private static PixelPoint? CursorPoint()
-        => DesktopNative.GetCursorPos(out var p) ? new PixelPoint(p.X, p.Y) : null;
+        => CursorPosition.TryGet(out var p) ? p : null;
 
     /// <summary>光标取不到时的兜底：主窗口所在位置。</summary>
     private static PixelPoint? WindowPoint(Window win)

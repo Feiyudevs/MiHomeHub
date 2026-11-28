@@ -185,6 +185,42 @@ package.cmd -SkipInstaller :: 只出单文件 exe
 
 等价的 PowerShell 入口：`.\scripts\build.ps1 [-NoRun]`、`.\scripts\release.ps1 [-Bump patch] [-SkipInstaller]`。
 
+## macOS 版
+
+同一套 C# / .NET 10 + Avalonia 代码也能编出 macOS 版：设备控制、桌面分区组件、
+全局快捷键、托盘菜单、开机自启、更新检查都可用，Windows 端一行代码不用改。
+macOS 专用的部分收在 `Services/MacOS/`（AppKit / CoreGraphics / Carbon 的薄封装），
+Windows 专用的部分收在 `Services/Setup/` 与 `Services/DesktopEmbed.cs` 等处，
+两边用 `OperatingSystem.IsWindows()` / `IsMacOS()` 分开，不互相牵扯。
+
+自己编一份：
+
+```bash
+git clone https://github.com/Feiyudevs/MiHomeHub.git
+cd MiHomeHub
+bash build/macos/publish-test-build.sh          # 两个架构一起出：osx-arm64 + osx-x64
+bash build/macos/publish-test-build.sh --rid osx-arm64   # 只出 Apple Silicon
+```
+
+脚本会出 `.app` 与 `.dmg`（`output/macos-build-next/<rid>/`），并校验包内版本戳与当前提交一致。
+产物是自签（未公证）的，第一次打开需要放行：右键点 app 或 dmg →「打开」→ 再点「打开」，
+或在「系统设置 → 隐私与安全性」里点「仍要打开」。
+
+macOS 上有几处和 Windows 不一样，都是有意为之：
+
+- **桌面分区组件**贴的是访达桌面那一层（比访达图标层高一层、比普通窗口低），
+  不抢焦点、点它不会把正在用的窗口顶掉；拖动、拉伸、悬停展开的逻辑与 Windows 版一致。
+- **全局快捷键**走系统的 `RegisterEventHotKey`，不需要「辅助功能」权限，可以同时注册多条；
+  录制组合键时才可能用到 `CGEventTap`，没授权也能在设置窗口里直接按键录入。
+- **开机自启**用 `~/Library/LaunchAgents` 下的 launchd 任务；写入失败（比如目录被锁）
+  不会带崩启动，只在设置页写明原因。
+- **更新**读按架构分开的 `update-macos-<rid>.json`，与仓库根目录里给 Windows 用的 `update.json`
+  是两条互不干扰的通道。
+
+这一版还没适配的两项（都依赖 Windows 专属实现）：**监控分区**（摄像头实时预览，
+依赖 Media Foundation / D3D11 解码链）和**桌面数据卡**（依赖 Win32 玻璃宿主）。
+macOS 上这两项的入口在设置页里不显示，其余功能不受影响。
+
 ## 使用
 
 1. 运行 `publish\sc-win-x64\MiHomeHub.exe`。

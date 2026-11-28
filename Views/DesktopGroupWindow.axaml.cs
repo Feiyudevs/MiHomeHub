@@ -10,6 +10,7 @@ using Avalonia.Controls;
 using Avalonia.Styling;
 using Avalonia.Threading;
 using MiHomeHub.Services;
+using MiHomeHub.Services.MacOS;
 using MiHomeHub.ViewModels;
 using MiHomeHub.Widgets;
 
@@ -196,6 +197,14 @@ public partial class DesktopGroupWindow : Window, IDesktopWindow
 
     private void AttachDesktop()
     {
+        // macOS 没有 HWND / Progman / DWM 这一套：贴桌面改成 NSWindow 的 level + collectionBehavior，
+        // 整条 Windows 路径（WndProc 子类、cloak、RGN 圆角、玻璃宿主）一概不适用
+        if (OperatingSystem.IsMacOS())
+        {
+            AttachDesktopMac();
+            return;
+        }
+
         _hwnd = TryGetPlatformHandle()?.Handle ?? nint.Zero;
         if (_hwnd == nint.Zero) return;
 
@@ -261,6 +270,101 @@ public partial class DesktopGroupWindow : Window, IDesktopWindow
         StartMaterialSettle();
     }
 
+    /// <summary>
+    /// macOS 版贴桌面。Windows 那套「owner=Progman + 压底 + NOACTIVATE + DWM 圆角/玻璃宿主」
+    /// 在 macOS 上没有对应物，逐项换成 AppKit 的等价手段：
+    /// <list type="bullet">
+    /// <item><b>不抢焦点</b>：ShowActivated=false + 窗口子类覆写 canBecomeKeyWindow
+    /// （等价 Windows 的 WS_EX_NOACTIVATE）—— 点卡片不会把用户正在用的窗口顶掉。</item>
+    /// <item><b>无边框</b>：SystemDecorations=None（XAML 里已设，这里只兜底）。</item>
+    /// <item><b>磨砂</b>：自建的 NSVisualEffectView（BehindWindow + HUDWindow + Active），
+    /// Avalonia 自带的 AcrylicBlur 在 macOS 上不生效（那层 effect view 恒 hidden=1）。</item>
+    /// <item><b>贴桌面层</b>：NSWindow.setLevel(kCGDesktopIconWindowLevel + 1) ——
+    /// 访达桌面窗铺满整块屏幕且层级更低，卡片停在壁纸层会被它整个盖住，点不动也拖不动。</item>
+    /// <item><b>跟着所有桌面空间、不进 Cmd+Tab</b>：setCollectionBehavior(Stationary|CanJoinAllSpaces|IgnoresCycle)。</item>
+    /// <item><b>标题栏图钉（置顶）</b>：改用 kCGFloatingWindowLevel 抬出桌面卡片层。</item>
+    /// </list>
+    /// 拿不到 NSWindow 指针时 MacOsWindowInterop 内部会安静跳过：卡片退化成普通浮窗，程序不崩。
+    /// </summary>
+    private void AttachDesktopMac()
+    {
+        // 不抢焦点
+        ShowActivated = false;
+
+        // 无边框（XAML 已设时不重复写，省一次属性变更）
+        if (SystemDecorations != Avalonia.Controls.SystemDecorations.None)
+            SystemDecorations = Avalonia.Controls.SystemDecorations.None;
+
+        // 调试口子：macOS 上也允许「不贴桌面、置顶普通窗口」，方便肉眼核对排版
+        if (DebugMode)
+        {
+            Topmost = true;
+            ApplyChromeMac();
+            return;
+        }
+
+        // 磨砂 / 主题
+        ApplyChromeMac();
+
+        // 贴桌面 + 桌面空间行为
+        MacOsWindowInterop.SetCollectionBehavior(this);
+        // 抬到桌面卡片层：访达桌面窗（kCGDesktopIconWindowLevel）铺满整块屏幕，
+        // 停在壁纸层会被它整个盖住 → 卡片点不动、拖不动；
+        // 与访达同层也不够 —— 主窗口一最小化，系统激活访达桌面，访达窗口就排到卡片前面。
+        // 卡片层比访达高一层、比普通窗口低，问题彻底消失。
+        MacOsWindowInterop.SetDesktopCardLevel(this);
+        // 原生窗口背景改成透明 + 非不透明，否则自绘圆角四周会露出黑边。
+        MacOsWindowInterop.MakeTransparent(this);
+        // 毛玻璃层 + 圆角裁剪（对应 Windows 的 DWM 圆角 / 亚克力）。
+        RefreshDesktopBlur();
+        // 点卡片不抢焦点（对应 Windows 的 WS_EX_NOACTIVATE）：
+        // ShowActivated=false 只管「显示时不要激活」，点击时照样会把 App 拉到前台。
+        MacOsWindowInterop.MakeNonActivating(this);
+
+        // 上次退出前钉住的分区：开机直接回到浮层
+        if (_vm.IsTopmost)
+            MacOsWindowInterop.SetFloatingLevel(this);
+    }
+
+    /// <summary>
+    /// macOS 版外观：
+    /// <list type="bullet">
+    /// <item>磨砂 = 自建的 NSVisualEffectView（BehindWindow + HUDWindow + Active），
+    /// 插在 contentView 最底层，卡片底色叠在模糊上 —— 和 Windows 版 DWM 亚克力的关系一致。</item>
+    /// <item>浅色底色预设时整块分区切浅色主题，否则白底上仍是近白字。</item>
+    /// </list>
+    /// 圆角不在这里处理：macOS 上由 contentView 的图层裁剪收口（对应 Windows 的 DWM 圆角），
+    /// 阴影仍由 XAML 的 BoxShadow 画。
+    /// </summary>
+    private void ApplyChromeMac()
+    {
+        var look = DesktopHost.Look;
+
+        // 底色是浅色（白色预设）时整块切浅色主题：文字、图标、描边全跟着主题资源走深色版
+        var variant = DesktopPalette.IsLight(look) ? ThemeVariant.Light : ThemeVariant.Dark;
+        if (RequestedThemeVariant != variant) RequestedThemeVariant = variant;
+
+        // 窗口本身保持透明：底色交给 XAML 的 CardBrush，模糊交给下面自建的效果层。
+        TransparencyLevelHint = new[] { WindowTransparencyLevel.Transparent };
+        MacOsWindowInterop.MakeTransparent(this);
+        RefreshDesktopBlur();
+    }
+
+    /// <summary>
+    /// 重新贴一遍毛玻璃效果层（开/关、尺寸变了都要重贴）。
+    /// 尺寸用的是 ClientSize（Avalonia 在 macOS 上给的是「点」，与 NSSize 同单位，不用再乘 RenderScaling）。
+    /// </summary>
+    private void RefreshDesktopBlur()
+    {
+        var look = DesktopHost.Look;
+        // ClientSize 在布局跑完前可能是 0（刚打开时），退回窗口自身的宽高。
+        var size = ClientSize;
+        var width = size.Width > 1 ? size.Width : Width;
+        var height = size.Height > 1 ? size.Height : Height;
+        var ok = MacOsWindowInterop.SetDesktopBlur(this, look.Glass, MacCorner, width, height);
+        DesktopLog.Write($"[chrome] macOS 毛玻璃 glass={look.Glass} ok={ok} size={width:F0}x{height:F0}");
+    }
+
     /// <summary>「显示桌面」还原后补一次层级与磨砂：DWM 会丢掉内容表面，宿主也要重新贴回卡下。</summary>
     private void OnOwnerRestored()
     {
@@ -272,11 +376,24 @@ public partial class DesktopGroupWindow : Window, IDesktopWindow
         DesktopEmbed.ForcePresent(h);
     }
 
+    /// <summary>macOS 卡片圆角（DIP）。Windows 那套 20px 大圆角由玻璃宿主负责，macOS 自绘收口用 8。</summary>
+    private const int MacCorner = 8;
+
     private static readonly bool DebugMode =
         Environment.GetEnvironmentVariable("MIHOMEHUB_DESKTOP_DEBUG") == "1";
 
-    /// <summary>重打圆角 + 磨砂 + 桌面层级（外观变更、尺寸变化后调用）。和数据卡共用同一套外观。</summary>
-    public void ApplyChrome() => _frame.ApplyChrome();
+    /// <summary>重打圆角 + 磨砂 + 桌面层级（外观变更、尺寸变化后调用）。Windows 走玻璃宿主，macOS 走自建效果层。</summary>
+    public void ApplyChrome()
+    {
+        // macOS：没有 DWM 圆角 / 玻璃宿主那一套，改用自建的 NSVisualEffectView 磨砂层
+        if (OperatingSystem.IsMacOS())
+        {
+            ApplyChromeMac();
+            return;
+        }
+
+        _frame.ApplyChrome();
+    }
 
     /// <summary>
     /// 外观（背景浓度 / 毛玻璃 / 底色）改动后立即作用到这块分区：
@@ -288,6 +405,14 @@ public partial class DesktopGroupWindow : Window, IDesktopWindow
     {
         InvalidateVisual();
         Root.InvalidateVisual();
+
+        // macOS：磨砂是 NSVisualEffectView 自己跟着内容重算的，没有「快照过期」这回事
+        if (OperatingSystem.IsMacOS())
+        {
+            ApplyChromeMac();
+            MacOsWindowInterop.Redraw(this);
+            return;
+        }
 
         var h = Hwnd;
         if (h == nint.Zero || !IsVisible || _dragging || _resizing) return;
@@ -304,6 +429,14 @@ public partial class DesktopGroupWindow : Window, IDesktopWindow
     /// </summary>
     private void RefreshMaterial(string reason)
     {
+        // macOS：重新写一次材质 hint + 让窗口重画就够了
+        if (OperatingSystem.IsMacOS())
+        {
+            ApplyChromeMac();
+            MacOsWindowInterop.Redraw(this);
+            return;
+        }
+
         var h = Hwnd;
         if (h == nint.Zero || !IsVisible || _dragging || _resizing) return;
         ApplyChrome();
@@ -337,6 +470,9 @@ public partial class DesktopGroupWindow : Window, IDesktopWindow
     /// </summary>
     private void StartGuard()
     {
+        // macOS：不用补 ExStyle —— NSWindow 的 level 不会被系统重置，也就没有「掉了又被盖住」的问题
+        if (OperatingSystem.IsMacOS()) return;
+
         _guard?.Stop();
         _guardTicks = 0;
         _guard = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(60) };
@@ -390,6 +526,9 @@ public partial class DesktopGroupWindow : Window, IDesktopWindow
     /// </summary>
     private void InstallWndProc()
     {
+        // macOS 没有 WndProc 可子类化（也没有 user32），这层压 Z 序的机制整块不存在
+        if (!OperatingSystem.IsWindows()) return;
+
         if (_hwnd == nint.Zero || _wndProcDelegate != null) return;
 
         _wndProcDelegate = WndProc;
@@ -401,6 +540,9 @@ public partial class DesktopGroupWindow : Window, IDesktopWindow
     /// <summary>Avalonia 若重装过 WndProc，原样接回去继续压 Z 序，避免链到自己无限递归。</summary>
     private void EnsureWndProc()
     {
+        // macOS 没有 WndProc 可子类化（也没有 user32），这层压 Z 序的机制整块不存在
+        if (!OperatingSystem.IsWindows()) return;
+
         if (_hwnd == nint.Zero || _wndProcDelegate == null) return;
         var current = DesktopNative.GetWindowLongPtr(_hwnd, DesktopNative.GWL_WNDPROC);
         if (current == _wndProcPtr || current == nint.Zero) return;
@@ -486,6 +628,9 @@ public partial class DesktopGroupWindow : Window, IDesktopWindow
 
     private void RestoreWndProc()
     {
+        // macOS 没有 WndProc 可子类化（也没有 user32），这层压 Z 序的机制整块不存在
+        if (!OperatingSystem.IsWindows()) return;
+
         if (_hwnd != nint.Zero && _originalWndProc != nint.Zero && _wndProcDelegate != null)
         {
             var current = DesktopNative.GetWindowLongPtr(_hwnd, DesktopNative.GWL_WNDPROC);
@@ -726,6 +871,15 @@ public partial class DesktopGroupWindow : Window, IDesktopWindow
     /// </summary>
     private void ApplyTopmost(bool on)
     {
+        // macOS：置顶 = level 抬到 kCGFloatingWindowLevel，取消钉住回桌面卡片层
+        if (OperatingSystem.IsMacOS())
+        {
+            Topmost = on;
+            if (on) MacOsWindowInterop.SetFloatingLevel(this);
+            else MacOsWindowInterop.SetDesktopCardLevel(this);
+            return;
+        }
+
         var h = Hwnd;
         if (h == nint.Zero) return;
 
@@ -822,8 +976,10 @@ public partial class DesktopGroupWindow : Window, IDesktopWindow
 
     public void UpdateResize()
     {
-        if (!_resizing || !DesktopNative.GetCursorPos(out var p)) return;
-        var scale = RenderScaling <= 0 ? 1 : RenderScaling;
+        if (!_resizing || !CursorPosition.TryGet(out var p)) return;
+        // Windows：光标是物理像素、Width 是 DIP，要除以缩放比；Position 同样是物理像素，所以回写时再乘回去。
+        // macOS：光标（CGEventGetLocation）、Width、Position 全是「点」，同一个单位，换算会把速度搞错一倍。
+        var scale = OperatingSystem.IsMacOS() ? 1 : (RenderScaling <= 0 ? 1 : RenderScaling);
 
         if (!_resizeFromLeft)
         {

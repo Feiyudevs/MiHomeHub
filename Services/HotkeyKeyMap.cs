@@ -13,28 +13,41 @@ namespace MiHomeHub.Services;
 /// </summary>
 internal static class HotkeyKeyMap
 {
+    /// <summary>macOS 上修饰键按 Mac 的叫法写（⌘ / Option），Windows 上保持原来的写法。</summary>
+    private static readonly bool MacNaming = OperatingSystem.IsMacOS();
+
     public static string Describe(HotkeyCombo combo) => Describe(combo.Modifiers, combo.VirtualKey);
 
     /// <summary>录制进行中显示已按下的修饰键，如「Ctrl + Shift + …」；还没按修饰键时给引导文案。</summary>
     public static string DescribePending(HotkeyModifier modifiers)
     {
         var sb = new StringBuilder();
-        if ((modifiers & HotkeyModifier.Ctrl) != 0) Append(sb, "Ctrl");
-        if ((modifiers & HotkeyModifier.Alt) != 0) Append(sb, "Alt");
-        if ((modifiers & HotkeyModifier.Shift) != 0) Append(sb, "Shift");
-        if ((modifiers & HotkeyModifier.Win) != 0) Append(sb, "Win");
+        if ((modifiers & HotkeyModifier.Ctrl) != 0) Append(sb, ModifierName(HotkeyModifier.Ctrl));
+        if ((modifiers & HotkeyModifier.Alt) != 0) Append(sb, ModifierName(HotkeyModifier.Alt));
+        if ((modifiers & HotkeyModifier.Shift) != 0) Append(sb, ModifierName(HotkeyModifier.Shift));
+        if ((modifiers & HotkeyModifier.Win) != 0) Append(sb, ModifierName(HotkeyModifier.Win));
         if (sb.Length == 0) return "请按下组合键…（Esc 取消）";
         sb.Append(" + …");
         return sb.ToString();
     }
 
+    /// <summary>修饰键的显示名：macOS 用 Cmd / Option，Windows 用 Win / Alt。</summary>
+    public static string ModifierName(HotkeyModifier modifier) => modifier switch
+    {
+        HotkeyModifier.Ctrl => "Ctrl",
+        HotkeyModifier.Alt => MacNaming ? "Option" : "Alt",
+        HotkeyModifier.Shift => "Shift",
+        HotkeyModifier.Win => MacNaming ? "Cmd" : "Win",
+        _ => ""
+    };
+
     public static string Describe(HotkeyModifier modifiers, int virtualKey)
     {
         var sb = new StringBuilder();
-        if ((modifiers & HotkeyModifier.Ctrl) != 0) Append(sb, "Ctrl");
-        if ((modifiers & HotkeyModifier.Alt) != 0) Append(sb, "Alt");
-        if ((modifiers & HotkeyModifier.Shift) != 0) Append(sb, "Shift");
-        if ((modifiers & HotkeyModifier.Win) != 0) Append(sb, "Win");
+        if ((modifiers & HotkeyModifier.Ctrl) != 0) Append(sb, ModifierName(HotkeyModifier.Ctrl));
+        if ((modifiers & HotkeyModifier.Alt) != 0) Append(sb, ModifierName(HotkeyModifier.Alt));
+        if ((modifiers & HotkeyModifier.Shift) != 0) Append(sb, ModifierName(HotkeyModifier.Shift));
+        if ((modifiers & HotkeyModifier.Win) != 0) Append(sb, ModifierName(HotkeyModifier.Win));
         Append(sb, KeyName(virtualKey));
         return sb.ToString();
     }

@@ -116,6 +116,65 @@
                 </Border>
                 <Border Classes="Card">
                     <StackPanel Spacing="20">
+                        <TextBlock Text="启动与窗口" FontSize="14.5" FontWeight="SemiBold"
+                                   Foreground="{DynamicResource TextBrush}" />
+                        <Grid ColumnDefinitions="Auto,*,Auto">
+                            <Border Classes="SetIc" Background="{DynamicResource GreenSoftBrush}">
+                                <Viewbox HorizontalAlignment="Center" VerticalAlignment="Center">
+                                    <Panel Width="24" Height="24">
+                                        <Path Stroke="{DynamicResource GreenBrush}" Data="{StaticResource GeoPower}" />
+                                    </Panel>
+                                </Viewbox>
+                            </Border>
+                            <StackPanel Grid.Column="1" Margin="12,0" VerticalAlignment="Center">
+                                <TextBlock Text="开机启动" FontSize="13.5" FontWeight="Normal"
+                                           Foreground="{DynamicResource TextBrush}" />
+                                <TextBlock Text="登录系统后自动启动应用" Classes="Hint Sub" Margin="0,2,0,0" />
+                                <TextBlock Text="{Binding AutoStartErrorText}"
+                                           Classes="Hint Sub" Margin="0,2,0,0"
+                                           Foreground="{DynamicResource DangerBrush}"
+                                           IsVisible="{Binding AutoStartErrorText, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
+                            </StackPanel>
+                            <ToggleButton Grid.Column="2" Classes="Switch" VerticalAlignment="Center"
+                                          IsChecked="{Binding AutoStart}" />
+                        </Grid>
+                        <Grid ColumnDefinitions="Auto,*,Auto">
+                            <Border Classes="SetIc" Background="{DynamicResource BlueSoftBrush}">
+                                <Viewbox HorizontalAlignment="Center" VerticalAlignment="Center">
+                                    <Panel Width="24" Height="24">
+                                        <Path Stroke="{DynamicResource BlueBrush}" Data="{StaticResource GeoMax}" />
+                                    </Panel>
+                                </Viewbox>
+                            </Border>
+                            <StackPanel Grid.Column="1" Margin="12,0" VerticalAlignment="Center">
+                                <TextBlock Text="启动后显示主界面" FontSize="13.5" FontWeight="Normal"
+                                           Foreground="{DynamicResource TextBrush}" />
+                                <TextBlock Text="关掉后启动直接收进托盘，需要时点托盘图标打开" Classes="Hint Sub" Margin="0,2,0,0" />
+                            </StackPanel>
+                            <ToggleButton Grid.Column="2" Classes="Switch" VerticalAlignment="Center"
+                                          IsChecked="{Binding ShowMainWindowOnStartup}" />
+                        </Grid>
+                        <Grid ColumnDefinitions="Auto,*,Auto">
+                            <Border Classes="SetIc" Background="{DynamicResource PurpleSoftBrush}">
+                                <Viewbox HorizontalAlignment="Center" VerticalAlignment="Center">
+                                    <Panel Width="24" Height="24">
+                                        <Path Stroke="{DynamicResource PurpleBrush}" Data="{StaticResource GeoTray}" />
+                                    </Panel>
+                                </Viewbox>
+                            </Border>
+                            <StackPanel Grid.Column="1" Margin="12,0" VerticalAlignment="Center">
+                                <TextBlock Text="关闭后进托盘" FontSize="13.5" FontWeight="Normal"
+                                           Foreground="{DynamicResource TextBrush}" />
+                                <TextBlock Text="关掉这项后点关闭直接退出应用" Classes="Hint Sub" Margin="0,2,0,0" />
+                            </StackPanel>
+                            <ToggleButton Grid.Column="2" Classes="Switch" VerticalAlignment="Center"
+                                          IsChecked="{Binding CloseToTray}" />
+                        </Grid>
+                    </StackPanel>
+                </Border>
+
+                <Border Classes="Card">
+                    <StackPanel Spacing="20">
                         <TextBlock Text="首页" FontSize="14.5" FontWeight="SemiBold"
                                    Foreground="{DynamicResource TextBrush}" />
                         <Grid ColumnDefinitions="Auto,*,Auto">
@@ -211,7 +270,8 @@
                         </Border>
 
                         <!-- 监控分区：摄像头多于一台时，选哪一台就收在卡里 -->
-                        <Border Classes="CompTile" Grid.Row="2" Grid.Column="0">
+                        <Border Classes="CompTile" Grid.Row="2" Grid.Column="0"
+                                IsVisible="{Binding SupportsWindowsOnlyDesktopFeatures}">
                             <StackPanel Spacing="9">
                                 <Grid ColumnDefinitions="Auto,*,Auto">
                                     <Border Classes="SetIc" Background="{DynamicResource BlueSoftBrush}">
@@ -241,7 +301,8 @@
                         </Border>
 
                         <!-- 桌面数据卡：逐张开关收在首页「数据看板」的编辑弹窗里，这里只留已投数量和入口 -->
-                        <Border Classes="CompTile" Grid.Row="2" Grid.Column="2">
+                        <Border Classes="CompTile" Grid.Row="2" Grid.Column="2"
+                                IsVisible="{Binding SupportsWindowsOnlyDesktopFeatures}">
                             <StackPanel Spacing="8">
                                 <Grid ColumnDefinitions="Auto,*,Auto">
                                     <Border Classes="SetIc" Background="{DynamicResource PurpleSoftBrush}">

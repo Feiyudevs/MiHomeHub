@@ -29,6 +29,8 @@ internal static class SetupPaths
     /// <summary>读卸载注册表里的 InstallLocation；没有或目录已丢失时返回 null。</summary>
     public static string? FindInstalledRoot()
     {
+        // 非 Windows 没有卸载登记（macOS 由 .app/.dmg 打包流程负责），一律当作没装过
+        if (!OperatingSystem.IsWindows()) return null;
         try
         {
             var location = SetupRegistry.ReadString(SetupProtocol.UninstallKeyPath, "InstallLocation");
@@ -91,6 +93,8 @@ internal static class SetupPaths
 
     private static bool IsRegisteredInstall(string root)
     {
+        // 非 Windows 没有注册表登记
+        if (!OperatingSystem.IsWindows()) return false;
         try
         {
             var location = SetupRegistry.ReadString(SetupProtocol.UninstallKeyPath, "InstallLocation");

@@ -3,7 +3,6 @@
 
 using System;
 using System.ComponentModel;
-using System.Runtime.InteropServices;
 using Avalonia;
 using Avalonia.Animation;
 using Avalonia.Animation.Easings;
@@ -46,6 +45,7 @@ public partial class TrayMenuWindow : Window
     public event Action? ShowMainRequested;
     public event Action? ToggleDesktopWidgetsRequested;
     public event Action? ToggleThemeRequested;
+    public event Action? OpenSettingsRequested;
     public event Action? RestartRequested;
     public event Action? ExitRequested;
 
@@ -176,6 +176,12 @@ public partial class TrayMenuWindow : Window
         ShowMainRequested?.Invoke();
     }
 
+    private void OnOpenSettingsClick(object? sender, RoutedEventArgs e)
+    {
+        Dismiss();
+        OpenSettingsRequested?.Invoke();
+    }
+
     private void OnToggleDesktopClick(object? sender, RoutedEventArgs e)
     {
         Dismiss();
@@ -251,19 +257,10 @@ public partial class TrayMenuWindow : Window
         Position = new PixelPoint(x - margin, y - margin);
     }
 
+    /// <summary>当前鼠标位置（物理像素）。跨平台：Windows 走 user32，macOS 走 CoreGraphics。</summary>
     public static PixelPoint CursorPosition()
     {
-        GetCursorPos(out var p);
-        return new PixelPoint(p.X, p.Y);
+        // 全限定名：本类里已有一个同名成员 CursorPosition，裸写会解析成方法组
+        return MiHomeHub.Services.CursorPosition.TryGet(out var p) ? p : default;
     }
-
-    [StructLayout(LayoutKind.Sequential)]
-    private struct Point
-    {
-        public int X;
-        public int Y;
-    }
-
-    [DllImport("user32.dll")]
-    private static extern bool GetCursorPos(out Point point);
 }

@@ -95,6 +95,13 @@ public partial class MainViewModel : IDeviceCardHost
     [ObservableProperty] private bool _desktopWidgetsEnabled = true;
 
     /// <summary>总开关是否关着：数据看板编辑弹窗据此提示「打开任意一张会同时开启桌面组件」。</summary>
+    /// <summary>
+    /// macOS 上暂不支持的桌面组件（监控分区 = 摄像头实时预览、桌面数据卡）：
+    /// 这两项依赖 Windows 专属实现（Media Foundation / D3D11 解码链、Win32 玻璃宿主），
+    /// 这一版 PR 没有给 macOS 做等价物，设置页相应入口直接隐藏，不给用户开一个用不了的开关。
+    /// </summary>
+    public bool SupportsWindowsOnlyDesktopFeatures => !OperatingSystem.IsMacOS();
+
     public bool IsDesktopWidgetsOff => !DesktopWidgetsEnabled;
 
     partial void OnDesktopWidgetsEnabledChanged(bool value)

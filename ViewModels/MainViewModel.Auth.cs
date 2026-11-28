@@ -405,7 +405,13 @@ public partial class MainViewModel : ObservableObject
         GC.Collect(GC.MaxGeneration, GCCollectionMode.Aggressive, blocking: true, compacting: true);
         GC.WaitForPendingFinalizers();
         GC.Collect(GC.MaxGeneration, GCCollectionMode.Aggressive, blocking: true, compacting: true);
-        try { SetProcessWorkingSetSize(GetCurrentProcess(), new IntPtr(-1), new IntPtr(-1)); } catch { }
+        try
+        {
+            // 收缩工作集是 Windows 专属；macOS 用 malloc_zone_pressure_relief（见 MemoryTrimmer）
+            if (OperatingSystem.IsWindows())
+                SetProcessWorkingSetSize(GetCurrentProcess(), new IntPtr(-1), new IntPtr(-1));
+        }
+        catch { }
     }
 
     [DllImport("kernel32.dll")]

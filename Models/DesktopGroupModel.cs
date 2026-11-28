@@ -168,6 +168,12 @@ public sealed class DesktopLayout
     /// </summary>
     public int AppearanceVersion { get; set; }
 
+    /// <summary>
+    /// 落位迁移版本。默认落位规则变了就 +1：迁移只跑一次，
+    /// 否则用户自己拖过的位置会在下次启动时被反复改回去。
+    /// 0 = 老数据（分区可能落在「虚拟桌面并集」的右上角，也就是第二屏边上）。
+    /// </summary>
+
     [JsonIgnore]
     public bool HasGroups => Groups.Count > 0;
 }

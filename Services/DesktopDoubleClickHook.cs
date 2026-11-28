@@ -5,6 +5,7 @@ using System;
 using System.Runtime.InteropServices;
 using System.Text;
 using Avalonia.Threading;
+using MiHomeHub.Services.MacOS;
 
 namespace MiHomeHub.Services;
 
@@ -29,6 +30,13 @@ internal static class DesktopDoubleClickHook
     /// </summary>
     public static void Install()
     {
+        // macOS 没有 WH_MOUSE_LL 这套全局钩子，换 CGEventTap 自己判双击
+        if (OperatingSystem.IsMacOS())
+        {
+            InstallMacOs();
+            return;
+        }
+
         if (_hook != nint.Zero) return;
         try
         {
@@ -42,6 +50,15 @@ internal static class DesktopDoubleClickHook
         }
 
         DesktopLog.Write($"desktop mouse hook install → {(_hook == nint.Zero ? "failed" : "ok")}");
+    }
+
+    /// <summary>
+    /// macOS：不再监听双击 —— 改用 Carbon 全局快捷键（见 <c>App.InstallDesktopShortcut</c>）。
+    /// 原因：CGEventTap 需要「辅助功能」授权，自签分发时授权会被系统重置；Carbon 热键免授权。
+    /// </summary>
+    private static void InstallMacOs()
+    {
+        DesktopLog.Write("desktop mac double-click watcher → disabled (改用 Carbon 全局快捷键，免辅助功能权限)");
     }
 
     private static nint OnMouse(int nCode, nint wParam, nint lParam)

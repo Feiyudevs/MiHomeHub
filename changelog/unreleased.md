@@ -1,5 +1,15 @@
 ﻿# 未发布
 
+## macOS 版（实验性）
+
+- 新增 macOS 版：同一套 C# / .NET 10 + Avalonia 代码，不用改 Windows 端一行，也能编出 `.app` 与 `.dmg`（Apple Silicon 与 Intel 各一份）。设备控制、桌面分区组件、全局快捷键、托盘菜单、开机自启、更新检查均可用
+- macOS 的桌面分区组件改用 AppKit 等价实现：贴访达桌面层（比图标层高一层）、点它不抢焦点、拖动与拉伸和 Windows 版一致；毛玻璃用自建的 `NSVisualEffectView` 配 8px 圆角裁剪，观感对齐 Windows 的亚克力
+- 全局快捷键改走系统 `RegisterEventHotKey`：不需要「辅助功能」权限，可同时注册多条，每条绑定各自的设备；没授权时也能在设置窗口里直接按键录入
+- 开机自启用 launchd（`~/Library/LaunchAgents`），写入失败不再带崩启动，只在设置页写明原因
+- 凭证改存钥匙串（`Security.framework`），并给读取加了超时，避免授权弹窗无人点击时卡住启动线程
+- 新增 macOS 打包流水线 `.github/workflows/macos-release.yml`：出 `.dmg` + `update-macos-<rid>.json` + `SHA256SUMS-macos-<rid>.txt`，与 Windows 的 `update.json` 通道互不覆盖
+- 这一版暂未适配 macOS 的两项 Windows 专属功能：监控分区（摄像头实时预览）与桌面数据卡；macOS 上这两项入口不显示
+
 ## 新增
 - 关于页新增「赞赏支持」：点开后是一张感谢页，左边微信赞赏码、右边支付宝收款码，手机对着屏幕扫一下就成；不赞赏也能用全部功能
 - 正在播放时双击画面就能放大到独立窗口，不用再去找「放大」键

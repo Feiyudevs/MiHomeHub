@@ -7,7 +7,8 @@ using System.IO;
 namespace MiHomeHub.Services;
 
 /// <summary>
-/// 应用数据根目录：%APPDATA%\Feiyu\MiHomeHub。
+/// 应用数据根目录：Windows 是 %APPDATA%\Feiyu\MiHomeHub，
+/// macOS 是 ~/Library/Application Support/Feiyu/MiHomeHub（同一套 SpecialFolder.ApplicationData）。
 /// 登录态、设备列表缓存、图标缓存、主题与窗口位置都放在这里。
 /// </summary>
 public static class AppPaths

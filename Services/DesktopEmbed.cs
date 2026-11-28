@@ -4,6 +4,7 @@
 using System;
 using System.Diagnostics;
 using Avalonia.Media;
+using MiHomeHub.Services.MacOS;
 
 namespace MiHomeHub.Services;
 
@@ -21,8 +22,19 @@ internal static class DesktopEmbed
     // 只有本库主动压底（Attach/PinBottom）期间放行 —— SetWindowPos 是同步调用，WndProc 同线程，计数足够。
     [ThreadStatic] private static int _zOrderAllowDepth;
 
-    /// <summary>explorer 起停时广播给所有顶层窗口的「桌面就绪」消息（开机启动正是撞在这段时序里）。</summary>
-    public static readonly uint ShellReadyMessage = DesktopNative.RegisterWindowMessageW("TaskbarCreated");
+    /// <summary>
+    /// explorer 起停时广播给所有顶层窗口的「桌面就绪」消息（开机启动正是撞在这段时序里）。
+    /// <para>
+    /// 改成惰性取值：注册窗口消息是一次 user32 调用，macOS 上没有 user32 ——
+    /// 放在静态字段初始化里会让整个 DesktopEmbed 类型在 macOS 上第一次被碰到就抛
+    /// TypeInitializationException。所以只在 Windows 上真正去注册，其它平台返回 0（不会被匹配到）。
+    /// </para>
+    /// </summary>
+    public static uint ShellReadyMessage => _shellReadyMessage ??= OperatingSystem.IsWindows()
+        ? DesktopNative.RegisterWindowMessageW("TaskbarCreated")
+        : 0u;
+
+    private static uint? _shellReadyMessage;
 
     public static bool ZOrderChangeAllowed => _zOrderAllowDepth > 0;
 
@@ -37,6 +49,11 @@ internal static class DesktopEmbed
     /// <summary>把窗口贴到桌面层；返回是否成功拿到 Progman。</summary>
     public static bool Attach(nint hwnd)
     {
+        // macOS 没有 HWND / Progman 这套概念：贴桌面靠 NSWindow.setLevel(kCGDesktopWindowLevel)，
+        // 由分区窗那边（DesktopGroupWindow.AttachDesktopMac）调用 MacOsWindowInterop 完成。
+        // 这里直接返回 false，绝不碰 DesktopNative（那些是 user32 导出，macOS 上会 DllNotFound）。
+        if (OperatingSystem.IsMacOS()) return false;
+
         if (hwnd == nint.Zero || !DesktopNative.IsWindow(hwnd)) return false;
         try
         {
@@ -78,6 +95,9 @@ internal static class DesktopEmbed
     /// <summary>压回桌面底（不改尺寸/位置/激活态）。</summary>
     public static void PinBottom(nint hwnd)
     {
+        // macOS：贴壁纸层不是「压 Z 序」，而是把窗口 level 设成 kCGDesktopWindowLevel（见 MacOsWindowInterop）
+        if (OperatingSystem.IsMacOS()) return;
+
         if (hwnd == nint.Zero) return;
         using (AllowZOrderChange())
             DesktopNative.SetWindowPos(hwnd, DesktopNative.HWND_BOTTOM, 0, 0, 0, 0,
@@ -88,6 +108,10 @@ internal static class DesktopEmbed
     /// <summary>确保 WS_EX_NOACTIVATE 在位（Avalonia 合成时会重置 ExStyle）。返回是否真的改过。</summary>
     public static bool EnsureNoActivate(nint hwnd)
     {
+        // macOS：等价物是 ShowActivated=false + NSWindow 子类覆写 canBecomeKeyWindow（MacOsWindowInterop.MakeNonActivating），
+        // 分区窗创建时就已经设好，这里无事可做
+        if (OperatingSystem.IsMacOS()) return false;
+
         if (hwnd == nint.Zero) return false;
         var ex = (uint)DesktopNative.GetWindowLongPtr(hwnd, DesktopNative.GWL_EXSTYLE);
         var next = ex | DesktopNative.WS_EX_NOACTIVATE | DesktopNative.WS_EX_TOOLWINDOW;
@@ -104,6 +128,9 @@ internal static class DesktopEmbed
     /// </summary>
     public static void PinTop(nint hwnd)
     {
+        // macOS：置顶 = level 抬到 kCGFloatingWindowLevel（MacOsWindowInterop.SetFloatingLevel）
+        if (OperatingSystem.IsMacOS()) return;
+
         if (hwnd == nint.Zero || !DesktopNative.IsWindow(hwnd)) return;
 
         DesktopNative.SetWindowLongPtr(hwnd, DesktopNative.GWL_HWNDPARENT, nint.Zero);
@@ -123,6 +150,9 @@ internal static class DesktopEmbed
     /// <summary>补回 WS_EX_TOPMOST（Avalonia 合成会重置 ExStyle，掉一次就被普通窗口盖住）。返回是否真的改过。</summary>
     public static bool EnsureTopmost(nint hwnd)
     {
+        // macOS：level 是窗口自己的属性，不会被系统重置；这里保持为空实现
+        if (OperatingSystem.IsMacOS()) return false;
+
         if (hwnd == nint.Zero || !DesktopNative.IsWindow(hwnd)) return false;
         var ex = (uint)DesktopNative.GetWindowLongPtr(hwnd, DesktopNative.GWL_EXSTYLE);
         if ((ex & DesktopNative.WS_EX_TOPMOST) != 0) return false;
@@ -138,6 +168,9 @@ internal static class DesktopEmbed
 
     public static void StripNoRedirection(nint hwnd)
     {
+        // macOS 没有 NOREDIRECTIONBITMAP 这回事（Avalonia 走的是自己的渲染路径）
+        if (OperatingSystem.IsMacOS()) return;
+
         if (hwnd == nint.Zero) return;
         var ex = (uint)DesktopNative.GetWindowLongPtr(hwnd, DesktopNative.GWL_EXSTYLE);
         if ((ex & DesktopNative.WS_EX_NOREDIRECTIONBITMAP) == 0) return;
@@ -147,6 +180,9 @@ internal static class DesktopEmbed
     /// <summary>DWM Cloak：窗口仍是「已显示」，但合成层不画，改样式期间不闪。</summary>
     public static void SetCloaked(nint hwnd, bool cloaked)
     {
+        // macOS：没有 DWM Cloak；改外观时靠 Avalonia 自己重绘，不存在「已显示但没画」的中间态
+        if (OperatingSystem.IsMacOS()) return;
+
         if (hwnd == nint.Zero) return;
         var v = cloaked ? 1 : 0;
         try { DesktopNative.DwmSetWindowAttribute(hwnd, DesktopNative.DWMWA_CLOAK, ref v, sizeof(int)); }
@@ -160,6 +196,10 @@ internal static class DesktopEmbed
     /// </summary>
     public static void RoundCorners(nint hwnd, int radiusDip)
     {
+        // macOS：圆角不用窗口区域（RGN）裁，而是 XAML 里直接写 CornerRadius —— 交给 Avalonia 合成器画，
+        // 角上不会漏出壁纸，也没有 Windows 那种「圆角自带系统阴影」的副作用
+        if (OperatingSystem.IsMacOS()) return;
+
         if (hwnd == nint.Zero || !DesktopNative.IsWindow(hwnd)) return;
         StripNoRedirection(hwnd);
 
@@ -196,6 +236,9 @@ internal static class DesktopEmbed
     /// <summary>关闭 Win11 的系统阴影 / 描边（ROUND 状态渲染过的阴影会粘滞，这里先把阴影侧全部关死）。</summary>
     public static void SuppressSystemShadow(nint hwnd)
     {
+        // macOS 没有系统阴影这套东西：卡片阴影由 XAML 的 BoxShadow 自己画，形状可控
+        if (OperatingSystem.IsMacOS()) return;
+
         if (hwnd == nint.Zero) return;
         var nc = DesktopNative.DWMNCRP_DISABLED;
         DesktopNative.DwmSetWindowAttribute(hwnd, DesktopNative.DWMWA_NCRENDERING_POLICY, ref nc, sizeof(int));
@@ -208,6 +251,9 @@ internal static class DesktopEmbed
     /// <summary>关闭 Win11 的系统圆角/描边（会跟 RGN 打架，露出一圈亮边）。</summary>
     public static void KillSystemFrame(nint hwnd)
     {
+        // macOS：系统没有窗口圆角/描边概念，SystemDecorations=None 已经够了
+        if (OperatingSystem.IsMacOS()) return;
+
         if (hwnd == nint.Zero) return;
         var corner = DesktopNative.DWMWCP_DONOTROUND;
         DesktopNative.DwmSetWindowAttribute(hwnd, DesktopNative.DWMWA_WINDOW_CORNER_PREFERENCE, ref corner, sizeof(int));
@@ -243,6 +289,9 @@ internal static class DesktopEmbed
     /// </summary>
     public static bool RoundByDwm(nint hwnd)
     {
+        // macOS：没有 DWM 圆角；圆角由 XAML CornerRadius 负责，这里如实返回「没做」
+        if (OperatingSystem.IsMacOS()) return false;
+
         if (hwnd == nint.Zero || !OperatingSystem.IsWindowsVersionAtLeast(10, 0, 22000)) return false;
         var corner = DesktopNative.DWMWCP_ROUND;
         return DesktopNative.DwmSetWindowAttribute(hwnd, DesktopNative.DWMWA_WINDOW_CORNER_PREFERENCE,
@@ -255,6 +304,11 @@ internal static class DesktopEmbed
     /// </summary>
     public static bool ApplyAcrylic(nint hwnd, Color tint, double tintOpacity)
     {
+        // macOS 没有 ACCENT blur-behind：磨砂改用 Avalonia 的 TransparencyLevelHint = AcrylicBlur
+        // （macOS 后端映射成 NSVisualEffectView 的 Blur 模式），色调仍由 XAML 里的 Background 决定。
+        // 这里返回 false，表示「这一层没做」，调用方不要再指望它出效果。
+        if (OperatingSystem.IsMacOS()) return false;
+
         if (hwnd == nint.Zero) return false;
         try
         {
@@ -272,6 +326,9 @@ internal static class DesktopEmbed
 
     public static void ClearAcrylic(nint hwnd)
     {
+        // macOS：磨砂是 Avalonia 的 TransparencyLevelHint，撤掉靠把 hint 改回 Transparent（分区窗那边做）
+        if (OperatingSystem.IsMacOS()) return;
+
         if (hwnd == nint.Zero) return;
         try { ApplyAccent(hwnd, 0, 0); } catch { }
     }
@@ -309,6 +366,9 @@ internal static class DesktopEmbed
     /// </summary>
     public static void ForcePresent(nint hwnd)
     {
+        // macOS：Avalonia 每次内容变化都会自己 present，没有「已显示但屏上一像素没有」这个毛病
+        if (OperatingSystem.IsMacOS()) return;
+
         if (hwnd == nint.Zero || !DesktopNative.IsWindow(hwnd)) return;
         DesktopNative.InvalidateRect(hwnd, nint.Zero, false);
         if (!DesktopNative.GetWindowRect(hwnd, out var r)) return;
@@ -331,6 +391,9 @@ internal static class DesktopEmbed
     /// </summary>
     public static void NudgePresent(nint hwnd)
     {
+        // macOS：同上，Avalonia 自己管合成调度
+        if (OperatingSystem.IsMacOS()) return;
+
         if (hwnd == nint.Zero || !DesktopNative.IsWindow(hwnd)) return;
         DesktopNative.RedrawWindow(hwnd, nint.Zero, nint.Zero,
             DesktopNative.RDW_INVALIDATE | DesktopNative.RDW_FRAME
@@ -340,8 +403,31 @@ internal static class DesktopEmbed
 
     /// <summary>虚拟桌面矩形（多屏按逻辑坐标拼接）。</summary>
     public static (int X, int Y, int Width, int Height) VirtualScreen()
-        => (DesktopNative.GetSystemMetrics(DesktopNative.SM_XVIRTUALSCREEN),
+    {
+        // macOS：没有 GetSystemMetrics，用 MacOsDisplay.All() 的各屏 Bounds 求并集
+        // （MacOsDisplay 按 CGDisplay 的全局坐标给 Bounds，和 Avalonia 的屏幕坐标系一致）
+        if (OperatingSystem.IsMacOS())
+        {
+            var screens = MacOsDisplay.All();
+            if (screens.Count == 0) return (0, 0, 1, 1);
+
+            int minX = int.MaxValue, minY = int.MaxValue;
+            int maxX = int.MinValue, maxY = int.MinValue;
+            foreach (var screen in screens)
+            {
+                var b = screen.Bounds;
+                minX = Math.Min(minX, b.X);
+                minY = Math.Min(minY, b.Y);
+                maxX = Math.Max(maxX, b.X + b.Width);
+                maxY = Math.Max(maxY, b.Y + b.Height);
+            }
+
+            return (minX, minY, Math.Max(1, maxX - minX), Math.Max(1, maxY - minY));
+        }
+
+        return (DesktopNative.GetSystemMetrics(DesktopNative.SM_XVIRTUALSCREEN),
             DesktopNative.GetSystemMetrics(DesktopNative.SM_YVIRTUALSCREEN),
             Math.Max(1, DesktopNative.GetSystemMetrics(DesktopNative.SM_CXVIRTUALSCREEN)),
             Math.Max(1, DesktopNative.GetSystemMetrics(DesktopNative.SM_CYVIRTUALSCREEN)));
+    }
 }

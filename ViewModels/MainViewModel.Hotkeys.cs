@@ -45,7 +45,7 @@ public partial class MainViewModel : ObservableObject
     /// <summary>全局快捷键总开关。</summary>
     [ObservableProperty] private bool _hotkeysEnabled = true;
 
-    /// <summary>键盘钩子是否装上：装不上时整页给一条警示。</summary>
+    /// <summary>键盘钩子/tap 是否在监听：装不上时整页给一条警示。</summary>
     [ObservableProperty] private bool _hotkeyHookAvailable = true;
 
     /// <summary>新增快捷键编辑卡是否展开。</summary>
@@ -74,8 +74,15 @@ public partial class MainViewModel : ObservableObject
     /// <summary>列表标题 / 状态卡里的计数。</summary>
     public string HotkeyCountText => $"{HotkeyItems.Count} 个组合键";
 
-    /// <summary>右栏「运行状态」里的钩子状态。</summary>
-    public string HotkeyHookStateText => HotkeyHookAvailable ? "已就绪" : "未安装";
+    /// <summary>录制区那行说明：修饰键按平台写法（macOS 是 Cmd / Option）。</summary>
+    public string HotkeyModifierHintText => IsMacOsPlatform
+        ? "支持 Ctrl / Option / Shift / Cmd + 任意键，或 F1–F24"
+        : "支持 Ctrl / Alt / Shift / Win + 任意键，或 F1–F24";
+
+    /// <summary>右栏「运行状态」里的监听状态。</summary>
+    public string HotkeyHookStateText => HotkeyHookAvailable
+        ? (IsMacOsPlatform ? "监听中" : "已就绪")
+        : (IsMacOsPlatform ? "未监听" : "未安装");
 
     partial void OnHotkeyHookAvailableChanged(bool value) => OnPropertyChanged(nameof(HotkeyHookStateText));
 
@@ -121,7 +128,18 @@ public partial class MainViewModel : ObservableObject
     public void SyncHotkeyHookState()
     {
         HotkeyHookAvailable = GlobalHotkeyService.Available;
-        DesktopLog.Write($"hotkey hook ready={HotkeyHookAvailable}");
+        DesktopLog.Write($"hotkey hook ready={HotkeyHookAvailable} error={GlobalHotkeyService.LastRegistrationError ?? "-"}");
+    }
+
+    /// <summary>
+    /// 注册失败时把原因摆到界面上（macOS 上最常见是组合已被别的程序占用）。
+    /// 保存动作会清掉编辑弹窗里的提示，所以这条要放在保存之后再说。
+    /// </summary>
+    private void ReportHotkeyRegistrationError()
+    {
+        var error = GlobalHotkeyService.LastRegistrationError;
+        if (string.IsNullOrEmpty(error)) return;
+        ShowHint(error, true);
     }
 
     // ===== 页内交互 =====
@@ -209,6 +227,8 @@ public partial class MainViewModel : ObservableObject
     private void CancelHotkeyEditor()
     {
         ResetHotkeyEditor();
+        // 注册失败的原因要在 ResetHotkeyEditor 清掉提示之后再说，否则会被清掉
+        ReportHotkeyRegistrationError();
         CloseHotkeyEditorRequested?.Invoke();
     }
 
@@ -372,11 +392,9 @@ public partial class MainViewModel : ObservableObject
     [RelayCommand]
     private void BeginRecordHotkey()
     {
-        if (!HotkeyHookAvailable)
-        {
-            ShowHint("键盘钩子未安装，录制不了全局快捷键", true);
-            return;
-        }
+        // 录制并不强依赖全局监听：全局收不到时（macOS 缺辅助功能权限）还能在本窗口里录。
+        // 所以这里不是硬拦，而是尽力把全局监听装上，装不上就退成窗口内录制并说清楚。
+        var globalReady = GlobalHotkeyService.EnsureCaptureReady();
 
         IsRecordingHotkey = true;
         HotkeyDraftKeyText = "请按下组合键…（Esc 取消）";
@@ -384,6 +402,16 @@ public partial class MainViewModel : ObservableObject
         HasHotkeyHint = false;
         // 录制期间整段键盘事件都不会传到前台程序
         GlobalHotkeyService.BeginCapture();
+
+        if (globalReady)
+        {
+            HotkeyHookAvailable = GlobalHotkeyService.Available;
+            return;
+        }
+
+        ShowHint(IsMacOsPlatform
+            ? "全局按键监听不可用（需要「系统设置 → 隐私与安全性 → 辅助功能」授权），已改为在窗口内录制：直接在本窗口按下组合键即可"
+            : "键盘钩子未安装，已改为在窗口内录制：直接在本窗口按下组合键即可", true);
     }
 
     [RelayCommand]
@@ -391,6 +419,7 @@ public partial class MainViewModel : ObservableObject
     {
         GlobalHotkeyService.EndCapture();
         IsRecordingHotkey = false;
+        HotkeyHookAvailable = GlobalHotkeyService.Available;
         HotkeyDraftKeyText = _hotkeyDraftCombo.IsEmpty
             ? EmptyKeyText
             : HotkeyKeyMap.Describe(_hotkeyDraftCombo);
@@ -418,6 +447,8 @@ public partial class MainViewModel : ObservableObject
     private void OnHotkeyCaptured(HotkeyCombo combo)
     {
         IsRecordingHotkey = false;
+        // 录制期间可能临时装上监听，录完没有绑定时又会释放：状态跟着实际走。
+        HotkeyHookAvailable = GlobalHotkeyService.Available;
         if (combo.IsEmpty) return;
 
         var text = HotkeyKeyMap.Describe(combo);
@@ -427,7 +458,7 @@ public partial class MainViewModel : ObservableObject
         {
             _hotkeyDraftCombo = default;
             HotkeyDraftKeyText = EmptyKeyText;
-            ShowHint($"{text} 是单键，会拦截正常输入：请加 Ctrl / Alt / Shift / Win，或改用 F1–F24", true);
+            ShowHint($"{text} 是单键，会拦截正常输入：请加 {HotkeyKeyMap.ModifierName(HotkeyModifier.Ctrl)} / {HotkeyKeyMap.ModifierName(HotkeyModifier.Alt)} / {HotkeyKeyMap.ModifierName(HotkeyModifier.Shift)} / {HotkeyKeyMap.ModifierName(HotkeyModifier.Win)}，或改用 F1–F24", true);
             return;
         }
 
@@ -447,6 +478,7 @@ public partial class MainViewModel : ObservableObject
     private void OnHotkeyCaptureCancelled()
     {
         IsRecordingHotkey = false;
+        HotkeyHookAvailable = GlobalHotkeyService.Available;
         HotkeyDraftKeyText = _hotkeyDraftCombo.IsEmpty
             ? EmptyKeyText
             : HotkeyKeyMap.Describe(_hotkeyDraftCombo);
@@ -517,6 +549,9 @@ public partial class MainViewModel : ObservableObject
 
         ResetHotkeyEditor();
         CloseHotkeyEditorRequested?.Invoke();
+
+        // 注册失败的原因要在 ResetHotkeyEditor 清掉提示之后再说，否则会被清掉
+        ReportHotkeyRegistrationError();
     }
 
     /// <summary>删除要二次确认：第一次只把这张卡片切成「确认删除」，3 秒内再点才真删。</summary>
@@ -539,6 +574,7 @@ public partial class MainViewModel : ObservableObject
         PersistHotkeys();
         RebuildHotkeyItems();
         Log($"已删除全局快捷键 {item.ComboText}（{StepsLabel(b.Steps)}）");
+        ReportHotkeyRegistrationError();
     }
 
     [RelayCommand]
@@ -549,6 +585,7 @@ public partial class MainViewModel : ObservableObject
         item.Binding.Enabled = item.IsEnabled;
         PersistHotkeys();
         Log($"快捷键 {item.ComboText} 已{(item.IsEnabled ? "启用" : "停用")}");
+        ReportHotkeyRegistrationError();
     }
 
     /// <summary>同组合键只允许一条；编辑时排除自己。</summary>
@@ -562,6 +599,10 @@ public partial class MainViewModel : ObservableObject
     {
         GlobalHotkeyService.SetBindings(HotkeysEnabled, _hotkeyBindings);
         HotkeyStore.Save(HotkeysEnabled, _hotkeyBindings);
+
+        // 下发完立刻按真实状态刷新界面：否则「保存成功」之后状态点还停在旧值，
+        // 看起来就是「配好了却显示未监听」。
+        SyncHotkeyHookState();
     }
 
     private void ShowHint(string message, bool isError)

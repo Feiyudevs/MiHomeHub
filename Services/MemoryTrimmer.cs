@@ -21,6 +21,11 @@ public static class MemoryTrimmer
     [DllImport("kernel32.dll")]
     private static extern IntPtr GetCurrentProcess();
 
+    // macOS 的等价物：让 malloc 归还空闲页给系统（与 SetProcessWorkingSetSize 同样的目的）。
+    // zone 传 NULL 表示默认 malloc zone，goal 传 0 表示尽可能多地释放。
+    [DllImport("/usr/lib/libSystem.dylib")]
+    private static extern int malloc_zone_pressure_relief(IntPtr zone, nuint goal);
+
     private static DateTimeOffset _lastTrim = DateTimeOffset.MinValue;
 
     /// <summary>
@@ -114,8 +119,11 @@ public static class MemoryTrimmer
             GC.Collect(2, mode, blocking: waitForGc, compacting: true);
             GC.WaitForPendingFinalizers();
 
-            // 让 Windows 回收物理内存页（任务管理器中立即下降）
-            SetProcessWorkingSetSize(GetCurrentProcess(), new IntPtr(-1), new IntPtr(-1));
+            // 让操作系统回收物理内存页（任务管理器/活动监视器中立即下降）
+            if (OperatingSystem.IsWindows())
+                SetProcessWorkingSetSize(GetCurrentProcess(), new IntPtr(-1), new IntPtr(-1));
+            else if (OperatingSystem.IsMacOS())
+                malloc_zone_pressure_relief(IntPtr.Zero, 0);
 
             using var process = System.Diagnostics.Process.GetCurrentProcess();
             var workingSetMb = process.WorkingSet64 / 1024 / 1024;

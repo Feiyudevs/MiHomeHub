@@ -15,6 +15,7 @@ using Avalonia.Threading;
 using Avalonia.VisualTree;
 using MiHomeHub.Controls;
 using MiHomeHub.Services;
+using MiHomeHub.Services.MacOS;
 using MiHomeHub.ViewModels;
 
 namespace MiHomeHub.Views;
@@ -153,7 +154,8 @@ public partial class DesktopGroupView : UserControl
             DesktopGroupVm => new DesktopDevicesPanel(),
             DesktopMediaVm => new DesktopMediaPanel(),
             DesktopAcVm => new DesktopAcPanel(),
-            DesktopCameraVm => new DesktopCameraPanel(),
+            // macOS：监控分区（摄像头实时预览）还没适配，这里不加载内容，标题壳保留
+            DesktopCameraVm => OperatingSystem.IsMacOS() ? null : new DesktopCameraPanel(),
             _ => null
         };
         if (content is null) return;
@@ -217,13 +219,13 @@ public partial class DesktopGroupView : UserControl
             return;
         }
 
+        // 两端同一套：按下只记起点，过阈值才算拖动（贴桌面的窗不抢焦点，
+        // 按下就 Capture 会让 PointerReleased 收不到，单击折叠就永远不触发）。
         _pressOnName = IsPressOnTitleText(e);
         _pressPoint = e.GetPosition(this);
         _moved = false;
         _pressed = true;
 
-        // 不在按下时抢捕获：贴桌面窗是 NOACTIVATE，按下就 Capture 会让 PointerReleased 收不到，
-        // 单击折叠就永远不触发。等真的拖动（过阈值）再捕获。
         e.Handled = true;
     }
 
@@ -402,9 +404,26 @@ public partial class DesktopGroupView : UserControl
     /// <summary>指针是否落在本分区窗口矩形内（物理像素）。</summary>
     private bool IsCursorInsideZone()
     {
+        // 光标位置跨平台：Windows 走 GetCursorPos，macOS 走 CGEvent（CursorPosition 已封装）
+        if (!CursorPosition.TryGet(out var pt)) return false;
+
+        // macOS：没有 GetWindowRect —— 用宿主窗口的屏幕位置 + 客户区尺寸自己拼出矩形。
+        // 单位统一按逻辑点（DIP）：macOS 上 Window.Position、ClientSize、CursorPosition 都是逻辑点，
+        // 再乘一次 RenderScaling 会把矩形放大一倍（Retina 屏上），光标判定就永远不准。
+        if (OperatingSystem.IsMacOS())
+        {
+            // Position 是 Window 的属性（TopLevel 上没有），这里直接取宿主分区窗
+            if (TopLevel.GetTopLevel(this) is not Window win) return false;
+
+            var size = win.ClientSize;
+            var left = win.Position.X;
+            var upper = win.Position.Y;
+            return pt.X >= left && pt.X < left + (int)Math.Round(size.Width)
+                   && pt.Y >= upper && pt.Y < upper + (int)Math.Round(size.Height);
+        }
+
         var h = Host?.Handle ?? nint.Zero;
         if (h == nint.Zero) return false;
-        if (!DesktopNative.GetCursorPos(out var pt)) return false;
         if (!DesktopNative.GetWindowRect(h, out var rect)) return false;
         return pt.X >= rect.Left && pt.X < rect.Right
                && pt.Y >= rect.Top && pt.Y < rect.Bottom;
@@ -469,6 +488,8 @@ public partial class DesktopGroupView : UserControl
         _bodyPressed = true;
         _bodyMoved = false;
         _bodyPoint = e.GetPosition(this);
+
+        // 和标题栏同一套：过阈值才算拖动
         e.Handled = true;
     }
 
@@ -525,8 +546,12 @@ public partial class DesktopGroupView : UserControl
     private void ScheduleToggle()
     {
         CancelPendingClick();
-        var ms = DesktopNative.GetDoubleClickTime();
-        if (ms == 0) ms = 500;
+        // 两端都读系统设置里的双击间隔：Windows 是 GetDoubleClickTime，
+        // macOS 是 [NSEvent doubleClickInterval]（读不到才退回 500ms）。
+        var ms = OperatingSystem.IsMacOS()
+            ? MacOsWindowInterop.DoubleClickIntervalMs()
+            : (int)DesktopNative.GetDoubleClickTime();
+        if (ms <= 0) ms = 500;
         var target = DataContext as DesktopZoneVm;
         _clickTimer = DispatcherTimer.RunOnce(() =>
         {

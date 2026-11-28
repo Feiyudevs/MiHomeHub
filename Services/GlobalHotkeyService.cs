@@ -7,15 +7,133 @@ using System.Linq;
 using System.Runtime.InteropServices;
 using Avalonia.Threading;
 using MiHomeHub.Models;
+using MiHomeHub.Services.MacOS;
 
 namespace MiHomeHub.Services;
 
 /// <summary>
-/// 全局快捷键：低层键盘钩子（WH_KEYBOARD_LL）常驻 UI 线程，命中绑定后把动作 Post 回 UI 线程执行。
+/// 全局快捷键后端抽象：Windows 走低层键盘钩子（WH_KEYBOARD_LL），
+/// macOS 走 CGEventTap（HID 层）。
+/// </summary>
+internal interface IHotkeyBackend
+{
+    /// <summary>绑定命中（已在 UI 线程上投递）。</summary>
+    event Action<HotkeyBinding>? Triggered;
+
+    /// <summary>录制完成（已在 UI 线程上投递）。</summary>
+    event Action<HotkeyCombo>? Captured;
+
+    /// <summary>录制过程中修饰键变化（已在 UI 线程上投递）：界面据此「按一个显示一个」。</summary>
+    event Action<HotkeyModifier>? CaptureProgress;
+
+    /// <summary>录制被取消（Esc / 超时）。</summary>
+    event Action? CaptureCancelled;
+
+    /// <summary>钩子/tap 是否装上：装不上时快捷键整体不可用，界面据此给提示。</summary>
+    bool Available { get; }
+
+    /// <summary>
+    /// 最近一次注册失败的原因：macOS 上组合被别的程序占用时最常见，界面据此提示用户换组合。
+    /// 没有失败时为 null。
+    /// </summary>
+    string? LastRegistrationError { get; }
+
+    /// <summary>是否正在录制组合键。</summary>
+    bool Capturing { get; }
+
+    void Initialize(bool enabled, IEnumerable<HotkeyBinding> bindings);
+    void InstallHook();
+    void SetBindings(bool enabled, IEnumerable<HotkeyBinding> bindings);
+    void SetEnabled(bool enabled);
+    void BeginCapture();
+    void EndCapture();
+
+    /// <summary>
+    /// 为录制准备全局监听：返回 false 表示「全局收不到按键」（比如 macOS 缺辅助功能权限），
+    /// 此时界面应退回窗口内录制，而不是直接拒绝录制。
+    /// </summary>
+    bool EnsureCaptureReady();
+}
+
+/// <summary>
+/// 全局快捷键门面：按平台分派。
+///
+/// Windows：低层键盘钩子（WH_KEYBOARD_LL），常驻 UI 线程，命中绑定后把动作 Post 回 UI 线程执行。
+/// macOS：  Carbon 系统热键（触发，免辅助功能权限）+ CGEventTap（录制），回调同样 Post 回 UI 线程。
+///
+/// 门面只负责转发：真正的按键处理在各自的后端里，
+/// 钩子/tap 回调里只做「取键 + 比对修饰键」这一件事，绝不发网络请求、绝不碰控件。
+/// </summary>
+internal static class GlobalHotkeyService
+{
+    private static readonly IHotkeyBackend Backend = CreateBackend();
+
+    /// <summary>绑定命中（已在 UI 线程上投递）。</summary>
+    public static event Action<HotkeyBinding>? Triggered;
+
+    /// <summary>录制完成（已在 UI 线程上投递）。</summary>
+    public static event Action<HotkeyCombo>? Captured;
+
+    /// <summary>录制过程中修饰键变化（已在 UI 线程上投递）：界面据此「按一个显示一个」。</summary>
+    public static event Action<HotkeyModifier>? CaptureProgress;
+
+    /// <summary>录制被取消（Esc / 超时）。</summary>
+    public static event Action? CaptureCancelled;
+
+    static GlobalHotkeyService()
+    {
+        Backend.Triggered += binding => Triggered?.Invoke(binding);
+        Backend.Captured += combo => Captured?.Invoke(combo);
+        Backend.CaptureProgress += modifiers => CaptureProgress?.Invoke(modifiers);
+        Backend.CaptureCancelled += () => CaptureCancelled?.Invoke();
+    }
+
+    /// <summary>钩子/tap 是否装上：装不上时快捷键整体不可用，界面据此给提示。</summary>
+    public static bool Available => Backend.Available;
+
+    /// <summary>最近一次注册失败的原因（没有失败时为 null）。</summary>
+    public static string? LastRegistrationError => Backend.LastRegistrationError;
+
+    public static bool Capturing => Backend.Capturing;
+
+    /// <summary>启动时装载绑定；钩子由 <see cref="InstallHook"/> 在界面空闲后再装。</summary>
+    public static void Initialize(bool enabled, IEnumerable<HotkeyBinding> bindings)
+        => Backend.Initialize(enabled, bindings);
+
+    /// <summary>
+    /// 安装全局钩子（幂等）。**不要**在启动早期调用：WH_KEYBOARD_LL 的回调跑在本进程线程，
+    /// 系统会把全系统的按键都投递给它并等它返回；启动那几秒 UI 线程正忙着建窗口、贴桌面，
+    /// 钩子早挂一时，整机输入就跟着卡一时。App 在 ApplicationIdle 时才调用这里。
+    /// </summary>
+    public static void InstallHook() => Backend.InstallHook();
+
+    public static void SetBindings(bool enabled, IEnumerable<HotkeyBinding> bindings)
+        => Backend.SetBindings(enabled, bindings);
+
+    public static void SetEnabled(bool enabled) => Backend.SetEnabled(enabled);
+
+    /// <summary>开始录制：接下来按下的第一个非修饰键就是目标组合键，期间所有按键都不传给系统。</summary>
+    public static void BeginCapture() => Backend.BeginCapture();
+
+    public static void EndCapture() => Backend.EndCapture();
+
+    /// <summary>
+    /// 为录制准备全局监听。返回 false 时（macOS 没有辅助功能权限）仍可录制：
+    /// 界面会退回「窗口内录制」，直接在本窗口按下组合键即可。
+    /// </summary>
+    public static bool EnsureCaptureReady() => Backend.EnsureCaptureReady();
+
+    private static IHotkeyBackend CreateBackend()
+        => OperatingSystem.IsMacOS() ? new MacOsHotkeyService() : new WindowsHotkeyBackend();
+}
+
+/// <summary>
+/// Windows 全局快捷键后端：低层键盘钩子（WH_KEYBOARD_LL）常驻 UI 线程，
+/// 命中绑定后把动作 Post 回 UI 线程执行。
 /// 钩子回调里只做「取键 + 比对修饰键」这一件事，绝不发网络请求、绝不碰控件。
 /// 命中时返回 1 把按键吞掉：否则组合键还会落进前台程序（比如 Ctrl+Alt+L 会继续触发表情/输入法）。
 /// </summary>
-internal static class GlobalHotkeyService
+internal sealed class WindowsHotkeyBackend : IHotkeyBackend
 {
     private const int WH_KEYBOARD_LL = 13;
     private const int WM_KEYDOWN = 0x0100;
@@ -30,45 +148,48 @@ internal static class GlobalHotkeyService
     /// <summary>录制超时：误开录制后不至于一直吞掉全系统按键。</summary>
     private static readonly TimeSpan CaptureTimeout = TimeSpan.FromSeconds(10);
 
-    private static nint _hook;
-    private static LowLevelKeyboardProc? _proc;
-    private static List<HotkeyBinding> _bindings = new();
-    private static bool _enabled = true;
-    private static bool _capturing;
+    private nint _hook;
+    private LowLevelKeyboardProc? _proc;
+    private List<HotkeyBinding> _bindings = new();
+    private bool _enabled = true;
+    private bool _capturing;
 
     /// <summary>
     /// 录制期间自己记的修饰键状态。不能靠 GetAsyncKeyState：录制时修饰键的按下也被钩子吞掉了，
     /// 系统那边的异步键状态经常读不到，Ctrl+K 会被误判成单键 K。
     /// </summary>
-    private static HotkeyModifier _captureModifiers = HotkeyModifier.None;
+    private HotkeyModifier _captureModifiers = HotkeyModifier.None;
 
-    private static IDisposable? _captureTimeout;
-    private static readonly Dictionary<int, long> DownAt = new();
+    private IDisposable? _captureTimeout;
+    private readonly Dictionary<int, long> DownAt = new();
 
     /// <summary>已吞掉按下事件的主键：对应的抬键也要吞，避免前台程序只收到半次按键。</summary>
-    private static readonly HashSet<int> Swallowed = new();
+    private readonly HashSet<int> Swallowed = new();
 
-    private static readonly object Gate = new();
+    private readonly object Gate = new();
 
     /// <summary>绑定命中（已在 UI 线程上投递）。</summary>
-    public static event Action<HotkeyBinding>? Triggered;
+    public event Action<HotkeyBinding>? Triggered;
 
     /// <summary>录制完成（已在 UI 线程上投递）。</summary>
-    public static event Action<HotkeyCombo>? Captured;
+    public event Action<HotkeyCombo>? Captured;
 
     /// <summary>录制过程中修饰键变化（已在 UI 线程上投递）：界面据此「按一个显示一个」。</summary>
-    public static event Action<HotkeyModifier>? CaptureProgress;
+    public event Action<HotkeyModifier>? CaptureProgress;
 
     /// <summary>录制被取消（Esc / 超时）。</summary>
-    public static event Action? CaptureCancelled;
+    public event Action? CaptureCancelled;
 
     /// <summary>钩子是否装上：装不上时快捷键整体不可用，界面据此给提示。</summary>
-    public static bool Available => _hook != nint.Zero;
+    public bool Available => _hook != nint.Zero;
 
-    public static bool Capturing => _capturing;
+    /// <summary>Windows 这边是低层钩子，绑定不靠注册，不会出现「组合被占用」这种失败。</summary>
+    public string? LastRegistrationError => null;
+
+    public bool Capturing => _capturing;
 
     /// <summary>启动时装载绑定；钩子由 <see cref="InstallHook"/> 在界面空闲后再装。</summary>
-    public static void Initialize(bool enabled, IEnumerable<HotkeyBinding> bindings)
+    public void Initialize(bool enabled, IEnumerable<HotkeyBinding> bindings)
     {
         SetBindings(enabled, bindings);
     }
@@ -78,7 +199,7 @@ internal static class GlobalHotkeyService
     /// 系统会把全系统的按键都投递给它并等它返回；启动那几秒 UI 线程正忙着建窗口、贴桌面，
     /// 钩子早挂一时，整机输入就跟着卡一时。App 在 ApplicationIdle 时才调用这里。
     /// </summary>
-    public static void InstallHook()
+    public void InstallHook()
     {
         if (_hook != nint.Zero) return;
         try
@@ -94,7 +215,7 @@ internal static class GlobalHotkeyService
         DesktopLog.Write($"hotkey hook install → {(_hook == nint.Zero ? "failed" : "ok")}");
     }
 
-    public static void SetBindings(bool enabled, IEnumerable<HotkeyBinding> bindings)
+    public void SetBindings(bool enabled, IEnumerable<HotkeyBinding> bindings)
     {
         lock (Gate)
         {
@@ -103,13 +224,13 @@ internal static class GlobalHotkeyService
         }
     }
 
-    public static void SetEnabled(bool enabled)
+    public void SetEnabled(bool enabled)
     {
         lock (Gate) _enabled = enabled;
     }
 
     /// <summary>开始录制：接下来按下的第一个非修饰键就是目标组合键，期间所有按键都不传给系统。</summary>
-    public static void BeginCapture()
+    public void BeginCapture()
     {
         lock (Gate)
         {
@@ -132,14 +253,24 @@ internal static class GlobalHotkeyService
         }, CaptureTimeout);
     }
 
-    public static void EndCapture()
+    public void EndCapture()
     {
         lock (Gate) _capturing = false;
         _captureTimeout?.Dispose();
         _captureTimeout = null;
     }
 
-    private static nint OnKeyboard(int nCode, nint wParam, nint lParam)
+    /// <summary>
+    /// 为录制准备低层键盘钩子。Windows 上钩子装完就能收全系统按键，
+    /// 所以这里直接装上（和 InstallHook 一样），返回是否可用。
+    /// </summary>
+    public bool EnsureCaptureReady()
+    {
+        InstallHook();
+        return Available;
+    }
+
+    private nint OnKeyboard(int nCode, nint wParam, nint lParam)
     {
         try
         {
@@ -228,7 +359,7 @@ internal static class GlobalHotkeyService
     }
 
     /// <summary>同一主键的连续 KeyDown（系统自动重复）返回 true；正常按下会登记时间戳。</summary>
-    private static bool IsRestarted(int vk)
+    private bool IsRestarted(int vk)
     {
         var now = Environment.TickCount64;
         lock (Gate)
@@ -245,7 +376,7 @@ internal static class GlobalHotkeyService
     }
 
     /// <summary>按当前修饰键状态找一条启用中的绑定；没有就返回 null。</summary>
-    private static HotkeyBinding? TryMatch(int vk)
+    private HotkeyBinding? TryMatch(int vk)
     {
         lock (Gate)
         {
@@ -288,7 +419,7 @@ internal static class GlobalHotkeyService
 
     private static void Post(Action action) => Dispatcher.UIThread.Post(action, DispatcherPriority.Input);
 
-    private static void PostCaptureProgress()
+    private void PostCaptureProgress()
     {
         HotkeyModifier mods;
         lock (Gate) mods = _captureModifiers;

@@ -413,6 +413,15 @@ public partial class SetupWindow : Window
         {
             var path = SetupLog.FilePath;
             if (!File.Exists(path)) return;
+            if (OperatingSystem.IsMacOS())
+            {
+                // macOS：Finder 里定位并选中文件（等价于 Windows 的 explorer /select）
+                Process.Start(new ProcessStartInfo("open", $"-R \"{path}\"")
+                {
+                    UseShellExecute = false,
+                });
+                return;
+            }
             Process.Start(new ProcessStartInfo("explorer.exe", $"/select,\"{path}\"")
             {
                 UseShellExecute = true,

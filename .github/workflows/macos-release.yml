@@ -1,0 +1,175 @@
+name: macos-release
+
+# macOS 打包流水线：同一套 C# / .NET 10 + Avalonia 代码，出 .app + .dmg。
+#
+# 资产命名与仓库既有的 update.json 机制保持同构（不修改 Windows 版脚本）：
+#   scripts/package-setup.ps1:142  $setupName = "MiHomeHub-Setup-$targetVersion-$Rid.exe"
+#   scripts/release-github.ps1:77  $setups = @(Get-ChildItem ... -Filter "MiHomeHub-Setup-$targetVersion-*.exe" ...)
+#   scripts/release-github.ps1:78  $sums   = Get-ChildItem ... -Filter "SHA256SUMS.txt" ...
+#   scripts/release-github.ps1:79  $manifest = Get-ChildItem ... -Filter "update.json" ...
+# macOS 侧对应：
+#   分发件   MiHomeHub-Setup-<版本>-<rid>.dmg          （同构：只有扩展名不同）
+#   校验清单 SHA256SUMS-macos-<rid>.txt                （带 rid 后缀，避免覆盖 Windows 的 SHA256SUMS.txt）
+#   更新清单 update-macos-<rid>.json                   （字段与 update.json 完全一致）
+# 之所以给清单加 -<rid> 后缀：同一个 Release 上 Windows 的 update.json / SHA256SUMS.txt
+# 已经在位，同名资产会互相覆盖；App 侧的更新源地址也需要一份独立可下载的 macOS 清单。
+
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+    inputs:
+      channel:
+        description: '更新清单通道：stable = 正式（默认）；test = 内部测试通道'
+        type: choice
+        default: stable
+        options: [stable, test]
+
+concurrency:
+  group: macos-release-${{ github.ref }}
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+
+jobs:
+  package:
+    name: package (${{ matrix.rid }})
+    runs-on: macos-14
+    strategy:
+      fail-fast: false
+      matrix:
+        rid: [osx-arm64, osx-x64]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          global-json-file: global.json
+
+      - name: Resolve version
+        id: ver
+        shell: bash
+        run: |
+          v="$(sed -n 's:.*<Version>\([^<]*\)</Version>.*:\1:p' MiHomeHub.csproj | head -n 1 | tr -d '[:space:]')"
+          if [ -z "$v" ]; then echo "读不到版本号"; exit 1; fi
+          echo "version=$v" >> "$GITHUB_OUTPUT"
+          echo "version = $v"
+
+      - name: Package .app + .dmg
+        shell: bash
+        run: |
+          v="${{ steps.ver.outputs.version }}"
+          ch="${{ inputs.channel }}"
+          if [ "$ch" = "" ]; then ch=stable; fi
+          bash build/macos/package-macos.sh \
+            --rid "${{ matrix.rid }}" \
+            --version "$v" \
+            --configuration Release \
+            --channel "$ch" \
+            --output-dir "publish/release/$v"
+
+      - name: Verify bundle (structure / min version / signature / entitlements)
+        shell: bash
+        run: |
+          set -euo pipefail
+          v="${{ steps.ver.outputs.version }}"
+          app="publish/release/$v/${{ matrix.rid }}/MiHomeHub.app"
+          test -d "$app"
+          test -x "$app/Contents/MacOS/MiHomeHub"
+          test -f "$app/Contents/Info.plist"
+          test -f "$app/Contents/Resources/MiHomeHub.icns"
+          # 最低系统版本必须是 14.0
+          min="$(plutil -extract LSMinimumSystemVersion raw -o - "$app/Contents/Info.plist")"
+          if [ "$min" != "14.0" ]; then echo "LSMinimumSystemVersion = ${min}（期望 14.0）"; exit 1; fi
+          # Hardened Runtime + .NET 必需的 JIT 豁免
+          codesign --verify --deep --strict --verbose=1 "$app"
+          codesign -d --entitlements :- "$app" > /tmp/ent.plist
+          python3 - <<'PY'
+          import plistlib
+          with open("/tmp/ent.plist", "rb") as fh:
+              ent = plistlib.load(fh)
+          need = (
+              "com.apple.security.cs.allow-jit",
+              "com.apple.security.cs.disable-library-validation",
+              "com.apple.security.files.user-selected.read-write",
+          )
+          for key in need:
+              assert ent.get(key) is True, (key, ent.get(key))
+          print("entitlements ok:", ", ".join(need))
+          PY
+          # 私有本机覆盖不允许混进分发件
+          if [ -e "$app/Contents/MacOS/MiHomeHub.settings.local.json" ] || [ -e "$app/Contents/Resources/MiHomeHub.settings.local.json" ]; then
+            echo "分发件里出现了 MiHomeHub.settings.local.json，疑似泄露私有配置"; exit 1
+          fi
+          echo "bundle 校验通过"
+
+      - name: Verify update manifest mirrors the Windows naming convention
+        shell: bash
+        run: |
+          set -euo pipefail
+          v="${{ steps.ver.outputs.version }}"
+          rid="${{ matrix.rid }}"
+          dir="publish/release/$v"
+          dmg="$dir/MiHomeHub-Setup-$v-$rid.dmg"
+          manifest="$dir/update-macos-$rid.json"
+          sums="$dir/SHA256SUMS-macos-$rid.txt"
+          for f in "$dmg" "$manifest" "$sums"; do
+            if [ ! -f "$f" ]; then echo "缺少产物：$f"; exit 1; fi
+          done
+          # 资产名必须与 package-setup.ps1 的 $setupName = "MiHomeHub-Setup-$targetVersion-$Rid.exe" 同构
+          if [ "$(basename "$dmg")" != "MiHomeHub-Setup-$v-$rid.dmg" ]; then
+            echo "资产名不符合命名约定：$(basename "$dmg")"; exit 1
+          fi
+          # 清单字段与 package-setup.ps1 的 manifest 结构一致
+          python3 - "$manifest" "$v" "$(basename "$dmg")" <<'PY'
+          import json, sys
+          m = json.load(open(sys.argv[1], encoding="utf-8"))
+          assert m["version"] == sys.argv[2], m.get("version")
+          assert m["setup"] == sys.argv[3], m.get("setup")
+          assert m["mandatory"] is False, m.get("mandatory")
+          for k in ("notes", "channel", "mirrors"):
+              assert k in m, k
+          print("manifest ok:", m["setup"])
+          PY
+          # 校验和必须对得上实际文件
+          actual="$(shasum -a 256 "$dmg" | awk '{print $1}')"
+          if ! grep -q "$actual" "$sums"; then echo "SHA256SUMS 与实际文件不一致"; exit 1; fi
+          echo "清单与校验和校验通过"
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: MiHomeHub-macOS-${{ steps.ver.outputs.version }}-${{ matrix.rid }}
+          path: |
+            publish/release/${{ steps.ver.outputs.version }}/${{ matrix.rid }}/MiHomeHub.app
+            publish/release/${{ steps.ver.outputs.version }}/MiHomeHub-Setup-${{ steps.ver.outputs.version }}-${{ matrix.rid }}.dmg
+          if-no-files-found: error
+          retention-days: 30
+
+      # 只有 tag 构建才往 Release 上挂资产：workflow_dispatch 只产出 Actions artifact。
+      # Windows 的 build.yml 也往同一个 tag 的 Release 挂 Windows 资产，两边文件名不重叠。
+      - name: Attach assets to the tag's GitHub Release
+        if: startsWith(github.ref, 'refs/tags/v')
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          v="${{ steps.ver.outputs.version }}"
+          rid="${{ matrix.rid }}"
+          tag="${GITHUB_REF_NAME}"
+          dir="publish/release/$v"
+          files=(
+            "$dir/MiHomeHub-Setup-$v-$rid.dmg"
+            "$dir/update-macos-$rid.json"
+            "$dir/SHA256SUMS-macos-$rid.txt"
+          )
+          # Release 不存在才创建（Windows 的 build.yml 可能已经建好）；已存在就只挂资产。
+          gh release view "$tag" >/dev/null 2>&1 \
+            || gh release create "$tag" --title "MiHomeHub $tag" --generate-notes \
+            || true
+          gh release upload "$tag" "${files[@]}" --clobber
+          echo "已挂到 Release ${tag}：${files[*]}"

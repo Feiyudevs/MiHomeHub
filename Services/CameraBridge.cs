@@ -274,18 +274,38 @@ public static class CameraBridge
         var programFilesX86 = Environment.GetFolderPath(Environment.SpecialFolder.ProgramFilesX86);
         var localAppData = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
         var userProfile = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
+        const string applications = "/Applications";
 
-        var candidates = new (string Name, string Path)[]
+        (string Name, string Path)[] candidates;
+        string[] onPath;
+
+        if (OperatingSystem.IsMacOS())
         {
-            ("mpv", Path.Combine(programFiles, "mpv", "mpv.exe")),
-            ("mpv", Path.Combine(localAppData, "Programs", "mpv", "mpv.exe")),
-            ("mpv", Path.Combine(userProfile, "scoop", "apps", "mpv", "current", "mpv.exe")),
-            ("VLC", Path.Combine(programFiles, "VideoLAN", "VLC", "vlc.exe")),
-            ("VLC", Path.Combine(programFilesX86, "VideoLAN", "VLC", "vlc.exe")),
-            ("VLC", Path.Combine(localAppData, "Programs", "VLC", "vlc.exe")),
-            ("PotPlayer", Path.Combine(programFiles, "DAUM", "PotPlayer", "PotPlayerMini64.exe")),
-            ("PotPlayer", Path.Combine(programFilesX86, "DAUM", "PotPlayer", "PotPlayerMini64.exe")),
-        };
+            // macOS：Homebrew / 官方 .app 包；Windows 侧的路径与可执行名在这里完全用不上。
+            candidates = new (string Name, string Path)[]
+            {
+                ("mpv", "/opt/homebrew/bin/mpv"),
+                ("mpv", "/usr/local/bin/mpv"),
+                ("mpv", Path.Combine(applications, "mpv.app", "Contents", "MacOS", "mpv")),
+                ("VLC", Path.Combine(applications, "VLC.app", "Contents", "MacOS", "VLC")),
+            };
+            onPath = new[] { "mpv", "vlc" };
+        }
+        else
+        {
+            candidates = new (string Name, string Path)[]
+            {
+                ("mpv", Path.Combine(programFiles, "mpv", "mpv.exe")),
+                ("mpv", Path.Combine(localAppData, "Programs", "mpv", "mpv.exe")),
+                ("mpv", Path.Combine(userProfile, "scoop", "apps", "mpv", "current", "mpv.exe")),
+                ("VLC", Path.Combine(programFiles, "VideoLAN", "VLC", "vlc.exe")),
+                ("VLC", Path.Combine(programFilesX86, "VideoLAN", "VLC", "vlc.exe")),
+                ("VLC", Path.Combine(localAppData, "Programs", "VLC", "vlc.exe")),
+                ("PotPlayer", Path.Combine(programFiles, "DAUM", "PotPlayer", "PotPlayerMini64.exe")),
+                ("PotPlayer", Path.Combine(programFilesX86, "DAUM", "PotPlayer", "PotPlayerMini64.exe")),
+            };
+            onPath = new[] { "mpv.exe", "vlc.exe", "PotPlayerMini64.exe" };
+        }
 
         foreach (var (candidateName, candidatePath) in candidates)
         {
@@ -297,7 +317,7 @@ public static class CameraBridge
             }
         }
 
-        foreach (var exe in new[] { "mpv.exe", "vlc.exe", "PotPlayerMini64.exe" })
+        foreach (var exe in onPath)
         {
             var found = FindOnPath(exe);
             if (found != null)

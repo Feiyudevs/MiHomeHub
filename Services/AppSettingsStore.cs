@@ -47,6 +47,19 @@ public static class AppSettingsStore
     /// <summary>双击桌面空白处：显示 / 隐藏所有桌面分区卡片（运行期状态，不写回分区总开关）。</summary>
     public static bool DoubleClickDesktopToggles { get; private set; } = true;
 
+    /// <summary>
+    /// 桌面分区卡片「显示 / 隐藏」的全局快捷键组合（macOS 用 Carbon 注册，免辅助功能权限）。
+    /// 空串 = 不注册。默认 <c>Alt+Cmd+D</c>。
+    /// </summary>
+    public static string DesktopToggleHotkey { get; private set; } = DefaultDesktopToggleHotkey;
+
+    /// <summary>
+    /// 桌面卡片显隐快捷键的默认组合。
+    /// 之前这里被下拉框写回的空串覆盖过一次，导致快捷键悄悄失效——
+    /// 现在读盘时空串一律回落成默认值，下拉框那边也不再接受空值。
+    /// </summary>
+    public const string DefaultDesktopToggleHotkey = "Alt+Cmd+D";
+
     /// <summary>鼠标移入折叠的桌面分区时自动展开；移出后自动收起。</summary>
     public static bool HoverExpandEnabled { get; private set; } = true;
 
@@ -129,6 +142,11 @@ public static class AppSettingsStore
                 UseGpu = ug.ValueKind == JsonValueKind.True;
             if (root.TryGetProperty("doubleClickDesktopToggles", out var dc))
                 DoubleClickDesktopToggles = dc.ValueKind != JsonValueKind.False;
+            if (root.TryGetProperty("desktopToggleHotkey", out var dk) && dk.ValueKind == JsonValueKind.String)
+            {
+                var combo = dk.GetString();
+                DesktopToggleHotkey = string.IsNullOrWhiteSpace(combo) ? DefaultDesktopToggleHotkey : combo.Trim();
+            }
             if (root.TryGetProperty("hoverExpand", out var he))
                 HoverExpandEnabled = he.ValueKind != JsonValueKind.False;
             if (root.TryGetProperty("cameraMuteOnOpen", out var muteOnOpen)) 
@@ -282,6 +300,26 @@ public static class AppSettingsStore
     public static void SetDoubleClickDesktopToggles(bool on)
     {
         DoubleClickDesktopToggles = on;
+        Save();
+    }
+
+    /// <summary>
+    /// 设置桌面分区卡片显隐的全局快捷键组合。
+    /// 空串按「忽略」处理：设置页那个下拉框在当前值不在候选里时会把 SelectedItem 置空并回写，
+    /// 结果就是用户的组合被悄悄抹掉、快捷键失效（真发生过一次）。
+    /// 想真的取消绑定请用 <see cref="ClearDesktopToggleHotkey"/>。
+    /// </summary>
+    public static void SetDesktopToggleHotkey(string combo)
+    {
+        if (string.IsNullOrWhiteSpace(combo)) return;
+        DesktopToggleHotkey = combo.Trim();
+        Save();
+    }
+
+    /// <summary>明确取消桌面卡片显隐快捷键（不再注册任何组合）。</summary>
+    public static void ClearDesktopToggleHotkey()
+    {
+        DesktopToggleHotkey = "";
         Save();
     }
 
@@ -534,6 +572,7 @@ public static class AppSettingsStore
             cardShadow = CardShadow,
             useGpu = UseGpu,
             doubleClickDesktopToggles = DoubleClickDesktopToggles,
+            desktopToggleHotkey = DesktopToggleHotkey,
             hoverExpand = HoverExpandEnabled,
             hideSwitches = HideSwitches,
             homeId = HomeId,

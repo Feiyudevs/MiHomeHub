@@ -14,6 +14,8 @@ internal sealed record SetupRegistryValue(string Name, int Type, byte[] Data);
 /// <summary>
 /// 安装器需要的最小注册表封装（HKCU）：直接调 advapi32，和主程序的 StartupRegistration 同一路线，
 /// 不额外引入 Microsoft.Win32.Registry。只处理安装/卸载用到的字符串与 DWORD。
+/// 非 Windows（macOS）上全部方法是安全的空实现：安装/卸载由 build/macos 的 .app/.dmg 打包流程负责，
+/// 程序内既不写注册表，也不该抛 DllNotFoundException 打断正常启动。
 /// </summary>
 internal static class SetupRegistry
 {
@@ -30,6 +32,7 @@ internal static class SetupRegistry
 
     public static bool KeyExists(string subKey)
     {
+        if (!OperatingSystem.IsWindows()) return false;
         var rc = RegOpenKeyExW(HKeyCurrentUser, subKey, 0, KeyRead, out var key);
         if (rc != ErrorSuccess) return false;
         RegCloseKey(key);
@@ -38,6 +41,7 @@ internal static class SetupRegistry
 
     public static string? ReadString(string subKey, string name)
     {
+        if (!OperatingSystem.IsWindows()) return null;
         var rc = RegOpenKeyExW(HKeyCurrentUser, subKey, 0, KeyRead, out var key);
         if (rc != ErrorSuccess) return null;
         try
@@ -60,6 +64,7 @@ internal static class SetupRegistry
 
     public static int? ReadDword(string subKey, string name)
     {
+        if (!OperatingSystem.IsWindows()) return null;
         var rc = RegOpenKeyExW(HKeyCurrentUser, subKey, 0, KeyRead, out var key);
         if (rc != ErrorSuccess) return null;
         try
@@ -79,6 +84,7 @@ internal static class SetupRegistry
     public static List<SetupRegistryValue> ReadValues(string subKey)
     {
         var values = new List<SetupRegistryValue>();
+        if (!OperatingSystem.IsWindows()) return values;
         var rc = RegOpenKeyExW(HKeyCurrentUser, subKey, 0, KeyRead, out var key);
         if (rc != ErrorSuccess) return values;
         try
@@ -108,17 +114,20 @@ internal static class SetupRegistry
 
     public static void SetString(string subKey, string name, string value)
     {
+        if (!OperatingSystem.IsWindows()) return;
         var bytes = Encoding.Unicode.GetBytes(value + "\0");
         WriteRaw(subKey, name, RegSz, bytes);
     }
 
     public static void SetDword(string subKey, string name, int value)
     {
+        if (!OperatingSystem.IsWindows()) return;
         WriteRaw(subKey, name, RegDword, BitConverter.GetBytes(value));
     }
 
     public static void WriteRaw(string subKey, string name, int type, byte[] data)
     {
+        if (!OperatingSystem.IsWindows()) return;
         var rc = RegCreateKeyExW(HKeyCurrentUser, subKey, 0, null, 0, KeyWrite, IntPtr.Zero,
             out var key, out _);
         if (rc != ErrorSuccess)
@@ -138,11 +147,13 @@ internal static class SetupRegistry
     /// <summary>删除一个无子键的键（安装器只用于卸载登记键）。键不存在视为成功。</summary>
     public static void DeleteKey(string subKey)
     {
+        if (!OperatingSystem.IsWindows()) return;
         RegDeleteKeyW(HKeyCurrentUser, subKey);
     }
 
     public static void DeleteValue(string subKey, string name)
     {
+        if (!OperatingSystem.IsWindows()) return;
         var rc = RegOpenKeyExW(HKeyCurrentUser, subKey, 0, KeyWrite, out var key);
         if (rc != ErrorSuccess) return;
         try

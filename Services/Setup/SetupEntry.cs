@@ -12,16 +12,23 @@ namespace MiHomeHub.Services.Setup;
 /// 安装模式的最早入口（必须在单实例 Mutex / 桌面钩子 / 托盘之前调用）：
 /// <c>--uninstall</c> 转交卸载链；<c>--setup</c>/<c>--uninstall-worker</c> 进入安装界面；
 /// <c>--self-test-root</c> 走隔离的无界面自测。
+/// 非 Windows（macOS）上整条安装入口是空实现：安装/卸载由 build/macos 的 .app/.dmg 打包流程负责，
+/// 程序内不写注册表、不弹安装框，也不能因为缺 advapi32/user32 就把异常抛回启动流程。
 /// </summary>
 internal static class SetupEntry
 {
-    public static bool Active { get; private set; }
+    private static bool _active;
+
+    /// <summary>安装模式是否生效；非 Windows 恒为 false（Program.cs 与单实例判断会读它）。</summary>
+    public static bool Active => _active && OperatingSystem.IsWindows();
     public static SetupOptions? Options { get; private set; }
 
     private static EventHandleHolder? _shown;
     /// <summary>返回 true 表示本进程已完成任务，不应再启动主界面。</summary>
     public static bool TryRun(string[] args)
     {
+        // macOS 没有程序内安装/卸载：直接放行给主界面
+        if (!OperatingSystem.IsWindows()) return false;
         if (args.Length == 0) return false;
 
         try
@@ -62,6 +69,8 @@ internal static class SetupEntry
     /// <summary>安装界面真正显示后置位，外壳据此判定应用是否进入。</summary>
     public static void SignalShown()
     {
+        // 命名事件在非 Windows 上不可用（EventWaitHandle 只支持 Windows），这里直接跳过
+        if (!OperatingSystem.IsWindows()) return;
         try
         {
             if (Options?.ShownEvent is null) return;
@@ -91,7 +100,7 @@ internal static class SetupEntry
             Preview = true,
             PreviewVariant = variant,
         };
-        Active = true;
+        _active = true;
         SetupLog.Info("preview-entry", "ok", $"variant={variant}");
         return false;
     }
@@ -100,7 +109,7 @@ internal static class SetupEntry
     {
         var options = ParseOptions(args, mode);
         Options = options;
-        Active = true;
+        _active = true;
         SetupLog.Info("application-entry", "ok", $"mode={mode} temp={options.TempDir}");
 
         if (options.IsSelfTest)
@@ -292,7 +301,7 @@ internal sealed class EventHandleHolder : IDisposable
     public void Dispose() => _handle.Dispose();
 }
 
-/// <summary>无 Avalonia 时的最小错误框（入口失败、没有安装信息等）。</summary>
+/// <summary>无 Avalonia 时的最小错误框（入口失败、没有安装信息等）。非 Windows 上静默跳过。</summary>
 internal static class SetupMessageBox
 {
     private const uint MB_OK = 0x0;
@@ -302,5 +311,16 @@ internal static class SetupMessageBox
     private static extern int MessageBoxW(IntPtr hWnd, string text, string caption, uint type);
 
     public static void Error(string caption, string message)
-        => MessageBoxW(IntPtr.Zero, message, caption, MB_OK | MB_ICONERROR);
+    {
+        // 非 Windows 没有 user32：弹不出框也不能把异常抛回调用方
+        if (!OperatingSystem.IsWindows()) return;
+        try
+        {
+            MessageBoxW(IntPtr.Zero, message, caption, MB_OK | MB_ICONERROR);
+        }
+        catch
+        {
+            // 弹框失败就当没弹过，错误信息已经在日志里
+        }
+    }
 }

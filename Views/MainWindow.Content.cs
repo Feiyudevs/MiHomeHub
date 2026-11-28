@@ -50,9 +50,21 @@ public partial class MainWindow
 
     public override void Show()
     {
-        if (!_deferInitialContent && !_presentingHiddenFrame && WindowState != WindowState.Minimized)
-            EnsureMainContent();
-        base.Show();
+        MiHomeHub.Services.DesktopLog.Write(
+            $"[show] enter defer={_deferInitialContent} hidden={_presentingHiddenFrame} state={WindowState} visible={IsVisible} opacity={Opacity} size={Width}x{Height}");
+        try
+        {
+            if (!_deferInitialContent && !_presentingHiddenFrame && WindowState != WindowState.Minimized)
+                EnsureMainContent();
+            base.Show();
+            MiHomeHub.Services.DesktopLog.Write(
+                $"[show] after base.Show() visible={IsVisible} opacity={Opacity} contentLoaded={IsMainContentLoaded} size={Width}x{Height} pos={Position}");
+        }
+        catch (Exception ex)
+        {
+            MiHomeHub.Services.DesktopLog.Write($"[show] EXCEPTION {ex.GetType().Name}: {ex.Message}");
+            throw;
+        }
     }
 
     internal void CompleteSilentStartup() => _deferInitialContent = false;
@@ -60,10 +72,24 @@ public partial class MainWindow
     private void UpdateMainContentLifetime()
     {
         if (_changingMainContent) return;
-        if (!IsVisible || WindowState == WindowState.Minimized)
+        // macOS 上「最小化」是把窗口收进 Dock，界面必须留着：
+        // 之前这里在 WindowState==Minimized 时把整棵主界面树拆掉，可还原时
+        // （原生 deminiaturize 不保证回填 Avalonia 的 WindowState）根本不会再触发
+        // Show()，于是窗口回来了、主界面却是空的。现在 macOS 只在真正隐藏时才拆。
+        var keepContentWhileMinimized = OperatingSystem.IsMacOS();
+        if (!IsVisible || (WindowState == WindowState.Minimized && !keepContentWhileMinimized))
             ReleaseMainContent();
         else if (!_deferInitialContent && !_presentingHiddenFrame)
             EnsureMainContent();
+    }
+
+    // 标题栏按钮按平台二选一：macOS 用左上角红绿灯，Windows 用右上角三按钮。
+    // 这两组控件都在 MainWindowUiTemplate 里，模板每次重建都要重新按平台摆一次。
+    internal void ApplyPlatformCaptionButtons()
+    {
+        var isMac = OperatingSystem.IsMacOS();
+        if (FindMainControl<StackPanel>("MacLights") is { } mac) mac.IsVisible = isMac;
+        if (FindMainControl<StackPanel>("WinCaptionButtons") is { } win) win.IsVisible = !isMac;
     }
 
     private void EnsureMainContent()
@@ -84,6 +110,8 @@ public partial class MainWindow
             SurfaceContentHost.Content = root;
             WireNavSlider();
             WireRoomReorder();
+            ApplyPlatformCaptionButtons();
+            MiHomeHub.Services.DesktopLog.Write("[content] main content tree built");
             Dispatcher.UIThread.Post(() =>
             {
                 if (!ReferenceEquals(_mainContentRoot, root) || Vm is not { } vm) return;
@@ -92,6 +120,11 @@ public partial class MainWindow
                 if (vm.IsVoiceOpen) { AlignVoicePanel(); VoicePanelView?.Animate(true); }
                 if (vm.IsMusicOpen) { AlignMusicPanel(); MusicPanelView?.Animate(true); }
             }, DispatcherPriority.Loaded);
+        }
+        catch (Exception ex)
+        {
+            MiHomeHub.Services.DesktopLog.Write($"[content] EXCEPTION {ex.GetType().Name}: {ex.Message}");
+            throw;
         }
         finally { _changingMainContent = false; }
     }

@@ -7,12 +7,14 @@ using System.IO;
 using System.Linq;
 using System.Net.Http;
 using System.Net.Http.Headers;
+using System.Runtime.InteropServices;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using System.Threading;
 using System.Threading.Tasks;
+using MiHomeHub.Services.MacOS;
 using MiHomeHub.Services.Setup;
 using MiHomeHub.Services.Telemetry;
 
@@ -77,12 +79,38 @@ internal sealed record UpdateCheckResult(UpdateState State, UpdateManifest? Mani
 internal static class UpdateService
 {
     private const string RepoBase = "https://github.com/Feiyudevs/MiHomeHub";
+
+    /// <summary>
+    /// macOS 版产物发布在 fork（上游仓库尚未合并 macOS 流水线）。
+    /// 可用环境变量 <c>MIHOMEHUB_UPDATE_REPO</c> 覆盖，方便内网/私有仓库。
+    /// </summary>
+    private const string MacRepoBase = "https://github.com/woaiCarlos/MiHomeHub";
+
+    private static bool IsMacOs => OperatingSystem.IsMacOS();
+
+    /// <summary>当前架构对应的发布标识：osx-arm64 / osx-x64（Windows 固定 win-x64）。</summary>
+    private static string CurrentRid =>
+        RuntimeInformation.ProcessArchitecture == Architecture.Arm64 ? "osx-arm64" : "osx-x64";
+
+    /// <summary>清单文件名：Windows 是仓库根的 update.json，macOS 是每个架构一份 update-macos-&lt;rid&gt;.json。</summary>
+    private static string ManifestFileName => IsMacOs ? $"update-macos-{CurrentRid}.json" : "update.json";
+
+    private static string ReleaseRepoBase
+    {
+        get
+        {
+            var env = Environment.GetEnvironmentVariable("MIHOMEHUB_UPDATE_REPO")?.Trim();
+            if (!string.IsNullOrEmpty(env)) return env.TrimEnd('/');
+            return IsMacOs ? MacRepoBase : RepoBase;
+        }
+    }
+
     /// <summary>正式通道：releases/latest 永远指向最新一个正式 Release（预发布不算）。</summary>
-    private const string StableManifestUrl = RepoBase + "/releases/latest/download/update.json";
+    private static string StableManifestUrl => ReleaseRepoBase + "/releases/latest/download/" + ManifestFileName;
     /// <summary>测试通道：固定的滚动 tag <c>test</c>，Release 标为 pre-release，正式通道永远看不到。</summary>
-    private const string TestManifestUrl = RepoBase + "/releases/download/test/update.json";
+    private static string TestManifestUrl => ReleaseRepoBase + "/releases/download/test/" + ManifestFileName;
     /// <summary>镜像：仓库根的 update.json（jsDelivr 加速，GitHub 主站不通时兜底）；只镜像正式通道。</summary>
-    private const string MirrorManifestUrl = "https://cdn.jsdelivr.net/gh/Feiyudevs/MiHomeHub@main/update.json";
+    private static string MirrorManifestUrl => "https://cdn.jsdelivr.net/gh/Feiyudevs/MiHomeHub@main/update.json";
 
     /// <summary>
     /// 可选的后台更新源：地址与 app_id 不写死在代码里（开源仓库不该带私有后台），
@@ -211,7 +239,8 @@ internal static class UpdateService
 
         // 正式通道先问后台：只有配置了后台、且后台不可用（网络/服务异常/该版本没配安装包）才回落 GitHub。
         // 测试通道与本地联调源永远不碰后台，避免把内部版本推到灰度桶里。
-        if (!overridden && CurrentChannel == StableChannel && BackendSource is { } backend)
+        // macOS 也不问后台：后台登记的是 Windows 的 .exe 直链，平台对不上。
+        if (!overridden && !IsMacOs && CurrentChannel == StableChannel && BackendSource is { } backend)
         {
             try
             {
@@ -372,18 +401,43 @@ internal static class UpdateService
             {
                 var path = Uri.TryCreate(packageUrl, UriKind.Absolute, out var uri) ? uri.AbsolutePath : packageUrl;
                 var name = Uri.UnescapeDataString(Path.GetFileName(path));
-                if (name.EndsWith(".exe", StringComparison.OrdinalIgnoreCase)) return name;
+                if (name.EndsWith(SetupExtension, StringComparison.OrdinalIgnoreCase)) return name;
             }
         }
         catch { /* 用默认名 */ }
         return DefaultSetupName(version);
     }
 
-    private static string DefaultSetupName(string version) => $"MiHomeHub-Setup-{version}-win-x64.exe";
+    /// <summary>安装包扩展名：Windows 是 .exe，macOS 是 .dmg。</summary>
+    private static string SetupExtension => IsMacOs ? ".dmg" : ".exe";
+
+    private static string DefaultSetupName(string version) =>
+        IsMacOs ? $"MiHomeHub-Setup-{version}-{CurrentRid}.dmg" : $"MiHomeHub-Setup-{version}-win-x64.exe";
+
+    /// <summary>
+    /// 给清单地址加一个时间戳参数，绕开 CDN/代理对 releases/latest 的 302 短时缓存。
+    /// 不加的话刚发完新版，客户端可能还读到旧清单（GitHub 的 latest 跳转会被中间层缓存住）。
+    /// </summary>
+    private static string WithCacheBuster(string source)
+    {
+        try
+        {
+            if (!Uri.TryCreate(source, UriKind.Absolute, out var uri)) return source;
+            if (uri.Scheme != Uri.UriSchemeHttp && uri.Scheme != Uri.UriSchemeHttps) return source;
+            var builder = new UriBuilder(uri);
+            var query = builder.Query.TrimStart('?');
+            var stamp = "mhh=" + DateTimeOffset.UtcNow.ToUnixTimeSeconds().ToString();
+            builder.Query = string.IsNullOrEmpty(query) ? stamp : query + "&" + stamp;
+            return builder.Uri.ToString();
+        }
+        catch
+        {
+            return source;
+        }
+    }
 
     private static async Task<UpdateManifest> FetchManifestAsync(string source, CancellationToken ct)
-    {
-        string json;
+    {        string json;
         if (File.Exists(source))
         {
             // 本地目录联调：直接把 update.json 读进来
@@ -393,7 +447,7 @@ internal static class UpdateService
         {
             using var timeout = CancellationTokenSource.CreateLinkedTokenSource(ct);
             timeout.CancelAfter(TimeSpan.FromSeconds(10));
-            using var response = await Http.GetAsync(source, HttpCompletionOption.ResponseHeadersRead, timeout.Token);
+            using var response = await Http.GetAsync(WithCacheBuster(source), HttpCompletionOption.ResponseHeadersRead, timeout.Token);
             response.EnsureSuccessStatusCode();
             json = await response.Content.ReadAsStringAsync(timeout.Token);
         }
@@ -410,7 +464,7 @@ internal static class UpdateService
         if (SetupFiles.NormalizeVersion(manifest.Version) is null)
             throw new InvalidOperationException("清单里的版本号不合法");
         var name = Path.GetFileName(manifest.Setup);
-        if (string.IsNullOrWhiteSpace(name) || !name.EndsWith(".exe", StringComparison.OrdinalIgnoreCase))
+        if (string.IsNullOrWhiteSpace(name) || !name.EndsWith(SetupExtension, StringComparison.OrdinalIgnoreCase))
             throw new InvalidOperationException("清单里的安装包文件名不合法");
         var hash = manifest.Sha256?.Trim() ?? "";
         if (hash.Length > 0 && (hash.Length != 64 || !hash.All(Uri.IsHexDigit)))
@@ -466,8 +520,8 @@ internal static class UpdateService
             candidates.Add(manifest.PackageUrl!);
         var channel = ManifestChannel(manifest);
         candidates.Add(channel == TestChannel
-            ? $"{RepoBase}/releases/download/test/{Uri.EscapeDataString(fileName)}"
-            : $"{RepoBase}/releases/latest/download/{Uri.EscapeDataString(fileName)}");
+            ? $"{ReleaseRepoBase}/releases/download/test/{Uri.EscapeDataString(fileName)}"
+            : $"{ReleaseRepoBase}/releases/latest/download/{Uri.EscapeDataString(fileName)}");
         candidates.AddRange(manifest.Mirrors.Where(m => !string.IsNullOrWhiteSpace(m)));
 
         Exception? lastError = null;
@@ -593,6 +647,14 @@ internal static class UpdateService
         root = string.Empty;
         try
         {
+            // macOS：从 .app 包里启动才算「已安装」（便携运行是 bin/ 下的裸可执行文件）。
+            if (IsMacOs)
+            {
+                if (!MacOsUpdater.TryGetRunningBundle(out var bundle)) return false;
+                root = bundle;
+                return true;
+            }
+
             var installed = SetupPaths.FindInstalledRoot();
             if (installed is null) return false;
             var exe = Environment.ProcessPath;
@@ -607,11 +669,20 @@ internal static class UpdateService
         }
     }
 
-    /// <summary>拉起已经下载好的安装包，走 <c>--silent</c> 无界面更新；调用方随后应立即退出主程序。</summary>
+    /// <summary>
+    /// 拉起已经下载好的安装包，走 <c>--silent</c> 无界面更新；调用方随后应立即退出主程序。
+    /// macOS 上的产物是 .dmg：挂载镜像并把新版本换到当前 .app 位置，再重新拉起。
+    /// </summary>
     public static void LaunchInstaller(string setupPath)
     {
         if (!File.Exists(setupPath))
             throw new FileNotFoundException("安装包不存在", setupPath);
+
+        if (IsMacOs)
+        {
+            MacOsUpdater.InstallFromDmg(setupPath);
+            return;
+        }
 
         System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo
         {
@@ -674,7 +745,7 @@ internal static class UpdateService
         var channel = CurrentChannel;
         if (SourceOverride is { } localBase)
         {
-            yield return JoinSource(localBase, "update.json");
+            yield return JoinSource(localBase, ManifestFileName);
             yield break; // 联调时只认指定源，避免悄悄回落到线上版本
         }
         if (channel == TestChannel)
@@ -683,7 +754,8 @@ internal static class UpdateService
             yield break; // 测试通道不做镜像兜底：只认那一个滚动的 pre-release
         }
         yield return StableManifestUrl;
-        yield return MirrorManifestUrl;
+        // 镜像只有上游仓库根目录那份（Windows 版）update.json，macOS 清单没有对应镜像。
+        if (!IsMacOs) yield return MirrorManifestUrl;
     }
 
     /// <summary>本地目录拼文件名；HTTP 基地址拼相对路径。</summary>

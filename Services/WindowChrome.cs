@@ -35,6 +35,8 @@ internal static class WindowChrome
     /// <summary>是否还有需要压下去的「系统窗体」痕迹；全绿时返回 false，调用方可直接空转。</summary>
     public static bool NeedsRepair(nint hwnd, bool resizable)
     {
+        // 非 Windows 平台没有 Win32 样式位/DWM，永远不需要修
+        if (!OperatingSystem.IsWindows()) return false;
         if (hwnd == nint.Zero || !DesktopNative.IsWindow(hwnd)) return false;
 
         var style = (uint)DesktopNative.GetWindowLongPtr(hwnd, DesktopNative.GWL_STYLE);
@@ -61,6 +63,7 @@ internal static class WindowChrome
     /// </summary>
     public static void EnsureClean(nint hwnd, bool resizable)
     {
+        if (!OperatingSystem.IsWindows()) return;
         if (hwnd == nint.Zero || !DesktopNative.IsWindow(hwnd)) return;
 
         var style = (uint)DesktopNative.GetWindowLongPtr(hwnd, DesktopNative.GWL_STYLE);

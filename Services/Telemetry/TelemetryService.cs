@@ -437,18 +437,25 @@ internal static class TelemetryService
 
     private static bool IsForegroundProcess()
     {
-        if (!OperatingSystem.IsWindows()) return false;
-        try
+        if (OperatingSystem.IsWindows())
         {
-            var hwnd = GetForegroundWindow();
-            if (hwnd == IntPtr.Zero) return false;
-            GetWindowThreadProcessId(hwnd, out var pid);
-            return pid == Environment.ProcessId;
+            try
+            {
+                var hwnd = GetForegroundWindow();
+                if (hwnd == IntPtr.Zero) return false;
+                GetWindowThreadProcessId(hwnd, out var pid);
+                return pid == Environment.ProcessId;
+            }
+            catch
+            {
+                return false;
+            }
         }
-        catch
-        {
-            return false;
-        }
+
+        // macOS 没有 GetForegroundWindow，用 NSWorkspace.frontmostApplication 对比进程号
+        if (OperatingSystem.IsMacOS()) return MiHomeHub.Services.MacOS.MacOsForeground.IsForegroundProcess();
+
+        return false;
     }
 
     // ─────────────────────────────── 配置 ───────────────────────────────
